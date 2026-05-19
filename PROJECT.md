@@ -64,7 +64,7 @@ Ein Claude-Code-Skill, der Claude befähigt, mit dem Archicad-MCP-Server (`mcp__
 - User-Memory enthält: keine Batch-Obergrenze; Bulk-Klassifizierung ist Kern-Workflow.
 
 **Known Issues:**
-- Surfaces/Building Materials per MCP **erstellen** ist unsicher — viele MCP-Server unterstützen nur Zuweisung. Muss live verifiziert werden.
+- **Archicad MCP v29 hat eine limitierte Create-Surface** (Live-Befund 2026-05-19). Erstellbar: Slabs, Columns, Objects, Polylines, Meshes, Zones, Building Materials, Composites, Property Groups. **NICHT** erstellbar: Walls, Beams, Windows, Doors, Curtain Walls, Fills, Standalone Lines, Stairs, Railings, Morphs, Shells, Skylights, Roofs. Modifikation/Read/Delete existierender Elemente bleibt für die meisten Typen verfügbar via `elements_set_details_of_elements`. Spec-Auswirkung: Recipes für Walls/Openings/Curtain-Walls/Fills/Beams werden Read+Update+Delete+Classify (kein Create-Section). Siehe `reference/mcp-conventions.md` § Capabilities-Tabelle.
 - Geometrische „Innen vs Außen"-Ableitung für Klassifizierung ist nicht trivial — kombiniert Layer-Heuristik + Raumzugehörigkeit + Geometrie.
 - `gsd-sdk` in PATH ist v1.50.0-canary, GSD-Installer ist v1.42.3 — Versions-Mismatch ist bekannt aber nicht blockierend.
 
