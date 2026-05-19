@@ -30,14 +30,14 @@ v1 liefert einen produktionsreifen Claude-Code-Skill, der Claude befähigt, in e
 
 ### Element-Recipes (CRUD)
 
-- [ ] **WALL-01**: Recipe `walls.md` — Gerade, geschwungene, polygonale Wände. CRUD vollständig. **Composite-Zuweisung + Reference-Line-Position** als Sub-Operations dokumentiert. Worked Example live verifiziert.
-- [ ] **OPEN-01**: Recipe `openings.md` — Fenster, Türen, Wandöffnungen. CRUD vollständig. **Sill-Höhe + Türschwenk-Richtung** als Sub-Operations dokumentiert. Host-Wand-ID-Threading.
-- [ ] **STRU-01**: Recipe `slabs-columns-beams.md` — Decken, Stützen, Träger. CRUD vollständig. **Slab-Offset von Home-Story + Beam/Column-Profil** als Sub-Operations dokumentiert.
-- [ ] **CURT-01**: Recipe `curtain-walls.md` — Fassaden / Pfosten-Riegel. CRUD am Top-Level-Element. Sub-Element-API (Panel-Typ pro Zelle) als „bei Verfügbarkeit" markiert; ggf. v1.x-Split.
+- [ ] **WALL-01**: Recipe `walls.md` — Gerade, geschwungene, polygonale Wände. **Read + Update + Delete + Classify** (Create NICHT verfügbar in MCP v29, siehe `reference/mcp-conventions.md` § Capabilities). **Composite-Zuweisung + Reference-Line-Position** als Sub-Ops bei Update. Worked Examples decken Modifikation existierender Wände + Bulk-Klassifizierung ab.
+- [ ] **OPEN-01**: Recipe `openings.md` — Fenster, Türen, Wandöffnungen. **Read + Update + Delete + Classify** (Create NICHT verfügbar in MCP v29). **Sill-Höhe + Türschwenk-Richtung** als Sub-Ops bei Update. Host-Wand-ID-Threading.
+- [ ] **STRU-01**: Recipe `slabs-columns-beams.md` — Slabs + Columns: vollständiges CRUD (verifiziert: `elements_create_slabs`, `elements_create_columns`). Beams: Read + Update + Delete + Classify (Create NICHT verfügbar). **Slab-Offset von Home-Story + Column-Profil** als Sub-Ops.
+- [ ] **CURT-01**: Recipe `curtain-walls.md` — Fassaden / Pfosten-Riegel. **Read + Update + Delete + Classify** (Create NICHT verfügbar in MCP v29). Sub-Element-API (Panel-Typ pro Zelle) als „bei Verfügbarkeit" markiert.
 - [ ] **LIB-01**: Recipe `library-objects.md` — Platzierte Objects (Möbel, Sanitär, GDL-Library-Items). CRUD vollständig. Subtype-Erkennung.
 - [ ] **SURF-01**: Recipe `surfaces-materials.md` — Surfaces, Building Materials, Composites. Umfang explizit im „Umfang"-Abschnitt: Create live verifiziert; Zuweisung/Read sicher. **Composite-vs-Surface-Disambiguierung** als Gotcha dokumentiert.
-- [ ] **FILL-01**: Recipe `fills-hatches.md` — 2D-Schraffuren. CRUD vollständig. Orientierung/Winkel als Sub-Op.
-- [ ] **LINE-01**: Recipe `lines-polylines.md` — 2D-Linien, Polylinien, Bögen, Splines. CRUD vollständig.
+- [ ] **FILL-01**: Recipe `fills-hatches.md` — 2D-Schraffuren. **Read + Update + Delete + Classify** (Create NICHT verfügbar in MCP v29). Orientierung/Winkel als Sub-Op bei Update.
+- [ ] **LINE-01**: Recipe `lines-polylines.md` — Polylinien: vollständiges CRUD (verifiziert: `elements_create_polylines`). Standalone Lines/Bögen/Splines: Read + Update + Delete (Create NICHT separat verfügbar — Lines als Polyline mit 2 Punkten emulieren).
 
 ### Klassifizierung & Bulk (CLASS)
 
