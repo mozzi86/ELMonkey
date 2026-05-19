@@ -30,7 +30,7 @@ v1 liefert einen produktionsreifen Claude-Code-Skill, der Claude befähigt, in e
 
 ### Element-Recipes (CRUD)
 
-- [ ] **WALL-01**: Recipe `walls.md` — Gerade, geschwungene, polygonale Wände. **Read + Update + Delete + Classify** (Create NICHT verfügbar in MCP v29, siehe `reference/mcp-conventions.md` § Capabilities). **Composite-Zuweisung + Reference-Line-Position** als Sub-Ops bei Update. Worked Examples decken Modifikation existierender Wände + Bulk-Klassifizierung ab.
+- [ ] **WALL-01**: Recipe `wall-operations.md` — Gerade, geschwungene, polygonale Wände. **Read + Update + Delete + Classify** (Create NICHT verfügbar in MCP v29, siehe `reference/mcp-conventions.md` § Capabilities). **Composite-Zuweisung + Reference-Line-Position** als Sub-Ops bei Update. Worked Examples decken Modifikation existierender Wände + Bulk-Klassifizierung ab.
 - [ ] **OPEN-01**: Recipe `openings.md` — Fenster, Türen, Wandöffnungen. **Read + Update + Delete + Classify** (Create NICHT verfügbar in MCP v29). **Sill-Höhe + Türschwenk-Richtung** als Sub-Ops bei Update. Host-Wand-ID-Threading.
 - [ ] **STRU-01**: Recipe `slabs-columns-beams.md` — Slabs + Columns: vollständiges CRUD (verifiziert: `elements_create_slabs`, `elements_create_columns`). Beams: Read + Update + Delete + Classify (Create NICHT verfügbar). **Slab-Offset von Home-Story + Column-Profil** als Sub-Ops.
 - [ ] **CURT-01**: Recipe `curtain-walls.md` — Fassaden / Pfosten-Riegel. **Read + Update + Delete + Classify** (Create NICHT verfügbar in MCP v29). Sub-Element-API (Panel-Typ pro Zelle) als „bei Verfügbarkeit" markiert.
