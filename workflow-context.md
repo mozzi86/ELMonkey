@@ -39,23 +39,21 @@ Diese Datei dokumentiert die 7 Kontext-Felder, die wir vor einem Archicad-Auftra
 
 Wir bekommen Projektname, -typ, Archicad-Version, -Pfad bereits aus Feld 1. Das reicht meist.
 
-**Falls ein separater Project-Info-Call gebraucht wird** (z. B. für interne Projekt-ID, Erstelldatum, Vorlage):
+**Falls die erweiterten Projekt-Felder gebraucht werden** (Projektname, -beschreibung, -ID, -Code, Adresse, Auftraggeber, Planer:in, etc.):
 
-- **Discovery-Query (zum Probieren):** „project info" / „get project metadata" / „active project"
-- **Tool-Name:** TODO — in Phase 2 live verifizieren.
-- **Erwartete Parameter:** TODO (vermutlich `port`).
-- **Erwartete Rückgabe:** TODO.
+- **Tool-Name:** `mcp__archicad__project_get_project_info_fields` <!-- 2026-05-19 verifiziert AC29 -->
+- **Erwartete Parameter:** `port`.
+- **Erwartete Rückgabe:** `{fields: [{projectInfoId, projectInfoName, projectInfoValue}]}` — ca. 85 Standard-Felder (PROJECTNAME, PROJECT_DESCRIPTION, PROJECT_ID, PROJECT_CODE, PROJECTNUMBER, PROJECTSTATUS, SITE_NAME, SITEADDRESS1..3, SITECITY, SITESTATE, SITEPOSTCODE, SITECOUNTRY, BUILDING_NAME, BUILDING_DESCRIPTION, CONTACT_FULLNAME, CONTACTCOMPANY, CONTACTEMAIL, CONTACTPHONE, CLIENT_FULLNAME, CLIENTCOMPANY, CLIENTEMAIL, …) plus projekt-spezifische `autotext-*`-Felder.
+- **Setzen:** `mcp__archicad__project_set_project_info_field` mit `{projectInfoId, projectInfoValue}` (zählt als Update — asymmetrische Sicherheit greift).
 
 ## Feld 3: Längeneinheit
 
 Bestimmt, ob wir Wand-Längen in `m`, `mm`, `ft` etc. übergeben.
 
-- **Discovery-Query (zum Probieren):** „project units" / „preferences" / „active preferences" / „working units"
-- **Tool-Name:** TODO — in Phase 2 live verifizieren.
-- **Erwartete Parameter:** `port`.
-- **Erwartete Rückgabe:** Einheit als Code (`m` / `mm` / `ft` / `in` / ...) oder als strukturiertes Objekt mit Länge / Fläche / Volumen-Einheiten getrennt.
-
-**Wichtig.** Wenn der User in seiner Aufgabe eine Einheit explizit erwähnt („mach das in cm"), nehmen wir seine Erwähnung, und Archicad-internes Setting kommt nur als Fallback zum Einsatz.
+- **Status:** ⚠ **MCP-Gap** — kein direktes Tool für „project units / working units" gefunden in Discovery (2026-05-19, AC29). Auch `project_get_geo_location` enthält keine Einheit.
+- **Workaround:** MCP-Aufrufe verwenden **immer Meter** als Default (Coordinate-Werte in m, Höhe in m — verifiziert durch erfolgreiche Aufrufe wie `elements_create_zones` mit `{x:5, y:3}` ergab 5×3m-Zone).
+- **Falls der User eine andere Einheit erwähnt** („mach das in cm"): selbst umrechnen, bevor die MCP-Call-Argumente formuliert werden. Aus 300 cm wird `3` (Meter).
+- **Bei Unsicherheit:** User explizit fragen, in welcher Einheit die Aufgabe gemeint ist.
 
 ## Feld 4: Aktive Story
 
@@ -83,42 +81,69 @@ Brauchen wir für SAFE-03 (Layer-not-visible-Ausnahme) und für Layer-Zuweisung 
 
 **Nur bei 2D-Arbeit ziehen** (Linien, Polylinien, Schraffuren).
 
-- **Discovery-Query (zum Probieren):** „active pen set" / „current pens" / „project pens"
-- **Tool-Name:** TODO — in Phase 2 live verifizieren.
-- **Erwartete Parameter:** TODO.
-- **Erwartete Rückgabe:** TODO — vermutlich Liste mit `{penIndex, color, weight, name}` plus Markierung der aktiven Stiftnummer.
+### Pen-Sets / Pen-Tables listen
+
+- **Tool-Name:** `mcp__archicad__attributes_get_attributes_by_type` mit `attributeType: "PenTable"` <!-- 2026-05-19 verifiziert AC29 -->
+- **Erwartete Rückgabe:** `{attributes: [{attributeId: {guid}, index, name}]}` — typische Templates haben 4–10 Pen-Tables (z. B. „ArchiCAD 1:100/200", „S/W 1:20/50", „AutoCAD Stifte").
+- **Detail-Abfrage:** `mcp__archicad__attributes_get_pen_table_attributes` mit `{attributeIds: [{guid}]}` — gibt die einzelnen Stifte mit Farbe/Gewicht zurück.
+
+### Aktives Pen-Set
+
+Das aktive Pen-Set ist Teil der View-Settings.
+
+- **Tool-Name:** `mcp__archicad__navigator_get_view_settings` für den aktuellen View → `penSetName` (kann auch leer sein, dann ist „custom" gesetzt).
+- **Bei Custom-Pen-Set:** kein Standardname zurück; ggf. User fragen oder Pen-Index direkt verwenden.
 
 ## Feld 7: Aktives Klassifikations-System
 
-**Nur bei Klassifizierungs-Auftrag ziehen.** Kritisch — ein falsches System führt zu GUID-Cross-Pollution (Pitfall P5 aus der Research): wir setzen eine Klasse aus einem inaktiven System (z. B. Uniclass), aber das aktive ist ARCHICAD-eigen, und am Ende ist die BIM-Datenstruktur korrupt.
+**Nur bei Klassifizierungs-Auftrag ziehen.** Kritisch — ein falsches System führt zu GUID-Cross-Pollution (Pitfall P5).
 
-- **Discovery-Query (zum Probieren):** „classification system" / „active classification" / „available classifications" / „project classifications"
-- **Tool-Name:** TODO — in Phase 5 live verifizieren.
-- **Erwartete Parameter:** TODO.
-- **Erwartete Rückgabe:** Liste mit `{systemId, name, version}` für alle im Projekt vorhandenen Systeme; aktives System klar markiert.
+### Alle Klassifikations-Systeme listen
 
-**Wichtige Folgeaufrufe für Phase 5:**
+- **Tool-Name:** `mcp__archicad__classifications_get_all_classification_systems` <!-- 2026-05-19 verifiziert AC29 -->
+- **Erwartete Parameter:** `port`.
+- **Erwartete Rückgabe:** `{classificationSystems: [{classificationSystemId: {guid}, name, description, source, version, date}]}` — alle im Projekt verfügbaren Systeme.
+- **Hinweis:** Es gibt **keinen Endpoint, der das aktive System direkt markiert**. Wenn mehrere Systeme vorhanden sind und der User keine Angabe macht: User fragen welches gemeint ist. Wenn nur eines vorhanden, dieses verwenden.
 
-- Klartext → GUID-Mapping für eine bestimmte Klasse innerhalb des aktiven Systems. Discovery-Query (Versuch): „classification by name" / „class id by name". TODO.
-- Hierarchie eines Systems abfragen (für sub-klassen). TODO.
+### Alle Klassifikationen eines Systems holen (Hierarchie + Klartext→GUID)
+
+- **Tool-Name:** `mcp__archicad__classifications_get_all_classifications_in_system` mit `{classificationSystemId: {guid}}`.
+- **Erwartete Rückgabe:** Baum-Struktur mit Klassen + Sub-Klassen. Daraus wird Klartext→GUID-Mapping abgeleitet (für SAFE-konformes Setzen).
+
+### Klassifikationen eines Elements lesen
+
+- **Tool-Name:** `mcp__archicad__elements_get_classifications_of_elements` mit `{elements: [{elementId: {guid}}], classificationSystemIds: [{classificationSystemId: {guid}}]}`.
+- **Erwartete Rückgabe:** Pro Element die zugeordnete Klasse in jedem angegebenen System.
 
 ## Erweiterte Listings (STORY-01, ATTR-01)
 
-Phase 2 ergänzt zwei Sub-Recipes, die hier kurz skizziert sind und dort detailliert werden:
-
 ### STORY-01 — Alle Stories listen
 
-Brauchen wir, wenn ein Auftrag über mehrere Geschosse läuft („zieh die Außenwand bis 3. OG durch") oder ein Listing pro Story angefragt ist.
+**Bereits erledigt durch Feld 4** (siehe oben). `project_get_stories` gibt die vollständige Story-Liste in `stories[]` zurück. Kein separater Call nötig.
 
-- **Discovery-Query (zum Probieren):** „list stories" / „all stories" / „get stories"
-- **Tool-Name:** TODO — in Phase 2 verifizieren.
+### ATTR-01 — Attribute listen (universal)
 
-### ATTR-01 — Attribute listen
+Brauchen wir, wenn wir Properties zuweisen — Layer-Index aus Name, Surface-Index aus Name, Composite-Index aus Name, etc.
 
-Brauchen wir, wenn wir Properties zuweisen — Layer-Index aus Name, Surface-Index aus Name, Composite-Index aus Name. Ohne diese Sub-Recipes wäre jede Zuweisung ein Discovery-Detour.
-
-- Layer-Listing: Discovery-Query (Versuch) „list layers" / „all layers" / „project layers" — TODO.
-- Surfaces-Listing: Discovery-Query (Versuch) „list surfaces" / „project surfaces" — TODO.
-- Composites-Listing: Discovery-Query (Versuch) „list composites" / „building materials" — TODO.
-- Fills-Listing: Discovery-Query (Versuch) „list fills" / „fill types" — TODO.
-- Line-Types-Listing: Discovery-Query (Versuch) „list line types" — TODO.
+- **Universal-Tool:** `mcp__archicad__attributes_get_attributes_by_type` <!-- 2026-05-19 verifiziert AC29 -->
+- **Erwartete Parameter:** `{port, params: {attributeType: <type>}}` — **paginiert** via `next_page_token`.
+- **Verfügbare Attribute-Typen** (Enum):
+  - `Layer` — Plan- und Modell-Layer (oft viele, Pagination Pflicht)
+  - `Line` — Linientypen (durchgezogen, gestrichelt, gepunktet, …)
+  - `Fill` — Schraffuren-Muster
+  - `Composite` — Mehrschicht-Aufbauten (Wand-Composites)
+  - `Surface` — Oberflächen / Materialien (visuell)
+  - `LayerCombination` — Layer-Kombinationen (Layer-Sichtbarkeits-Sets)
+  - `ZoneCategory` — Zonen-Kategorien (z. B. „Wohnen", „Verkehr")
+  - `Profile` — Komplexe Profile (für Wände, Stützen, Träger)
+  - `PenTable` — Stift-Sets (siehe Feld 6)
+  - `MEPSystem` — MEP (Mechanical/Electrical/Plumbing) Systeme
+  - `OperationProfile` — Energie-Berechnungs-Profile
+  - `BuildingMaterial` — Bau-Materialien (mit physikalischen Eigenschaften)
+- **Detail-Abfragen pro Typ:**
+  - Layer-Details: `attributes_get_layer_attributes`
+  - Building-Material-Details: `attributes_get_building_material_attributes`
+  - Pen-Table-Details: `attributes_get_pen_table_attributes`
+  - Layer-Combination-Details: `attributes_get_layer_combination_attributes`
+  - Building-Material physikalische Eigenschaften: `attributes_get_building_material_physical_properties`
+- **Listing-Rückgabe-Format:** `{attributes: [{attributeId: {guid}, index, name}], next_page_token?}` — einheitlich für alle Typen.
