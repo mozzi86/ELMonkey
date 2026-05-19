@@ -24,12 +24,12 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 1 of 8 (Skill-Gerüst + Safety)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-05-19 — Roadmap + REQUIREMENTS finalized after research synthesis
+Phase: Ready for Phase 3 of 8 (Recipes Reihe 1 — Wände/Öffnungen/Strukturelle Elemente + Zonen)
+Plan: 0 of 4 in next phase
+Status: Phase 1 + Phase 2 complete; Phase 3 ready to plan
+Last activity: 2026-05-19 — Phase 1 SKILL.md + 4 Reference-Files committed; Phase 2 live-MCP-Verifikation aller 7 Warm-up-Felder + ATTR-01 + STORY-01; Real-World-Test (Zone + Polylinie erfolgreich angelegt); 4 Skill-Updates aus Live-Befunden eingearbeitet
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 25% (2 von 8 Phasen)
 
 ## Performance Metrics
 
