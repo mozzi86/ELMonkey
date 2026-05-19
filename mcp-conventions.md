@@ -9,7 +9,8 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 3. [Confirm-Format für schreibende Aufrufe](#confirm-format-für-schreibende-aufrufe)
 4. [Paginierung](#paginierung)
 5. [Port-Handling bei mehreren Archicad-Instanzen](#port-handling-bei-mehreren-archicad-instanzen)
-6. [Verhalten bei „nein" oder Mid-Batch-Fehler](#verhalten-bei-nein-oder-mid-batch-fehler)
+6. [Live-verifizierte Element-Create-Capabilities (AC29)](#live-verifizierte-element-create-capabilities-ac29)
+7. [Verhalten bei „nein" oder Mid-Batch-Fehler](#verhalten-bei-nein-oder-mid-batch-fehler)
 
 ## Discovery-Pattern im Detail
 
@@ -25,6 +26,8 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 **Genauigkeit der Query.** Vage Queries liefern vage Ergebnisse. „Wand" allein ist zu wenig — besser „create wall element on story" oder „get all walls in current story". Wir nehmen Verb + Objekt + Kontext.
 
 **Mehrdeutige Treffer.** Wenn die Discovery mehrere Kandidaten gleichermaßen passend zurückgibt: nicht raten. Eine zweite, engere Query stellen oder den User fragen, welcher Tool-Name gemeint sein soll.
+
+**Negativ-Schluss nach 2 Versuchen.** Wenn zwei Discovery-Queries mit Synonymen *keinen* plausiblen Treffer für die gewünschte Operation liefern, und auch ein direkter Aufruf mit dem vermuteten Namen `Tool not found in registry` zurückgibt, dann existiert das Tool **nicht**. Nicht endlos suchen — den User informieren und nach einer alternativen Vorgehensweise fragen. Konkretes Beispiel: `elements_create_walls` existiert nicht in Archicad MCP v29 (siehe Capability-Tabelle unten).
 
 **Beispiel-Discovery-Skelette** (Tool-Namen werden in Folgephasen live verifiziert):
 
@@ -122,6 +125,45 @@ Welche soll ich für diesen Auftrag verwenden?
 ```
 
 **Null Instanzen:** „Archicad scheint nicht zu laufen oder das MCP-Plugin ist inaktiv. Kann ich dich bitten, Archicad zu öffnen und das Plugin zu prüfen?" — dann stoppen.
+
+## Live-verifizierte Element-Create-Capabilities (AC29)
+
+Diese Tabelle dokumentiert, welche Element-Typen via MCP **tatsächlich erstellt** werden können. Stand der Live-Probe vom 2026-05-19 gegen Archicad 29.
+
+| Element-Typ | Create-Tool | Status |
+|---|---|---|
+| Slabs (Decken) | `mcp__archicad__elements_create_slabs` | ✓ verifiziert <!-- 2026-05-19 --> |
+| Columns (Stützen) | `mcp__archicad__elements_create_columns` | ✓ Tool existiert (Schema gesehen) <!-- 2026-05-19 --> |
+| Objects (Möbel, Sanitär, GDL) | `mcp__archicad__elements_create_objects` | ✓ Tool existiert (Schema gesehen) <!-- 2026-05-19 --> |
+| Polylines (2D) | `mcp__archicad__elements_create_polylines` | ✓ verifiziert mit Aufruf <!-- 2026-05-19 --> |
+| Meshes (Terrain) | `mcp__archicad__elements_create_meshes` | ✓ Tool existiert (Schema gesehen) <!-- 2026-05-19 --> |
+| Zones (Räume) | `mcp__archicad__elements_create_zones` | ✓ verifiziert mit Aufruf <!-- 2026-05-19 --> |
+| Walls | — | ✗ **kein Create-Tool im MCP v29** <!-- 2026-05-19 --> |
+| Beams | — | ✗ kein Create-Tool im MCP v29 <!-- 2026-05-19 --> |
+| Windows / Doors / Wandöffnungen | — | ✗ kein Create-Tool im MCP v29 <!-- 2026-05-19 --> |
+| Curtain Walls | — | ✗ kein Create-Tool im MCP v29 <!-- 2026-05-19 --> |
+| Fills / Hatches (eigenständig) | — | ✗ kein Create-Tool im MCP v29 <!-- 2026-05-19 --> |
+| Standalone Lines | — | ✗ nur Polylines verfügbar <!-- 2026-05-19 --> |
+| Stairs / Railings / Morphs / Shells / Skylights / Roofs | — | ✗ kein Create-Tool im MCP v29 <!-- 2026-05-19 --> |
+
+**Was stattdessen geht für „nicht erstellbare" Typen:** Modifikation existierender Elemente via `mcp__archicad__elements_set_details_of_elements` mit dem typ-spezifischen Schema (z. B. `WallSettings` für Wände). Read + Update + Delete sind durchgängig verfügbar, nur Create fehlt selektiv.
+
+**Attributes/Properties** sind ebenfalls erstellbar:
+
+| Attribute-Typ | Create-Tool |
+|---|---|
+| Building Materials | `mcp__archicad__attributes_create_building_materials` |
+| Composites | `mcp__archicad__attributes_create_composites` |
+| Attribute Folders | `mcp__archicad__attributes_create_attribute_folders` |
+| Property Groups | `mcp__archicad__properties_create_property_groups` |
+
+**Wenn der User „erstelle eine Wand" sagt:** Erkläre die MCP-Limitation, schlage Alternativen vor:
+
+- **Zone** für Raum-Semantik (Flächenberechnung, Stempel, Schedule-fähig).
+- **Polylinien** für visuellen 2D-Rahmen (keine BIM-Wand, aber sichtbar).
+- **Modifikation einer existierenden Wand**, falls eine vorhanden ist.
+
+Nicht stillschweigend substituieren — der User soll wissen, dass es keine echte Wand wird.
 
 ## Verhalten bei „nein" oder Mid-Batch-Fehler
 

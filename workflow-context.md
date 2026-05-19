@@ -24,7 +24,7 @@ Diese Datei dokumentiert die 7 Kontext-Felder, die wir vor einem Archicad-Auftra
 
 ## Feld 1: Port der aktiven Archicad-Instanz
 
-**Tool-Name:** `mcp__archicad__discovery_list_active_archicads` — bereits verifiziert (Top-Level-Tool des MCP-Servers, in Manifest dokumentiert).
+**Tool-Name:** `mcp__archicad__discovery_list_active_archicads` <!-- 2026-05-19 verifiziert AC29 -->
 
 **Erwartete Parameter:** keine.
 
@@ -61,10 +61,12 @@ Bestimmt, ob wir Wand-Längen in `m`, `mm`, `ft` etc. übergeben.
 
 **Volatil — bei Floor-Erwähnung neu ziehen.** Siehe Warm-up-Regeln.
 
-- **Discovery-Query (zum Probieren):** „current story" / „active story" / „get story by index" / „working story"
-- **Tool-Name:** TODO — in Phase 2 live verifizieren.
-- **Erwartete Parameter:** TODO.
-- **Erwartete Rückgabe:** `{storyIndex, name, elevation, height}` — Index (oft 0-basiert oder 1-basiert je nach Implementation), sprechender Name (z. B. „EG", „1. OG"), Höhe-Z-Koordinate (Elevation), Geschoss-Höhe.
+- **Tool-Name:** `mcp__archicad__project_get_stories` <!-- 2026-05-19 verifiziert AC29 -->
+- **Erwartete Parameter:** `port`.
+- **Erwartete Rückgabe:** `{firstStory, lastStory, actStory, skipNullFloor, stories: [{index, floorId, dispOnSections, level, name}]}`.
+- **Aktive Story:** in `actStory` (Index-Wert). Story-Details aus `stories[i]` wo `i.index === actStory`.
+- **Hinweis:** Story-`name` ist oft leer (`""`). Verlasse dich nicht auf den Namen — der `index` plus `level` ist die zuverlässige Identifikation. EG = `index: 0`, `level: 0.0`.
+- **STORY-01 (alle Stories listen):** **derselbe Call** — `stories[]` enthält bereits die vollständige Liste. Kein separater Call nötig.
 
 ## Feld 5: Sichtbare Layer
 
