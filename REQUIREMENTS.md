@@ -79,6 +79,7 @@ Aus Research-Features hervorgegangen; nicht in v1, aber natürliche v1.x/v2-Erwe
 - Clash Detection (LOW confidence MCP-Support)
 - Bulk-Layer-Migration (wenn nicht in v1 via bulk-operations integriert)
 - Story-Duplikation, Level-Shifts
+- **DWG-zu-BIM-Pipeline (v1.1-Milestone-Kandidat)** — Workflow um DWG-Importe als Vorlage zu nutzen und daraus BIM-Elemente zu generieren. Beispiel-Approaches: AmpliFY-Wrapper-Integration, eigener DXF-Parser, semi-automatisches Nachzeichnen mit Claude als Co-Pilot. Würde MCP-Limitierung (kein Wall-Create) durch User-zeichnet-manuell-Workflow + Claude-räumt-nach-und-klassifiziert umgehen. Eigene Phase 9 oder neuer Milestone.
 
 ---
 

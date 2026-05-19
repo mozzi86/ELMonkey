@@ -12,6 +12,9 @@ Von Skill-Gerüst bis produktionsreifem Archicad-MCP-Skill in 8 Phasen. Jede Pha
 
 - [x] **Phase 1: Skill-Gerüst + Safety** — Verzeichnisstruktur, SKILL.md mit allen Safety-Rules, 4 Reference-Skeletons, ohne Live-Archicad ✅ 2026-05-19
 - [x] **Phase 2: Warm-up live + Story/Attribute-Listing** — MCP-Tool-Namen für alle 7 Warm-up-Felder live verifiziert (Feld 3 als MCP-Gap dokumentiert); STORY-01 + ATTR-01 implementiert; Capability-Tabelle für AC29 ergänzt ✅ 2026-05-19
+
+**Backlog (post-v1.0):**
+- 📋 **Phase 9 / v1.1-Milestone — DWG-zu-BIM-Pipeline** — Workflow um DWG-Importe in BIM-Elemente zu überführen (AmpliFY-Wrapper, DXF-Parser, oder semi-automatisches Nachzeichnen). Umgeht MCP-Wall-Create-Limit über User-zeichnet-Workflow. Details in REQUIREMENTS.md § v2 Requirements.
 - [ ] **Phase 3: Recipes Reihe 1 — Strukturelle Elemente + Zonen** — walls, openings, slabs-columns-beams, zones (CRUD nur, ohne Bulk-Klassifizierung)
 - [ ] **Phase 4: Recipes Reihe 2 — Komplexere Elemente** — curtain-walls, library-objects (CRUD)
 - [ ] **Phase 5: Bulk-Operations live + Klassifikations-Infrastruktur** — `reference/bulk-operations.md` live verifizieren, Klassifikations-System-Discovery, GUID-Lookup, dann CLASS-Worked-Examples in alle bestehenden Recipes nachziehen
