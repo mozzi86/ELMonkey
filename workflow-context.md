@@ -70,12 +70,20 @@ Bestimmt, ob wir Wand-Längen in `m`, `mm`, `ft` etc. übergeben.
 
 Brauchen wir für SAFE-03 (Layer-not-visible-Ausnahme) und für Layer-Zuweisung bei Create-Operationen.
 
-- **Discovery-Query (zum Probieren):** „visible layers" / „layer visibility" / „active layer combination"
-- **Tool-Name:** TODO — in Phase 2 live verifizieren.
-- **Erwartete Parameter:** `port`.
-- **Erwartete Rückgabe:** Liste mit `{layerId, name, visible, locked}` für alle Layer; oder gefilterte Liste nur der sichtbaren.
+### Alle Layer listen (ATTR-01-Teil)
 
-**Hinweis.** Sichtbarkeit hängt oft an der aktiven *Layer-Kombination*. Wenn der MCP-Server eine Kombination zurückgibt, behandeln wir diese als Quelle der Wahrheit für „sichtbar".
+- **Tool-Name:** `mcp__archicad__attributes_get_attributes_by_type` <!-- 2026-05-19 verifiziert AC29 -->
+- **Erwartete Parameter:** `{port, params: {attributeType: "Layer"}}` — **paginiert** mit `next_page_token`.
+- **Erwartete Rückgabe:** `{attributes: [{attributeId: {guid}, index, name}], next_page_token?}` — 100 Layer pro Seite. Vollständig durchpaginieren bis kein Token mehr.
+- **Detail-Abfrage:** `mcp__archicad__attributes_get_layer_attributes` mit `{attributeIds: [{guid}]}` für Locked/Visible/etc.
+
+### Aktive Layer-Kombination (welche Layer sichtbar sind)
+
+Sichtbarkeit hängt an der aktiven *Layer-Kombination*. Diese gehört zu den View-Settings.
+
+- **Tool-Name:** `mcp__archicad__navigator_get_view_settings` für die aktuelle View; Rückgabe enthält `layerCombination` (Name).
+- Plus `mcp__archicad__attributes_get_layer_combination_attributes` mit der zugehörigen GUID, um die Layer-Sichtbarkeitsliste der Kombination zu lesen.
+- Alle Kombinationen listen: `attributes_get_attributes_by_type` mit `attributeType: "LayerCombination"`.
 
 ## Feld 6: Pen-Set / Aktive Stiftnummer
 
