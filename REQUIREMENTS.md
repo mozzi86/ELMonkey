@@ -104,7 +104,15 @@ Aus Research-Features hervorgegangen; nicht in v1, aber natürliche v1.x/v2-Erwe
 
 | REQ-ID | Phase | Status |
 |---|---|---|
-| (wird von Roadmapper gefüllt) | | |
+| FOUND-01, FOUND-02, FOUND-05, SAFE-01–05, SELF-01–03 | Phase 1 | not started |
+| FOUND-03 (skeleton), FOUND-04 (skeleton) | Phase 1 | not started |
+| FOUND-03 (content), WARM-01, WARM-02 | Phase 2 | not started |
+| WALL-01, OPEN-01, STRU-01, ZONE-01 | Phase 3 | not started |
+| CURT-01, LIB-01 | Phase 4 | not started |
+| FOUND-04 (content), CLASS-01, CLASS-02 | Phase 5 | not started |
+| SURF-01, FILL-01, LINE-01 | Phase 6 | not started |
+| INT-01, INT-02 | Phase 7 | not started |
+| Definition-of-Done verification, gap-close | Phase 8 | not started |
 
 ---
 
