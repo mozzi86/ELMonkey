@@ -9,7 +9,9 @@ Diese Datei dokumentiert, wie wir Massen-Updates und Klassifizierungen durchfüh
 3. [Pro-Element-Typ-Ableitungslogik](#pro-element-typ-ableitungslogik)
 4. [Mehrdeutigkeits-Handling](#mehrdeutigkeits-handling)
 5. [Mid-Batch-Fehlerverhalten](#mid-batch-fehlerverhalten)
-6. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
+6. [Pre-Flight: Property-Enum-Normalisierung](#pre-flight-property-enum-normalisierung)
+7. [Identifier-Mapping bei externen Daten-Quellen](#identifier-mapping-bei-externen-daten-quellen)
+8. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
 
 ## Das universelle Read → Filter → Group → Confirm → Apply-Pattern
 
@@ -139,6 +141,55 @@ Während APPLY scheitert ein Einzel-Element. Was tun?
 - **Systemisch oder einzeln?** Wenn der Fehler systemisch wirkt (gleicher Fehler bei *allen* Elementen, etwa „invalid GUID format"): sofort stoppen, vollständig berichten.
 - **Weiterlaufen bei Einzel-Fehlern.** Wenn der Fehler nur ein Element betrifft (etwa „element not found" — der User hat es zwischenzeitlich gelöscht): weitermachen mit dem Rest.
 - **Report am Ende.** Format: „127 verarbeitet, 124 erfolgreich, 3 Fehler bei IDs A, B, C — Gründe: X, Y, Z." Damit kann der User entscheiden, ob er die 3 manuell oder mit einem erneuten Lauf nachreicht.
+
+## Pre-Flight: Property-Enum-Normalisierung
+
+Bei Bulk-Updates von Single-Enum- oder Multi-Enum-Properties prüfen wir **vor APPLY**, ob die Ziel-Werte exakt in der Property-Enum-Definition vorkommen. Sonst:
+
+- Archicad lehnt den Set-Call ab (Fehler), oder
+- Archicad ignoriert den Wert still (Daten-Inkonsistenz, schwer zu debuggen).
+
+**Typische Inkonsistenzen** zwischen Source-Daten und Enum-Definition:
+
+| Inkonsistenz-Typ | Beispiel | Auswirkung |
+|---|---|---|
+| Trailing Spaces | „Linoleum " vs. „Linoleum" | zwei verschiedene Enum-IDs intern |
+| Tippfehler | „Linolium" statt „Linoleum" | kein Match, Update schlägt fehl |
+| Trennzeichen | „R11+R12" vs. „R11/R12" | kein Match |
+| Singular/Plural | „Fliese R10" vs. „Fliesen (R10)" | kein Match |
+| Klammer-Stil | „Fliesen R10" vs. „Fliesen (R10)" | kein Match |
+| Fehlende Enum-Werte | Source hat 21 Werte, Enum-Definition hat nur 8 | 13 Werte landen nirgendwo |
+
+**Pre-Flight-Workflow:**
+
+1. **Property-Enum-Definition lesen** — entweder via `mcp__archicad__properties_get_property_values_of_elements` an einem Beispiel-Element (zeigt aktuelle möglichen Werte), oder via dediziertem Property-Definition-Read falls verfügbar.
+2. **Source-Werte gegen Enum diffen:**
+   ```
+   not_in_enum = [v for v in source_values if v not in enum_values]
+   close_matches = {v: difflib.get_close_matches(v, enum_values) for v in not_in_enum}
+   ```
+3. **Wenn `not_in_enum` nicht leer:** STOPPEN. User-Report mit:
+   - Werte, die fehlen.
+   - Ähnliche existierende Werte (Substring-Match oder Levenshtein).
+   - Vorschlag: User ergänzt die Property-Definition in Archicad (Property-Manager → Property-Edit → Enum-Werte hinzufügen), dann Re-Run.
+
+**NIEMALS** einen Bulk-Update mit unbekannten Enum-Werten starten. Lieber Pre-Flight-Pause als Daten-Korruption.
+
+## Identifier-Mapping bei externen Daten-Quellen
+
+Bei Bulk-Updates aus externen Datenquellen (Schedule-Export, Capmo, Excel) ist der Identifier meistens **nicht** die MCP-GUID, sondern eine fachliche ID — Raumnummer, Element-Bezeichnung, Schedule-Index.
+
+**Mapping-Workflow:**
+
+1. Alle relevanten Elemente via `mcp__archicad__elements_get_elements_by_type` listen.
+2. Pro Element die Identifier-Property auslesen via `mcp__archicad__properties_get_all_property_ids_of_elements` + `properties_get_property_values_of_elements`. Typische Identifier-Properties:
+   - „Raumnummer" / „RoomNumber" — bei Zonen
+   - „Element-ID" — Built-in
+   - „Bezeichnung" / „Name" — bei Library-Objects
+3. Dict bauen: `{identifier_string: element_guid}`.
+4. **Eindeutigkeits-Check:** Jede Source-Zeile sollte genau einen GUID-Match haben. Bei mehreren oder keinem → User informieren, **nicht raten**.
+
+Falls die externen Daten als XLSX/CSV vorliegen: siehe [`schedule-pipeline.md`](schedule-pipeline.md) für die End-to-End-Pipeline.
 
 ## TODO — Phase 5 Live-Verifikation
 

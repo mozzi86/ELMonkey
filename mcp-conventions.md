@@ -10,7 +10,8 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 4. [Paginierung](#paginierung)
 5. [Port-Handling bei mehreren Archicad-Instanzen](#port-handling-bei-mehreren-archicad-instanzen)
 6. [Live-verifizierte Element-Create-Capabilities (AC29)](#live-verifizierte-element-create-capabilities-ac29)
-7. [Verhalten bei „nein" oder Mid-Batch-Fehler](#verhalten-bei-nein-oder-mid-batch-fehler)
+7. [Modal-Dialoge in Archicad blockieren MCP](#modal-dialoge-in-archicad-blockieren-mcp)
+8. [Verhalten bei „nein" oder Mid-Batch-Fehler](#verhalten-bei-nein-oder-mid-batch-fehler)
 
 ## Discovery-Pattern im Detail
 
@@ -46,6 +47,8 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 | Erfolgsmeldung, aber unerwartetes Ergebnis | Stoppen, lesen was tatsächlich passiert ist, **NICHT** auto-korrigieren | 0 |
 | Pagination-Token vorhanden | Weiter-anfragen bis vollständig (siehe Sektion 4) | bis fertig |
 | Netzwerk-/Timeout-Fehler | 1 Retry nach kurzer Pause, dann User informieren | 1 |
+| **MCP-Call hängt oder timeoutet ohne Response** | **Modal-Dialog blockiert Archicad** — User bitten, offene Dialoge zu prüfen und sauber zu schließen (siehe Sektion „Modal-Dialoge"). | 0 |
+| **Pydantic-Validierungs-Fehler in Response** (z. B. `extra_forbidden` für `structureType` / `geometryType`) | **AC29-Schema-Drift-Bug** in `elements_get_details_of_elements` — Workarounds in der Capability-Tabelle unten + Memory-Eintrag `issue_archicad_mcp_get_details_bug.md`. Property-basiertes Lesen verwenden. | 0 |
 
 **Wichtiges Prinzip.** Bei einem unerwarteten Ergebnis (Operation scheint erfolgreich, aber das Element fehlt im Modell oder hat falsche Eigenschaften) **stoppen wir und lesen**, was tatsächlich passiert ist. Wir versuchen nicht, durch Folge-Operationen „still zu korrigieren" — das verschleiert nur die Ursache und kann doppelten Schaden anrichten.
 
@@ -164,6 +167,28 @@ Diese Tabelle dokumentiert, welche Element-Typen via MCP **tatsächlich erstellt
 - **Modifikation einer existierenden Wand**, falls eine vorhanden ist.
 
 Nicht stillschweigend substituieren — der User soll wissen, dass es keine echte Wand wird.
+
+## Modal-Dialoge in Archicad blockieren MCP
+
+Wenn Archicad einen modalen Dialog offen hat (z. B. „Available Parameters", Property-Manager, Element-Settings-Dialog, Materialzuweisungs-Dialog), **frieren MCP-Calls ein oder timeouten**, weil Archicads UI-Thread blockiert ist. Discovery- und Lese-Calls verhalten sich genauso.
+
+**Symptom:** Tool-Call hängt > 10 Sekunden ohne Response, oder läuft in einen Connection-Timeout.
+
+**Reaktion:**
+1. **NICHT mehrfach retry** — das verschärft das Problem nicht, aber bringt auch nichts.
+2. User informieren: „Ich vermute einen offenen modalen Dialog in Archicad. Bitte prüfe, ob ein Dialog offen ist, und schließe ihn sauber (OK wenn Änderungen behalten werden sollen, sonst Abbrechen)."
+3. **WICHTIG: Erinnere den User an Daten-Verlust-Risiko**, wenn der Dialog gerade Property-Definitions, Enum-Werte, oder ähnliches editiert. Abbrechen verwirft die Bearbeitung.
+4. Nach dem User-Schließen: User mit „fertig" antworten lassen, dann den Call wiederholen.
+
+**Bekannte Modal-Dialog-Auslöser:**
+- „Available Parameters" Browser (Eigenschaft-Manager → Expression-Editor → GDL-Parameter referenzieren)
+- Property-Definition-Edit-Dialog
+- Element-Settings-Dialog (Wand, Stütze, Decke etc.)
+- Material-/Composite-/Profile-Editor
+- Klassifikations-System-Manager
+- Layer-Manager
+
+**Empfehlung im Recipe-Workflow:** Bei länger laufenden Bulk-Operationen den User vor Start kurz erinnern: „Bitte schließe offene Dialoge, sonst hängt der MCP-Server."
 
 ## Verhalten bei „nein" oder Mid-Batch-Fehler
 
