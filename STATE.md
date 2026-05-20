@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: Ready for Phase 5 (Bulk-Operations live) — or continuation of deferred Phase 4 + 6 live-validation
-Plan: depends on next-session focus
-Status: Phase 6 Schema-only-complete (3 recipes, 1848 lines, all VERIFY-marked). Phase 4 plans committed but Wave 1+2+3 deferred. Skill v0.6.
+Phase: Ready for Phase 5 (Bulk-Operations live) or Phase 6 Live-Promotion
+Plan: 0 of next-phase
+Status: Phase 4 live-verified complete (curtain-walls 768 + library-objects 683 = 1451 Zeilen, Sample-Live-Validation PASS). Skill v0.7.
 
-Progress: [██████░░░░] 50% (Phase 1+2+3 fully done; Phase 6 schema-only; Phase 4 partially planned; Phase 5+7+8 pending)
+Progress: [████████░░] 62.5% (4 von 8 Phasen fully done; Phase 6 schema-only; Phase 5+7+8 pending)
 Last activity: 2026-05-19 — Phase 1 SKILL.md + 4 Reference-Files committed; Phase 2 live-MCP-Verifikation aller 7 Warm-up-Felder + ATTR-01 + STORY-01; Real-World-Test (Zone + Polylinie erfolgreich angelegt); 4 Skill-Updates aus Live-Befunden eingearbeitet
 
 Progress: [██░░░░░░░░] 25% (2 von 8 Phasen)
