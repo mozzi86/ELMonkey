@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 4 of 8 (Recipes Reihe 2 — Komplexere Elemente)
-Plan: 0 of 3 in current phase (estimated: Wave 1 + 2 parallel subagents + Wave 3)
-Status: Phase 4 context gathered (D-21..D-26); ready for /gsd-plan-phase 4
+Phase: Ready for Phase 5 (Bulk-Operations live) — or continuation of deferred Phase 4 + 6 live-validation
+Plan: depends on next-session focus
+Status: Phase 6 Schema-only-complete (3 recipes, 1848 lines, all VERIFY-marked). Phase 4 plans committed but Wave 1+2+3 deferred. Skill v0.6.
 
-Progress: [████░░░░░░] 37.5% (3 von 8 Phasen)
+Progress: [██████░░░░] 50% (Phase 1+2+3 fully done; Phase 6 schema-only; Phase 4 partially planned; Phase 5+7+8 pending)
 Last activity: 2026-05-19 — Phase 1 SKILL.md + 4 Reference-Files committed; Phase 2 live-MCP-Verifikation aller 7 Warm-up-Felder + ATTR-01 + STORY-01; Real-World-Test (Zone + Polylinie erfolgreich angelegt); 4 Skill-Updates aus Live-Befunden eingearbeitet
 
 Progress: [██░░░░░░░░] 25% (2 von 8 Phasen)

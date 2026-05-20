@@ -16,9 +16,9 @@ Von Skill-Gerüst bis produktionsreifem Archicad-MCP-Skill in 8 Phasen. Jede Pha
 **Backlog (post-v1.0):**
 - 📋 **Phase 9 / v1.1-Milestone — DWG-zu-BIM-Pipeline** — Workflow um DWG-Importe in BIM-Elemente zu überführen (AmpliFY-Wrapper, DXF-Parser, oder semi-automatisches Nachzeichnen). Umgeht MCP-Wall-Create-Limit über User-zeichnet-Workflow. Details in REQUIREMENTS.md § v2 Requirements.
 - [x] **Phase 3: Recipes Reihe 1 — Strukturelle Elemente + Zonen** — wall-operations, openings, slabs-columns-beams, zones (CRUD soweit MCP zulässt; Beam ohne Create, Wand/Öffnung/Curtain-Wall/Fill ohne Create). 1885 Zeilen, live-validated. ✅ 2026-05-20
-- [ ] **Phase 4: Recipes Reihe 2 — Komplexere Elemente** — curtain-walls, library-objects (CRUD)
+- [ ] **Phase 4: Recipes Reihe 2 — Komplexere Elemente** — curtain-walls, library-objects (CRUD). **STATUS:** Plans committed; Wave 1 abgebrochen weil Archicad MCP unreachable. Live-Verifikation steht aus.
 - [ ] **Phase 5: Bulk-Operations live + Klassifikations-Infrastruktur** — `reference/bulk-operations.md` live verifizieren, Klassifikations-System-Discovery, GUID-Lookup, dann CLASS-Worked-Examples in alle bestehenden Recipes nachziehen
-- [ ] **Phase 6: Recipes Reihe 3 — 2D + Materials** — surfaces-materials (riskantestes Rezept, mit Composite/Surface-Disambiguierung), fills-hatches, lines-polylines
+- [~] **Phase 6: Recipes Reihe 3 — 2D + Materials** — surfaces-materials, fills-hatches, lines-polylines. **STATUS:** Schema-only abgeschlossen (1848 Zeilen, alle 3 Recipes mit VERIFY-Markern). Live-Validation ausstehend sobald Archicad verfügbar. ✅ schema-only 2026-05-20
 - [ ] **Phase 7: Cross-Recipe Integrationstests** — INT-01 (Wand + Fenster + Material + Linie), INT-02 (vollständige Projekt-Klassifizierung)
 - [ ] **Phase 8: Smoke-Test + Gap-Close** — alle `<!-- ÜBERPRÜFEN -->`-Marker aus Phasen 2–7 abarbeiten; Definition-of-Done-Verifikation
 
