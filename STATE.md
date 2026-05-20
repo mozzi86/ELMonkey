@@ -24,9 +24,9 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: Ready for Phase 4 of 8 (Recipes Reihe 2 — Curtain Walls + Library Objects)
-Plan: 0 of 2 in next phase
-Status: Phase 3 complete (4 recipes, 1885 lines, live-validated); ready for /gsd-discuss-phase 4
+Phase: 4 of 8 (Recipes Reihe 2 — Komplexere Elemente)
+Plan: 0 of 3 in current phase (estimated: Wave 1 + 2 parallel subagents + Wave 3)
+Status: Phase 4 context gathered (D-21..D-26); ready for /gsd-plan-phase 4
 
 Progress: [████░░░░░░] 37.5% (3 von 8 Phasen)
 Last activity: 2026-05-19 — Phase 1 SKILL.md + 4 Reference-Files committed; Phase 2 live-MCP-Verifikation aller 7 Warm-up-Felder + ATTR-01 + STORY-01; Real-World-Test (Zone + Polylinie erfolgreich angelegt); 4 Skill-Updates aus Live-Befunden eingearbeitet
