@@ -81,6 +81,17 @@ Aus Research-Features hervorgegangen; nicht in v1, aber natürliche v1.x/v2-Erwe
 - Story-Duplikation, Level-Shifts
 - **DWG-zu-BIM-Pipeline (v1.1-Milestone-Kandidat)** — Workflow um DWG-Importe als Vorlage zu nutzen und daraus BIM-Elemente zu generieren. Beispiel-Approaches: AmpliFY-Wrapper-Integration, eigener DXF-Parser, semi-automatisches Nachzeichnen mit Claude als Co-Pilot. Würde MCP-Limitierung (kein Wall-Create) durch User-zeichnet-manuell-Workflow + Claude-räumt-nach-und-klassifiziert umgehen. Eigene Phase 9 oder neuer Milestone.
 
+## Open Capability-Tests (Phase 3+5 Verifikation)
+
+Aus der Live-Session 2026-05-20 (Bodenbelag-Sync, BSZ Gunzenhausen) entstandene Fragen, die in Phase 3 (zones.md Property-Bulk-Pattern) oder Phase 5 (Bulk-Operations live) verifiziert werden müssen:
+
+- [ ] **CAP-01:** Verhält sich `properties_set_property_values_of_elements` bei Enum-Type korrekt mit `displayValue` als String, oder wird `enumValueId.nonLocalizedValue` / `enumValueId.guid` erwartet? — Test mit zones.md Schritt 6.
+- [ ] **CAP-02:** Kann der MCP-Server eine Property-Definition modifizieren (Enum-Werte zur existierenden Property hinzufügen ohne neue anzulegen)? — Aktuell nicht offensichtlich; falls nein, muss der User-UI-Workflow (Optionen-Setup) als alleinige Methode dokumentiert bleiben.
+- [ ] **CAP-03:** Bleibt die aktive Selektion erhalten oder verschwindet sie beim Schließen modaler Dialoge? Welche Dialoge welches Verhalten? — Aus der Live-Session: „Einstellungen für die Raum-Auswahl" → Selektion weg bei Abbrechen. Andere Dialoge ggf. anders.
+- [ ] **CAP-04:** `properties_get_property_values_of_elements` für Built-in-„Raumnummer"-Property — funktioniert sie für ID-Mapping in Bulk-Workflows zuverlässig? — Phase 5 Schedule-Pipeline-Verifikation.
+
+Diese Tests sind nicht blocking für v1.0, aber sie sollten bei der ersten realen Phase-5-Live-Session als erste durchgeführt werden — sie klären die Workflow-Sicherheit für die Bulk-Property-Updates.
+
 ---
 
 ## Out of Scope (mit Begründung)
