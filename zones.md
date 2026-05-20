@@ -13,11 +13,12 @@ Zonen sind Archicads Kernkonzept für Flächen-Erfassung, Raum-Schedules und Kla
 7. [Worked Example — Zone-Properties modifizieren](#worked-example--zone-properties-modifizieren)
 8. [Worked Example — Zone löschen](#worked-example--zone-löschen)
 9. [Worked Example — Zone klassifizieren](#worked-example--zone-klassifizieren)
-10. [Bonus-Beispiel — Zone automatisch erstellen (Reference-Point)](#bonus-beispiel--zone-automatisch-erstellen-reference-point)
-11. [Verwandte Operationen: elements_get_elements_related_to_zones](#verwandte-operationen-elements_get_elements_related_to_zones)
-12. [Zone-Membership für Bulk-Klassifizierung (Stub)](#zone-membership-für-bulk-klassifizierung-stub)
-13. [Gotchas](#gotchas)
-14. [Verwandte Recipes](#verwandte-recipes)
+10. [Worked Example — Property setzen (Bodenbelag-Pattern für Bulk-Updates)](#worked-example--property-setzen-bodenbelag-pattern-für-bulk-updates)
+11. [Bonus-Beispiel — Zone automatisch erstellen (Reference-Point)](#bonus-beispiel--zone-automatisch-erstellen-reference-point)
+12. [Verwandte Operationen: elements_get_elements_related_to_zones](#verwandte-operationen-elements_get_elements_related_to_zones)
+13. [Zone-Membership für Bulk-Klassifizierung (Stub)](#zone-membership-für-bulk-klassifizierung-stub)
+14. [Gotchas](#gotchas)
+15. [Verwandte Recipes](#verwandte-recipes)
 
 ---
 
@@ -347,6 +348,142 @@ mcp__archicad__archicad_call_tool(
 ```
 
 **ZoneCategory-Attribute** (Archicad-interne Raum-Kategorie, separat von Projektklassifikation): GUIDs via `attributes_get_attributes_by_type` mit `attributeType: "ZoneCategory"` abfragen. Response liefert `{attributeId: {guid: "..."}, name: "..."}` — gewünschte GUID als `categoryAttributeId` beim Zone-Update übergeben. Beeinflusst Flächenberechnungsregeln und Schedule-Darstellung.
+
+---
+
+## Worked Example — Property setzen (Bodenbelag-Pattern für Bulk-Updates)
+
+Wenn der User sagt „setze Bodenbelag aller Wohnräume auf Linoleum 2,5 (R9)" — das ist ein häufiger Bulk-Update-Workflow für Custom-Properties. Diese 6-Schritt-Sequenz ist verifiziert (2026-05-20 gegen BSZ Gunzenhausen V29) und gilt als Pattern für jede Property-Bulk-Operation auf Zonen.
+
+**Voraussetzungen:**
+- Modal-Dialoge in Archicad geschlossen (siehe [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Modal-Dialoge).
+- Property „Bodenbelag" (oder welche auch immer) existiert in der Property-Definition mit den nötigen Enum-Werten — bei fehlenden Werten: Pre-Flight-Check in Schritt 4 fängt das ab.
+
+### Schritt 1 — Alle Zonen listen <!-- 2026-05-20 verifiziert AC29 -->
+
+```python
+mcp__archicad__archicad_call_tool(
+  name="elements_get_elements_by_type",
+  arguments={
+    "port": <port>,
+    "params": {"elementType": "Zone"}
+  }
+)
+```
+
+Paginierung bis vollständig durchziehen. Resultat: Liste aller Zone-GUIDs.
+
+### Schritt 2 — Aktuelle Selektion abfragen (optional, wenn User auf Selektion zielt)
+
+```python
+mcp__archicad__archicad_call_tool(
+  name="elements_get_selected_elements",
+  arguments={"port": <port>}
+)
+```
+
+**Gotcha:** Wenn der User vorher einen modalen Dialog hatte und mit „Abbrechen" geschlossen hat, kann die Selektion leer sein. Wenn das passiert: User bitten, neu zu selektieren — Selektion-Recovery ist nicht via MCP möglich.
+
+### Schritt 3 — Property-IDs der Zone(n) holen <!-- 2026-05-20 verifiziert AC29 -->
+
+```python
+mcp__archicad__archicad_call_tool(
+  name="properties_get_all_property_ids_of_elements",
+  arguments={
+    "port": <port>,
+    "params": {
+      "elements": [{"elementId": {"guid": "<zone-guid>"}}],
+      "propertyType": "UserDefined"
+    }
+  }
+)
+```
+
+Liefert die Custom-Property-IDs der Zone. Typisches Test-Projekt: ~26 Custom-Properties pro Zone, organisiert in Gruppen wie „Allgemeine Werte", „Produktinformationen", „Räume".
+
+`propertyType` weglassen, wenn auch Built-in-Properties (z. B. Raumnummer) gebraucht werden.
+
+### Schritt 4 — Property-Definition holen (Enum-Werte + Type) <!-- 2026-05-20 verifiziert AC29 -->
+
+```python
+mcp__archicad__archicad_call_tool(
+  name="properties_get_details_of_properties",
+  arguments={
+    "port": <port>,
+    "params": {
+      "properties": [{"propertyId": {"guid": "<bodenbelag-property-guid>"}}]
+    }
+  }
+)
+```
+
+Response enthält:
+- `name`, `description`, `type` (z. B. `"singleEnum"`)
+- `group` (Property-Gruppe)
+- `possibleEnumValues` (bei Enum-Properties: Liste mit `{enumValueId: {type, displayValue, nonLocalizedValue}, displayValue}`)
+
+**Pre-Flight-Check** (Enum-Normalisierung — siehe [`../reference/bulk-operations.md`](../reference/bulk-operations.md) § Pre-Flight):
+- Source-Wert (z. B. GDL-Stempel-Wert „Linoleum 2,5 (R9)") gegen `possibleEnumValues` matchen.
+- Bei No-Match: STOPPEN. User informieren, Enum erweitern lassen via Archicad-UI (siehe Sektion „Enum-Wert ergänzen" unten) — niemals einen falschen oder neuen Wert via Set übergeben.
+
+### Schritt 5 — Aktuelle Werte lesen (Diff-Vorbereitung)
+
+```python
+mcp__archicad__archicad_call_tool(
+  name="properties_get_property_values_of_elements",
+  arguments={
+    "port": <port>,
+    "params": {
+      "elements": [{"elementId": {"guid": "<zone-guid>"}}],
+      "properties": [{"propertyId": {"guid": "<bodenbelag-property-guid>"}}]
+    }
+  }
+)
+```
+
+Resultat: aktueller Property-Wert pro Element. Damit Diff-Summary aufbauen: alt → neu.
+
+### Schritt 6 — Werte setzen (asymmetrisch sicher — Confirm-Schleife) <!-- VERIFY -->
+
+**SAFE-01 greift hier zwingend.** Vor dem Set-Aufruf User-Confirm mit Diff-Summary anzeigen (siehe [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Confirm-Format). Erst nach `ja`:
+
+```python
+mcp__archicad__archicad_call_tool(
+  name="properties_set_property_values_of_elements",
+  arguments={
+    "port": <port>,
+    "params": {
+      "elementPropertyValues": [{
+        "elementId": {"guid": "<zone-guid>"},
+        "propertyId": {"guid": "<bodenbelag-property-guid>"},
+        "propertyValue": {
+          "type": "singleEnum",
+          "status": "normal",
+          "value": {"type": "displayValue", "displayValue": "Linoleum 2,5 (R9)"}
+        }
+      }]
+    }
+  }
+)
+```
+
+<!-- VERIFY --> Genaues Schema für `propertyValue` bei Enum-Type in Phase 5 verifizieren — möglicherweise wird `nonLocalizedValue` statt `displayValue` erwartet, oder die `enumValueId` direkt.
+
+**Mid-Batch-Fehlerverhalten:** Siehe [`../reference/bulk-operations.md`](../reference/bulk-operations.md) § Mid-Batch-Fehlerverhalten.
+
+### Enum-Wert ergänzen (Archicad-UI, nicht via MCP)
+
+**MCP-Capability-Gap (Stand 2026-05-20):** `properties_create_property_definitions` legt **neue** Properties an, modifiziert aber bestehende Enum-Definitionen nicht. Wenn ein Source-Wert fehlt, muss der User ihn in Archicad selbst hinzufügen:
+
+1. Zonen-Einstellungen-Dialog öffnen
+2. Bereich „Klassifizierung und Eigenschaften" → Property „Bodenbelag" aufklappen
+3. Enum-Feld → **⊞-Button** → „Bearbeiten" → öffnet „**Optionen-Setup**"
+4. „Hinzufügen" → neuer Enum-Wert (oder „Mehrfachauswahl erlauben" für Multi-Enum)
+5. OK schließt → Persistiert
+
+**Modal-Dialog-Warnung:** Während „Optionen-Setup" offen ist, blockieren alle MCP-Calls. User „fertig" melden lassen, dann fortfahren.
+
+**Empfehlung für Bodenbelag-Sync:** Wenn viele Werte ergänzt werden müssen, vorher mit dem User die komplette Wunschliste aufnehmen, einmal alle ergänzen, dann erst Bulk-Set starten — statt iterativ Dialog-auf-zu.
 
 ---
 
