@@ -48,7 +48,10 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 | Pagination-Token vorhanden | Weiter-anfragen bis vollständig (siehe Sektion 4) | bis fertig |
 | Netzwerk-/Timeout-Fehler | 1 Retry nach kurzer Pause, dann User informieren | 1 |
 | **MCP-Call hängt oder timeoutet ohne Response** | **Modal-Dialog blockiert Archicad** — User bitten, offene Dialoge zu prüfen und sauber zu schließen (siehe Sektion „Modal-Dialoge"). | 0 |
+| **`Invalid program status (there is an open modal dialog: <Dialog-Name>)` — Code 4001** | Spezifische Form des Modal-Block-Fehlers; Dialog-Name aus Fehlermeldung extrahieren + an User weiterleiten. | 0 |
 | **Pydantic-Validierungs-Fehler in Response** (z. B. `extra_forbidden` für `structureType` / `geometryType`) | **AC29-Schema-Drift-Bug** in `elements_get_details_of_elements` — Workarounds in der Capability-Tabelle unten + Memory-Eintrag `issue_archicad_mcp_get_details_bug.md`. Property-basiertes Lesen verwenden. | 0 |
+| **`elements_get_gdl_parameters_of_elements` schlägt fehl mit ~tausenden Validierungs-Fehlern** | **AC29-Schema-Drift-Bug auf Zonen** — `index` als int (Schema erwartet string), extra Felder `displayName` / `isLocked` / `flags`. Bei Zonen mit vielen GDL-Parametern (~849) entstehen ~4.000 Fehler. **GDL-Parameter-Read via MCP nicht nutzbar.** Workaround: Schedule-Export-Pipeline (siehe `schedule-pipeline.md`). | 0 |
+| **`elements_get_details_of_elements` für Zone wirft Schema-Mismatch** | Zone-Detail-Schema fehlt im MCP-Wrapper. Server liefert `name`, `numberStr`, `categoryAttributeId`, `stampPosition`, `isManual`, `zCoordinate`, `polygonOutline`, `holes`, aber kein `ZoneDetails`-Variant existiert. | 0 |
 
 **Wichtiges Prinzip.** Bei einem unerwarteten Ergebnis (Operation scheint erfolgreich, aber das Element fehlt im Modell oder hat falsche Eigenschaften) **stoppen wir und lesen**, was tatsächlich passiert ist. Wir versuchen nicht, durch Folge-Operationen „still zu korrigieren" — das verschleiert nur die Ursache und kann doppelten Schaden anrichten.
 
@@ -151,6 +154,15 @@ Diese Tabelle dokumentiert, welche Element-Typen via MCP **tatsächlich erstellt
 
 **Was stattdessen geht für „nicht erstellbare" Typen:** Modifikation existierender Elemente via `mcp__archicad__elements_set_details_of_elements` mit dem typ-spezifischen Schema (z. B. `WallSettings` für Wände). Read + Update + Delete sind durchgängig verfügbar, nur Create fehlt selektiv.
 
+### Zusätzliche AC29-Schema-Drift-Bugs (live verifiziert 2026-05-20)
+
+Zwei MCP-Tools sind durch Pydantic-`extra='forbid'`-Validierung in AC29 unzuverlässig:
+
+| Tool | Bug | Workaround |
+|---|---|---|
+| `mcp__archicad__elements_get_gdl_parameters_of_elements` | `index` als int statt string; extra Server-Felder `displayName`, `isLocked`, `flags`. Bei Zonen mit ~849 GDL-Params → ~4.000 Validierungs-Fehler. | **Schedule-Export-Pipeline** (siehe `schedule-pipeline.md`) — User exportiert Schedule mit GDL-Werten als XLSX/CSV, wir parsen lokal. |
+| `mcp__archicad__elements_get_details_of_elements` für `elementType=Zone` | Wrapper kennt nur `WallDetails` / `BeamDetails` / `ColumnDetails` / `MeshDetails` / `NotYetSupportedElementType` — kein `ZoneDetails`-Variant. Server liefert Zone-Felder (name, numberStr, categoryAttributeId, stampPosition, isManual, zCoordinate, polygonOutline, holes), die kein Schema matchen. | Property-basiertes Lesen via `properties_get_property_values_of_elements` + Standard-Properties (Raumnummer, Name, Kategorie). |
+
 **Attributes/Properties** sind ebenfalls erstellbar:
 
 | Attribute-Typ | Create-Tool |
@@ -172,16 +184,20 @@ Nicht stillschweigend substituieren — der User soll wissen, dass es keine echt
 
 Wenn Archicad einen modalen Dialog offen hat (z. B. „Available Parameters", Property-Manager, Element-Settings-Dialog, Materialzuweisungs-Dialog), **frieren MCP-Calls ein oder timeouten**, weil Archicads UI-Thread blockiert ist. Discovery- und Lese-Calls verhalten sich genauso.
 
-**Symptom:** Tool-Call hängt > 10 Sekunden ohne Response, oder läuft in einen Connection-Timeout.
+**Symptom:** Tool-Call hängt > 10 Sekunden ohne Response, oder Server gibt explizit `Invalid program status (there is an open modal dialog: <Dialog-Name>)` mit Code 4001 zurück.
 
 **Reaktion:**
-1. **NICHT mehrfach retry** — das verschärft das Problem nicht, aber bringt auch nichts.
-2. User informieren: „Ich vermute einen offenen modalen Dialog in Archicad. Bitte prüfe, ob ein Dialog offen ist, und schließe ihn sauber (OK wenn Änderungen behalten werden sollen, sonst Abbrechen)."
-3. **WICHTIG: Erinnere den User an Daten-Verlust-Risiko**, wenn der Dialog gerade Property-Definitions, Enum-Werte, oder ähnliches editiert. Abbrechen verwirft die Bearbeitung.
-4. Nach dem User-Schließen: User mit „fertig" antworten lassen, dann den Call wiederholen.
+1. **NICHT mehrfach retry** — bringt nichts, blockiert nur weiter.
+2. Dialog-Name aus der Fehlermeldung extrahieren (in den Klammern) und an User weiterleiten — er sieht so direkt, welcher Dialog gemeint ist.
+3. User informieren: „Ein modaler Dialog ist in Archicad offen: `<Dialog-Name>`. Bitte schließen — OK wenn Änderungen behalten werden sollen, sonst Abbrechen."
+4. **WICHTIG: Daten-Verlust-Risiko erinnern**, wenn der Dialog Property-Definitions, Enum-Werte, GDL-Parameter o. ä. editiert. Abbrechen verwirft die Bearbeitung.
+5. **Selektion-Risiko erinnern:** Bei manchen Dialogen (z. B. „Einstellungen für die Raum-Auswahl") verschwindet die aktive Selektion beim Schließen via Abbrechen. Vor dem Schließen ggf. die Element-GUIDs sichern, oder „Neu-Selektieren" einplanen.
+6. Nach dem User-Schließen: User mit „fertig" antworten lassen, dann den Call wiederholen.
 
-**Bekannte Modal-Dialog-Auslöser:**
+**Bekannte Modal-Dialog-Auslöser (live verifiziert 2026-05-20):**
 - „Available Parameters" Browser (Eigenschaft-Manager → Expression-Editor → GDL-Parameter referenzieren)
+- „Einstellungen für die Raum-Auswahl" (Zonen-Multi-Edit-Dialog) — **Selektion geht beim Abbrechen verloren!**
+- „Optionen-Setup" (Enum-Wert-Editor für Property-Definitions)
 - Property-Definition-Edit-Dialog
 - Element-Settings-Dialog (Wand, Stütze, Decke etc.)
 - Material-/Composite-/Profile-Editor
