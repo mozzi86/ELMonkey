@@ -15,7 +15,7 @@ Von Skill-Gerüst bis produktionsreifem Archicad-MCP-Skill in 8 Phasen. Jede Pha
 
 **Backlog (post-v1.0):**
 - 📋 **Phase 9 / v1.1-Milestone — DWG-zu-BIM-Pipeline** — Workflow um DWG-Importe in BIM-Elemente zu überführen (AmpliFY-Wrapper, DXF-Parser, oder semi-automatisches Nachzeichnen). Umgeht MCP-Wall-Create-Limit über User-zeichnet-Workflow. Details in REQUIREMENTS.md § v2 Requirements.
-- [ ] **Phase 3: Recipes Reihe 1 — Strukturelle Elemente + Zonen** — walls, openings, slabs-columns-beams, zones (CRUD nur, ohne Bulk-Klassifizierung)
+- [x] **Phase 3: Recipes Reihe 1 — Strukturelle Elemente + Zonen** — wall-operations, openings, slabs-columns-beams, zones (CRUD soweit MCP zulässt; Beam ohne Create, Wand/Öffnung/Curtain-Wall/Fill ohne Create). 1885 Zeilen, live-validated. ✅ 2026-05-20
 - [ ] **Phase 4: Recipes Reihe 2 — Komplexere Elemente** — curtain-walls, library-objects (CRUD)
 - [ ] **Phase 5: Bulk-Operations live + Klassifikations-Infrastruktur** — `reference/bulk-operations.md` live verifizieren, Klassifikations-System-Discovery, GUID-Lookup, dann CLASS-Worked-Examples in alle bestehenden Recipes nachziehen
 - [ ] **Phase 6: Recipes Reihe 3 — 2D + Materials** — surfaces-materials (riskantestes Rezept, mit Composite/Surface-Disambiguierung), fills-hatches, lines-polylines
