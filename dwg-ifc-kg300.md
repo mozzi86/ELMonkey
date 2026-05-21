@@ -303,6 +303,21 @@ System-GUID SAB_Klassifizierung_29: `cca1f9aa-ca6c-3444-9bfb-363c6145327e`
 
 **Innen-/Außen-Unterscheidung** (KG 330 vs. 340 bei MW/Betonwand): SAB_29 hat KEINE Innen-/Außen-Klasse für Wände. Auflösung über (a) Layer-Konvention, (b) separate Property „Wand_Position" mit Enum {Außen, Innen}, oder (c) Geometrie-Heuristik (Außenraum-Adjazenz). Dies ist bereits in [`user setup memory`] (Schwarz Architekturbüro) als Lücke dokumentiert.
 
+## Vorsicht: Klassifikation steuert NICHT das IFC-Typ-Mapping
+
+<!-- 2026-05-21 live-verifiziert AC29 (AFW-WC Teamwork-Projekt, Schwarz-Office-Template) -->
+
+**Befund:** Die SAB-Klassifikation (oder generell jede Archicad-Klassifikation) bestimmt NICHT automatisch, wie ein Element ins IFC exportiert wird. Klassifikation und IFC-Typ-Mapping sind ZWEI getrennte Systeme im Archicad:
+
+- **Klassifikation** (via `elements_set_classifications_of_elements`): SAB-/Uniclass-/etc.-Klasse, sichtbar in Schedules und Properties — beeinflusst KEINEN IFC-Export-Typ.
+- **IFC-Typ-Mapping**: gesteuert vom **IFC-Übersetzer** (Datei → Interoperabilität → IFC → IFC-Übersetzer einstellen). Die Mapping-Tabelle dort sagt: Archicad-Element-Typ X → IFC-Entity Y. Per-Element-Override ist im „IFC-Eigenschaften verwalten"-Dialog NICHT möglich (die IFC-Typ-Zeile hat keine Editier-Checkbox).
+
+**Häufiger Fehler (Schwarz-Office-Template, live verifiziert AFW-WC 2026-05-21):** Übersetzer mappt ALLE Elemente pauschal auf `IfcBuildingElementProxy`, ignoriert SAB-Klasse. Resultat: IFC-Export mit 822 Proxies, 0× IfcWall/IfcDoor/IfcWindow/etc. Klassifizieren der Elemente via MCP ändert daran NICHTS — der Übersetzer ist Klassifikations-unsensitiv.
+
+**Fix:** Nur in Archicad-UI im **IFC-Übersetzer-Dialog** die Mapping-Tabelle korrigieren. Siehe Memory-Eintrag `issue_archicad_ifc_translator_proxy_bug.md` für die vollständige Mapping-Liste.
+
+**MCP-v29-Limit:** Keine Endpoints für IFC-Übersetzer-Settings, Werkzeug-Standardeinstellungen, oder per-Element IFC-Daten-Properties. Diese Settings liegen außerhalb der von MCP exponierten Property-Domäne. Klassifikations-Set über MCP ist nützlich für Stücklisten und Schedules — aber NICHT als Pre-Step für korrekten IFC-Export.
+
 ## Was die Pipeline NICHT kann
 
 Strikte Scope-Grenze für ehrliche User-Erwartung:
