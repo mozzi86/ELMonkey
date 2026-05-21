@@ -215,6 +215,112 @@ Live verifiziert am 2026-05-21: das `properties_create_property_definitions`-Sch
 
 Für Property-Groups: erst `properties_create_property_groups` aufrufen, dann die Group-GUID in `propertyDefinition.group` verwenden. Built-in-Group-GUIDs scheinen nicht für UserDefined-Properties verwendbar zu sein.
 
+## Klassifikations-Set: success ist nicht success (live verifiziert 2026-05-21)
+
+**Wichtige Warnung:** `elements_set_classifications_of_elements` meldet `{success: true}` für JEDES Element im Bulk-Call — auch wenn die Klassifikation in Wirklichkeit nicht greift. Live verifiziert: 56-Element-Bulk-Test, 56× „success", aber nur 9 Elemente tatsächlich klassifiziert.
+
+**Welche Element-Typen lassen sich direkt klassifizieren (in AC29):**
+
+| Element-Typ | Direkt klassifizierbar? |
+|---|---|
+| Wall, Window, Door, Slab, Column, Zone, Beam | ✅ |
+| CurtainWall (Top-Level) | ✅ |
+| **CurtainWallSegment / Frame / Panel / Junction / Accessory** | ❌ |
+| Object (user-platziert: Möbel, Sanitär, ...) | ✅ |
+| Object (System-Stamps: Apartment-Stamp, Camera, ...) | ❌ |
+| Andere hierarchische Sub-Elemente (Stair-Riser, Railing-Post, ...) | wahrscheinlich ❌ (analog CW-Subs) |
+
+**Pflicht-Pattern:** Nach jedem Bulk-Set IMMER `elements_get_elements_by_classification` als Reverse-Lookup aufrufen und Cardinality vergleichen (erwartet vs. real). Bei Diskrepanz: User informieren, welche Elemente nicht klassifiziert sind.
+
+**Umgehung für CurtainWall-Sub-Klassifikationen:**
+- Sub-Elemente **erben vermutlich** die Klassifikation vom Top-Level — Top-Level klassifizieren reicht für die meisten Workflows.
+- Falls Sub-Element-spezifische Klassen nötig: nur UI-Workflow möglich (Archicad-Element-Settings).
+
+**Umgehung für System-Stamps:**
+- Vor Bulk-Klassifikation: `elements_get_elements_by_type` + Property-Filter um nur user-platzierte Objects zu finden (siehe `recipes/library-objects.md` § Subtype-Discovery).
+
+## Enum-Migration-Pattern (Modify-Endpoint-Umgehung)
+
+Da `properties_create_property_definitions` Create-Only ist (CAP-02), gibt es keinen direkten Modify-Endpoint. Wenn eine bestehende Enum-Property um neue Werte erweitert werden muss, lautet der programmatische Workaround:
+
+```
+1. BACKUP: Alle Element-Werte der Property lesen
+2. DELETE: Property-Definition löschen (verliert alle Werte global)
+3. RECREATE: Neue Property mit gleichem Namen + erweiterter Enum-Liste anlegen
+4. RESTORE: Alle Element-Werte aus Backup zurück-setzen
+5. REPORT: Alte Property-GUID war X, neue ist Y — User informieren falls externe Refs (Schedules, IFC, Saved-Views) neu verknüpft werden müssen
+```
+
+**Detail-Pseudocode:**
+```python
+# 1. BACKUP
+old_property_guid = "<existing-property-guid>"
+all_elements = mcp__archicad__elements_get_elements_by_type(elementType="<typ>")
+backup = {}
+for e in all_elements:
+    response = mcp__archicad__properties_get_property_values_of_elements(
+        elements=[{"elementId": e["elementId"]}],
+        properties=[{"propertyId": {"guid": old_property_guid}}]
+    )
+    value = response["propertyValuesForElements"][0]["propertyValues"][0]
+    if "propertyValue" in value:  # skip errors
+        backup[e["elementId"]["guid"]] = value["propertyValue"]["value"]
+
+# 2. CONFIRM mit User
+print(f"Bin gleich Property {old_property_guid} löschen + neu anlegen mit erweiterter Enum-Liste.")
+print(f"  Backup: {len(backup)} Element-Werte gesichert in Memory")
+print(f"  ACHTUNG: Property-GUID ändert sich. Externe Refs (Schedules, IFC) müssen ggf. neu verknüpft werden.")
+print(f"  Fortfahren? (ja/abbrechen)")
+
+# 3. DELETE alte Property
+mcp__archicad__properties_delete_property_definitions(propertyIds=[{"propertyId": {"guid": old_property_guid}}])
+
+# 4. RECREATE mit erweiterter Enum-Liste
+new_response = mcp__archicad__properties_create_property_definitions(
+    propertyDefinitions=[{
+        "propertyDefinition": {
+            "name": "<same-name>",
+            "description": "<same-or-updated>",
+            "type": "singleEnum",
+            "isEditable": True,
+            "defaultValue": {"basicDefaultValue": {"type": "singleEnum", "status": "normal",
+                "value": {"type": "displayValue", "displayValue": "<some-existing-or-new-value>"}}},
+            "possibleEnumValues": [{"enumValue": {"displayValue": v}} for v in extended_enum_list],
+            "availability": [{"classificationItemId": {"guid": "<class-guid>"}}],
+            "group": {"propertyGroupId": {"guid": "<group-guid>"}}
+        }
+    }]
+)
+new_property_guid = new_response["propertyIds"][0]["propertyId"]["guid"]
+
+# 5. RESTORE — Werte aus Backup zurück-setzen
+restore_data = []
+for element_guid, value in backup.items():
+    restore_data.append({
+        "elementId": {"guid": element_guid},
+        "propertyId": {"guid": new_property_guid},
+        "propertyValue": {"value": value}
+    })
+result = mcp__archicad__properties_set_property_values_of_elements(elementPropertyValues=restore_data)
+
+# 6. VERIFY: pro restauriertem Element den Wert nochmal lesen + mit Backup vergleichen
+# (mind. 3-5 Stichproben)
+
+# 7. REPORT
+print(f"Migration komplett:")
+print(f"  Alte Property-GUID: {old_property_guid} (gelöscht)")
+print(f"  Neue Property-GUID: {new_property_guid}")
+print(f"  Restored: {len(restore_data)} Element-Werte")
+print(f"  Externe Refs ggf. neu verknüpfen: Schedules, IFC-Pset-Mappings, Saved-Views")
+```
+
+**Caveats:**
+- **GUID-Cascade:** Alle externen Referenzen auf die alte Property-GUID (Schedule-Spalten-Konfigs, IFC-Pset-Mappings, Saved-Views mit Property-Filter) brechen und müssen manuell neu verknüpft werden.
+- **Atomar nicht garantiert:** Wenn `delete` durchläuft aber `recreate` scheitert, sind alle Werte verloren. Möglichst zuerst in einem Test-Projekt verifizieren.
+- **Werte mit nicht-mehr-existenten Enum-Strings:** Wenn alte Werte sich in der neuen Enum-Liste nicht finden, werden sie beim restore fehlschlagen. Pre-Flight: alle Backup-Werte gegen `extended_enum_list` matchen, mismatches dem User vorher melden.
+
+**Alternative-Pattern (siehe `property-expression-linking.md`):** Expression-Property statt fester Enum — wächst automatisch via GDL-Parameter, kein Migration nötig. Setup-Aufwand einmal in Archicad-UI.
+
 ## Pre-Flight: Property-Enum-Normalisierung
 
 Bei Bulk-Updates von Single-Enum- oder Multi-Enum-Properties prüfen wir **vor APPLY**, ob die Ziel-Werte exakt in der Property-Enum-Definition vorkommen. Sonst:
