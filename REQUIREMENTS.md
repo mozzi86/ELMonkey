@@ -85,10 +85,10 @@ Aus Research-Features hervorgegangen; nicht in v1, aber natürliche v1.x/v2-Erwe
 
 Aus der Live-Session 2026-05-20 (Bodenbelag-Sync, BSZ Gunzenhausen) entstandene Fragen, die in Phase 3 (zones.md Property-Bulk-Pattern) oder Phase 5 (Bulk-Operations live) verifiziert werden müssen:
 
-- [ ] **CAP-01:** Verhält sich `properties_set_property_values_of_elements` bei Enum-Type korrekt mit `displayValue` als String, oder wird `enumValueId.nonLocalizedValue` / `enumValueId.guid` erwartet? — Test mit zones.md Schritt 6.
-- [ ] **CAP-02:** Kann der MCP-Server eine Property-Definition modifizieren (Enum-Werte zur existierenden Property hinzufügen ohne neue anzulegen)? — Aktuell nicht offensichtlich; falls nein, muss der User-UI-Workflow (Optionen-Setup) als alleinige Methode dokumentiert bleiben.
-- [ ] **CAP-03:** Bleibt die aktive Selektion erhalten oder verschwindet sie beim Schließen modaler Dialoge? Welche Dialoge welches Verhalten? — Aus der Live-Session: „Einstellungen für die Raum-Auswahl" → Selektion weg bei Abbrechen. Andere Dialoge ggf. anders.
-- [ ] **CAP-04:** `properties_get_property_values_of_elements` für Built-in-„Raumnummer"-Property — funktioniert sie für ID-Mapping in Bulk-Workflows zuverlässig? — Phase 5 Schedule-Pipeline-Verifikation.
+- [x] **CAP-01:** ✅ verifiziert 2026-05-21. `properties_set_property_values_of_elements` nimmt `{value: "<display-string>"}` — einfacher String, nicht das komplexe Enum-Konstrukt. Vorbedingung: Element muss klassifiziert sein für ein Item in der Property-`availability`-Liste (sonst „Not available" Code `-2130312908`). Workaround: vor Set einmalig `elements_set_classifications_of_elements`.
+- [x] **CAP-02:** ✅ verifiziert 2026-05-21 (Negativ-Befund). **Kein Modify-Endpoint für Property-Definitions.** `create_property_definitions` mit gleichem Namen schlägt fehl (Code `-2130312988`). Workaround: User muss UI „Optionen-Setup" verwenden oder Property zerstörerisch löschen + neu kreieren.
+- [~] **CAP-03:** partial. `elements_get_selected_elements` ist da, aber in der Live-Session war die Selektion leer — eigentliches Selektion-vs-Modal-Verhalten konnte nicht stringent re-getestet werden. Bestätigt aus Phase-3-Session: „Einstellungen für die Raum-Auswahl" → Selektion weg bei Abbrechen.
+- [~] **CAP-04:** partial. `properties_get_property_values_of_elements` ist verifiziert (CAP-01 Read-Pfad). Built-in „Raumnummer"-Property exists (Zone hat 278 Built-in Properties), aber der konkrete Property-Name für Raumnummer wurde in dieser Session nicht final isoliert. Pragmatisch: bei Schedule-Pipeline lieber via `numberStr` aus Zone-Detail-Fields lesen (wenn `get_details_of_elements`-Bug behoben ist), oder via Schedule-Export.
 
 Diese Tests sind nicht blocking für v1.0, aber sie sollten bei der ersten realen Phase-5-Live-Session als erste durchgeführt werden — sie klären die Workflow-Sicherheit für die Bulk-Property-Updates.
 
