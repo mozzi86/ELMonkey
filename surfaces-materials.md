@@ -2,13 +2,17 @@
 
 Dieses Recipe deckt die drei Materialschichten in Archicad ab: **Surfaces** (visuelle Oberflächen),
 **Building Materials** (BIM-Materialien mit physikalischen Eigenschaften) und **Composites**
-(Mehrschicht-Aufbauten). Der Fokus liegt auf der **Zuweisung existierender Materialien an Elemente**
-— Create ist für Building Materials und Composites verfügbar (live verifiziert Phase 2), aber
-seltener gebraucht als Zuweisung und Update.
+(Mehrschicht-Aufbauten). Create ist für alle drei Typen via MCP verfügbar (live verifiziert
+2026-05-21): `attributes_create_surfaces`, `attributes_create_building_materials`,
+`attributes_create_composites`.
 
-**Surface-Erstellung ist nicht via MCP bekannt** — vermutlich nur über Archicads UI-Materialeditor.
-Surfaces über `attributes_get_attributes_by_type` lesen und dann an Elementen zuweisen ist
-der übliche Workflow.
+**Kritische Einschränkung (live verifiziert 2026-05-21):** Die **Zuweisung** eines existierenden
+Composites/Building-Materials/Surfaces an ein bereits modelliertes Element ist via MCP v29
+NICHT möglich — `elements_set_details_of_elements.typeSpecificDetails` ist hart auf
+`WallSettings` (geometrische Wand-Felder) festgenagelt und enthält weder `structureType`
+noch `compositeIndex`/`buildingMaterialIndex`/`surfaceIndex`. Workarounds für Material-Zuweisung:
+(a) Archicad-UI (Element-Einstellungen), (b) Composite-Definition mit
+`overwriteExisting: true` neu schreiben (ändert ALLE Elemente, die dieses Composite nutzen).
 
 ## Inhaltsverzeichnis
 
@@ -31,24 +35,25 @@ der übliche Workflow.
 
 ## Umfang und Abgrenzung
 
-**Abgedeckt:**
+**Abgedeckt (via MCP v29 möglich, alle live-verifiziert 2026-05-21):**
 
-- Building Materials, Composites, Surfaces vollständig auflisten.
-- Building-Material-Detailwerte und physikalische Eigenschaften lesen.
-- Composite an Wand oder Decke zuweisen (via `elements_set_details_of_elements`).
-- Surface-Override an Library-Objects zuweisen.
-- Bulk-Zuweisung pro Layer-Filter.
-- Neues Building Material erstellen (verifiziert).
-- Neues Composite erstellen mit Skins + Separators (verifiziert).
+- Building Materials, Composites, Surfaces vollständig auflisten (paginiert).
+- Building-Material-Detailwerte + physikalische Eigenschaften lesen.
+- Composite-Detailwerte (Skins + Separators) lesen via `attributes_get_composite_attributes`.
+- Surface-Detailwerte (Farbe, Reflektion, Textur) lesen via `attributes_get_surface_attributes`.
+- Neues Building Material erstellen.
+- Neues Composite erstellen mit Skins + Separators.
+- Neue Surface erstellen mit SurfaceType-Enum (General/Simple/Matte/Metal/Plastic/Glass/Glowing/Constant) + Textur-Binding.
+- Attribut-Ordner (Folder-Hierarchie) erstellen, lesen, verschieben, löschen.
+- Composite-Definition mit `overwriteExisting: true` umschreiben (siehe Abschnitt „Composite-Zuweisung umgehen").
 
-**Nicht abgedeckt:**
+**NICHT abgedeckt (live-verifiziert 2026-05-21 als nicht-möglich in MCP v29):**
 
-- Surface erstellen — kein MCP-Tool bekannt. <!-- VERIFY: mglw. via attributes_create_surfaces? -->
-- Material-Override pro Element-Face (z. B. einzelne Seitenfläche einer Wand) — unklar ob MCP
-  diesen Detailgrad unterstützt. v1.x.
-- Profile erstellen oder zuweisen — separates Thema (`PROFILE`-Attributtyp, kein eigenes Recipe
-  in Phase 6).
-- Composite-Editor-Dialog — der modale Dialog blockiert MCP (siehe Gotcha 7).
+- **Composite/Building-Material an existierendes Element zuweisen** — `elements_set_details_of_elements.typeSpecificDetails` ist WallSettings-only. Keine `structureType`, kein `compositeIndex`, kein `buildingMaterialIndex`.
+- **Surface-Override an existierendem Element setzen** — gleiche Einschränkung. Kein `surfaceIndex` im Schema.
+- **Material-Override pro Element-Face** (z. B. einzelne Seitenfläche einer Wand) — separater Detailgrad, nicht in MCP v29.
+- **Profile erstellen oder zuweisen** — separates Thema (`PROFILE`-Attributtyp), nicht in Phase 6.
+- **Composite-Editor-Dialog** — der modale UI-Dialog blockiert MCP (siehe Gotcha 7).
 
 ---
 
@@ -70,18 +75,25 @@ Die Story- und Layer-Felder sind erst relevant, wenn wir ein konkretes Element a
 
 ## Discovery-Anker
 
-| Operation | Discovery-Query | Typischer Tool-Name |
-|-----------|-----------------|---------------------|
-| Attribute nach Typ listen | `"get attributes by type"` | `attributes_get_attributes_by_type` <!-- 2026-05-19 verifiziert AC29 --> |
-| Building-Material-Details | `"get building material attributes"` | `attributes_get_building_material_attributes` <!-- VERIFY --> |
-| Physikalische Eigenschaften | `"get building material physical properties"` | `attributes_get_building_material_physical_properties` <!-- VERIFY --> |
-| Building Material erstellen | `"create building materials"` | `attributes_create_building_materials` <!-- 2026-05-20 verifiziert AC29 --> |
-| Composite erstellen | `"create composites"` | `attributes_create_composites` <!-- 2026-05-20 verifiziert AC29 --> |
-| Attribute-Folder erstellen | `"create attribute folders"` | `attributes_create_attribute_folders` <!-- 2026-05-20 verifiziert AC29 --> |
-| Element modifizieren / Material zuweisen | `"set details of elements"` | `elements_set_details_of_elements` <!-- 2026-05-19 verifiziert AC29 --> |
-| Elemente nach Typ listen | `"get elements by type"` | `elements_get_elements_by_type` <!-- 2026-05-19 verifiziert AC29 --> |
-| Property-IDs holen | `"get all property ids of elements"` | `properties_get_all_property_ids_of_elements` <!-- VERIFY --> |
-| Property-Werte holen | `"get property values of elements"` | `properties_get_property_values_of_elements` <!-- VERIFY --> |
+| Operation | Discovery-Query | Tool-Name |
+|-----------|-----------------|-----------|
+| Attribute nach Typ listen (paginiert) | `"get attributes by type"` | `attributes_get_attributes_by_type` <!-- 2026-05-21 verifiziert AC29 --> |
+| Building-Material-Details | `"get building material attributes"` | `attributes_get_building_material_attributes` <!-- 2026-05-21 verifiziert AC29 --> |
+| Physikalische Eigenschaften (BM) | `"get building material physical properties"` | `attributes_get_building_material_physical_properties` <!-- 2026-05-21 verifiziert AC29 --> |
+| Composite-Details (Skins/Separators) | `"get composite attributes"` | `attributes_get_composite_attributes` <!-- 2026-05-21 verifiziert AC29 — Schema bestätigt --> |
+| Surface-Details (Farbe/Textur) | `"get surface attributes"` | `attributes_get_surface_attributes` <!-- 2026-05-21 verifiziert AC29 — Schema bestätigt --> |
+| Fill-Details (Schraffur) | `"get fill attributes"` | `attributes_get_fill_attributes` <!-- 2026-05-21 verifiziert AC29 --> |
+| Line-Details | `"get line attributes"` | `attributes_get_line_attributes` <!-- 2026-05-21 verifiziert AC29 --> |
+| Surface erstellen | `"create surface"` | `attributes_create_surfaces` <!-- 2026-05-21 verifiziert AC29 — Schema bestätigt: SurfaceType-Enum + ColorRGB + optional Texture --> |
+| Building Material erstellen | `"create building materials"` | `attributes_create_building_materials` <!-- 2026-05-21 verifiziert AC29 --> |
+| Composite erstellen | `"create composites"` | `attributes_create_composites` <!-- 2026-05-21 verifiziert AC29 --> |
+| Attribut-Ordner-Struktur lesen | `"get attribute folder structure"` | `attributes_get_attribute_folder_structure` <!-- 2026-05-21 verifiziert AC29 --> |
+| Attribut-Ordner erstellen | `"create attribute folders"` | `attributes_create_attribute_folders` <!-- 2026-05-21 verifiziert AC29 --> |
+| Attribute/Ordner verschieben | `"move attributes and folders"` | `attributes_move_attributes_and_folders` <!-- 2026-05-21 verifiziert AC29 --> |
+| Element modifizieren (NUR Wand-Geometrie) | `"set details of elements"` | `elements_set_details_of_elements` <!-- 2026-05-21 verifiziert AC29 — typeSpecificDetails=WallSettings-only, KEIN Composite-/Material-/Surface-Index --> |
+| Elemente nach Typ listen | `"get elements by type"` | `elements_get_elements_by_type` <!-- 2026-05-21 verifiziert AC29 — paginiert --> |
+| Property-IDs holen | `"get all property ids of elements"` | `properties_get_all_property_ids_of_elements` <!-- 2026-05-21 verifiziert AC29 --> |
+| Property-Werte holen | `"get property values of elements"` | `properties_get_property_values_of_elements` <!-- 2026-05-21 verifiziert AC29 --> |
 
 ---
 
@@ -116,22 +128,24 @@ Response:
 }
 ```
 
-**Schritt 2 — Folgeseiten abrufen, bis kein Token mehr:** <!-- VERIFY: genaues Token-Feld -->
+**Schritt 2 — Folgeseiten abrufen, bis kein Token mehr** <!-- 2026-05-21 verifiziert AC29 — page_token ist Top-Level-Argument, NICHT in params -->:
 
 ```
 mcp__archicad__archicad_call_tool(
   name="attributes_get_attributes_by_type",
   arguments={
     "port": 19723,
-    "params": {"attributeType": "BuildingMaterial", "page_token": "tok_abc123"}
+    "params": {"attributeType": "BuildingMaterial"},
+    "page_token": "tok_abc123"
   }
 )
 ```
 
-Ergebnisse akkumulieren. Erst wenn kein `next_page_token` mehr zurückkommt, sind alle
-Building Materials geladen. Niemals auf einer Teilseite weitermachen.
+**Pagination-Gotcha:** `page_token` ist ein TOP-LEVEL-Feld der `arguments` (neben `port` und `params`), NICHT innerhalb von `params`. Falsche Position → ignoriert, gleiche Seite kommt zurück.
 
-**Schritt 3 — Detail-Abfrage für ausgewählte Materialien:** <!-- VERIFY -->
+Ergebnisse akkumulieren. Erst wenn kein `next_page_token` mehr zurückkommt, sind alle Building Materials geladen. Niemals auf einer Teilseite weitermachen.
+
+**Schritt 3 — Detail-Abfrage für ausgewählte Materialien** <!-- 2026-05-21 verifiziert AC29 -->:
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -151,7 +165,7 @@ mcp__archicad__archicad_call_tool(
 Erwartete Response-Felder pro Material: `name`, `id`, `manufacturer`, `description`,
 `connPriority`, `cutFillIndex`, `cutFillPen`, `cutSurfaceIndex`.
 
-**Physikalische Eigenschaften separat:** <!-- VERIFY -->
+**Physikalische Eigenschaften separat** <!-- 2026-05-21 verifiziert AC29 -->:
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -190,12 +204,19 @@ mcp__archicad__archicad_call_tool(
 Response: `{attributes: [{attributeId: {guid}, index, name}], next_page_token?}`.
 Paginierung wie bei Building Materials durchführen.
 
-**Schritt 2 — Composite-Details inklusive Skin-Struktur lesen:** <!-- VERIFY -->
+**Schritt 2 — Composite-Details inklusive Skin-Struktur lesen** <!-- 2026-05-21 verifiziert AC29 — attributes_get_composite_attributes EXISTIERT (Discovery-Schema bestätigt) -->:
 
-Es gibt vermutlich keinen dedizierten `attributes_get_composite_attributes`-Call.
-Alternativ: Das Composite kann beim Erstellen einer Wand oder beim Lesen des Elements
-implizit zurückgegeben werden. Wenn ein dedizierter Endpoint fehlt, die Skin-Daten
-aus dem Element-Property-System holen (Wand mit diesem Composite laden, Properties lesen).
+```
+mcp__archicad__archicad_call_tool(
+  name="attributes_get_composite_attributes",
+  arguments={
+    "port": 19723,
+    "params": {"attributeIds": [{"attributeId": {"guid": "cm-guid-1"}}]}
+  }
+)
+```
+
+**Hinweis zur Schema-Konvention:** `attributeIds` ist ein Array von `{"attributeId": {"guid": "..."}}`-Wrappern — die GUID steckt einen Wrapper tiefer als bei `properties`-Calls. Bei „invalid argument"-Fehler immer Wrapper-Tiefe prüfen.
 
 **Was ein Composite-Datensatz typischerweise enthält:**
 
@@ -242,12 +263,19 @@ Response: `{attributes: [{attributeId: {guid}, index, name}], next_page_token?}`
 Typische Surfaces: `"Beton Sichtbeton"`, `"Putz weiß"`, `"Holz Eiche hell"`,
 `"Glas transparent"`. Die Surface-GUIDs und -Indizes sind projekt-spezifisch.
 
-**Detail-Abfrage für Surfaces:** <!-- VERIFY: ob attributes_get_surface_attributes existiert -->
+**Detail-Abfrage für Surfaces** <!-- 2026-05-21 verifiziert AC29 — attributes_get_surface_attributes EXISTIERT -->:
 
-Ein dedizierter `attributes_get_surface_attributes`-Endpoint ist aus Phase-2-Discovery nicht
-bekannt. Für Surface-Eigenschaften (Textur, Farbe, Glanz-Wert) bleibt vorerst der
-Archicad-Materialeditor der primäre Weg. Index aus der Listing-Response ist ausreichend
-für Zuweisung an Elemente.
+```
+mcp__archicad__archicad_call_tool(
+  name="attributes_get_surface_attributes",
+  arguments={
+    "port": 19723,
+    "params": {"attributeIds": [{"attributeId": {"guid": "sf-guid-1"}}]}
+  }
+)
+```
+
+Erwartete Response-Felder pro Surface: `name`, `materialType` (Enum: General/Simple/Matte/Metal/Plastic/Glass/Glowing/Constant), `ambientReflection`/`diffuseReflection`/`specularReflection` (0-100), `transparency` (0-100), `shine` (0-10000), `surfaceColor`/`specularColor`/`emissionColor` (ColorRGB 0.0-1.0), optional `texture` mit Filename + Skalierung + Mirror-Flags + Alpha-Channel-Bits, optional `fillId` für gekoppelten Fill.
 
 ---
 
@@ -265,7 +293,7 @@ mcp__archicad__archicad_call_tool(
   arguments={
     "port": 19723,
     "params": {
-      "buildingMaterials": [{
+      "buildingMaterialDataArray": [{
         "name": "Hochleistungsbeton C40/50",
         "id": "BETON-C40",
         "manufacturer": "Projektspezifisch",
@@ -286,7 +314,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-<!-- 2026-05-20 verifiziert AC29 — attributes_create_building_materials -->
+<!-- 2026-05-21 verifiziert AC29 — attributes_create_building_materials, Schema-Param ist buildingMaterialDataArray (NICHT buildingMaterials) -->
 
 Response enthält die neue `attributeId: {guid}` des erstellten Materials. Diese GUID sofort
 im Arbeitsgedächtnis festhalten (SAFE-05) — sie wird beim Composite-Create als
@@ -316,34 +344,34 @@ mcp__archicad__archicad_call_tool(
   arguments={
     "port": 19723,
     "params": {
-      "composites": [{
+      "compositeDataArray": [{
         "name": "AW 365 Poroton T14 + Putz",
         "useWith": ["Wall"],
         "skins": [
           {
             "type": "Finish",
-            "buildingMaterialId": {"guid": "bm-guid-aussenputz"},
+            "buildingMaterialId": {"attributeId": {"guid": "bm-guid-aussenputz"}},
             "framePen": 2,
             "thickness": 0.020
           },
           {
             "type": "Core",
-            "buildingMaterialId": {"guid": "bm-guid-poroton"},
+            "buildingMaterialId": {"attributeId": {"guid": "bm-guid-poroton"}},
             "framePen": 2,
             "thickness": 0.365
           },
           {
             "type": "Finish",
-            "buildingMaterialId": {"guid": "bm-guid-innenputz"},
+            "buildingMaterialId": {"attributeId": {"guid": "bm-guid-innenputz"}},
             "framePen": 2,
             "thickness": 0.015
           }
         ],
         "separators": [
-          {"lineTypeId": {"guid": "lt-guid-solid"}, "linePen": 2},
-          {"lineTypeId": {"guid": "lt-guid-solid"}, "linePen": 1},
-          {"lineTypeId": {"guid": "lt-guid-solid"}, "linePen": 1},
-          {"lineTypeId": {"guid": "lt-guid-solid"}, "linePen": 2}
+          {"lineTypeId": {"attributeId": {"guid": "lt-guid-solid"}}, "linePen": 2},
+          {"lineTypeId": {"attributeId": {"guid": "lt-guid-solid"}}, "linePen": 1},
+          {"lineTypeId": {"attributeId": {"guid": "lt-guid-solid"}}, "linePen": 1},
+          {"lineTypeId": {"attributeId": {"guid": "lt-guid-solid"}}, "linePen": 2}
         ]
       }],
       "overwriteExisting": false
@@ -352,7 +380,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-<!-- 2026-05-20 verifiziert AC29 — attributes_create_composites -->
+<!-- 2026-05-21 verifiziert AC29 — Schema-Korrekturen: Param ist compositeDataArray (NICHT composites), buildingMaterialId+lineTypeId sind AttributeIdArrayItem-Wrapper {"attributeId": {"guid": ...}} (eine Ebene tiefer als zuvor dokumentiert) -->
 
 **Separator-Zählung:** 3 Skins → 4 Separators (außen, zwischen Skin1/2, zwischen Skin2/3, innen).
 Falsche Anzahl → Validierungsfehler. Mehr in Gotcha 2.
@@ -368,224 +396,136 @@ nächsten Schritt (Zuweisung an Wand) festhalten.
 
 ---
 
-## Worked Example — Composite an eine Wand zuweisen
+## Composite-Zuweisung an existierende Wand — NICHT direkt via MCP v29
 
-Ein existierendes oder frisch erstelltes Composite wird einer Wand zugewiesen.
-Dies ist ein Update-Call — SAFE-01 Confirm-Dialog ist Pflicht.
+<!-- 2026-05-21 verifiziert AC29 via Discovery-Schema-Inspektion -->
 
-**Schritt 1 — Composite-Index ermitteln** (falls nur GUID bekannt):
+**Befund:** `elements_set_details_of_elements.params.elementsWithDetails[].details.typeSpecificDetails` ist im MCP v29-Server hart auf `WallSettings` festgenagelt. `WallSettings` enthält ausschließlich geometrische Felder (begCoordinate, endCoordinate, height, bottomOffset, offset, begThickness, endThickness) — KEINE `structureType`, KEIN `compositeIndex`, KEIN `buildingMaterialIndex`. Die Composite-Zuweisung an ein bereits modelliertes Element ist deshalb via diesen Endpoint **nicht möglich**.
 
-Der `index`-Wert aus `attributes_get_attributes_by_type` wird als Float in `typeSpecificDetails`
-gebraucht (z. B. `"compositeIndex": 5.0`). <!-- VERIFY: genaues Feld-Mapping -->
+### Workaround A — User-UI (empfohlen für Einzelelemente)
 
-Alternativ: GUID direkt als `compositeAttributeId` übergeben, falls der Server das unterstützt.
+```
+Bitte in Archicad öffnen:
+  1. Wand f1101930-... selektieren (z.B. Werkzeug → Auswahl, GUID via Element-ID-Werkzeug zeigen lassen)
+  2. Einstellungen-Dialog (Strg/Cmd+T)
+  3. Struktur → Composite → "AW 365 Poroton T14 + Putz" wählen
+  4. OK
 
-**Schritt 2 — Confirm (SAFE-01):**
+(MCP v29 hat keinen programmatischen Endpoint dafür.)
+```
+
+### Workaround B — Composite-Definition überschreiben (für Bulk-Effekt)
+
+Wenn ALLE Wände, die ein bestimmtes Composite (z.B. „AW 365") verwenden, einen neuen Aufbau bekommen sollen: Composite-Definition via `attributes_create_composites` mit `overwriteExisting: true` neu schreiben. Das ändert das Composite-Attribut selbst — alle zugewiesenen Wände erben den neuen Aufbau automatisch.
+
+**Confirm (SAFE-01 ist hier ÜBERLEBENSWICHTIG — kaskadiert auf alle Wände):**
 
 ```
 Ich werde folgendes ändern:
-- Wand f1101930-e0bd-7044-a1f2-fdb20e520e21  (Story 0)
-  Composite: <aktuell> → "AW 365 Poroton T14 + Putz"
+- Composite "AW 365 Poroton T14 + Putz" (Index 5, GUID cm-...)
+  Aufbau: 3 Skins (Außenputz 2cm + Poroton 36,5cm + Innenputz 1,5cm)
+       → 4 Skins (Klinker 11,5cm + Dämmung 16cm + Poroton 17,5cm + Innenputz 1,5cm)
+
+ACHTUNG: Diese Änderung wirkt sich auf ALLE 47 Wände aus, die dieses
+Composite zugewiesen haben (Stand: elements_get_elements_by_type +
+property-filter "Layer:A_AW-Aussenwand" → 47 Treffer).
 
 Ausführen? (ja / nein / details / abbrechen)
 ```
 
-**Schritt 3 — Composite-Zuweisung nach `ja`:** <!-- VERIFY: genaue Feldnamen in typeSpecificDetails -->
+Aufruf nach `ja` siehe „Worked Example — Neues Composite erstellen" oben — gleicher Call, nur `overwriteExisting: true` und `attributeId` der existierenden Composite-GUID setzen.
 
-```
-mcp__archicad__archicad_call_tool(
-  name="elements_set_details_of_elements",
-  arguments={
-    "port": 19723,
-    "params": {
-      "elementsWithDetails": [{
-        "elementId": {"guid": "f1101930-e0bd-7044-a1f2-fdb20e520e21"},
-        "details": {
-          "typeSpecificDetails": {
-            "structureType": "Composite",
-            "compositeIndex": 5.0
-          }
-        }
-      }]
-    }
-  }
-)
-```
+### Workaround C — Wand löschen + neu erstellen — NICHT möglich
 
-<!-- 2026-05-19 verifiziert AC29 — elements_set_details_of_elements (Basisaufruf) -->
-<!-- VERIFY: structureType + compositeIndex Feldnamen für Wand-Composite-Zuweisung -->
-
-**Für Decken (Slabs)** ist das Schema analog, aber der Wrapper-Typ lautet `SlabSettings`.
-Über `elements_set_details_of_elements` mit derselben Struktur — `typeSpecificDetails`
-enthält dann Slab-spezifische Felder.
-
-**Wand auf single-Layer BuildingMaterial umstellen:** `structureType: "Basic"` und
-`buildingMaterialIndex` statt `compositeIndex`. <!-- VERIFY -->
+Wände sind in MCP v29 NICHT erstellbar (siehe Capability-Tabelle in `mcp-conventions.md`). Workaround „delete + recreate" wie bei PolyLine ist daher für Wand-Composite-Wechsel nicht verfügbar. Workaround A (UI) ist alternativlos für Einzelelemente.
 
 ---
 
-## Worked Example — Surface-Override an einem Object zuweisen
+## Surface-Override an einem Object zuweisen — NICHT direkt via MCP v29
 
-Library-Objects (Möbel, Sanitär, GDL-Objekte) können Surface-Overrides erhalten —
-die Original-GDL-Oberfläche wird durch eine Projekt-Surface ersetzt.
+<!-- 2026-05-21 verifiziert AC29 via Discovery-Schema-Inspektion -->
 
-**Schritt 1 — Surface-Index aus Listing ermitteln:**
+**Befund:** Identische Einschränkung wie bei der Composite-Zuweisung — `set_details.typeSpecificDetails` ist WallSettings-only. Es gibt kein `surfaceIndex`-Feld im Schema und keinen anderen Endpoint zum Setzen eines Surface-Overrides pro Element. Library-Object-Surface-Overrides können via MCP v29 nicht gesetzt werden.
 
-```
-mcp__archicad__archicad_call_tool(
-  name="attributes_get_attributes_by_type",
-  arguments={
-    "port": 19723,
-    "params": {"attributeType": "Surface"}
-  }
-)
-```
-
-Response: `{attributes: [{attributeId: {guid}, index: 12, name: "Putz weiß"}, ...]}`.
-Den `index`-Wert der gewünschten Surface notieren (z. B. `12`).
-
-**Schritt 2 — Aktuellen Surface-Override des Objects lesen:** <!-- VERIFY -->
+### Workaround — User-UI
 
 ```
-mcp__archicad__archicad_call_tool(
-  name="properties_get_property_values_of_elements",
-  arguments={
-    "port": 19723,
-    "params": {
-      "elements": [{"elementId": {"guid": "obj-guid-1234"}}],
-      "properties": [{"propertyId": {"guid": "<surface-property-guid>"}}]
-    }
-  }
-)
+Bitte in Archicad öffnen:
+  1. Object obj-guid-1234 selektieren
+  2. Einstellungen-Dialog (Strg/Cmd+T)
+  3. Modell-Darstellung → Oberflächen-Override → "Putz weiß" wählen
+  4. OK
+
+(MCP v29 hat keinen programmatischen Endpoint für Surface-Override-Set.)
 ```
 
-Surface-Property-GUID per `properties_get_all_property_ids_of_elements` ermitteln.
+### Was via MCP geht (Surface-Domain)
 
-**Schritt 3 — Confirm (SAFE-01):**
+- Alle Surfaces auflisten: `attributes_get_attributes_by_type` (Type "Surface").
+- Surface-Details lesen: `attributes_get_surface_attributes`.
+- Neue Surface erstellen: `attributes_create_surfaces` (mit SurfaceType-Enum + Farbe + Textur).
+- Bestehende Surface umdefinieren: `attributes_create_surfaces` mit `overwriteExisting: true` → wirkt auf alle Elemente, die diese Surface nutzen.
 
-```
-Ich werde folgendes ändern:
-- Object obj-guid-1234  "Wohnzimmer Sofa 3-sitzig"
-  Surface-Override: <kein Override> → "Putz weiß" (Index 12)
-
-Ausführen? (ja / nein / details / abbrechen)
-```
-
-**Schritt 4 — Surface-Override setzen nach `ja`:** <!-- VERIFY: genaue Feldnamen -->
-
-```
-mcp__archicad__archicad_call_tool(
-  name="elements_set_details_of_elements",
-  arguments={
-    "port": 19723,
-    "params": {
-      "elementsWithDetails": [{
-        "elementId": {"guid": "obj-guid-1234"},
-        "details": {
-          "typeSpecificDetails": {
-            "surfaceIndex": 12.0
-          }
-        }
-      }]
-    }
-  }
-)
-```
-
-<!-- VERIFY: surfaceIndex vs. surfaceAttributeId — welches Feld akzeptiert der Server? -->
-
-**Hinweis — Schedule-Implikation:** Surface-Overrides erscheinen in Archicad-Schedules
-anders als Composite-zugeordnete Materialien. Für korrekte Materialauswertung in
-Raumbüchern sind Composites mit BuildingMaterial-Referenzen zuverlässiger als
-Surface-Overrides allein. Mehr in Gotcha 4.
+**Hinweis — Schedule-Implikation:** Surface-Overrides erscheinen in Archicad-Schedules anders als Composite-zugeordnete Materialien. Für korrekte Materialauswertung in Raumbüchern sind Composites mit BuildingMaterial-Referenzen zuverlässiger als Surface-Overrides allein. Mehr in Gotcha 4.
 
 ---
 
-## Worked Example — Bulk-Material-Zuweisung per Layer-Filter
+## Bulk-Material-Zuweisung per Layer-Filter — alternative Wege
 
-Alle Wände auf dem Layer `A_AW-Außenwände` sollen das Composite
-`"AW 365 Poroton T14 + Putz"` erhalten. 6-Schritt-Pattern aus
-`../reference/bulk-operations.md`, angepasst für Material-Zuweisung.
+<!-- 2026-05-21 verifiziert AC29 -->
 
-**Schritt 1 — READ: Alle Wände laden (paginiert):**
+Ein-zu-eins-Composite-Zuweisung an N existierende Wände ist via MCP v29 NICHT möglich (siehe vorherigen Abschnitt). Wenn aber alle N Wände dasselbe **bestehende** Composite tragen sollen und das Ziel ein **neuer** Aufbau ist, gibt es zwei tragfähige Wege:
+
+### Weg 1 — Bulk-Composite-Definition überschreiben
+
+Falls alle 43 Ziel-Wände bereits dasselbe Composite (z.B. „AW 365 alt") tragen, das umdefiniert werden soll → siehe „Workaround B" im vorherigen Abschnitt. Ein einziger `attributes_create_composites`-Call mit `overwriteExisting: true` ändert das Composite-Attribut, alle 43 Wände erben den neuen Aufbau automatisch. Keine Batch-Schleife nötig.
+
+### Weg 2 — UI-Workflow vorbereiten
+
+Wenn die 43 Wände unterschiedliche aktuelle Composites haben (Mischbestand), funktioniert Weg 1 nicht — der einzige Pfad bleibt UI-Bulk:
+
+**Schritt 1 — READ + FILTER programmatisch vorbereiten:**
 
 ```
+# Alle Wände laden (paginiert)
 mcp__archicad__archicad_call_tool(
   name="elements_get_elements_by_type",
-  arguments={
-    "port": 19723,
-    "params": {"elementType": "Wall"}
-  }
+  arguments={"port": 19723, "params": {"elementType": "Wall"}}
 )
-```
+# Annahme: 148 Wände, paginierung durchziehen
 
-<!-- 2026-05-19 verifiziert AC29 -->
-
-Vollständig durchpaginieren. Annahme: 148 Wände gesamt.
-
-**Schritt 2 — ATTR-01: Alle Layer mit ihren Indizes laden:**
-
-```
+# Layer-Indizes auflisten
 mcp__archicad__archicad_call_tool(
   name="attributes_get_attributes_by_type",
-  arguments={
-    "port": 19723,
-    "params": {"attributeType": "Layer"}
-  }
+  arguments={"port": 19723, "params": {"attributeType": "Layer"}}
 )
+# Mapping bauen: "A_AW-Außenwände" → layerIndex 7
+
+# Filter: Property-Werte der Wände lesen, Layer-Property = 7 behalten
+# Resultat: 43 GUIDs der Ziel-Wände
 ```
 
-Mapping bauen: `"A_AW-Außenwände" → layerIndex 7`.
-
-**Schritt 3 — FILTER: Nur Wände auf Layer 7:**
-
-Property-Werte der Wände abrufen (`properties_get_property_values_of_elements`),
-`Layer`-Property filtern → nur Wände mit `layerIndex: 7.0` behalten.
-Annahme: 43 Wände.
-
-**Schritt 4 — Composite-Index ermitteln:**
-
-Aus dem Composite-Listing (Schritt im vorangehenden Example) den Index des
-Composites `"AW 365 Poroton T14 + Putz"` herauslesen — z. B. `index: 5`.
-
-**Schritt 5 — CONFIRM (SAFE-01):**
+**Schritt 2 — User-Anweisung mit GUID-Liste vorbereiten:**
 
 ```
-Ich werde folgendes ändern:
-- 43 Wände (Layer "A_AW-Außenwände")
-  Composite: jeweils aktuell → "AW 365 Poroton T14 + Putz" (Index 5)
+Die 43 zu ändernden Wände (Layer "A_AW-Außenwände"):
+  - f1101930-... (Story 0, Länge 4.20 m)
+  - a2b3c4d5-... (Story 0, Länge 3.85 m)
+  - ... (41 weitere)
 
-Ausführen? (ja / details / abbrechen)
+Bitte in Archicad:
+  1. Bearbeiten → Suchen+Auswählen → nach GUID-Liste (Skript im Workflow,
+     oder nach Layer "A_AW-Außenwände" filtern)
+  2. Mit allen 43 selektiert: Strg/Cmd+T → Struktur → Composite
+     "AW 365 Poroton T14 + Putz" → OK
+  3. Bestätigen, wenn fertig.
 ```
 
-`details` zeigt die 43 GUIDs + aktuelles Composite pro Wand.
+**Schritt 3 — Verifikation nach User-Bestätigung:**
 
-**Schritt 6 — APPLY: Pro Wand setzen nach `ja`:** <!-- VERIFY -->
+Nach „fertig" via `properties_get_property_values_of_elements` die Composite-Property der 43 Wände lesen und prüfen, ob alle den neuen Aufbau zeigen. Nicht-vertrauen-Pattern (siehe `bulk-operations.md` § silent-success-without-success).
 
-```
-mcp__archicad__archicad_call_tool(
-  name="elements_set_details_of_elements",
-  arguments={
-    "port": 19723,
-    "params": {
-      "elementsWithDetails": [
-        {
-          "elementId": {"guid": "<wand-guid-1>"},
-          "details": {"typeSpecificDetails": {"structureType": "Composite", "compositeIndex": 5.0}}
-        },
-        {
-          "elementId": {"guid": "<wand-guid-2>"},
-          "details": {"typeSpecificDetails": {"structureType": "Composite", "compositeIndex": 5.0}}
-        }
-        /* ... alle 43 Wände */
-      ]
-    }
-  }
-)
-```
-
-Batch-Größe: keine Obergrenze (User-Präferenz). Einzel-Fehler weiterlaufen lassen,
-Report am Ende: „43 verarbeitet, 42 erfolgreich, 1 Fehler bei ID X — Grund: ...".
+**Honest-Limit:** Vollautomatischer Bulk-Composite-Wechsel ist in MCP v29 für Mischbestände nicht möglich. Diese Lücke ist als Backlog-Item dokumentiert; ggf. bei MCP-Server-Update neu verifizieren.
 
 ---
 
@@ -599,8 +539,7 @@ Workflow. Das Muster:
 2. Layer-Filter + ggf. Klassifikations-Filter.
 3. Pro Gruppe: Composite-Index + Klassifikations-GUID ermitteln.
 4. CONFIRM mit kombinierter Summary: `"84 Wände → Composite X + Klasse Außenwand"`.
-5. APPLY: `elements_set_details_of_elements` + `elements_set_classifications_of_elements`
-   in zwei getrennten Batches (oder prüfen ob kombinierbar). <!-- VERIFY -->
+5. APPLY: nur `elements_set_classifications_of_elements` ist als programmatischer Bulk-Call verfügbar (siehe `bulk-operations.md`). Composite-Set: NICHT via MCP — siehe Abschnitt „Composite-Zuweisung an existierende Wand" oben. Daher in der Praxis zwei getrennte Schritte: (a) MCP-Bulk-Klassifizierung, (b) Composite-Wechsel via UI oder Composite-Definition-Überschreibung.
 
 Vollständige Live-verifizierten Patterns: `../reference/bulk-operations.md`.
 
@@ -640,11 +579,14 @@ Vollständige Live-verifizierten Patterns: `../reference/bulk-operations.md`.
    Schnitt-Konturen reserviert, Stift 1 für Umrisslinien. Falsche Wahl → falsches
    Schnittschraffur-Erscheinungsbild bei Pen-Set-Wechsel.
 
-6. **Surface-Create nicht via MCP bekannt.** `attributes_create_surfaces` wurde in der
-   Phase-2-Discovery nicht gefunden. Surfaces werden in Archicad über Optionen → Element-
-   Attribute → Oberflächen angelegt. Für neue Surfaces: Archicad-UI verwenden, dann die
-   neue Surface per `attributes_get_attributes_by_type` auflisten und die GUID nutzen.
-   <!-- VERIFY: ob ein Create-Endpoint existiert, der nicht in Discovery auftauchte -->
+6. **Surface-Create geht via MCP** <!-- 2026-05-21 verifiziert AC29: attributes_create_surfaces existiert -->.
+   Korrektur zur älteren Skill-Version: `attributes_create_surfaces` IST im Discovery zu finden
+   und unterstützt vollständige Surface-Definition: SurfaceType-Enum (General/Simple/Matte/Metal/
+   Plastic/Glass/Glowing/Constant), Ambient/Diffuse/Specular/Transparency/Shine-Werte,
+   ColorRGB für surfaceColor/specularColor/emissionColor, optional Texture-Block mit Filename,
+   Skalierung, Mirror-Flags, Alpha-Channel-Bindings. Required-Felder: name, materialType,
+   alle Reflection-Werte, alle Color-Felder. Beim Update existierender Surfaces:
+   `overwriteExisting: true`.
 
 7. **Modal-Dialog-Warnung beim Material- und Composite-Editor.** Der Archicad-Materialeditor
    (Optionen → Element-Attribute → Baumaterialien) und der Composite-Editor sind modale Dialoge.
@@ -654,11 +596,15 @@ Vollständige Live-verifizierten Patterns: `../reference/bulk-operations.md`.
    Reaktion: User informieren, Dialog schließen lassen, dann wiederholen. Nie mehrfach
    auto-retry. Mehr in `../reference/mcp-conventions.md § Modal-Dialoge`.
 
-8. **Attribute-Folder-Hierarchie für Organisation.** Building Materials und Composites
-   können in Ordnern organisiert werden. Ordner erstellen via `attributes_create_attribute_folders`
-   <!-- 2026-05-20 verifiziert AC29 -->, dann beim Create des Attributs den Folder-Pfad
-   angeben. Ohne Folder landen neue Attribute in der Root-Liste, was bei großen Projekten
-   unübersichtlich wird. <!-- VERIFY: genaues Feld für Folder-Zuweisung beim Create -->
+8. **Attribute-Folder-Hierarchie — Zwei-Schritt-Workflow.** <!-- 2026-05-21 verifiziert AC29 — Discovery zeigt keine Folder-Felder in den Create-Schemas. -->
+   Building Materials, Composites, Surfaces können in Ordnern organisiert werden, aber
+   NICHT direkt beim Create. Workflow ist zwei Schritte:
+   (1) Attribut anlegen via `attributes_create_*` (landet erstmal in Root)
+   (2) Attribut in Ordner verschieben via `attributes_move_attributes_and_folders` mit
+   `targetFolderId` (Folder-GUID aus `attributes_get_attribute_folder_structure`).
+   Ordner erstellen vorher mit `attributes_create_attribute_folders` (nimmt nur `path[]` als
+   String-Liste). Ohne diesen Move-Schritt bleiben neue Attribute in Root, was bei großen
+   Projekten unübersichtlich wird.
 
 ---
 
