@@ -580,7 +580,7 @@ Hinweis: Sub-Elemente (Frames, Panels, Segmente) werden NICHT automatisch mit-kl
 Ausführen? (ja / nein / details / abbrechen)
 ```
 
-**Schritt 5 — Klassifikation setzen (nach `ja`):** <!-- VERIFY -->
+**Schritt 5 — Klassifikation setzen (nach `ja`)** <!-- 2026-05-21 live verifiziert AC29 — Schema-Form korrigiert -->:
 
 ```python
 mcp__archicad__archicad_call_tool(
@@ -588,15 +588,13 @@ mcp__archicad__archicad_call_tool(
   arguments={
     "port": <port>,
     "params": {
-      "elementsWithClassifications": [
+      "elementClassifications": [
         {
           "elementId": {"guid": "<top-level-cw-guid>"},
-          "classifications": [
-            {
-              "classificationSystemId": {"guid": "<system-guid>"},
-              "classificationItemId": {"guid": "<fassade-klassen-guid>"}
-            }
-          ]
+          "classificationId": {
+            "classificationSystemId": {"guid": "<system-guid>"},
+            "classificationItemId": {"guid": "<fassade-klassen-guid>"}
+          }
         }
       ]
     }

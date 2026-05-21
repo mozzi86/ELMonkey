@@ -476,7 +476,7 @@ Ich werde folgendes klassifizieren:
 Ausführen? (ja / nein / details / abbrechen)
 ```
 
-**Schritt 4 — Klassifikation setzen:**
+**Schritt 4 — Klassifikation setzen** <!-- 2026-05-21 live verifiziert AC29 — Schema-Form korrigiert; alte Form "elementsWithClassifications + classifications[]" + falsche classificationId-Struktur werden vom Server mit Pydantic-Error abgelehnt -->:
 
 ```python
 mcp__archicad__archicad_call_tool(
@@ -484,18 +484,20 @@ mcp__archicad__archicad_call_tool(
   arguments={
     "port": 19723,
     "params": {
-      "elementsWithClassifications": [
+      "elementClassifications": [
         {
           "elementId": {"guid": "01b90e9f-a241-dc45-a448-5acc06a186c4"},
-          "classifications": [{
-            "classificationId": {"guid": "<tragend-guid>"}
-          }]
+          "classificationId": {
+            "classificationSystemId": {"guid": "<system-guid>"},
+            "classificationItemId": {"guid": "<tragend-guid>"}
+          }
         },
         {
           "elementId": {"guid": "41adb22a-a347-784a-bcba-ac6137ce76e3"},
-          "classifications": [{
-            "classificationId": {"guid": "<tragend-guid>"}
-          }]
+          "classificationId": {
+            "classificationSystemId": {"guid": "<system-guid>"},
+            "classificationItemId": {"guid": "<tragend-guid>"}
+          }
         }
       ]
     }

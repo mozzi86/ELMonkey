@@ -323,7 +323,7 @@ Ich werde folgendes ändern:
 Ausführen? (ja / nein / details / abbrechen)
 ```
 
-**Klassifikation setzen** (nach `ja`):
+**Klassifikation setzen** (nach `ja`) <!-- 2026-05-21 live verifiziert AC29 — Schema-Form korrigiert -->:
 
 ```python
 mcp__archicad__archicad_call_tool(
@@ -331,15 +331,13 @@ mcp__archicad__archicad_call_tool(
   arguments={
     "port": 19723,
     "params": {
-      "elementsWithClassifications": [
+      "elementClassifications": [
         {
           "elementId": {"guid": "e0394527-a1fa-b24b-bab2-d75ffce4cc7e"},
-          "classifications": [
-            {
-              "classificationSystemId": {"guid": "<SAB_Klassifizierung_29-system-guid>"},
-              "classificationItemId": {"guid": "<wohnen-item-guid>"}
-            }
-          ]
+          "classificationId": {
+            "classificationSystemId": {"guid": "<SAB_Klassifizierung_29-system-guid>"},
+            "classificationItemId": {"guid": "<wohnen-item-guid>"}
+          }
         }
       ]
     }

@@ -305,7 +305,7 @@ Ich werde folgendes klassifizieren:
 Ausführen? (ja / nein / details / abbrechen)
 ```
 
-**Schritt 4 — Klassifikation setzen nach Bestätigung:** <!-- VERIFY -->
+**Schritt 4 — Klassifikation setzen nach Bestätigung** <!-- 2026-05-21 live verifiziert AC29 — Schema-Form korrigiert; alte Form "elementsWithClassifications + classifications[]" wird vom Server mit Pydantic-Error abgelehnt -->:
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -313,12 +313,12 @@ mcp__archicad__archicad_call_tool(
   arguments={
     "port": 19723,
     "params": {
-      "elementsWithClassifications": [{
+      "elementClassifications": [{
         "elementId": {"guid": "f1101930-e0bd-7044-a1f2-fdb20e520e21"},
-        "classifications": [{
+        "classificationId": {
           "classificationSystemId": {"guid": "<system-guid>"},
           "classificationItemId": {"guid": "<klassen-guid>"}
-        }]
+        }
       }]
     }
   }
