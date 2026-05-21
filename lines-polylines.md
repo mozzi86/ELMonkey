@@ -44,9 +44,9 @@ zugänglich.
 |---|---|---|
 | PolyLine | ✓ `mcp__archicad__elements_create_polylines` <!-- 2026-05-19 verifiziert AC29 --> | Einziger erstellbarer 2D-Linientyp |
 | Line | ✗ kein Create-Endpoint in MCP v29 <!-- 2026-05-20 schema-only --> | Workaround: PolyLine mit 2 Punkten |
-| Arc | ✗ kein Create-Endpoint in MCP v29 <!-- 2026-05-20 schema-only --> | User zeichnet manuell <!-- VERIFY --> |
-| Circle | ✗ kein Create-Endpoint in MCP v29 <!-- 2026-05-20 schema-only --> | User zeichnet manuell <!-- VERIFY --> |
-| Spline | ✗ kein Create-Endpoint in MCP v29 <!-- 2026-05-20 schema-only --> | User zeichnet manuell <!-- VERIFY --> |
+| Arc | ✗ kein Create-Endpoint in MCP v29 <!-- 2026-05-21 verifiziert AC29 (Discovery liefert nur elements_create_polylines) --> | User zeichnet manuell, oder PolyLine mit Arc-Segment (arcs-Array) |
+| Circle | ✗ kein Create-Endpoint in MCP v29 <!-- 2026-05-21 verifiziert AC29 --> | User zeichnet manuell |
+| Spline | ✗ kein Create-Endpoint in MCP v29 <!-- 2026-05-21 verifiziert AC29 --> | User zeichnet manuell |
 
 Vollständige Capability-Tabelle aller Element-Typen:
 [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Live-verifizierte Element-Create-Capabilities.
@@ -80,11 +80,12 @@ Pen-Set-Details (Tool-Namen, Query-Strings, Stifte-per-Index):
 | Elemente nach Typ listen | `"get elements by type"` | `elements_get_elements_by_type` <!-- 2026-05-19 verifiziert AC29 --> |
 | Element modifizieren | `"set details of elements"` | `elements_set_details_of_elements` <!-- 2026-05-19 verifiziert AC29 --> |
 | Element löschen | `"delete elements by id"` | `elements_delete_elements` <!-- 2026-05-19 verifiziert AC29 --> |
-| Bounding Box | `"get 2d bounding boxes of elements"` | `elements_get_2_d_bounding_boxes` <!-- VERIFY --> |
+| Bounding Box (2D) | `"get 2d bounding boxes of elements"` | `elements_get2_d_bounding_boxes` <!-- 2026-05-21 verifiziert AC29 — ACHTUNG: Tool-Name OHNE Unterstrich zwischen "get" und "2", nur zwischen "2" und "d" --> |
+| Bounding Box (3D) | `"get 3d bounding boxes of elements"` | `elements_get3_d_bounding_boxes` <!-- 2026-05-21 verifiziert AC29 — gleiche Underscore-Konvention --> |
 | Linientypen listen | `"get attributes by type line"` | `attributes_get_attributes_by_type` <!-- 2026-05-19 verifiziert AC29 --> |
 | Pen-Tabellen listen | `"get attributes by type pen table"` | `attributes_get_attributes_by_type` <!-- 2026-05-19 verifiziert AC29 --> |
-| Klassifikation lesen | `"get classifications of elements"` | `elements_get_classifications_of_elements` <!-- 2026-05-19 verifiziert AC29 --> |
-| Klassifikation setzen | `"set classifications of elements"` | `elements_set_classifications_of_elements` <!-- VERIFY --> |
+| Klassifikation lesen | `"get classifications of elements"` | `elements_get_classifications_of_elements` <!-- 2026-05-19 verifiziert AC29; bekannter Pydantic-Bug, siehe Memory issue_archicad_mcp_get_details_bug --> |
+| Klassifikation setzen | `"set classifications of elements"` | `elements_set_classifications_of_elements` <!-- 2026-05-21 verifiziert AC29 --> |
 
 ---
 
@@ -102,39 +103,23 @@ Pen-Set-Details (Tool-Namen, Query-Strings, Stifte-per-Index):
 
 Response: `{"elements": [{"elementId": {"guid": "<polyline-guid>"}}]}`.
 
-### PolyLine-Modifikation via `elements_set_details_of_elements`
+### PolyLine-Modifikation via `elements_set_details_of_elements` — eingeschränkt
 
-`typeSpecificDetails`-Felder für PolyLine — aus Schema-Discovery abgeleitet: <!-- VERIFY -->
+<!-- 2026-05-21 verifiziert AC29 via Discovery-Schema-Inspektion -->
+
+**Kritische Einschränkung:** `elements_set_details_of_elements.params.elementsWithDetails[].details.typeSpecificDetails` ist im MCP v29-Server **hart auf `WallSettings` festgenagelt** (Schema akzeptiert nur die Wand-spezifischen Felder begCoordinate/endCoordinate/height/bottomOffset/offset/begThickness/endThickness). Es gibt KEINE PolyLine/Line/Arc/Circle/Spline-spezifischen Felder in dem Endpoint.
+
+**Konsequenz:** Geometrische Modifikation einer PolyLine (Koordinaten, Arc-Segmente) ist **NICHT** via `set_details` möglich. Workaround: PolyLine löschen + neu erstellen (siehe Worked Example unten).
+
+**Was via `set_details` AUF PolyLines GEHT** (Top-Level-Details-Felder, kein typeSpecificDetails):
 
 | Feld | Typ | Beschreibung |
 |---|---|---|
-| `coordinates` | `[{x, y}, ...]` | Neue Stützpunktliste. Ersetzt vollständig die bisherigen Punkte. |
-| `arcs` | `[{begIndex, endIndex, arcAngle}, ...]` | Neue Arc-Liste. Komplett ersetzen — kein Partial-Update. |
+| `floorIndex` | Number | Story-Zuweisung (Element zwischen Stories verschieben). |
+| `layerIndex` | Number | Layer-Index aus dem Projekt-Register. |
+| `drawIndex` | Number | Stift-Index (Pen-Nummer). |
 
-Gemeinsame Details-Felder (außerhalb von `typeSpecificDetails`):
-
-| Feld | Typ | Beschreibung |
-|---|---|---|
-| `floorIndex` | Integer | Story-Zuweisung. |
-| `layerIndex` | Float (1-basiert) | Layer-Index aus dem Projekt-Register. Nicht 0-basiert. |
-| `drawIndex` | Float | Stift-Index (Pen-Nummer, 1-basiert). |
-| `lineTypeIndex` | Float | Linientyp-Index aus dem Attribut-Register (1-basiert). |
-
-Details-Rahmen-Struktur:
-
-```json
-{
-  "floorIndex": 0,
-  "layerIndex": 3.0,
-  "drawIndex": 2.0,
-  "lineTypeIndex": 1.0,
-  "typeSpecificDetails": { ... }
-}
-```
-
-<!-- VERIFY --> Genaue Feldnamen für `typeSpecificDetails` bei PolyLine/Line/Arc/Circle/Spline
-sind aus Schema-Discovery abgeleitet und in AC29 nicht live getestet. Bei `invalid argument`-Fehler
-Discovery mit Query „set polyline details coordinates" erneut aufrufen.
+`lineTypeIndex` ist **NICHT** Teil des `Details`-Schemas. Linientyp einer existierenden PolyLine zu ändern ist via MCP nicht direkt möglich — Workaround: User-UI oder delete+recreate mit gewünschtem Linientyp-Default-Stempel.
 
 ---
 
@@ -197,7 +182,7 @@ Ein `arcs`-Feld ist in diesem Fall nicht nötig. Kein Arc-Segment → gerade Str
 
 ## Worked Example — PolyLine mit Bogen (Arc-Segment)
 
-<!-- 2026-05-20 schema-only — VERIFY wenn Archicad verfügbar -->
+<!-- 2026-05-21 Schema verifiziert AC29 via Discovery (PolylinesDatum.arcs[].arcAngle, begIndex, endIndex bestätigt) -->
 
 Eine PolyLine mit 3 Stützpunkten, wobei das Segment zwischen Punkt 0 und Punkt 1 als
 Kreisbogen verläuft.
@@ -283,11 +268,11 @@ mcp__archicad__archicad_call_tool(
 Pagination mit `next_page_token` vollständig abarbeiten, bevor mit Auswertung begonnen wird.
 Response-Format: `{"elements": [{"elementId": {"guid": "..."}}, ...], "next_page_token": "..."}`.
 
-**Bounding Box für gefundene Elemente:** <!-- VERIFY -->
+**Bounding Box für gefundene Elemente** <!-- 2026-05-21 verifiziert AC29 — Tool-Name elements_get2_d_bounding_boxes (siehe Discovery-Anker-Hinweis zur Underscore-Konvention) -->:
 
 ```python
 mcp__archicad__archicad_call_tool(
-  name="elements_get_2_d_bounding_boxes",
+  name="elements_get2_d_bounding_boxes",
   arguments={
     "port": 19723,
     "params": {
@@ -305,58 +290,65 @@ Gibt Lage und Ausdehnung in Metern zurück — für alle 5 Typen einheitlich nut
 
 ---
 
-## Worked Example — PolyLine modifizieren (Koordinaten ändern)
+## Worked Example — PolyLine-Geometrie ändern: delete + recreate
 
-<!-- 2026-05-20 schema-only — VERIFY wenn Archicad verfügbar -->
+<!-- 2026-05-21 verifiziert AC29 — set_details typeSpecificDetails ist WallSettings-only, daher Geometrie-Update via delete+recreate -->
 
-Wir verschieben den dritten Stützpunkt der PolyLine von `(4.0, 3.0)` auf `(6.0, 3.0)`.
-Dabei müssen alle Koordinaten komplett übergeben werden — kein Partial-Update.
+**Warum nicht via `set_details`:** Wie in § Typische Parameter dokumentiert, akzeptiert `elements_set_details_of_elements.details.typeSpecificDetails` ausschließlich `WallSettings` (Discovery-Schema-Inspektion 2026-05-21). PolyLine-Koordinaten oder Arc-Segmente können **nicht** direkt über diesen Endpoint modifiziert werden.
 
-**Confirm-Dialog (SAFE-01) vor dem Aufruf:**
+**SAFE-02-Konflikt:** Wir implementieren Updates normalerweise NICHT als „delete + recreate", weil das die Confirm-Schleife für Modify mit der laxeren Create-Schleife mischt. Für Geometrie-Änderungen einer PolyLine ist das aber die einzige programmatische Option. Wir behandeln den kombinierten Schritt deshalb als **Update** mit voller Confirm-Schleife UND warnen ausdrücklich, dass die GUID sich ändert (SAFE-05 muss nachgezogen werden).
+
+**Confirm-Dialog (SAFE-01 + SAFE-02-Hinweis) vor dem Aufruf:**
 
 ```
 Ich werde folgendes ändern:
 - PolyLine a1b2c3d4-e5f6-7890-abcd-ef1234567890  (Story 0, 4 Punkte)
   Stützpunkt 3: (4.0, 3.0) → (6.0, 3.0)
-  (Alle anderen Stützpunkte unverändert)
+
+ACHTUNG: MCP v29 hat keinen In-Place-Update für PolyLine-Koordinaten.
+Workaround: Element wird gelöscht und mit neuer Geometrie neu erstellt.
+Folgen: Neue GUID, Element-Reihenfolge im Layer kann sich ändern,
+Klassifikation/Property-Werte gehen verloren (manuell wiederherstellen).
 
 Ausführen? (ja / nein / details / abbrechen)
 ```
 
-**Aufruf nach ausdrücklichem `ja`:**
+**Aufruf nach ausdrücklichem `ja` (zwei Schritte):**
 
 ```python
+# Schritt 1: alte PolyLine löschen
 mcp__archicad__archicad_call_tool(
-  name="elements_set_details_of_elements",
+  name="elements_delete_elements",
+  arguments={
+    "port": 19723,
+    "params": {"elements": [{"elementId": {"guid": "a1b2c3d4-..."}}]}
+  }
+)
+
+# Schritt 2: neue PolyLine mit geänderter Geometrie erstellen
+mcp__archicad__archicad_call_tool(
+  name="elements_create_polylines",
   arguments={
     "port": 19723,
     "params": {
-      "elementsWithDetails": [
-        {
-          "elementId": {"guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
-          "details": {
-            "typeSpecificDetails": {
-              "coordinates": [
-                {"x": 1.0, "y": 0.0},
-                {"x": 4.0, "y": 0.0},
-                {"x": 4.0, "y": 3.0},
-                {"x": 6.0, "y": 3.0}
-              ]
-            }
-          }
-        }
-      ]
+      "polylinesData": [{
+        "floorInd": 0,
+        "coordinates": [
+          {"x": 1.0, "y": 0.0},
+          {"x": 4.0, "y": 0.0},
+          {"x": 4.0, "y": 3.0},
+          {"x": 6.0, "y": 3.0}
+        ]
+      }]
     }
   }
 )
+# Response liefert NEUE GUID — alte GUID a1b2c3d4-... ist nicht mehr gültig.
 ```
 
-Die GUID bleibt nach dem Update stabil (SAFE-05) — für Folge-Operationen weiterverwenden.
+**Für Line/Arc/Circle/Spline (keine create-Endpoints):** Geometrie-Update via MCP ist NICHT möglich. User in Archicad-UI ändern lassen, danach die neue GUID via `elements_get_elements_by_type` neu holen.
 
-**Modifikation für Line, Arc, Circle, Spline:** Analoger Aufruf mit `elements_set_details_of_elements`.
-Exakte `typeSpecificDetails`-Felder pro Typ müssen via Discovery bestätigt werden. <!-- VERIFY -->
-Bei `invalid argument`-Fehler Discovery mit `"set arc details"` / `"set circle details"` etc.
-erneut aufrufen.
+**Was via `set_details` AUF PolyLine GEHT:** floorIndex, layerIndex, drawIndex (Pen-Nummer). Beispiel siehe nächster Worked Example.
 
 ---
 
@@ -416,13 +408,13 @@ Confirm-Format-Details: [`../reference/mcp-conventions.md`](../reference/mcp-con
 
 ---
 
-## Worked Example — Pen-Index und Line-Type zuweisen
+## Worked Example — Pen-Index zuweisen (Linientyp NICHT via MCP änderbar)
 
-<!-- 2026-05-20 schema-only — VERIFY wenn Archicad verfügbar -->
+<!-- 2026-05-21 verifiziert AC29 — Details-Schema enthält drawIndex (Pen-Index), aber KEIN lineTypeIndex. Linientyp-Wechsel einer existierenden PolyLine via MCP nicht möglich. -->
 
-Wir setzen für eine PolyLine Pen-Index 2 (dünnere Linie) und den Linientyp „Strichpunktlinie".
+Wir setzen für eine PolyLine Pen-Index 2 (dünnere Linie). Der Linientyp-Wechsel ist via MCP v29 NICHT möglich (kein `lineTypeIndex` im `Details`-Schema) — Workaround: UI-Bearbeitung oder delete+recreate mit anderem Default-Linientyp.
 
-**Schritt 1 — Verfügbare Linientypen listen:**
+**Schritt 1 — Verfügbare Linientypen listen (für Default-Wahl bei delete+recreate):**
 
 ```python
 mcp__archicad__archicad_call_tool(
@@ -473,7 +465,9 @@ mcp__archicad__archicad_call_tool(
 Ich werde folgendes ändern:
 - PolyLine a1b2c3d4-...  (Story 0)
   Pen-Index: 1 → 2
-  Linientyp: Vollline → Strichpunktlinie
+
+(Linientyp-Wechsel via MCP nicht möglich — manuell in Archicad oder
+delete+recreate mit neuem Default-Linientyp.)
 
 Ausführen? (ja / nein / details / abbrechen)
 ```
@@ -490,8 +484,7 @@ mcp__archicad__archicad_call_tool(
         {
           "elementId": {"guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
           "details": {
-            "drawIndex": 2.0,
-            "lineTypeIndex": 3.0
+            "drawIndex": 2.0
           }
         }
       ]
@@ -500,8 +493,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-`drawIndex` und `lineTypeIndex` sind Float-Werte (1-basiert). Die Indizes stammen aus
-den Attribut-Listings der Schritte 1 und 2 — nie raten.
+`drawIndex` ist Number (Pen-Nummer, 1-basiert). Der Index stammt aus dem Pen-Set des Schritts 2 — nie raten.
 
 ---
 
@@ -550,12 +542,11 @@ standardmäßig schwarz und dünn (projektabhängig). Den konkreten Pen-Wert imm
 aktiven Pen-Set ableiten (`attributes_get_pen_table_attributes`) — nie direkt raten.
 Das User-Setup hat 6 Pen-Tabellen (Memory `project_archicad_user_setup.md`).
 
-### 5. `lineTypeIndex` und Pen-Index sind **verschiedene Attribute**
+### 5. Linientyp vs. Pen-Index — Konzept gilt, aber nur Pen-Index via MCP setzbar
 
-`lineTypeIndex` steuert das **Muster** der Linie (durchgezogen, gestrichelt, gepunktet,
-Strichpunkt …) — kommt aus dem `Line`-Attribut-Register.
-`drawIndex` steuert **Farbe und Strichgewicht** — kommt aus der aktiven Pen-Tabelle.
-Beide sind unabhängige Felder. Eines zu ändern beeinflusst das andere nicht.
+Im Konzept sind das zwei unabhängige Attribute: **Linientyp** steuert das Muster (Vollline, Strichlinie, Strichpunkt etc., aus dem `Line`-Attribut-Register), **Pen-Index** steuert Farbe und Strichgewicht (aus der aktiven Pen-Tabelle).
+
+**Via MCP v29 modifizierbar (auf existierender PolyLine):** nur Pen-Index (`drawIndex` im `Details`-Schema). Linientyp ist NICHT im `Details`-Schema — siehe Gotcha 9. Workaround: User-UI oder delete+recreate mit dem als Default gesetzten Linientyp.
 
 ### 6. `floorInd` in `polylinesData` vs. `floorIndex` in `elementsWithDetails`
 
@@ -572,7 +563,21 @@ Story** — nicht notwendigerweise auf Story 0 (EG). Da der User während einer 
 aktive Story gewechselt haben könnte (SAFE: Story-Feld ist volatil), immer den aktuellen
 `floorIndex`-Wert aus dem Warm-up (Feld 4) explizit übergeben, wenn die Ziel-Story feststeht.
 
-### 8. Modal-Dialog blockiert MCP-Calls — vor Bulk-Operationen prüfen
+### 8. `elements_set_details_of_elements.typeSpecificDetails` ist WallSettings-only
+
+<!-- 2026-05-21 verifiziert AC29 via Discovery-Schema-Inspektion -->
+
+Im MCP v29-Server ist das Schema für `params.elementsWithDetails[].details.typeSpecificDetails` hart auf `WallSettings` festgenagelt (nur Wand-Felder: begCoordinate, endCoordinate, height, bottomOffset, offset, begThickness, endThickness). Es gibt KEINE PolyLine/Line/Arc/Circle/Spline/Slab/Hatch-spezifischen Felder in dem Endpoint.
+
+**Konsequenzen:**
+- PolyLine-Geometrie (coordinates, arcs) NICHT via set_details änderbar → delete+recreate (siehe Worked Example).
+- Hatch-Innen-Schraffur-Parameter (fillIndex, orientation) NICHT änderbar.
+- Slab-Polygon NICHT änderbar.
+- Linientyp einer PolyLine NICHT änderbar (kein `lineTypeIndex` im Schema).
+
+**Was geht:** Top-Level-Details-Felder `floorIndex`, `layerIndex`, `drawIndex` für ALLE Element-Typen.
+
+### 9. Modal-Dialog blockiert MCP-Calls — vor Bulk-Operationen prüfen
 
 Wenn Archicad einen modalen Dialog offen hat (Linientyp-Editor, Layer-Manager,
 Element-Einstellungen etc.), frieren MCP-Calls ein oder timeouten.
