@@ -9,9 +9,12 @@ Diese Datei dokumentiert, wie wir Massen-Updates und Klassifizierungen durchfüh
 3. [Pro-Element-Typ-Ableitungslogik](#pro-element-typ-ableitungslogik)
 4. [Mehrdeutigkeits-Handling](#mehrdeutigkeits-handling)
 5. [Mid-Batch-Fehlerverhalten](#mid-batch-fehlerverhalten)
-6. [Pre-Flight: Property-Enum-Normalisierung](#pre-flight-property-enum-normalisierung)
-7. [Identifier-Mapping bei externen Daten-Quellen](#identifier-mapping-bei-externen-daten-quellen)
-8. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
+6. [Property-Set live verifiziert (CAP-01)](#property-set-live-verifiziert-cap-01)
+7. [Property-Definitions sind Create-Only (CAP-02 Negativ-Befund)](#property-definitions-sind-create-only-cap-02-negativ-befund)
+8. [Schema-Bug: `defaultValue` ist required (nicht optional)](#schema-bug-defaultvalue-ist-required-nicht-optional)
+9. [Pre-Flight: Property-Enum-Normalisierung](#pre-flight-property-enum-normalisierung)
+10. [Identifier-Mapping bei externen Daten-Quellen](#identifier-mapping-bei-externen-daten-quellen)
+11. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
 
 ## Das universelle Read → Filter → Group → Confirm → Apply-Pattern
 
@@ -141,6 +144,76 @@ Während APPLY scheitert ein Einzel-Element. Was tun?
 - **Systemisch oder einzeln?** Wenn der Fehler systemisch wirkt (gleicher Fehler bei *allen* Elementen, etwa „invalid GUID format"): sofort stoppen, vollständig berichten.
 - **Weiterlaufen bei Einzel-Fehlern.** Wenn der Fehler nur ein Element betrifft (etwa „element not found" — der User hat es zwischenzeitlich gelöscht): weitermachen mit dem Rest.
 - **Report am Ende.** Format: „127 verarbeitet, 124 erfolgreich, 3 Fehler bei IDs A, B, C — Gründe: X, Y, Z." Damit kann der User entscheiden, ob er die 3 manuell oder mit einem erneuten Lauf nachreicht.
+
+## Property-Set live verifiziert (CAP-01)
+
+Live verifiziert am 2026-05-21 gegen AC29: das verwendete Schema für Property-Updates ist viel einfacher als zunächst befürchtet.
+
+**Set-Schema:**
+```python
+mcp__archicad__archicad_call_tool(
+  name="properties_set_property_values_of_elements",
+  arguments={
+    "port": <port>,
+    "params": {
+      "elementPropertyValues": [{
+        "elementId": {"guid": "<element-guid>"},
+        "propertyId": {"guid": "<property-guid>"},
+        "propertyValue": {"value": "<display-string>"}  # einfach String!
+      }]
+    }
+  }
+)
+```
+
+`propertyValue.value` ist immer ein String — auch für Enum-Properties wird der Display-Wert als String übergeben (z. B. `"Linoleum 2,5 (R9)"`). Nicht das komplexe `{type, status, value: {type: "displayValue", displayValue: ...}}`-Konstrukt.
+
+**Read-Schema** symmetrisch via `properties_get_property_values_of_elements` — Response liefert `propertyValue.value` als String zurück.
+
+**Voraussetzung (kritisch!):** Das Element muss **klassifiziert** sein im Klassifikations-Item, das in der Property-`availability`-Liste steht. Sonst Fehler: `Not available or not evaluated property` (Code `-2130312908`).
+
+**Workaround bei nicht klassifizierten Elementen:** Vor dem Set einmalig `mcp__archicad__elements_set_classifications_of_elements` aufrufen mit der passenden Klassifikation. Live verifiziert: nach Klassifizierung funktioniert Property-Set sofort.
+
+## Property-Definitions sind Create-Only (CAP-02 Negativ-Befund)
+
+Live verifiziert am 2026-05-21: **es gibt keinen Modify-Endpoint für Property-Definitions.** `properties_create_property_definitions` mit gleichem Namen wie eine existierende Property schlägt fehl (Code `-2130312988`).
+
+**Auswirkung für Enum-Erweiterung:**
+- Neue Enum-Werte zu einer existierenden Property hinzufügen → **nicht via MCP möglich**
+- User muss in Archicad-UI Property-Manager → „Optionen-Setup" verwenden
+- Alternative (zerstörerisch): Property löschen + neu erstellen mit erweiterter Enum-Liste — verliert alle zugewiesenen Werte
+
+**Workflow-Konsequenz für Bulk-Klassifizierung:**
+1. Vor jedem Bulk-Property-Set die Property-Definition lesen via `properties_get_details_of_properties`
+2. Source-Werte gegen `possibleEnumValues` matchen
+3. Bei Mismatch: STOPPEN und User auffordern, in Archicad-UI die fehlenden Werte zu ergänzen
+4. NIEMALS „einfach" delete + recreate — Daten-Verlust
+
+## Schema-Bug: `defaultValue` ist required (nicht optional)
+
+Live verifiziert am 2026-05-21: das `properties_create_property_definitions`-Schema markiert `defaultValue` als optional, **aber tatsächlich ist es Pflicht**. Aufrufe ohne `defaultValue` schlagen fehl (Code `-2130313104`).
+
+**Korrektes Schema** für Enum-Property-Create:
+```python
+{
+  "name": "<name>",
+  "description": "<desc>",
+  "type": "singleEnum",
+  "isEditable": true,
+  "defaultValue": {  # <-- Pflicht trotz Schema-Optional
+    "basicDefaultValue": {
+      "type": "singleEnum",
+      "status": "normal",
+      "value": {"type": "displayValue", "displayValue": "<default-enum-value>"}
+    }
+  },
+  "possibleEnumValues": [{"enumValue": {"displayValue": "..."}}, ...],
+  "availability": [{"classificationItemId": {"guid": "<class-item-guid>"}}],  # min 1
+  "group": {"propertyGroupId": {"guid": "<group-guid>"}}
+}
+```
+
+Für Property-Groups: erst `properties_create_property_groups` aufrufen, dann die Group-GUID in `propertyDefinition.group` verwenden. Built-in-Group-GUIDs scheinen nicht für UserDefined-Properties verwendbar zu sein.
 
 ## Pre-Flight: Property-Enum-Normalisierung
 
