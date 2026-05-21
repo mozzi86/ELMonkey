@@ -4,6 +4,8 @@ Workflow zum Wandeln einer Lageplan-DWG (Straßen, Gehwege, Gebäude — meist n
 
 Entwickelt am BuPol-Lageplan (1.7 × 2.7 km, 81 k DXF-Entities → 5.385 Slabs, 9 MB IFC). Übertragbar auf andere Liegenschaftspläne mit drei Anpassungen (siehe § Übertragung).
 
+Diese Datei ist die **live-verifizierte Lageplan-Implementierung** (KG 500 Außenanlagen). Für die generische Anwendung auf **KG 300 Baukonstruktionen** (Wände, Decken, Fundamente, Dächer …) inkl. Bulk-KG-Zuweisung auf bestehende Archicad-Elemente: siehe [`dwg-ifc-kg300.md`](dwg-ifc-kg300.md).
+
 <!-- live verifiziert 2026-05-12, BuPol-Lageplan -->
 
 ## Inhalt
