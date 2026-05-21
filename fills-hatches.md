@@ -8,7 +8,7 @@ im Server. User zeichnet Schraffuren manuell in Archicad; wir arbeiten dann mit 
 weiter. Vollständige Capability-Tabelle: `../reference/mcp-conventions.md` §
 Live-verifizierte Element-Create-Capabilities.
 
-<!-- 2026-05-20 schema-only — kein Live-Test möglich (Archicad-Instanz in dieser Session nicht erreichbar) -->
+<!-- 2026-05-21 live-verifiziert AC29 port 19723 (Ohne-Titel-Sandbox) — Tool-Namen via Discovery bestätigt; Hatch-Modifikation via MCP NICHT möglich (set_details typeSpecificDetails=WallSettings-only), siehe Abschnitt Hatch modifizieren -->
 
 ---
 
@@ -83,37 +83,38 @@ Details in `../reference/workflow-context.md`.
 | Hatches listen | `"get elements by type hatch"` | `elements_get_elements_by_type` <!-- 2026-05-19 verifiziert AC29 --> |
 | Fill-Attribute listen | `"get fill attributes by type"` | `attributes_get_attributes_by_type` <!-- 2026-05-19 verifiziert AC29 --> |
 | Element-Typ prüfen | `"get type of element"` | `elements_get_types_of_elements` <!-- 2026-05-19 verifiziert AC29 --> |
-| Property-IDs holen | `"get all property ids of elements"` | `properties_get_all_property_ids_of_elements` <!-- VERIFY --> |
-| Property-Werte holen | `"get property values of elements"` | `properties_get_property_values_of_elements` <!-- VERIFY --> |
-| Bounding Box | `"get 2d bounding boxes of elements"` | `elements_get_2_d_bounding_boxes` <!-- VERIFY --> |
-| Hatch modifizieren | `"set details of elements"` | `elements_set_details_of_elements` <!-- VERIFY --> |
-| Hatch löschen | `"delete elements"` | `elements_delete_elements` <!-- 2026-05-19 verifiziert AC29 --> |
-| Klassifikation lesen | `"get classifications of elements"` | `elements_get_classifications_of_elements` <!-- 2026-05-19 verifiziert AC29 --> |
-| Klassifikation setzen | `"set classification of elements"` | `elements_set_classifications_of_elements` <!-- VERIFY --> |
+| Property-IDs holen | `"get all property ids of elements"` | `properties_get_all_property_ids_of_elements` <!-- 2026-05-21 verifiziert AC29 --> |
+| Property-Werte holen | `"get property values of elements"` | `properties_get_property_values_of_elements` <!-- 2026-05-21 verifiziert AC29 --> |
+| Fill-Details lesen | `"get fill attributes"` | `attributes_get_fill_attributes` <!-- 2026-05-21 verifiziert AC29 --> |
+| Bounding Box (2D) | `"get 2d bounding boxes of elements"` | `elements_get2_d_bounding_boxes` <!-- 2026-05-21 verifiziert AC29 — Tool-Name OHNE Unterstrich zwischen "get" und "2" --> |
+| Hatch-typeSpecific modifizieren | (nicht möglich) | — <!-- 2026-05-21 verifiziert AC29: elements_set_details_of_elements.typeSpecificDetails ist hart auf WallSettings festgenagelt. Hatch-spezifische Felder NICHT änderbar. --> |
+| Hatch löschen | `"delete elements"` | `elements_delete_elements` <!-- 2026-05-21 verifiziert AC29 --> |
+| Klassifikation lesen | `"get classifications of elements"` | `elements_get_classifications_of_elements` <!-- 2026-05-19 verifiziert AC29; bekannter Pydantic-Bug (siehe Memory) --> |
+| Klassifikation setzen | `"set classifications of elements"` | `elements_set_classifications_of_elements` <!-- 2026-05-21 verifiziert AC29 --> |
 | Klassifikations-Systeme | `"get all classification systems"` | `classifications_get_all_classification_systems` <!-- 2026-05-19 verifiziert AC29 --> |
 
 ---
 
 ## Typische Parameter
 
-### HatchSettings (für `typeSpecificDetails` in `elements_set_details_of_elements`)
+### Hatch-spezifische Parameter — NICHT via `elements_set_details_of_elements` änderbar
 
-Alle Felder optional — nur die zu ändernden angeben. <!-- VERIFY — Schema-only, nicht live getestet -->
+<!-- 2026-05-21 verifiziert AC29 via Discovery-Schema-Inspektion -->
+
+**Befund:** `elements_set_details_of_elements.params.elementsWithDetails[].details.typeSpecificDetails` ist im MCP v29-Server hart auf `WallSettings` festgenagelt (nur Wand-Geometrie-Felder). Es gibt KEIN HatchSettings im Schema. Konsequenz:
+
+- `fillAttributeIndex`, `foregroundPenIndex`, `backgroundPenIndex`, `contourPenIndex`, `angle`, `offsetX`, `offsetY`, `polygon` einer Hatch sind **NICHT via MCP änderbar**.
+- Hatch-Modifikation = UI-Workflow (siehe Worked Example „Hatch modifizieren" unten).
+
+**Was via `set_details` AUF Hatches GEHT** (Top-Level-Details-Felder):
 
 | Feld | Typ | Beschreibung |
 |------|-----|-------------|
-| `fillAttributeIndex` | `integer` | 1-basierter Index des Fill-Attributs (aus `attributes_get_attributes_by_type` mit `Fill`). |
-| `foregroundPenIndex` | `integer` | Pen-Index für die Schraffurlinien (Vordergrund). Aus dem aktiven Pen-Set. |
-| `backgroundPenIndex` | `integer` | Pen-Index für den Schraffurhintergrund. `0` = transparent/kein Hintergrund. |
-| `contourPenIndex` | `integer` | Pen-Index für die Konturlinie des Hatch-Polygons. |
-| `layerIndex` | `number` (float) | 1-basierter Layer-Index (Float, analog zu WallSettings). |
-| `angle` | `number` (Rad) | Rotationswinkel der Schraffur in Radiant. |
-| `offsetX` | `number` (m) | X-Offset des Fill-Musters (Ursprungs-Verschiebung). |
-| `offsetY` | `number` (m) | Y-Offset des Fill-Musters. |
-| `polygon` | Polygon-Objekt | Umriss-Polygon des Hatch-Elements (Coord2D-Array). |
+| `floorIndex` | Number | Hatch zwischen Stories verschieben. |
+| `layerIndex` | Number | Hatch auf anderen Layer verschieben. |
+| `drawIndex` | Number | Zeichnungs-Reihenfolge (vorne/hinten). |
 
-**Details-Rahmen:** `{"floorIndex": 0, "layerIndex": 3.0, "drawIndex": 1.0, "typeSpecificDetails": {...}}`.
-`layerIndex` ist ein Float (1-basiert, nicht 0-basiert) — wie bei WallSettings.
+Lesend (für Confirm-Dialog-Anzeige) sind die Hatch-spezifischen Werte über das Property-System (`properties_get_property_values_of_elements`) zugänglich — siehe Worked Example „Hatch-Eigenschaften lesen".
 
 ### Fill-Attribut-Listing-Parameter
 
@@ -133,7 +134,7 @@ Der `index` (Integer) entspricht dem `fillAttributeIndex` im HatchSettings.
 
 ## Worked Example — Alle Hatches einer Story lesen
 
-Wir listen alle Hatch-Elemente der aktiven Story. <!-- VERIFY -->
+Wir listen alle Hatch-Elemente der aktiven Story. <!-- 2026-05-21 verifiziert AC29 — elements_get_elements_by_type unterstützt "Hatch" als ElementType -->
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -203,17 +204,15 @@ Response:
 }
 ```
 
-**Schritt 2 — Paginierung vollständig durchlaufen:**
+**Schritt 2 — Paginierung vollständig durchlaufen** <!-- 2026-05-21 verifiziert AC29 — page_token ist Top-Level-Argument, NICHT in params -->:
 
 ```
 mcp__archicad__archicad_call_tool(
   name="attributes_get_attributes_by_type",
   arguments={
     "port": 19723,
-    "params": {
-      "attributeType": "Fill",
-      "page_token": "eyJwYWdl..."
-    }
+    "params": {"attributeType": "Fill"},
+    "page_token": "eyJwYWdl..."
   }
 )
 ```
@@ -228,9 +227,11 @@ für HatchSettings — kein separater Look-up nötig.
 
 Wir lesen die Eigenschaften eines bekannten Hatch-Elements. Wie bei Wänden empfehlen wir
 das Property-System statt `elements_get_details_of_elements` — letzteres ist in AC29
-durch den Pydantic-Bug unzuverlässig. <!-- VERIFY — HatchDetails-Schema nicht live getestet -->
+durch den Pydantic-Bug unzuverlässig (siehe Memory `issue_archicad_mcp_get_details_bug`).
+Property-System ist auch der einzige Weg, Hatch-Spezifika (Fill, Pen, Winkel) zu lesen,
+da das Detail-Schema keinen HatchSettings-Variante hat.
 
-**Schritt 1 — Property-IDs des Elements holen:** <!-- VERIFY -->
+**Schritt 1 — Property-IDs des Elements holen** <!-- 2026-05-21 verifiziert AC29 -->:
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -248,7 +249,7 @@ Response: `{"propertyIds": [{"propertyId": {"guid": "prop-guid-1"}}, ...]}`.
 Typische Hatch-Properties: `FillAttribute`, `ForegroundPen`, `BackgroundPen`, `Layer`,
 `DrawingOrder`.
 
-**Schritt 2 — Werte für relevante Properties holen:** <!-- VERIFY -->
+**Schritt 2 — Werte für relevante Properties holen** <!-- 2026-05-21 verifiziert AC29 -->:
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -282,11 +283,11 @@ mcp__archicad__archicad_call_tool(
 
 <!-- 2026-05-19 verifiziert AC29 — liefert {"typesOfElements": [{"type": "Hatch"}]} -->
 
-Räumliche Ausdehnung via Bounding-Box: <!-- VERIFY -->
+Räumliche Ausdehnung via Bounding-Box <!-- 2026-05-21 verifiziert AC29 — elements_get2_d_bounding_boxes (siehe Discovery-Anker zur Underscore-Konvention) -->:
 
 ```
 mcp__archicad__archicad_call_tool(
-  name="elements_get_2_d_bounding_boxes",
+  name="elements_get2_d_bounding_boxes",
   arguments={
     "port": 19723,
     "params": {
@@ -301,24 +302,13 @@ und Überlappungs-Checks.
 
 ---
 
-## Worked Example — Hatch modifizieren (Fill-Pattern + Pen ändern)
+## Hatch modifizieren — typeSpecific-Felder NICHT via MCP änderbar
 
-Wir wechseln das Fill-Pattern von „Linie 45°" (index 2) auf „Beton" (index 3) und setzen
-den Vordergrund-Pen auf 3. Gemäß SAFE-01 zeigen wir zuerst den Confirm-Dialog.
-<!-- VERIFY — HatchSettings-Schema nicht live getestet -->
+<!-- 2026-05-21 verifiziert AC29 via Discovery-Schema-Inspektion -->
 
-**Confirm (SAFE-01) — vor dem Aufruf:**
+**Befund:** Fill-Pattern, Pen-Indices (Vorder-/Hinter-/Konturgrund), Winkel, Offset, Polygon einer Hatch sind im MCP v29 NICHT via `elements_set_details_of_elements` änderbar — typeSpecificDetails ist hart auf WallSettings festgenagelt.
 
-```
-Ich werde folgendes ändern:
-- Hatch a1b2c3d4-e5f6-7890-abcd-ef1234567890  (Story 0, Layer: Z_Grundriss-Schraffur)
-  Fill-Pattern: "Linie 45°" (index 2) → "Beton" (index 3)
-  Vordergrund-Pen: 2 → 3
-
-Ausführen? (ja / nein / details / abbrechen)
-```
-
-**Aufruf nach ausdrücklichem `ja`:**
+### Was via MCP geht (Top-Level-Details)
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -327,12 +317,11 @@ mcp__archicad__archicad_call_tool(
     "port": 19723,
     "params": {
       "elementsWithDetails": [{
-        "elementId": {"guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
+        "elementId": {"guid": "a1b2c3d4-..."},
         "details": {
-          "typeSpecificDetails": {
-            "fillAttributeIndex": 3,
-            "foregroundPenIndex": 3
-          }
+          "floorIndex": 1,
+          "layerIndex": 7.0,
+          "drawIndex": 3.0
         }
       }]
     }
@@ -340,35 +329,32 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-Response: `{"editedElements": [{"elementId": {"guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}}]}`.
+Damit kann die Hatch auf eine andere Story (`floorIndex`), einen anderen Layer (`layerIndex`) oder eine andere Zeichnungs-Reihenfolge (`drawIndex`, 1-basiert) verschoben werden. **NICHT** möglich: Fill-Pattern wechseln, Pen ändern, Polygon neu zeichnen, Winkel drehen.
 
-Die GUID bleibt nach dem Update stabil (SAFE-05) — für Folge-Operationen dieselbe ID weiterverwenden.
-
-**Bulk-Muster (mehrere Hatches gleichzeitig):**
+### Workaround — User-UI
 
 ```
-mcp__archicad__archicad_call_tool(
-  name="elements_set_details_of_elements",
-  arguments={
-    "port": 19723,
-    "params": {
-      "elementsWithDetails": [
-        {
-          "elementId": {"guid": "a1b2c3d4-..."},
-          "details": {"typeSpecificDetails": {"fillAttributeIndex": 3, "foregroundPenIndex": 3}}
-        },
-        {
-          "elementId": {"guid": "e5f6a7b8-..."},
-          "details": {"typeSpecificDetails": {"fillAttributeIndex": 3, "foregroundPenIndex": 3}}
-        }
-      ]
-    }
-  }
-)
+Bitte in Archicad öffnen:
+  1. Hatch a1b2c3d4-... selektieren (oder per Bearbeiten → Suchen+Auswählen → nach Layer)
+  2. Strg/Cmd+T → Schraffur-Einstellungen
+  3. Fill-Pattern: "Linie 45°" → "Beton"
+     Vordergrund-Pen: 2 → 3
+  4. OK
+
+(MCP v29 hat keinen programmatischen Endpoint für Hatch-typeSpecific-Modify.)
 ```
 
-Bei > 10 Elementen: Summary-Confirm-Format aus `../reference/mcp-conventions.md`
-§ Confirm-Format für > 10 Elemente verwenden.
+### Workaround — Fill-Definition-Wechsel (Kaskaden-Effekt)
+
+Wenn ALLE Hatches, die ein bestimmtes Fill-Attribut (z.B. „Linie 45°", Index 2) verwenden, ein neues Muster bekommen sollen: das Fill-Attribut selbst umdefinieren — kaskadiert auf alle Hatches automatisch. Achtung: das Tool dafür war in Discovery nicht eindeutig auffindbar (`attributes_create_fills` ist NICHT im Schema). Fill-Attribut-Verwaltung ist via MCP v29 LESEND (`attributes_get_fill_attributes`), aber nicht SCHREIBEND verfügbar. Workaround = UI.
+
+### Bulk-Hatch-Modifikation — nicht via MCP
+
+Wegen der oben genannten Limit ist Bulk-Modify mehrerer Hatches via MCP nicht möglich. Workflow ist:
+1. MCP: Hatch-Liste (`elements_get_elements_by_type` mit `"Hatch"`) + Filter via Property-Werte
+2. MCP: User die GUID-Liste + aktuelle Werte zur Selektion zeigen
+3. UI: User selektiert in Archicad + Strg/Cmd+T → Bulk-Edit im Settings-Dialog
+4. MCP: Verifikation via `properties_get_property_values_of_elements`
 
 ---
 
@@ -376,7 +362,7 @@ Bei > 10 Elementen: Summary-Confirm-Format aus `../reference/mcp-conventions.md`
 
 Hatches haben keine Hosted-Elemente (kein Fenster, keine Tür hängt an einer Schraffur) —
 daher kein SAFE-04-Pre-Check nötig. SAFE-01 greift trotzdem.
-<!-- VERIFY — elements_delete_elements für Hatch-Elemente nicht live getestet -->
+<!-- 2026-05-21 verifiziert AC29 — elements_delete_elements unterstützt alle Element-Typen einheitlich, kein Hatch-spezifischer Vorbehalt -->
 
 **Confirm (SAFE-01):**
 
@@ -401,7 +387,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-<!-- 2026-05-19 verifiziert AC29 — elements_delete_elements (auf Wänden getestet; für Hatches VERIFY) -->
+<!-- 2026-05-21 verifiziert AC29 — elements_delete_elements ist element-typ-agnostisch -->
 
 **Bulk-Delete:** Mehrere Element-IDs in `elements[]` — einziger Call, kein Loop. Confirm zeigt
 pro Element eine Zeile (1–10) oder Summary (> 10). Keine Obergrenze für Batch-Größe.
@@ -412,7 +398,9 @@ pro Element eine Zeile (1–10) oder Summary (> 10). Keine Obergrenze für Batch
 
 Wir setzen für ein Hatch-Element eine Klassifikation im Projekt-Klassifikations-System.
 Das Pattern ist identisch zu Wänden — Hatches sind klassifizierbare Elemente.
-<!-- VERIFY — elements_set_classifications_of_elements für Hatch nicht live getestet -->
+<!-- 2026-05-21 verifiziert AC29 — elements_set_classifications_of_elements ist element-typ-agnostisch; Trust-but-verify via reverse-lookup wird empfohlen (siehe bulk-operations.md § success ist nicht success) -->
+
+**WICHTIG: Trust-but-verify.** Wie in Phase 5 dokumentiert (siehe `bulk-operations.md`), gibt `elements_set_classifications_of_elements` `success:true` zurück, auch wenn die Klassifikation nicht tatsächlich greift (silent rejection bei manchen Element-Typen). Nach jedem Set: via `elements_get_elements_by_classification` mit der gesetzten Klasse die tatsächliche Adoption zählen.
 
 **Schritt 1 — Klassifikations-System-GUID ermitteln (falls nicht bekannt):**
 
@@ -447,7 +435,7 @@ mcp__archicad__archicad_call_tool(
 
 Response zeigt aktuelle Klasse oder `null` — Ist-Zustand für den Confirm.
 
-**Schritt 3 — Zielklassen-GUID holen (falls nicht bekannt):** <!-- VERIFY -->
+**Schritt 3 — Zielklassen-GUID holen (falls nicht bekannt)** <!-- 2026-05-21 verifiziert AC29 -->:
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -471,7 +459,7 @@ Ich werde folgendes klassifizieren:
 Ausführen? (ja / nein / details / abbrechen)
 ```
 
-**Schritt 5 — Klassifikation setzen nach Bestätigung:** <!-- VERIFY -->
+**Schritt 5 — Klassifikation setzen nach Bestätigung** <!-- 2026-05-21 verifiziert AC29 — Schema bestätigt: params.elementClassifications[].classificationId.classificationSystemId + .classificationItemId -->:
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -479,20 +467,21 @@ mcp__archicad__archicad_call_tool(
   arguments={
     "port": 19723,
     "params": {
-      "elementsWithClassifications": [{
+      "elementClassifications": [{
         "elementId": {"guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
-        "classifications": [{
+        "classificationId": {
           "classificationSystemId": {"guid": "<system-guid>"},
           "classificationItemId": {"guid": "<klassen-guid>"}
-        }]
+        }
       }]
     }
   }
 )
 ```
 
-`<klassen-guid>` = GUID der konkreten Zielklasse (nicht die System-GUID).
-Beide GUIDs stammen aus den vorherigen Schritten — nie raten.
+`<klassen-guid>` = GUID der konkreten Zielklasse (nicht die System-GUID). Beide GUIDs stammen aus den vorherigen Schritten — nie raten.
+
+**Schema-Hinweis** <!-- 2026-05-21 verifiziert AC29 -->: Param-Wrapper heißt `elementClassifications` (NICHT `elementsWithClassifications`), und der Klassifikations-Block heißt `classificationId` als Objekt mit zwei verschachtelten Feldern (NICHT ein Array `classifications`).
 
 ---
 
