@@ -12,9 +12,12 @@ Diese Datei dokumentiert, wie wir Massen-Updates und Klassifizierungen durchfüh
 6. [Property-Set live verifiziert (CAP-01)](#property-set-live-verifiziert-cap-01)
 7. [Property-Definitions sind Create-Only (CAP-02 Negativ-Befund)](#property-definitions-sind-create-only-cap-02-negativ-befund)
 8. [Schema-Bug: `defaultValue` ist required (nicht optional)](#schema-bug-defaultvalue-ist-required-nicht-optional)
-9. [Pre-Flight: Property-Enum-Normalisierung](#pre-flight-property-enum-normalisierung)
-10. [Identifier-Mapping bei externen Daten-Quellen](#identifier-mapping-bei-externen-daten-quellen)
-11. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
+9. [Klassifikations-Set: success ist nicht success](#klassifikations-set-success-ist-nicht-success-live-verifiziert-2026-05-21)
+10. [Klassifikations-System löschen = stiller Datenverlust](#klassifikations-system-löschen--stiller-datenverlust-erst-migrieren-dann-löschen)
+11. [Enum-Migration-Pattern (Modify-Endpoint-Umgehung)](#enum-migration-pattern-modify-endpoint-umgehung)
+12. [Pre-Flight: Property-Enum-Normalisierung](#pre-flight-property-enum-normalisierung)
+13. [Identifier-Mapping bei externen Daten-Quellen](#identifier-mapping-bei-externen-daten-quellen)
+14. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
 
 ## Das universelle Read → Filter → Group → Confirm → Apply-Pattern
 
@@ -64,6 +67,10 @@ Klassifizierung ist ein häufiger Bulk-Auftrag und hat eigene Eigenheiten, die w
 Ein Archicad-Projekt kann mehrere Klassifikations-Systeme parallel führen: das ARCHICAD-eigene, Uniclass 2015, OmniClass, Custom. **Aktiv** ist immer nur eines. Wenn wir eine GUID aus dem inaktiven Uniclass-System holen und sie an einer Wand setzen, die das ARCHICAD-System nutzen soll, ist die BIM-Datenstruktur korrupt und IFC-Export geht schief — ohne dass der User es merkt.
 
 **Regel: System-scoped GUID-Lookup.** Vor jedem Klartext → GUID-Mapping holen wir das aktive System (Warm-up Feld 7) und scope'n unsere Discovery-Query darauf. Niemals eine globale „suche eine Klasse namens ‚Innenwand'"-Query absetzen.
+
+**Klassifikations-System-GUIDs driften — nie sessionübergreifend hardcoden.** <!-- 2026-06-11 --> Dieselbe (Teamwork-)Datei kann nach einem Schließen/Wiederöffnen ein Klassifikations-System mit **anderer GUID** präsentieren als vorher (live beobachtet: SAB-System-GUID änderte sich nach Reopen, die alte GUID war danach nicht mehr auffindbar → Fehler `6201 Classification system not found`). Ursache: Teamwork-Sync / Versions-Neuableitung beim Re-Open. **Regel:** System-GUIDs immer **live neu auflösen** (`GetAllClassificationSystems` → über den `name` matchen, z. B. „SAB_Klassifizierung"), nie eine GUID aus einer früheren Session oder einem Notiz-/Memory-Eintrag übernehmen. Vorsicht auch vor **Doppel-Systemen gleichen Namens** (Teamwork-Merge-Artefakt): zwei Systeme „Archicad Klassifizierung" mit verschiedenen GUIDs/Versionen können parallel existieren — beide einzeln behandeln.
+
+**Folge-Risiko:** Wird gegen eine veraltete System-GUID gemessen, liefert die Analyse stillschweigend Unsinn (0 Items / 0 klassifiziert), obwohl Daten da sind. Bei widersprüchlichen Zahlen zwischen zwei Läufen: **stoppen** und die System-GUID live gegen den Namen verifizieren, bevor irgendeine Entscheidung (erst recht eine Löschung) getroffen wird.
 
 ### Klassifikations-IDs sind GUIDs, kein Klartext
 
@@ -238,6 +245,42 @@ Für Property-Groups: erst `properties_create_property_groups` aufrufen, dann di
 
 **Umgehung für System-Stamps:**
 - Vor Bulk-Klassifikation: `elements_get_elements_by_type` + Property-Filter um nur user-platzierte Objects zu finden (siehe `recipes/library-objects.md` § Subtype-Discovery).
+
+## Klassifikations-System löschen = stiller Datenverlust (erst migrieren, dann löschen) <!-- 2026-06-11 -->
+
+Wenn der User ein ganzes Klassifikations-System loswerden will (z. B. ein redundantes „Archicad Klassifizierung"-System nach einem Teamwork-Merge), ist die Löschung **irreversibel** und kann zwei Arten von Daten still vernichten. Wir geben **nie** grünes Licht zum Löschen, bevor eine Migration + Verifikation gelaufen ist.
+
+**Was bei der Löschung verloren geht:**
+
+1. **Die Klassifikation selbst** — jedes Element, das **nur** im gelöschten System klassifiziert ist, wird danach unklassifiziert. (Elemente, die zusätzlich in einem anderen System klassifiziert sind, behalten dort ihr Etikett.)
+2. **Property-Werte über Verfügbarkeits-Bindung** — die gefährliche, unsichtbare Variante. Property-`availability` ist an Klassifikations-**Items** gebunden (siehe CAP-01). Hängt die Verfügbarkeit eines befüllten Properties **nur** an einem Item des gelöschten Systems, wird das Property nach der Löschung `notAvailable` und der **Wert verschwindet**. Dasselbe Muster wie bei einer Umklassifizierung, die Properties wegfallen lässt.
+
+**Audit vor dem Löschen (read-only):**
+
+1. Alle drei Mengen live bestimmen: Elemente klassifiziert im **Lösch-System**, Elemente klassifiziert im **Ziel-System**, Schnittmenge. → `nur-im-Lösch-System` ist die Risikomenge.
+2. Pro Risiko-Element den Item-**Namen** ermitteln und prüfen, ob im Ziel-System ein **gleichnamiges Item** existiert (Migrierbarkeit). Fehlende Gegenstücke separat melden — die kann man nicht automatisch migrieren.
+3. Auf den Risiko-Elementen die befüllten Properties zählen (Status `normal`, nicht leer). Das ist der potenzielle Property-Wert-Verlust.
+
+**Sichere Reihenfolge — erst spiegeln, dann löschen:**
+
+```
+1. MIGRATE (additiv, sicher): Risiko-Elemente zusätzlich im Ziel-System
+   mit dem gleichnamigen Item klassifizieren. Es wird nichts überschrieben —
+   das Element trägt danach BEIDE Etiketten. Confirm-Schleife wie bei jedem
+   schreibenden Bulk (SAFE-01); bei Teamwork vorher ReserveElements.
+2. VERIFY Klassifikation: Reverse-Lookup, dass alle Risiko-Elemente jetzt
+   auch im Ziel-System klassifiziert sind.
+3. VERIFY Property-Verfügbarkeit (1-Element-Kontrolltest): an EINEM Beispiel
+   die Lösch-System-Klassifikation entfernen, prüfen ob die Property-Werte
+   erhalten bleiben (weil das Ziel-Item dieselbe availability liefert).
+   Bleiben sie → Löschung sicher. Verschwinden sie → erst die Property-
+   availability auf die Ziel-Items erweitern (Archicad-UI, Property-Manager),
+   sonst gehen die Werte trotz Migration verloren.
+4. DELETE: erst jetzt löscht der USER das System in der Archicad-UI
+   (Klassifikations-Manager). Die Löschung selbst ist kein MCP-Schritt.
+```
+
+**Merksatz:** Eine bestandene Klassifikations-Migration heißt noch nicht, dass die *Property-Werte* die Löschung überleben — die hängen an der `availability`, nicht am Etikett. Immer beides verifizieren.
 
 ## Enum-Migration-Pattern (Modify-Endpoint-Umgehung)
 

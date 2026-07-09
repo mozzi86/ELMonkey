@@ -52,6 +52,7 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 | **Pydantic-Validierungs-Fehler in Response** (z. B. `extra_forbidden` für `structureType` / `geometryType`) | **AC29-Schema-Drift-Bug** in `elements_get_details_of_elements` — Workarounds in der Capability-Tabelle unten + Memory-Eintrag `issue_archicad_mcp_get_details_bug.md`. Property-basiertes Lesen verwenden. | 0 |
 | **`elements_get_gdl_parameters_of_elements` schlägt fehl mit ~tausenden Validierungs-Fehlern** | **AC29-Schema-Drift-Bug auf Zonen** — `index` als int (Schema erwartet string), extra Felder `displayName` / `isLocked` / `flags`. Bei Zonen mit vielen GDL-Parametern (~849) entstehen ~4.000 Fehler. **GDL-Parameter-Read via MCP nicht nutzbar.** Workaround: Schedule-Export-Pipeline (siehe `schedule-pipeline.md`). | 0 |
 | **`elements_get_details_of_elements` für Zone wirft Schema-Mismatch** | Zone-Detail-Schema fehlt im MCP-Wrapper. Server liefert `name`, `numberStr`, `categoryAttributeId`, `stampPosition`, `isManual`, `zCoordinate`, `polygonOutline`, `holes`, aber kein `ZoneDetails`-Variant existiert. | 0 |
+| **Leere `properties: []`-Liste an `properties_get_property_values_of_elements`** | Server trennt die Verbindung hart (`RemoteDisconnected` / leere Response, Länge 0) und kann im Worst Case den JSON-Port der Instanz lahmlegen, bis sie reaktiviert wird. **Vor jedem Werte-Read prüfen, dass die Property-ID-Liste nicht leer ist** (z. B. wenn ein Elementtyp keine user-defined Properties hat). <!-- 2026-06-11 --> | 0 |
 
 **Wichtiges Prinzip.** Bei einem unerwarteten Ergebnis (Operation scheint erfolgreich, aber das Element fehlt im Modell oder hat falsche Eigenschaften) **stoppen wir und lesen**, was tatsächlich passiert ist. Wir versuchen nicht, durch Folge-Operationen „still zu korrigieren" — das verschleiert nur die Ursache und kann doppelten Schaden anrichten.
 
@@ -132,6 +133,14 @@ Welche soll ich für diesen Auftrag verwenden?
 
 **Null Instanzen:** „Archicad scheint nicht zu laufen oder das MCP-Plugin ist inaktiv. Kann ich dich bitten, Archicad zu öffnen und das Plugin zu prüfen?" — dann stoppen.
 
+### Ports sind volatil — Port ≠ Datei <!-- 2026-06-11 -->
+
+Die JSON-/MCP-Ports (typisch ab 19723 aufwärts) sind **nicht stabil einer bestimmten Datei zugeordnet**. Wenn eine Instanz geschlossen und wieder geöffnet wird — oder eine andere Instanz dazwischen startet/stoppt — kann **dieselbe Datei beim nächsten Mal auf einem anderen Port liegen**. Live beobachtet: eine Datei wanderte nach einem Schließen/Öffnen von Port 19724 auf 19725; der vorher belegte Port war danach tot.
+
+**Regel:** Niemals „Port X = Datei Y" über die Dauer einer Session hinaus annehmen oder aus einer früheren Session übernehmen. Vor jeder Operation, die den Port aus dem Warm-up wiederverwendet, **die offene Datei verifizieren** — via `GetProjectInfo` (Tapir) und Abgleich des `projectName`/`projectPath`. Wenn der erwartete Port keine Antwort gibt: nicht raten, alle aktiven Instanzen neu auflisten und den `projectName` matchen.
+
+**Symptom für „Port tot / verschoben":** `IsAlive` liefert nichts oder die Verbindung ist refused, obwohl Archicad sichtbar läuft. Dann: aktive Instanzen neu auflisten, korrekten Port per Projektname bestimmen.
+
 ## Live-verifizierte Element-Create-Capabilities (AC29)
 
 Diese Tabelle dokumentiert, welche Element-Typen via MCP **tatsächlich erstellt** werden können. Stand der Live-Probe vom 2026-05-19 gegen Archicad 29.
@@ -205,6 +214,14 @@ Wenn Archicad einen modalen Dialog offen hat (z. B. „Available Parameters", Pr
 - Layer-Manager
 
 **Empfehlung im Recipe-Workflow:** Bei länger laufenden Bulk-Operationen den User vor Start kurz erinnern: „Bitte schließe offene Dialoge, sonst hängt der MCP-Server."
+
+### Auch ein beschäftigtes Modell blockiert — `IsAlive=true`, aber Queries timeouten <!-- 2026-06-11 -->
+
+Nicht nur modale Dialoge blockieren. Auch ein **aktiv bearbeitetes / beschäftigtes Modell** sperrt die JSON-API: aktives Klicken/Navigieren im Fenster, eine laufende Selektion, ein Hintergrund-Rebuild oder eine große Berechnung. Tückisch: `IsAlive` antwortet dabei **sofort mit `true`**, während echte Modell-Queries (selbst kleine wie `GetElementsByType` auf wenige Elemente) hängen, timeouten oder leere Responses liefern.
+
+**Diagnose-Idiom:** Erst `IsAlive` (muss `true` sein), dann ein **kleiner** Modell-Call (z. B. `GetElementsByType` auf einen Typ mit wenigen Elementen). Schlägt der kleine Call fehl, obwohl `IsAlive=true` → Modell ist busy, **nicht** die Verbindung tot.
+
+**Reaktion:** Nicht in einer Schleife retryen — das blockiert nur weiter. User bitten, das Modell kurz **idle** zu lassen (einmal auf leere Stelle klicken, damit nichts selektiert/aktiv ist, keine offene Dialogbox), dann den Call wiederholen. Große Payloads (Projekte mit vielen tausend Elementen) brauchen ohnehin längere Timeouts (≥120–180 s) und vertragen einen kleinen Retry mit Pause.
 
 ## Verhalten bei „nein" oder Mid-Batch-Fehler
 
