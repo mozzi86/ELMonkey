@@ -18,6 +18,7 @@ Diese Datei dokumentiert die 7 Kontext-Felder, die wir vor einem Archicad-Auftra
 
 - **Pro Auftrag einmal durchgehen**, dann für die Dauer des Auftrags cachen.
 - Bei einem **neuen Auftrag** starten wir frisch — Cache wird verworfen.
+- **Der Port ist volatil — wir matchen Instanzen über `projectName`, nie über einen gemerkten Port.** Projekte wandern zwischen Ports: Futurelab war 19723, dann 19724; auf 19723 lief später ein anderes Projekt (BFW Kantinenküche). Deshalb pro Auftrag `discovery_list_active_archicads` neu ziehen und die Zielinstanz über den Projektnamen identifizieren. Ein aus einer früheren Session erinnerter Port führt sonst stillschweigend Operationen am falschen Modell aus. <!-- 2026-06-19 gelernt -->
 - Das **Story-Feld ist volatil**. Wenn der User in seiner Aufgabe einen Floor erwähnt („im OG", „im 1. OG", „im EG"), ziehen wir es neu und nutzen nicht den Cache — der User könnte zwischenzeitlich in Archicad das Geschoss gewechselt haben.
 - Die Felder **6 (Pen-Set) und 7 (Klassifikations-System)** ziehen wir nur, wenn der Auftrag sie tatsächlich braucht — also bei 2D-Arbeit bzw. Klassifizierung. Bei reinen Bauteil-Operationen entfallen sie.
 - Wenn ein Feld nicht verfügbar ist (Tool fehlt, Discovery liefert nichts): **dokumentieren, weitermachen — nicht blockieren**. Operationen, die das Feld nicht brauchen, laufen weiter.
@@ -34,6 +35,7 @@ Diese Datei dokumentiert die 7 Kontext-Felder, die wir vor einem Archicad-Auftra
 - Eine Instanz → Port übernehmen.
 - Mehrere Instanzen → User fragen (siehe [mcp-conventions.md § Port-Handling](mcp-conventions.md#port-handling-bei-mehreren-archicad-instanzen)).
 - Null Instanzen → User informieren, stoppen.
+- **Immer über `projectName` zuordnen, nie über einen gemerkten Port** — Ports sind nicht stabil über Sessions hinweg (siehe Warm-up-Regeln). Wenn ein Auftrag ein bestimmtes Projekt meint (z. B. „Futurelab"), suchen wir die Instanz mit passendem `projectName` und nehmen deren aktuellen Port. <!-- 2026-06-19 gelernt -->
 
 ## Feld 2: Projekt-Identität
 

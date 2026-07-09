@@ -11,7 +11,8 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 5. [Port-Handling bei mehreren Archicad-Instanzen](#port-handling-bei-mehreren-archicad-instanzen)
 6. [Live-verifizierte Element-Create-Capabilities (AC29)](#live-verifizierte-element-create-capabilities-ac29)
 7. [Modal-Dialoge in Archicad blockieren MCP](#modal-dialoge-in-archicad-blockieren-mcp)
-8. [Verhalten bei „nein" oder Mid-Batch-Fehler](#verhalten-bei-nein-oder-mid-batch-fehler)
+8. [Direkter HTTP-Zugriff auf die JSON-API (MCP-Bypass)](#direkter-http-zugriff-auf-die-json-api-mcp-bypass)
+9. [Verhalten bei „nein" oder Mid-Batch-Fehler](#verhalten-bei-nein-oder-mid-batch-fehler)
 
 ## Discovery-Pattern im Detail
 
@@ -50,9 +51,12 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 | **MCP-Call hängt oder timeoutet ohne Response** | **Modal-Dialog blockiert Archicad** — User bitten, offene Dialoge zu prüfen und sauber zu schließen (siehe Sektion „Modal-Dialoge"). | 0 |
 | **`Invalid program status (there is an open modal dialog: <Dialog-Name>)` — Code 4001** | Spezifische Form des Modal-Block-Fehlers; Dialog-Name aus Fehlermeldung extrahieren + an User weiterleiten. | 0 |
 | **Pydantic-Validierungs-Fehler in Response** (z. B. `extra_forbidden` für `structureType` / `geometryType`) | **AC29-Schema-Drift-Bug** in `elements_get_details_of_elements` — Workarounds in der Capability-Tabelle unten + Memory-Eintrag `issue_archicad_mcp_get_details_bug.md`. Property-basiertes Lesen verwenden. | 0 |
-| **`elements_get_gdl_parameters_of_elements` schlägt fehl mit ~tausenden Validierungs-Fehlern** | **AC29-Schema-Drift-Bug auf Zonen** — `index` als int (Schema erwartet string), extra Felder `displayName` / `isLocked` / `flags`. Bei Zonen mit vielen GDL-Parametern (~849) entstehen ~4.000 Fehler. **GDL-Parameter-Read via MCP nicht nutzbar.** Workaround: Schedule-Export-Pipeline (siehe `schedule-pipeline.md`). | 0 |
+| **`elements_get_gdl_parameters_of_elements` schlägt fehl mit ~tausenden Validierungs-Fehlern** | **AC29-Schema-Drift-Bug** — Pydantic-Validierung im MCP-Wrapper, nicht in Archicad. **Bester Workaround: direkter HTTP-Zugriff** auf die rohe JSON-API (siehe Sektion „Direkter HTTP-Zugriff") — die rohe Antwort ist parsebar. Alternativ Schedule-Export-Pipeline (`schedule-pipeline.md`). <!-- 2026-06-11 --> | 0 |
 | **`elements_get_details_of_elements` für Zone wirft Schema-Mismatch** | Zone-Detail-Schema fehlt im MCP-Wrapper. Server liefert `name`, `numberStr`, `categoryAttributeId`, `stampPosition`, `isManual`, `zCoordinate`, `polygonOutline`, `holes`, aber kein `ZoneDetails`-Variant existiert. | 0 |
 | **Leere `properties: []`-Liste an `properties_get_property_values_of_elements`** | Server trennt die Verbindung hart (`RemoteDisconnected` / leere Response, Länge 0) und kann im Worst Case den JSON-Port der Instanz lahmlegen, bis sie reaktiviert wird. **Vor jedem Werte-Read prüfen, dass die Property-ID-Liste nicht leer ist** (z. B. wenn ein Elementtyp keine user-defined Properties hat). <!-- 2026-06-11 --> | 0 |
+| **`TeamWork permission denied` — Code 6001** (im `executionResults`-Eintrag, nicht im Top-Level-Fehler) | **Teamwork-Projekt: Element ist nicht für dich reserviert.** Vor jedem schreibenden Aufruf (`SetPropertyValuesOfElements`, Klassifizierung, Geometrie-Update) die Ziel-Elemente reservieren: MCP-Tool **`teamwork_reserve_elements`** (`params.elements` = Liste `{elementId:{guid}}`), Erfolg = `executionResult.success:true`. Danach Write wiederholen. (`API.ReserveElements` existiert NICHT als JSON-Command — nur über das MCP-Tool bzw. Tapir.) <!-- 2026-06-18 --> | 1 nach Reserve |
+| **`Port <n> is not an active Archicad connection`** beim `archicad_call_tool` (obwohl roher HTTP auf den Port antwortet) | Der MCP-Server hat seinen Instanz-Cache verloren. **`discovery_list_active_archicads` einmal aufrufen** — danach kennt der Server den Port wieder und der Call klappt. | 1 nach Discovery |
+| **Reserve meldet `success:true`, der folgende Write scheitert trotzdem mit `6001`** | **Reserve ≠ Schreibrecht.** `ReserveElements` (Tapir/MCP) kann pauschal `success:true` melden, obwohl einzelne Ziel-Elemente faktisch nicht beschreibbar sind — typische Ursachen: **gesperrter Layer** (`ModelView_IsLayerLocked`), **Fremdvorbehalt** eines anderen Teamwork-Nutzers, oder Hotlink-Element. Nicht im Loop weiter-reservieren (bringt nichts). Stattdessen: betroffene GUIDs identifizieren, Layer-Lock / Vorbehalt prüfen, dem User melden (Layer entsperren / Element freigeben lassen). Live AC29: 2 Träger auf Layer „00 Hilfskonstruktion" blieben so blockiert. <!-- 2026-06-19 --> | 0 (User-Aktion nötig) |
 
 **Wichtiges Prinzip.** Bei einem unerwarteten Ergebnis (Operation scheint erfolgreich, aber das Element fehlt im Modell oder hat falsche Eigenschaften) **stoppen wir und lesen**, was tatsächlich passiert ist. Wir versuchen nicht, durch Folge-Operationen „still zu korrigieren" — das verschleiert nur die Ursache und kann doppelten Schaden anrichten.
 
@@ -113,7 +117,9 @@ Manche Listing-Operationen liefern Ergebnisse in mehreren Seiten. Genaue Felder-
 3. Ergebnisse akkumulieren, bis kein Token mehr zurückkommt.
 4. Erst dann mit FILTER / GROUP / CONFIRM (siehe [`bulk-operations.md`](bulk-operations.md)) fortfahren.
 
-**Bei sehr großen Datasets** (>1.000 Elemente) zeigen wir dem User während der Akkumulation einen Fortschritts-Hinweis, falls der Tool-Call länger braucht.
+**Bei sehr großen Datasets** (>1.000 Elemente) zeigen wir dem User während der Akkumulation einen Fortschritts-Hinweis, falls der Tool-Call länger braucht. **Achtung Context-Explosion:** Die MCP-Pagination schreibt jede 100er-Seite als JSON-Block in den Claude-Context — bei tausenden Elementen sprengt das den Context. Für solche Massen-Reads den **direkten HTTP-Zugriff** wählen (siehe Sektion „Direkter HTTP-Zugriff"): die rohe `API.*`-Antwort ist unpaginiert und wird in einem lokalen Script verarbeitet, sodass nur die Zusammenfassung zurückkommt. <!-- 2026-06-11 -->
+
+**Paginierungs-Sessions verfallen.** <!-- 2026-07-06 --> Ein `page_token` ist an eine serverseitige Paginierungs-Session gebunden, die nach einigen Minuten bzw. nach zwischengeschobenen anderen Calls abläuft — dann kommt `Pagination session expired. Please start a new request.` und man muss **von Seite 1 neu** durchlaufen (Tokens sind nicht wiederaufsetzbar). Konsequenz: Seiten **direkt hintereinander** abrufen, keine anderen Operationen dazwischen. Live-Fall: 11-Seiten-Liste (1.091 Wände) verfiel, weil zwischen Seite 5 und 6 Property-Reads liefen. Bei Listen dieser Größe ohnehin besser gleich der HTTP-Bypass (unpaginiert, ein Aufruf).
 
 ## Port-Handling bei mehreren Archicad-Instanzen
 
@@ -222,6 +228,51 @@ Nicht nur modale Dialoge blockieren. Auch ein **aktiv bearbeitetes / beschäftig
 **Diagnose-Idiom:** Erst `IsAlive` (muss `true` sein), dann ein **kleiner** Modell-Call (z. B. `GetElementsByType` auf einen Typ mit wenigen Elementen). Schlägt der kleine Call fehl, obwohl `IsAlive=true` → Modell ist busy, **nicht** die Verbindung tot.
 
 **Reaktion:** Nicht in einer Schleife retryen — das blockiert nur weiter. User bitten, das Modell kurz **idle** zu lassen (einmal auf leere Stelle klicken, damit nichts selektiert/aktiv ist, keine offene Dialogbox), dann den Call wiederholen. Große Payloads (Projekte mit vielen tausend Elementen) brauchen ohnehin längere Timeouts (≥120–180 s) und vertragen einen kleinen Retry mit Pause.
+
+## Direkter HTTP-Zugriff auf die JSON-API (MCP-Bypass) <!-- 2026-06-11 -->
+
+Der Archicad-MCP-Server ist nur ein dünner Wrapper über Archicads **JSON-Command-API**, die direkt per HTTP auf dem Instanz-Port lauscht (`POST http://127.0.0.1:<port>`, Body `{"command": ..., "parameters": ...}`). Bei **großen Bulk-Aufträgen** (hunderte/tausende Elemente) ist der direkte HTTP-Zugriff oft die bessere Wahl als der MCP-Tool-Pfad — aus zwei Gründen, beide live verifiziert an einem 1.899-Möbel-Auftrag:
+
+1. **Umgeht die MCP-Pagination-Context-Explosion.** Der MCP-Server paginiert Listen-Antworten in 100er-Seiten (`next_page_token` „MTAw"/„MjAw"/…), und jede Seite landet als riesiger JSON-Block im Claude-Context. Die **rohe API paginiert nicht** — `API.GetElementsByClassification` lieferte alle 1.899 Element-GUIDs in einem Aufruf. In einem lokalen Python-Script verarbeitet, bleibt die Massendaten komplett aus dem Context; nur die Zusammenfassung (Counts) kommt zurück.
+2. **Umgeht die AC29-Pydantic-Schema-Drift-Bugs.** Die Bugs in `elements_get_gdl_parameters_of_elements` / `elements_get_details_of_elements` (siehe Fehlerklassen-Tabelle + Capability-Sektion) sind **Validierungs-Fehler im MCP-Wrapper, nicht in Archicad**. Die rohe JSON-Antwort ist völlig parsebar — nur Pydantic `extra='forbid'` lehnt sie ab. Per direktem HTTP liest man die GDL-Parameter problemlos selbst.
+
+**Command-Mapping (wie der MCP-Tool-Name auf die rohe API abbildet):**
+
+- **Offizielle Commands** gehen direkt: `{"command":"API.GetElementsByClassification","parameters":{...}}`. Dazu zählen u. a. `API.GetElementsByClassification`, `API.GetAllElements`, `API.GetSelectedElements`, `API.GetPropertyValuesOfElements`, `API.SetPropertyValuesOfElements`, `API.GetPropertyIds`, `API.GetClassificationsOfElements`, `API.GetProductInfo`, `API.IsAlive`.
+- **Tapir-Add-On-Commands** werden gewrappt:
+  ```json
+  {"command":"API.ExecuteAddOnCommand",
+   "parameters":{"addOnCommandId":{"commandNamespace":"TapirCommand","commandName":"GetGDLParametersOfElements"},
+                 "addOnCommandParameters":{...}}}
+  ```
+  Tapir-only sind u. a. `GetGDLParametersOfElements`, `GetDetailsOfElements`, `ReserveElements`, `ReleaseElements`, `ChangeSelectionOfElements`, `HighlightElements`, `MoveElements`, `GetStories`, `GetProjectInfo`. Die Tapir-Antwort steckt in `result.addOnCommandResponse`.
+
+**Welche Commands wo liegen** (offiziell vs. Tapir) steht in der installierten Server-Quelle:
+`~/.local/share/uv/tools/tapir-archicad-mcp/lib/python3.13/site-packages/multiconn_archicad/core/literal_commands.py` — zwei Literal-Listen `AddonCommandType` (offiziell `API.*`) und `TapirCommandType`. Die exakten Parameter-Shapes liegen daneben in `models/official/` bzw. `models/tapir/`.
+
+**Set-Schema bei rohem HTTP weicht ab vom MCP-Schema.** Der MCP-Tool-Pfad akzeptiert die vereinfachte Form `{"value": "<string>"}` (siehe `bulk-operations.md` CAP-01). Die **rohe** `API.SetPropertyValuesOfElements` verlangt das **vollständige** Konstrukt — und die Einträge im Array `elementPropertyValues` sind **flach** `{elementId, propertyId, propertyValue}`, **nicht** verschachtelt mit einem `propertyValues`-Sub-Array pro Element: <!-- 2026-06-24 -->
+```json
+{"command":"API.SetPropertyValuesOfElements",
+ "parameters":{"elementPropertyValues":[
+   {"elementId":{"guid":"..."},
+    "propertyId":{"guid":"..."},
+    "propertyValue":{"type":"singleEnum","status":"normal",
+                     "value":{"type":"displayValue","displayValue":"RV Standard"}}}
+ ]}}
+```
+Falsch (verschachteltes `propertyValues`) → Top-Level-Fehler **4002** „`The JSON is invalid … Validation failed on schema rule 'additionalProperties' … on path '#/elementPropertyValues/0/propertyValues'`". Response bei korrektem Schema: `result.executionResults` — pro Element `{"success":true}` oder `{"success":false,"error":{...}}`.
+
+**Klassifizierung setzen: offiziellen Command nehmen, nicht Tapir.** <!-- 2026-07-06 --> `API.SetClassificationsOfElements` existiert offiziell und verlangt **nested** `classificationId`:
+```json
+{"command":"API.SetClassificationsOfElements",
+ "parameters":{"elementClassifications":[
+   {"elementId":{"guid":"..."},
+    "classificationId":{"classificationSystemId":{"guid":"..."},
+                        "classificationItemId":{"guid":"..."}}}]}}
+```
+Flach (`classificationSystemId`/`classificationItemId` direkt neben `elementId`) → 4002. Es gibt auch einen Tapir-Command gleichen Namens (gleiches nested Schema), aber der **maskiert die echten Fehler**: er liefert nur generisch `Failed to set classification item for element` (Code -2130312310), wo der offizielle Command präzise `6001 TeamWork permission denied` (fehlende Reservierung) oder `7203 Element not supported` (Elementtyp nicht klassifizierbar, z. B. Polylinie/2D) meldet. Live verifiziert an 297 Wänden (Teamwork, AC29).
+
+**Wann den HTTP-Bypass NICHT nehmen:** Für normale, kleine Operationen (< ~100 Elemente, keine kaputten Tools) bleibt der MCP-Tool-Pfad der Default — er ist Discovery-geführt und versionsrobust. Der Bypass ist das Werkzeug für **Massendaten** und **die bekannten Schema-Drift-Tools**. Port immer aus dem Warm-up/Discovery beziehen, nie hardcoden (Ports sind volatil, siehe oben).
 
 ## Verhalten bei „nein" oder Mid-Batch-Fehler
 

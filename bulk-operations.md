@@ -17,7 +17,8 @@ Diese Datei dokumentiert, wie wir Massen-Updates und Klassifizierungen durchfüh
 11. [Enum-Migration-Pattern (Modify-Endpoint-Umgehung)](#enum-migration-pattern-modify-endpoint-umgehung)
 12. [Pre-Flight: Property-Enum-Normalisierung](#pre-flight-property-enum-normalisierung)
 13. [Identifier-Mapping bei externen Daten-Quellen](#identifier-mapping-bei-externen-daten-quellen)
-14. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
+14. [GDL-Parameter vs. expression-verlinkte Property als Quelle](#gdl-parameter-vs-expression-verlinkte-property-als-quelle-live-verifiziert-2026-06-11)
+15. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
 
 ## Das universelle Read → Filter → Group → Confirm → Apply-Pattern
 
@@ -181,6 +182,17 @@ mcp__archicad__archicad_call_tool(
 
 **Workaround bei nicht klassifizierten Elementen:** Vor dem Set einmalig `mcp__archicad__elements_set_classifications_of_elements` aufrufen mit der passenden Klassifikation. Live verifiziert: nach Klassifizierung funktioniert Property-Set sofort.
 
+**Achtung — Raw-HTTP-Schema ≠ MCP-Schema (multiEnum).** <!-- 2026-06-18 --> Beim **direkten HTTP-Bypass** (`API.SetPropertyValuesOfElements`, für Massendaten) ist `propertyValue` NICHT der einfache `{"value": "<string>"}`. Der Wrapper validiert ein `oneOf` und lehnt den String mit `4002` ab. Verifiziert für eine **multiEnum**-Property:
+```json
+{"elementPropertyValues": [{
+  "elementId": {"guid": "..."},
+  "propertyId": {"guid": "..."},
+  "propertyValue": {"type": "multiEnum", "status": "normal",
+                    "value": [{"enumValueId": {"type": "displayValue", "displayValue": "fb"}}]}
+}]}
+```
+Also: `type` + `status` zwingend, und `value` ist eine **Liste** von `{enumValueId:{type:"displayValue", displayValue:...}}` (mehrere Einträge = mehrere gesetzte Werte; Co-Werte beim Migrieren mitführen). Das ist exakt das Format, das der Read (`API.GetPropertyValuesOfElements`) zurückliefert — Read-Schema spiegeln. Erfolg pro Element in `result.executionResults[i].success`.
+
 ## Property-Definitions sind Create-Only (CAP-02 Negativ-Befund)
 
 Live verifiziert am 2026-05-21: **es gibt keinen Modify-Endpoint für Property-Definitions.** `properties_create_property_definitions` mit gleichem Namen wie eine existierende Property schlägt fehl (Code `-2130312988`).
@@ -281,6 +293,26 @@ Wenn der User ein ganzes Klassifikations-System loswerden will (z. B. ein redund
 ```
 
 **Merksatz:** Eine bestandene Klassifikations-Migration heißt noch nicht, dass die *Property-Werte* die Löschung überleben — die hängen an der `availability`, nicht am Etikett. Immer beides verifizieren.
+
+### Basis-vs-Unterklasse-Entscheidung: Verfügbarkeits-Diff <!-- 2026-06-19 -->
+
+Vor dem Klassifizieren auf eine **Unterklasse** (statt Basisklasse) prüfen, ob dabei Property-Verfügbarkeit verloren geht. Wenn ja → Basisklasse wählen; wenn nein → Unterklasse ist sicher (feiner = besser).
+
+Vorgehen — `API.GetClassificationItemAvailability` pro Item, dann Set-Diff `basis_props − unterklasse_props`:
+
+```python
+# params: {"classificationItemIds":[{"classificationItemId":{"guid": <item>}}]}
+def get_props(guid):
+    r = call("API.GetClassificationItemAvailability",
+             {"classificationItemIds":[{"classificationItemId":{"guid":guid}}]})
+    lst = r["result"]["classificationItemAvailabilityList"][0] \
+           ["classificationItemAvailability"]["availableProperties"]
+    return set(p["propertyId"]["guid"] for p in lst)
+
+lost = get_props(BASIS) - get_props(UNTERKLASSE)   # leer → kein Verlust → Unterklasse OK
+```
+
+**Parse-Pfad merken** (leicht zu verfehlen): `result.classificationItemAvailabilityList[0].classificationItemAvailability.availableProperties[].propertyId.guid`. Ein falscher Schlüssel liefert still `0`/leere Mengen → man würde fälschlich „alles verloren" schließen. Live verifiziert AC29: alle 8 Wand-Unterklassen (Beton-, Trockenbau-, MW-, Trennwand, Brüstung, Vor-, Element-, Bewegliche Wand) haben **identische 82 Properties** wie Basis „Wand" → kein Verlust.
 
 ## Enum-Migration-Pattern (Modify-Endpoint-Umgehung)
 
@@ -412,6 +444,39 @@ Bei Bulk-Updates aus externen Datenquellen (Schedule-Export, Capmo, Excel) ist d
 4. **Eindeutigkeits-Check:** Jede Source-Zeile sollte genau einen GUID-Match haben. Bei mehreren oder keinem → User informieren, **nicht raten**.
 
 Falls die externen Daten als XLSX/CSV vorliegen: siehe [`schedule-pipeline.md`](schedule-pipeline.md) für die End-to-End-Pipeline.
+
+## GDL-Parameter vs. expression-verlinkte Property als Quelle (live verifiziert 2026-06-11)
+
+Beim GROUP-Schritt einer Bulk-Klassifizierung ist die **Wahl der Quell-Daten** entscheidend — und nicht jede Quelle, die plausibel aussieht, trägt die echten per-Objekt-Werte. Live-Fall: 1.899 Möbel sollten nach „Vertragsart" (Architektur / RV Standard / RV Innovativ / Funktional) klassifiziert werden.
+
+**Der Reinfall:** Es gab eine expression-verlinkte Property „Preisklasse" (siehe `property-expression-linking.md`), die nach dem Library-Objekt befüllt sein *sollte*. Der Property-Read lieferte aber **uniform 1.664× „RV Standard" + 235× notAvailable** — null Ästhetik, null Innovativ, null Funktional. Das war der **Definitions-Default**, nicht die echten Objektwerte. Hätte man darauf vertraut, wären 1.664 Möbel falsch als „RV Standard" klassifiziert worden.
+
+**Die echte Quelle:** Der **GDL-Parameter** des Bibliothekselements (`priceClass`-Code: `aesthetik` / `rv_standard` / `innovativ` / `rv_innovativ` / `funktional`, plus Anzeige-Param `preisklasse`). <!-- 2026-06-24: `innovativ` ist ein eigener Code zusätzlich zu `rv_innovativ` — beide → Vertragsart „RV Innovativ". `innovativ` beginnt NICHT mit `rv`, fällt also durch eine naive `startswith("rv")`-Logik. Codes explizit matchen, nicht per Präfix raten. -->. Per GDL-Read ergab sich die wahre Verteilung: 568 Ästhetik, 136 RV Standard, 45 Funktional, 5 RV Innovativ — und **1.145 Objekte ganz ohne `priceClass`** (Bibliothekselemente, die die Metadaten nicht eingebettet haben). Der saubere Maschinen-Code im GDL-Param war zugleich eindeutiger als die separate boolean-Property „Innovativ" (die `rv_standard`-vs-`rv_innovativ`-Unterscheidung steckte direkt im Code).
+
+**Regel: Quelle gegenchecken, bevor man tausende Werte schreibt.** Eine verdächtig **uniforme** Verteilung (alle identisch oder fast alles ein Wert) ist ein Warnsignal, dass man einen Default statt echter Daten liest. Bei Bulk-Klassifizierung aus Library-Objekten ist der **GDL-Parameter die verlässlichere Ground Truth** als eine expression-verlinkte Property — letztere kann projektweit unbefüllt sein und nur den Default zeigen. Mindestens eine Handvoll Objekte mit bekannten, unterschiedlichen Werten als Stichprobe gegen beide Quellen prüfen. (GDL-Read bei großen Mengen via direktem HTTP-Zugriff, siehe `mcp-conventions.md` § Direkter HTTP-Zugriff — umgeht den AC29-Pydantic-Bug.)
+
+**Objekte ohne Quelldaten:** Die 1.145 ohne `priceClass` ehrlich als „nicht zuordenbar" ausweisen und **leer lassen** — nicht raten, nicht auf einen Default zwingen. Der User entscheidet, ob diese aus einer anderen Quelle nachklassifiziert werden.
+
+**Additiv statt voller Soll/Ist-Recompute, wenn der User schon manuell gearbeitet hat.** <!-- 2026-06-24 --> In einer Folge-Session („ich habe jetzt 89 Möbel auf Inno gesetzt") verlockt ein vollständiger Recompute (Soll aus Quelle berechnen, alles Abweichende überschreiben). Gefahr: Quellen widersprechen sich (GDL `priceClass=aesthetik`, aber Property `Preisklasse=RV Innovativ` + `Innovativ=Wahr`), und der Recompute würde die **manuell gesetzten** Werte zurückdrehen (live: 8× `RV Innovativ → Architektur`, 2× `Schreiner → RV Standard` — echter Datenverlust an Handarbeit). **Regel:** Bei einer „mach die fehlenden noch"-Aufgabe rein **additiv** vorgehen — nur Elemente setzen, deren Quelle das Ziel klar sagt **und** die den Zielwert noch *nicht* tragen; bestehende echte Werte (inkl. Spezial-Kategorien wie „Schreiner") nie überschreiben. Vor dem Write die Transitionen nach „echter Wert → anderer echter Wert" filtern und dem User separat zeigen; diese sind verdächtig und gehören nicht in einen Blind-Write. Wenn die erwartete Änderungsmenge (vom User genannt, z. B. ~89) stark von der berechneten abweicht (live: nur 4 echt offen, 162 schon korrekt), ist die Prämisse überholt → stoppen und berichten statt den alten Plan ausführen.
+
+### TeamWork: Bulk-Set scheitert pro-Element mit Code 6001
+
+Bei einem Teamwork-Projekt liefert `SetPropertyValuesOfElements` **pro Element** `success` oder `{"code":6001,"message":"TeamWork permission denied"}` — nicht reservierte Elemente schlagen einzeln fehl, der reservierte Rest geht durch. Im Live-Fall: 754 zu setzen → 723 erfolgreich, 31 mit 6001 (vom User schlicht nicht mitreserviert).
+
+**Claude kann selbst reservieren — kein manueller User-Schritt nötig.** <!-- 2026-06-18 --> Das MCP-Tool **`teamwork_reserve_elements`** reserviert eine Liste Elemente direkt: `arguments={"port":<port>, "params":{"elements":[{"elementId":{"guid":...}}, ...]}}`. Erfolg = `{"executionResult":{"success":true}}`. Beim **rohen HTTP-Bypass** geht dasselbe über die **Tapir**-Command `ReserveElements` (`API.ExecuteAddOnCommand`, `commandNamespace:"TapirCommand"`, `addOnCommandParameters={"elements":[{"elementId":{"guid":...}}]}`); Erfolg = `result.addOnCommandResponse.executionResult.success:true`. <!-- 2026-06-24: live verifiziert, 3 unreservierte GUIDs in einem Rutsch reserviert, danach Set erfolgreich. `API.ReserveElements` als offizieller Command existiert NICHT — nur via Tapir bzw. MCP-Tool. -->. Damit ist der Idiom-Ablauf für einen Teamwork-Write: **(1) Ziel-GUIDs reservieren → (2) `SetPropertyValuesOfElements` → (3) Rücklesen/Verify.** 31 GUIDs auf einmal live verifiziert. (Hinweis: schlägt `teamwork_reserve_elements` mit „port not active" fehl → erst `discovery_list_active_archicads`, siehe `mcp-conventions.md` § Fehlerklassen.)
+
+**Robustes Nachfass-Pattern (idempotent), falls trotzdem 6001 übrig bleibt:**
+1. Nach dem Bulk-Set per **Verify** (Soll/Ist-Vergleich: aktuellen Property-Wert gegen Ziel lesen) ermitteln, welche Elemente noch *nicht* den Zielwert tragen — das deckt die 6001-Fehlschläge unabhängig vom Batch-Log auf.
+2. Diese Rest-GUIDs reservieren (`teamwork_reserve_elements`). Falls Reservierung scheitert (z. B. anderer User hält das Element), dem User geben — hilfreich: per `ChangeSelectionOfElements` (Tapir, `addElementsToSelection`) **in Archicad selektieren**, damit er sie in einem Rutsch übernehmen kann (Selektion ist frei, kein Confirm nötig).
+3. Nach Reservierung das Set **nur für die Rest-GUIDs** wiederholen. Re-Set bereits korrekter Elemente wäre harmlos, aber das Verify-gefilterte Retry ist sauberer.
+
+**`ReserveElements`-„success" ist KEIN Beweis für eine Reservierung.** <!-- 2026-07-06 --> Tapir `ReserveElements` (1.4.0) meldet `executionResult.success:true` auch dann, wenn die Reservierung real **nicht** greift — Konflikte (Elemente von anderem User/anderer Session gehalten) werden verschluckt, der anschließende Set scheitert weiter mit 6001. Live-Fall: 297 Wände, Reserve „success", Set 297× 6001; erst nachdem der User **manuell in der Archicad-UI reserviert** hat (Suchen & Auswählen → Elementtyp Wand → Rechtsklick → Teamwork → Elemente reservieren), lief der Set 297/297 durch. Der 2026-06-24-Befund oben (Reserve via API funktioniert) gilt also nur für den konfliktfreien Fall. **Idiom bei hartnäckigem 6001:** User manuell reservieren lassen — die UI zeigt dabei auch, *wer* die Elemente hält.
+
+**Diagnose-Trick: Rolle vs. Reservierung trennen.** <!-- 2026-07-06 --> 6001 kann „Rolle darf nicht" oder „Element nicht reserviert" heißen. Entscheidungstest: ein **eigenes Wegwerf-Element erstellen und klassifizieren** (Create ist reservierungsfrei) — z. B. Mini-Slab via Tapir `CreateSlabs`, dann `API.SetClassificationsOfElements` darauf, dann `DeleteElements`. Klappt das (live: `success:true`), sind Rolle und Klassifizierungs-API in Ordnung → das Problem ist rein die Reservierung der Bestandselemente. Achtung: **Polylinien sind nicht klassifizierbar** (7203 „Element not supported") — für den Test ein 3D-Element (Slab) nehmen.
+
+**Doppelt geöffnetes Teamwork-Projekt = Zombie-Reservierungen.** <!-- 2026-07-06 --> Ist dasselbe Teamwork-Projekt in **zwei Archicad-Instanzen** offen (Discovery zeigt zweimal denselben `projectName` auf verschiedenen Ports), behandelt BIMcloud die Sessions getrennt — auch beim selben Benutzer. Reservierungen der einen Session blockieren die andere; die ältere Instanz degeneriert oft zum Zombie (`GetProductInfo` liefert `{}`, `GetProjectInfo` „no open project"). Vor Teamwork-Writes per Discovery auf Doppel-Öffnung prüfen und die Zombie-Instanz schließen lassen (ohne Senden).
+
+**Achtung Selektions-Falle:** `ChangeSelectionOfElements` mit `addElementsToSelection` *addiert* zur bestehenden Auswahl. Wenn der User „mach alle Selektierten" sagt, kann seine Auswahl andere/mehr Elemente enthalten als die Rest-Menge — die echten Problemkinder sind evtl. gar nicht dabei (z. B. weil unreserviert/nicht selektierbar). Nach so einem Lauf **immer per Verify gegen die Soll-Menge** prüfen, ob die ursprünglichen Fehlschläge wirklich erledigt sind, statt sich auf „0 Fehler im letzten Batch" zu verlassen.
 
 ## TODO — Phase 5 Live-Verifikation
 
