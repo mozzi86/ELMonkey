@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+"""
+ac — Direct HTTP CLI for Archicad's JSON API.
+
+Umgeht MCP-Discovery und Pagination-Context-Explosion. Für schnelle Read-only-
+Queries und für Bulk-Operationen (>100 Elemente), wo die MCP-Pagination den
+Claude-Context sprengt. Siehe reference/mcp-conventions.md § "Direkter HTTP-Zugriff".
+
+Verwendung:
+  ac ports                          # aktive Archicad-Instanzen (19723..19730)
+  ac call <Cmd> [json]              # offizieller API.<Cmd>
+  ac tapir <TapirCmd> [json]        # Tapir-Add-On-Command via API.ExecuteAddOnCommand
+  ac selected                       # aktuelle Selektion (GetSelectedElements)
+  ac zones                          # alle Zonen (Kurzform von tapir GetElementsByType)
+  ac layers [regex]                 # Layer, optional per Regex gefiltert
+  ac info                           # Projekt-Info + aktive Story + Einheit
+  ac doctor                         # Self-Check (Ports, Tapir-Verfügbarkeit)
+
+Port-Auswahl:
+  --port N        Expliziter Port (Default: 19723, dann Auto-Scan bei Fehler)
+  --project TEXT  Match per Projektname (Substring, case-insensitive)
+
+Format:
+  --json          Rohe JSON-Response ausgeben (Default: kompakte Zusammenfassung)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import urllib.error
+import urllib.request
+from typing import Any
+
+DEFAULT_PORT = 19723
+SCAN_PORTS = range(19723, 19731)  # 19723..19730
+HTTP_TIMEOUT = 10  # Sekunden für kleine Queries; Bulk kann länger dauern
+
+
+def post(port: int, command: str, parameters: dict | None = None, *, timeout: int = HTTP_TIMEOUT) -> dict:
+    body = json.dumps({"command": command, "parameters": parameters or {}}).encode("utf-8")
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{port}/",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def tapir(port: int, command: str, parameters: dict | None = None, *, timeout: int = HTTP_TIMEOUT) -> dict:
+    envelope = {
+        "addOnCommandId": {"commandNamespace": "TapirCommand", "commandName": command},
+        "addOnCommandParameters": parameters or {},
+    }
+    resp = post(port, "API.ExecuteAddOnCommand", envelope, timeout=timeout)
+    return resp.get("result", {}).get("addOnCommandResponse", resp)
+
+
+def scan_ports() -> list[dict]:
+    """Return list of {port, projectName, projectPath} for reachable Archicads."""
+    alive = []
+    for p in SCAN_PORTS:
+        try:
+            info = post(p, "API.IsAlive", timeout=1)
+            if info.get("succeeded"):
+                try:
+                    project = tapir(p, "GetProjectInfo", timeout=5)
+                    alive.append({
+                        "port": p,
+                        "projectName": project.get("projectName", "?"),
+                        "projectPath": project.get("projectLocation", ""),
+                        "isTeamwork": project.get("isTeamwork", False),
+                    })
+                except Exception:
+                    alive.append({"port": p, "projectName": "?", "projectPath": "", "isTeamwork": False})
+        except Exception:
+            continue
+    return alive
+
+
+def resolve_port(explicit: int | None, project_match: str | None) -> int:
+    """Pick a port. Priority: --port > --project match > single active > error."""
+    if explicit is not None:
+        return explicit
+    ports = scan_ports()
+    if not ports:
+        die("Keine aktive Archicad-Instanz gefunden auf Ports 19723..19730. Läuft Archicad? Tapir Add-On aktiv?")
+    if project_match:
+        m = [p for p in ports if project_match.lower() in p["projectName"].lower()]
+        if len(m) == 1:
+            return m[0]["port"]
+        if not m:
+            die(f"Keine Instanz mit Projektname enthält '{project_match}'. Aktiv: {[p['projectName'] for p in ports]}")
+        die(f"Mehrere Instanzen passen zu '{project_match}': {[(p['port'], p['projectName']) for p in m]}")
+    if len(ports) == 1:
+        return ports[0]["port"]
+    die(f"Mehrere aktive Instanzen — bitte --port oder --project angeben. Aktiv: {[(p['port'], p['projectName']) for p in ports]}")
+
+
+def die(msg: str, code: int = 1) -> None:
+    print(f"ac: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def parse_json_arg(arg: str | None) -> dict:
+    if not arg:
+        return {}
+    try:
+        return json.loads(arg)
+    except json.JSONDecodeError as e:
+        die(f"Ungültiges JSON-Argument: {e}")
+
+
+def print_result(data: Any, *, raw: bool) -> None:
+    if raw or not isinstance(data, (dict, list)):
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+    print(json.dumps(data, indent=2, ensure_ascii=False))
+
+
+# --- Subcommands -------------------------------------------------------------
+
+
+def cmd_ports(args) -> None:
+    ports = scan_ports()
+    if not ports:
+        print("Keine aktive Archicad-Instanz gefunden.")
+        sys.exit(1)
+    for p in ports:
+        tw = " [TW]" if p["isTeamwork"] else ""
+        print(f"{p['port']}  {p['projectName']}{tw}")
+
+
+def cmd_call(args) -> None:
+    port = resolve_port(args.port, args.project)
+    params = parse_json_arg(args.params)
+    result = post(port, args.cmd, params, timeout=args.timeout)
+    print_result(result, raw=args.json)
+
+
+def cmd_tapir(args) -> None:
+    port = resolve_port(args.port, args.project)
+    params = parse_json_arg(args.params)
+    result = tapir(port, args.cmd, params, timeout=args.timeout)
+    print_result(result, raw=args.json)
+
+
+def cmd_selected(args) -> None:
+    port = resolve_port(args.port, args.project)
+    result = post(port, "API.GetSelectedElements")
+    ids = [e["elementId"]["guid"] for e in result.get("elements", [])]
+    if args.json:
+        print(json.dumps(ids, indent=2))
+    else:
+        for i in ids:
+            print(i)
+        print(f"({len(ids)} selected)", file=sys.stderr)
+
+
+def cmd_zones(args) -> None:
+    port = resolve_port(args.port, args.project)
+    result = tapir(port, "GetElementsByType", {"elementType": "Zone"})
+    elements = result.get("elements", [])
+    if args.json:
+        print(json.dumps(elements, indent=2))
+    else:
+        for e in elements:
+            print(e.get("elementId", {}).get("guid", "?"))
+        print(f"({len(elements)} zones)", file=sys.stderr)
+
+
+def cmd_layers(args) -> None:
+    port = resolve_port(args.port, args.project)
+    result = post(port, "API.GetAttributesByType", {"attributeType": "Layer"})
+    layers = result.get("attributes", []) or result.get("layers", [])
+    pattern = re.compile(args.regex, re.IGNORECASE) if args.regex else None
+    for a in layers:
+        name = a.get("name", "?")
+        if pattern and not pattern.search(name):
+            continue
+        aid = a.get("attributeId", {}).get("guid", "?")
+        idx = a.get("index", "")
+        print(f"{aid}\t{idx}\t{name}")
+
+
+def cmd_info(args) -> None:
+    port = resolve_port(args.port, args.project)
+    project = tapir(port, "GetProjectInfo")
+    path = project.get("projectLocation", "") or ""
+    # Teamwork-Pfade sind mit URL-encodetem Auth-Blob unlesbar — kürze auf
+    # "@<server>/<project>" wenn --json nicht gesetzt ist.
+    if not args.json and path.startswith("teamwork://") and "@" in path:
+        try:
+            server_and_proj = path.rsplit("@", 1)[-1]
+            path = f"teamwork://…@{server_and_proj}"
+        except Exception:
+            pass
+    print(f"Port:        {port}")
+    print(f"Project:     {project.get('projectName', '?')}")
+    print(f"Path:        {path}")
+    print(f"Teamwork:    {project.get('isTeamwork', False)}")
+    # Story: try Tapir GetStories, fall back gracefully
+    try:
+        stories_resp = tapir(port, "GetStories")
+        stories = stories_resp.get("stories", [])
+        current = next((s for s in stories if s.get("isCurrent")), None) or (stories[0] if stories else None)
+        if current:
+            idx = current.get("index", current.get("floorNumber", "?"))
+            name = current.get("name", current.get("storyName", "?"))
+            print(f"Story:       {name} (index {idx})  [{len(stories)} stories total]")
+        else:
+            print(f"Story:       — (Response: {json.dumps(stories_resp)[:200]})")
+    except Exception as e:
+        print(f"Story:       — ({e})")
+
+
+def cmd_doctor(args) -> None:
+    print("== ac doctor ==")
+    ports = scan_ports()
+    if not ports:
+        print("[FAIL] Keine aktive Archicad-Instanz auf 19723..19730")
+        print("        - Läuft Archicad?")
+        print("        - Ist das Tapir Add-On aktiv (Optionen → Add-On Manager)?")
+        sys.exit(1)
+    print(f"[OK]   {len(ports)} aktive Instanz(en):")
+    for p in ports:
+        tw = " [Teamwork]" if p["isTeamwork"] else ""
+        print(f"        Port {p['port']}: {p['projectName']}{tw}")
+    # Tapir-Check am ersten Port
+    p = ports[0]["port"]
+    try:
+        tapir(p, "GetProjectInfo", timeout=8)
+        print(f"[OK]   Tapir Add-On antwortet auf Port {p}")
+    except Exception as e:
+        print(f"[WARN] Tapir Add-On antwortete nicht in 8s auf Port {p}: {e}")
+        print("        Modell möglicherweise beschäftigt — versuch's gleich nochmal, wenn Archicad idle ist.")
+    # MCP registrierung (heuristisch)
+    from pathlib import Path
+    mcp_json = Path.home() / ".claude.json"
+    if mcp_json.exists() and "archicad" in mcp_json.read_text():
+        print("[OK]   MCP-Server 'archicad' in ~/.claude.json referenziert")
+    else:
+        print("[WARN] MCP-Server 'archicad' nicht in ~/.claude.json gefunden — regulärer Skill-Path funktioniert evtl. nicht")
+    print("Fertig. Fast-Path via 'ac' einsatzbereit.")
+
+
+# --- Main --------------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="ac", description=__doc__.strip().split("\n", 1)[0])
+    p.add_argument("--port", type=int, help="Expliziter Port")
+    p.add_argument("--project", help="Match per Projektname (Substring)")
+    p.add_argument("--json", action="store_true", help="Rohe JSON-Response")
+    p.add_argument("--timeout", type=int, default=HTTP_TIMEOUT, help=f"HTTP-Timeout (Default {HTTP_TIMEOUT}s)")
+
+    sub = p.add_subparsers(dest="sub", required=True)
+
+    sub.add_parser("ports", help="Aktive Archicad-Instanzen").set_defaults(func=cmd_ports)
+
+    call = sub.add_parser("call", help="Offizieller API.<Cmd>")
+    call.add_argument("cmd", help="Command ohne 'API.'-Prefix, z.B. GetProjectInfo")
+    call.add_argument("params", nargs="?", help="JSON-Params")
+    call.set_defaults(func=cmd_call)
+
+    tap = sub.add_parser("tapir", help="Tapir-Add-On-Command via API.ExecuteAddOnCommand")
+    tap.add_argument("cmd", help="Tapir-Command, z.B. GetElementsByType")
+    tap.add_argument("params", nargs="?", help="JSON-Params für addOnCommandParameters")
+    tap.set_defaults(func=cmd_tapir)
+
+    sub.add_parser("selected", help="GUIDs der aktuellen Selektion").set_defaults(func=cmd_selected)
+    sub.add_parser("zones", help="Alle Zonen-GUIDs (Kurzform)").set_defaults(func=cmd_zones)
+
+    lay = sub.add_parser("layers", help="Layer-Liste, optional Regex-gefiltert")
+    lay.add_argument("regex", nargs="?", help="Filter (case-insensitive)")
+    lay.set_defaults(func=cmd_layers)
+
+    sub.add_parser("info", help="Projekt + Story + Teamwork-Info").set_defaults(func=cmd_info)
+    sub.add_parser("doctor", help="Self-Check: Instanzen, Tapir, MCP-Config").set_defaults(func=cmd_doctor)
+
+    # Prefixiere alle Subparser mit den globalen Optionen — vererbt sich via parent
+    return p
+
+
+def main() -> None:
+    parser = build_parser()
+    # argparse benötigt globale Flags vor dem Subcommand-Namen. Wir tolerieren
+    # aber auch die Reihenfolge `ac ports --json` durch Pre-Parse-Umsortierung
+    # nicht — bewusst simpel gehalten. Nutzung ist trotzdem intuitiv:
+    # `ac --port 19724 call GetProjectInfo`
+    args = parser.parse_args()
+    try:
+        args.func(args)
+    except urllib.error.URLError as e:
+        die(f"HTTP-Fehler: {e}")
+    except KeyboardInterrupt:
+        die("abgebrochen", code=130)
+
+
+if __name__ == "__main__":
+    main()
