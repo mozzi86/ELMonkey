@@ -342,6 +342,18 @@ Bounding-Box lesen → Layer/Zone-Zugehörigkeit via `elements_get_elements_rela
 auswerten → Gruppen bilden → Confirm (Summary-Format für > 10 Elemente) →
 `elements_set_classifications_of_elements`.
 
+**Unterklasse-Ableitung (Konstruktionstyp Beton-/Trockenbau-/MW-Wand): per MCP nur eingeschränkt möglich.** <!-- 2026-06-19 -->
+Der Baustoff einer **Basic-Wand** ist auf Element-Ebene **nicht** lesbar:
+`SurfaceAndMaterials_ComponentBuildingMaterialName` (514C85CB-…) liefert
+`status: notAvailable` (es ist eine Pro-Komponenten-Property, kein Element-Wert).
+`Construction_CompositeName` (704E9212-…) liefert **nur bei Composite-Wänden** einen
+Namen, bei Basic-Wänden `null`. Folge: feine Unterklassen lassen sich für reine
+Basic-Wände nicht zuverlässig ableiten. **Fallback-Heuristik: Layer-Name**
+(`ModelView_LayerName`) — z. B. Layer „… Trennwand …" → Klasse „Trennwand".
+Wo keine eindeutige Heuristik greift (Theke/Entwurf/SEO/2D/3D-Sammelsurium),
+ehrlich auf die **Basisklasse „Wand"** klassifizieren statt zu raten.
+Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifizierbares Element.
+
 ---
 
 ## Gotchas
@@ -378,6 +390,13 @@ auswerten → Gruppen bilden → Confirm (Summary-Format für > 10 Elemente) →
 7. **Element-ID bleibt nach Update stabil (SAFE-05).** Nach `elements_set_details_of_elements`
    verändert sich die Wand-GUID nicht. Folge-Operationen (z. B. direkt danach klassifizieren)
    können dieselbe GUID weiterverwenden.
+
+8. **Offene Wände ≠ Tragwerksbestand.** Bei „klassifiziere alle offenen Wände" zuerst
+   per `ModelView_LayerName` gruppieren — der unklassifizierte Rest ist erfahrungsgemäß
+   ein Sammelsurium (Theke-Entwurf, Bauzaun/Baustelleneinrichtung, Solid-Element-Operator-
+   Hilfskörper, 2D-Darstellung, 3D-Massenstudie). Nicht blind auf eine Konstruktions-
+   Unterklasse zwingen — SEO-Operatoren oder Bauzaun als „Betonwand" wäre sachlich falsch.
+   Eindeutige Layer (Trennwand) → Unterklasse, Rest → Basis „Wand". <!-- 2026-06-19 -->
 
 ---
 

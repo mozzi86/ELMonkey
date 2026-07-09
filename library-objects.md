@@ -668,6 +668,30 @@ EmbeddedLibraries haben `path: null` — sie sind in das Projektpaket eingebette
 
 `dimensions` beim Create (oder Update) überschreibt die Default-Größe des Library-Parts — aber nicht immer vollständig. Manche Library-Parts ignorieren `dimensions`, wenn ihre GDL-Logik die Größe intern via GDL-Parameter steuert (z. B. ein Tisch-Object, das Breite und Tiefe über `A`/`B`-GDL-Parameter hat). In diesen Fällen müssen die GDL-Parameter gesetzt werden, nicht `dimensions`. Nach Create/Update: Bounding-Box-Read zur Verifikation der tatsächlichen Größe.
 
+### Gotcha 10 — Collada-Diffuse-*Texturen* statt Lambert-*Farben* für getrennte Surfaces
+
+<!-- 2026-06-25 live verifiziert AC29 — Collada-Import (3D-Modell zusammenführen) -->
+
+Archicads Collada-Importer liest **plain Lambert-Farben** (`<lambert><diffuse><color>`) **nicht** zuverlässig als getrennte Oberflächen — sie kollabieren beim „Auswahl als Objekt sichern" auf 1–2 generische Surfaces. Dagegen liest er **Diffuse-Texturen** zuverlässig als je eine eigene benannte Surface ein. **Lösung:** pro Material/Bauteil eine winzige (8×8 px) Volltonfarben-JPG als `<diffuse><texture>` einbinden (mit konstanter UV `0.5 0.5`, vollständigem `bind_vertex_input semantic="UVSET0"`). Ergebnis: N Bauteile → N distinkte farbige Archicad-Surfaces. Verifiziert mit INU012-Schirm (5 Surfaces) und 5012-Möbeln (3 Surfaces je Objekt).
+
+### Gotcha 11 — Z-up muss in die Geometrie *gebacken* werden
+
+<!-- 2026-06-25 live verifiziert AC29 -->
+
+Archicad **ignoriert** das Collada-`<up_axis>`-Tag beim Import — ein als `Z_UP` deklariertes, aber Y-up-koordiniertes Mesh kommt liegend/umgefallen rein. **Lösung:** die Rotation direkt in die Vertex-Koordinaten backen: `(x, y, z) → (x, -z, y)`. Zusätzlich im DAE-Header `<up_axis>Z_UP</up_axis>` **und** `<unit name="meter" meter="1"/>` setzen (sonst Skalierungsfehler). Das war die Grundursache des „fällt um beim HD-Umschalten"-Symptoms bei den Außenmöbeln.
+
+### Gotcha 12 — Collada-Merge erzeugt benannte Embedded-Library-Teile → Sammel-Export, nicht 18× Einzelspeichern
+
+<!-- 2026-06-25 live verifiziert AC29 — Teamwork-Projekt -->
+
+„3D-Modell zusammenführen" (Collada-Import) legt jedes importierte Objekt **automatisch als benanntes Teil in der Eingebetteten Bibliothek** an (Typ `Object`, `id: "Catalog object"`, GDL-Params `ColladaMod_sp0/sp1`). Daher: zum Erzeugen vieler GSMs **nicht** N× „Auswahl als Objekt sichern" — denn „Auswahl als Objekt" **verschmilzt die gesamte Selektion zu EINEM** GSM. Stattdessen **Bibliotheksmanager → Eingebettete Bibliothek → alle Teile markieren → Sammel-Export** als einzelne .gsm. Für Teamwork müssen die GSMs danach in eine **geteilte ServerLibrary** (BIMcloud, z. B. `SAB-Furniture_xx.lcf`), sonst löst der Host-`CALL "<name>_HD"` nur lokal auf. Einzeln-Speichern via „Auswahl als Objekt" bleibt nur nötig für ein Objekt, das *nicht* aus dem Merge stammt (z. B. eine separat gebaute Primitive-DAE).
+
+### Gotcha 13 — Scan-Mesh-Dezimierung: textur-erhaltend blockiert an UV-Nähten → pro-Material weld + plain Quadric
+
+<!-- 2026-06-25 Tooling-Lesson (pymeshlab/trimesh, außerhalb MCP) -->
+
+Bei Scan-Meshes (pCon/Möbelkonverter-Exporte) mit stark fragmentierten UV-Inseln **blockiert** die textur-erhaltende Quadric-Dezimierung (`meshing_decimation_quadric_edge_collapse_with_texture`) an den Textur-Nähten — sie erreicht das Face-Target nicht (z. B. 1,25 M → stagniert bei ~239 k statt 40 k). **Lösung:** Mesh nach Material in Untergruppen splitten (trimesh-Scene), pro Gruppe `meshing_merge_close_vertices` (weld) + **plain** `meshing_decimation_quadric_edge_collapse` mit proportionalem Target, dann als getrennte farbige Surfaces wieder zusammenbauen (siehe Gotcha 10). **Verlustfrei farblich**, weil die Original-Texturen ohnehin Volltonfarben sind (Varianz ≈ 0; Foto-Check vorab mit PIL `ImageStat`). Erreicht zuverlässig ~40 k bei erhaltener Farbtrennung.
+
 ---
 
 ## Verwandte Recipes

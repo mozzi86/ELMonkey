@@ -485,6 +485,37 @@ mcp__archicad__archicad_call_tool(
 
 ---
 
+## Worked Example — Numerische (integer) Property bulk-setzen (ASR-Temperatur-Pattern)
+
+Live verifiziert 2026-06-29 gegen Futurelab_BI_Umbau_ARZ_OBL_V29 (Teamwork, AC29): 220 Zonen, „Erforderliche Temperatur" + „(min)" + „(max)" aus Raumnamen abgeleitet und geschrieben. Gilt als Pattern für jede **integer/number/string**-Property auf Zonen (im Gegensatz zum Enum-Pattern oben).
+
+**Property-IDs finden** (User-Properties haben keine stabilen Built-in-Namen):
+1. `properties_get_all_property_ids_of_elements` für **eine** Zone mit `propertyType: "UserDefined"` → Liste aller Custom-Property-IDs.
+2. `properties_get_details_of_properties` mit dieser ID-Liste → `name`, `group.name`, `type`, `isEditable` je Property. Danach nach Gruppe + Name filtern.
+   - Im Futurelab-Projekt: Gruppe **„Räume"** (group-guid `ee62774f-…`); Felder hießen `Erforderliche Temperatur`, `Erforderliche Temperatur (min)`, `Erforderliche Temperatur (max)` — **Namensteil in runden Klammern**, nicht „min"/„max" pur. `properties_get_property_ids` per localizedName scheitert (code 4004), wenn der Name nicht exakt stimmt → lieber über die Detail-Liste gehen.
+
+**Werte setzen** — bei integer/number/string ist `propertyValue` schlicht `{"value": "<string>"}`. Kein `type`/`status`/`enumValueId` wie beim Enum-Pattern:
+
+```python
+mcp__archicad__archicad_call_tool(
+  name="properties_set_property_values_of_elements",
+  arguments={
+    "port": 19725,
+    "params": {
+      "elementPropertyValues": [
+        {"elementId": {"guid": "<zone-guid>"},
+         "propertyId": {"guid": "184599f9-…"},
+         "propertyValue": {"value": "20"}}
+      ]
+    }
+  }
+)
+```
+
+Response: `{"executionResults": [{"success": true}, …]}` — ein Eintrag pro Element, gleiche Reihenfolge. Bei Misserfolg `{"success": false, "error": {...}}`. Bulk: in Batches von ~55–60 Einträgen splitten.
+
+---
+
 ## Bonus-Beispiel — Zone automatisch erstellen (Reference-Point)
 
 <!-- VERIFY --> Schema-dokumentiert, in Phase 3 nicht live getestet. Verifikation in Phase 5 oder späterer Session.
@@ -579,6 +610,23 @@ Pydantic-Validierungsfehler wegen neuer AC29-Felder (`structureType`, `geometryT
 ### 7. Zone-Fläche kommt aus dem Property-System
 
 Die berechnete Netto/Brutto-Fläche ist eine Property (z. B. „Calculated Area"), keine direkte Geometrie-Eigenschaft. Via `properties_get_property_values_of_elements` abfragen. Der Wert hängt von `categoryAttributeId` (Flächenberechnungsregel) ab — dieselbe Polygon-Fläche kann je nach Kategorie unterschiedlich ausgewiesen werden.
+
+### 8. Integer/Number-Properties werden als STRING geschrieben und gelesen <!-- 2026-06-29 verifiziert AC29 -->
+
+Auch bei `type: "integer"` erwartet `properties_set_property_values_of_elements` `propertyValue: {"value": "20"}` — der Wert ist ein **String**, kein Zahl-Literal. Reads liefern den Wert ebenfalls als String zurück. `{"value": 20}` (Integer) kann scheitern oder still falsch interpretiert werden. Gilt für integer, number, length, area, string gleichermaßen — nur Enum nutzt das komplexe `{type, status, value:{...}}`-Schema.
+
+### 9. `arguments` braucht den `params`-Wrapper — sonst `extra_forbidden` <!-- 2026-06-29 verifiziert AC29 -->
+
+`properties_set_property_values_of_elements` (und die anderen `properties_*`/`elements_*`-Tools) erwarten `arguments = {"port": <port>, "params": {…}}`. Wer `port` und `elementPropertyValues` flach nebeneinander legt, bekommt einen Pydantic-Fehler `port: Extra inputs are not permitted [extra_forbidden]`, weil `port` dann fälschlich im inneren Params-Modell landet. `port` gehört auf die oberste Ebene, alles andere in `params`.
+
+### 10. Teamwork: Fehler `-2130312909` = fehlende Reservierung <!-- 2026-06-29 verifiziert AC29 -->
+
+Schreibversuche (`set_property_values`, `set_classifications`, `set_details`) auf einer Teamwork-Datei scheitern für **jedes** Element mit `code -2130312909, "Failed to set property value for element"`, wenn die Zonen nicht reserviert sind. Wichtig:
+
+- Das MCP-Tool `teamwork_reserve_elements` meldet zwar pauschal `success: true`, **gewährt aber keinen verlässlichen Schreibzugriff** (keine Pro-Element-Bestätigung, Write scheitert danach identisch).
+- Verlässlich ist nur die **manuelle Reservierung in Archicad** (Element/alle Zonen markieren → reservieren). Danach funktioniert der Write sofort — kein „Senden & Empfangen" vor dem Write nötig.
+- **Damit die Werte bei anderen ankommen, ist „Senden & Empfangen" NACH dem Write nötig** — vorher liegen sie nur in der lokalen Arbeitskopie.
+- Einzelne Zonen können trotz Gesamt-Reservierung im Bulk-Batch weiterhin mit `-2130312909` scheitern, gehen aber beim **Einzel-Retry** durch (im Futurelab-Lauf reproduzierbar bei genau einer Zone, „Sozialraum" K027).
 
 ---
 
