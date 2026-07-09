@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-ac — Direct HTTP CLI for Archicad's JSON API.
+arc — Direct HTTP CLI for Archicad's JSON API.
 
 Umgeht MCP-Discovery und Pagination-Context-Explosion. Für schnelle Read-only-
 Queries und für Bulk-Operationen (>100 Elemente), wo die MCP-Pagination den
 Claude-Context sprengt. Siehe reference/mcp-conventions.md § "Direkter HTTP-Zugriff".
 
 Verwendung:
-  ac ports                          # aktive Archicad-Instanzen (19723..19730)
-  ac call <Cmd> [json]              # offizieller API.<Cmd>
-  ac tapir <TapirCmd> [json]        # Tapir-Add-On-Command via API.ExecuteAddOnCommand
-  ac selected                       # aktuelle Selektion (GetSelectedElements)
-  ac zones                          # alle Zonen (Kurzform von tapir GetElementsByType)
-  ac layers [regex]                 # Layer, optional per Regex gefiltert
-  ac info                           # Projekt-Info + aktive Story + Einheit
-  ac doctor                         # Self-Check (Ports, Tapir-Verfügbarkeit)
+  arc ports                          # aktive Archicad-Instanzen (19723..19730)
+  arc call <Cmd> [json]              # offizieller API.<Cmd>
+  arc tapir <TapirCmd> [json]        # Tapir-Add-On-Command via API.ExecuteAddOnCommand
+  arc selected                       # aktuelle Selektion (GetSelectedElements)
+  arc zones                          # alle Zonen (Kurzform von tapir GetElementsByType)
+  arc layers [regex]                 # Layer, optional per Regex gefiltert
+  arc info                           # Projekt-Info + aktive Story + Einheit
+  arc doctor                         # Self-Check (Ports, Tapir-Verfügbarkeit)
 
 Port-Auswahl:
   --port N        Expliziter Port (Default: 19723, dann Auto-Scan bei Fehler)
@@ -22,6 +22,9 @@ Port-Auswahl:
 
 Format:
   --json          Rohe JSON-Response ausgeben (Default: kompakte Zusammenfassung)
+
+Name-Historie: früher `ac`, umbenannt zu `arc` wegen Kollision mit macOS-
+System-Binary /usr/sbin/ac (BSD process accounting).
 """
 
 from __future__ import annotations
@@ -102,7 +105,7 @@ def resolve_port(explicit: int | None, project_match: str | None) -> int:
 
 
 def die(msg: str, code: int = 1) -> None:
-    print(f"ac: {msg}", file=sys.stderr)
+    print(f"arc: {msg}", file=sys.stderr)
     sys.exit(code)
 
 
@@ -219,7 +222,7 @@ def cmd_info(args) -> None:
 
 
 def cmd_doctor(args) -> None:
-    print("== ac doctor ==")
+    print("== arc doctor ==")
     ports = scan_ports()
     if not ports:
         print("[FAIL] Keine aktive Archicad-Instanz auf 19723..19730")
@@ -245,14 +248,14 @@ def cmd_doctor(args) -> None:
         print("[OK]   MCP-Server 'archicad' in ~/.claude.json referenziert")
     else:
         print("[WARN] MCP-Server 'archicad' nicht in ~/.claude.json gefunden — regulärer Skill-Path funktioniert evtl. nicht")
-    print("Fertig. Fast-Path via 'ac' einsatzbereit.")
+    print("Fertig. Fast-Path via 'arc' einsatzbereit.")
 
 
 # --- Main --------------------------------------------------------------------
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="ac", description=__doc__.strip().split("\n", 1)[0])
+    p = argparse.ArgumentParser(prog="arc", description=__doc__.strip().split("\n", 1)[0])
     p.add_argument("--port", type=int, help="Expliziter Port")
     p.add_argument("--project", help="Match per Projektname (Substring)")
     p.add_argument("--json", action="store_true", help="Rohe JSON-Response")
@@ -289,9 +292,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     # argparse benötigt globale Flags vor dem Subcommand-Namen. Wir tolerieren
-    # aber auch die Reihenfolge `ac ports --json` durch Pre-Parse-Umsortierung
+    # aber auch die Reihenfolge `arc ports --json` durch Pre-Parse-Umsortierung
     # nicht — bewusst simpel gehalten. Nutzung ist trotzdem intuitiv:
-    # `ac --port 19724 call GetProjectInfo`
+    # `arc --port 19724 call GetProjectInfo`
     args = parser.parse_args()
     try:
         args.func(args)
