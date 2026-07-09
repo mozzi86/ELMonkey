@@ -121,6 +121,8 @@ Archicad kennt vier Library-Typen, die `library_get_libraries` zurückliefert:
 
 ---
 
+> **User sagt:** „Welche Libraries sind im Projekt gerade geladen?"
+
 ## Worked Example 1 — Libraries auflisten
 
 <!-- 2026-05-20 verifiziert AC29 -->
@@ -145,6 +147,8 @@ Response pro Library: `{name, path, type, available, readOnly, twServerUrl, urlW
 - `twServerUrl` → Nur bei ServerLibrary gesetzt; zeigt ob BIMcloud-Verbindung nötig ist.
 
 ---
+
+> **User sagt:** „Welche Möbel hat das Projekt, gruppiert nach Typ?"
 
 ## Worked Example 2 — Subtype-Discovery + Gruppierung (Kern-Workflow)
 
@@ -250,6 +254,8 @@ Diese Gruppierung ist die Grundlage für alle weiteren Bulk-Operationen (Bulk-Up
 
 ---
 
+> **User sagt:** „Lies mir die Eigenschaften von diesem Sessel-Objekt."
+
 ## Worked Example 3 — Single-Object lesen + Eigenschaften
 
 Detail-Read eines einzelnen Objects via Property-Workaround (da `get_details_of_elements` in AC29 Schema-Drift-Bug hat — siehe [Gotcha 1](#gotcha-1-get_details_of_elements-bug)).
@@ -275,6 +281,8 @@ Response: `{xMin, yMin, zMin, xMax, yMax, zMax}` in Metern. Daraus Grundfläche 
 **UserDefined Properties** (Inventar, Hersteller, Anschaffungsjahr) — `propertyType: "UserDefined"`. Werte via `properties_get_property_values_of_elements`. Typisches Real-Projekt: Gruppen wie „Produktinformationen", „Hersteller-Daten".
 
 ---
+
+> **User sagt:** „Gib mir die GDL-Parameter dieses Möbelstücks — Breite, Höhe, Typ."
 
 ## Worked Example 4 — GDL-Parameter abfragen (Bug-Workaround)
 
@@ -307,6 +315,8 @@ Drei Workaround-Pfade, in empfohlener Reihenfolge:
 **Empfehlung:** Für ad-hoc-Lesezwecke Pfad 1. Für dauerhaften Sync Pfad 2. Für einmalige Bulk-Datenmigration Pfad 3.
 
 ---
+
+> **User sagt:** „Verschieb den Sessel um 50cm nach rechts."
 
 ## Worked Example 5 — Object verschieben / Größe ändern
 
@@ -360,6 +370,8 @@ mcp__archicad__archicad_call_tool(
 
 ---
 
+> **User sagt:** „Lösch diesen Sessel aus dem Grundriss."
+
 ## Worked Example 6 — Object löschen
 
 Library-Objects hosten typischerweise keine anderen Elemente — kein SAFE-04-Pre-Check nötig (außer bei komplexen GDL-Items mit eingebetteten Sub-Library-Objects, was selten ist).
@@ -394,6 +406,8 @@ mcp__archicad__archicad_call_tool(
 **Bulk-Delete:** GUIDs via Worked Example 2 sammeln, nach Layer/Subtype filtern, Summary-Confirm (> 10 Elemente), dann mit vollständiger Liste aufrufen. Confirm-Format: [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Confirm-Format.
 
 ---
+
+> **User sagt:** „Setz Hersteller aller Stühle auf Vitra."
 
 ## Worked Example 7 — Property-Bulk-Update für Inventar (6-Schritt-Pattern)
 
@@ -556,6 +570,8 @@ mcp__archicad__archicad_call_tool(
 3–5 zufällige aus den geupdate'ten Objects prüfen: ist `displayValue` == „Vitra"?
 
 ---
+
+> **User sagt:** „Klassifizier den Sessel als Möbelstück nach SAB."
 
 ## Worked Example 8 — Object klassifizieren
 

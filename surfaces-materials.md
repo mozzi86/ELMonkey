@@ -97,6 +97,8 @@ Die Story- und Layer-Felder sind erst relevant, wenn wir ein konkretes Element a
 
 ---
 
+> **User sagt:** „Welche Building Materials gibt's im Projekt?"
+
 ## Worked Example — Alle Building Materials auflisten (paginiert)
 
 Building Materials sind via `attributes_get_attributes_by_type` mit `attributeType: "BuildingMaterial"`
@@ -182,6 +184,8 @@ Felder: `thermalConductivity` (W/mK), `density` (kg/m³), `heatCapacity` (J/kgK)
 
 ---
 
+> **User sagt:** „Zeig mir alle Composites mit ihren Schichten."
+
 ## Worked Example — Alle Composites auflisten + Skin-Details lesen
 
 Composites beschreiben Mehrschicht-Aufbauten. Jedes Composite besteht aus `skins` (Schichten mit
@@ -239,6 +243,8 @@ Mehr dazu in Gotcha 2.
 
 ---
 
+> **User sagt:** „Welche Surfaces sind fürs Rendering verfügbar?"
+
 ## Worked Example — Alle Surfaces auflisten
 
 Surfaces sind visuelle Oberflächenmaterialien — für Rendern und Visualisierung. Im Unterschied zu
@@ -278,6 +284,8 @@ mcp__archicad__archicad_call_tool(
 Erwartete Response-Felder pro Surface: `name`, `materialType` (Enum: General/Simple/Matte/Metal/Plastic/Glass/Glowing/Constant), `ambientReflection`/`diffuseReflection`/`specularReflection` (0-100), `transparency` (0-100), `shine` (0-10000), `surfaceColor`/`specularColor`/`emissionColor` (ColorRGB 0.0-1.0), optional `texture` mit Filename + Skalierung + Mirror-Flags + Alpha-Channel-Bits, optional `fillId` für gekoppelten Fill.
 
 ---
+
+> **User sagt:** „Leg ein neues Building Material für Hochleistungsbeton C40/50 an."
 
 ## Worked Example — Neues Building Material erstellen
 
@@ -329,6 +337,8 @@ Wert `0` = Pen-Override aus dem Pen-Set; Wert 2 = explizit Stift 2. Im Projekt-T
 Mehr in Gotcha 5.
 
 ---
+
+> **User sagt:** „Erstell ein neues Composite für eine 36,5 Poroton-Außenwand mit Putz."
 
 ## Worked Example — Neues Composite erstellen (Skins + Separators)
 

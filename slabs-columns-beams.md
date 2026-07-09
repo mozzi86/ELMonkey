@@ -135,6 +135,8 @@ In Phase 3 nicht live verifiziert, da kein Beam im Test-Set vorhanden war — Sc
 
 ---
 
+> **User sagt:** „Erstell mir eine 2×2 Meter Test-Decke im EG."
+
 ## Worked Example — Slab erstellen
 
 <!-- 2026-05-19 verifiziert AC29 -->
@@ -177,6 +179,8 @@ Hinweis: Die GUID `01b90e9f-a241-dc45-a448-5acc06a186c4` ist die aus Wave 1. Bei
 
 ---
 
+> **User sagt:** „Setz eine Stütze an Position 11,3 im EG."
+
 ## Worked Example — Column erstellen
 
 <!-- 2026-05-19 verifiziert AC29 -->
@@ -210,6 +214,8 @@ Erwartete Response:
 Die Stütze wird mit Archicads Standard-Profil und -Höhe erstellt. Profil und Höhe anpassen: siehe [Column-Profil ändern](#worked-example--column-profil-ändern).
 
 ---
+
+> **User sagt:** „Zeig mir alle Decken, Stützen und Träger der aktuellen Story."
 
 ## Worked Example — Alle drei Typen einer Story lesen
 
@@ -303,6 +309,8 @@ Position (Bounding Box) alternativ via `elements_get_2_d_bounding_boxes` ermitte
 
 ---
 
+> **User sagt:** „Senk die Test-Decke um 10 cm ab."
+
 ## Worked Example — Slab-Offset von Home-Story modifizieren
 
 Ziel: Test-Decke (`01b90e9f-a241-dc45-a448-5acc06a186c4`) um 10 cm absenken — von Level 0.0 auf Level -0.1.
@@ -340,6 +348,8 @@ mcp__archicad__archicad_call_tool(
 Hinweis: Die genaue Struktur des `details`-Wrappers (ob `floorIndex` / `layerIndex` mitgeschickt werden müssen) ist in Phase 3 noch nicht vollständig verifiziert. Falls der Call ein Schemafehler zurückgibt, Discovery mit Query `"set slab details level"` erneut starten und das vollständige Schema lesen.
 
 ---
+
+> **User sagt:** „Änder das Profil dieser Stütze auf ein anderes."
 
 ## Worked Example — Column-Profil ändern
 
@@ -397,6 +407,8 @@ Wenn `profileAttributeId` kein gültiges Schema-Feld ist: Discovery mit `"set co
 
 ---
 
+> **User sagt:** „Lösch die Test-Decke, die Stütze und den Träger im EG."
+
 ## Worked Example — Element löschen (alle 3 Typen)
 
 Das Löschen funktioniert für Slab, Column und Beam identisch — `elements_delete_elements` ist typ-unabhängig.
@@ -433,6 +445,8 @@ mcp__archicad__archicad_call_tool(
 Wichtig: Slabs sind keine Hosts im Sinne von SAFE-04 — auf einer Decke platzierte Wände werden nicht automatisch mitgelöscht. Es gibt keinen Pre-Check für Slab-Delete (anders als bei Wänden mit gehosteten Fenstern/Türen). Column- und Beam-Delete ebenfalls ohne Pre-Check nötig.
 
 ---
+
+> **User sagt:** „Klassifizier Decke und Stütze als tragend nach SAB."
 
 ## Worked Example — Klassifizieren (tragend / nicht-tragend)
 

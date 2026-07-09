@@ -123,6 +123,8 @@ Response: `{"elements": [{"elementId": {"guid": "<polyline-guid>"}}]}`.
 
 ---
 
+> **User sagt:** „Zeichne mir eine offene Polylinie mit 4 Stützpunkten im EG-Grundriss."
+
 ## Worked Example — PolyLine erstellen
 
 <!-- 2026-05-19 verifiziert AC29 — elements_create_polylines -->
@@ -180,6 +182,8 @@ Ein `arcs`-Feld ist in diesem Fall nicht nötig. Kein Arc-Segment → gerade Str
 
 ---
 
+> **User sagt:** „Setz eine Polylinie mit einem Viertelkreis-Bogen im ersten Segment."
+
 ## Worked Example — PolyLine mit Bogen (Arc-Segment)
 
 <!-- 2026-05-21 Schema verifiziert AC29 via Discovery (PolylinesDatum.arcs[].arcAngle, begIndex, endIndex bestätigt) -->
@@ -224,6 +228,8 @@ verbindet `coordinates[begIndex]` mit `coordinates[endIndex]`. Nicht jedes Segme
 Bogen sein; Segmente ohne Eintrag in `arcs` bleiben gerade.
 
 ---
+
+> **User sagt:** „Zeig mir alle 2D-Linien-Elemente auf der aktiven Story."
 
 ## Worked Example — Alle 5 Typen einer Story lesen
 
@@ -290,6 +296,8 @@ Gibt Lage und Ausdehnung in Metern zurück — für alle 5 Typen einheitlich nut
 
 ---
 
+> **User sagt:** „Verschieb den dritten Stützpunkt dieser Polylinie um 2 Meter nach rechts."
+
 ## Worked Example — PolyLine-Geometrie ändern: delete + recreate
 
 <!-- 2026-05-21 verifiziert AC29 — set_details typeSpecificDetails ist WallSettings-only, daher Geometrie-Update via delete+recreate -->
@@ -352,6 +360,8 @@ mcp__archicad__archicad_call_tool(
 
 ---
 
+> **User sagt:** „Lösch diese drei 2D-Linien auf dem Grundriss-Layer."
+
 ## Worked Example — Element löschen (alle 5 Typen)
 
 <!-- 2026-05-19 verifiziert AC29 — elements_delete_elements -->
@@ -407,6 +417,8 @@ Ausführen für alle 59? (ja / details / abbrechen)
 Confirm-Format-Details: [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Confirm-Format.
 
 ---
+
+> **User sagt:** „Setz für diese Polylinie einen dünneren Stift, Pen 2."
 
 ## Worked Example — Pen-Index zuweisen (Linientyp NICHT via MCP änderbar)
 

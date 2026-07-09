@@ -89,6 +89,8 @@ Details-Rahmen: `{"floorIndex": 0, "layerIndex": 3.0, "drawIndex": 1.0, "typeSpe
 
 ---
 
+> **User sagt:** „Lies mir die Eigenschaften der Wand — Höhe, Dicke, Composite."
+
 ## Worked Example — Wand lesen
 
 Wir lesen die Eigenschaften der Test-Wand `f1101930-e0bd-7044-a1f2-fdb20e520e21` über das
@@ -149,6 +151,8 @@ im Arbeitsgedächtnis für alle Folge-Operationen dieser Session. Nicht erneut s
 
 ---
 
+> **User sagt:** „Ändere die Höhe dieser Wand von 2,80 auf 3,20 Meter."
+
 ## Worked Example — Wand modifizieren (Höhe ändern)
 
 Wir ändern die Höhe der Test-Wand von 2,80 m auf 3,20 m. Gemäß SAFE-01 zeigen wir
@@ -193,6 +197,8 @@ Endpunkte verschieben (`"begCoordinate": {"x": 2.5, "y": 0.0}, "endCoordinate": 
 Hinweis: Koordinaten haben kein `z`-Feld (Coord2D) — vertikale Lage über `floorIndex` + `bottomOffset`.
 
 ---
+
+> **User sagt:** „Lösch die Wand, sag mir aber vorher welche Fenster und Türen mit weggehen."
 
 ## Worked Example — Wand löschen (mit Hosted-Element-Check)
 
@@ -252,6 +258,8 @@ Das Fenster muss nicht separat gelöscht werden. Beim Wand-Löschen mitgerissene
 können in IFC-Exporten stille Datenfehler erzeugen — der Pre-Check schützt davor.
 
 ---
+
+> **User sagt:** „Klassifizier alle Wände nach SAB Innen/Außen."
 
 ## Worked Example — Wand klassifizieren
 

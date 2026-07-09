@@ -112,6 +112,8 @@ Archicad findet die umschließenden Wände selbst und konstruiert das Polygon. D
 
 ---
 
+> **User sagt:** „Erstell eine Test-Zone T01, 4×4 Meter im EG."
+
 ## Worked Example — Zone manuell erstellen (Polygon)
 
 Reproduziert den Wave-1-Setup-Aufruf: Test-Zone „Test-Zone" T01, 4 × 4 m, Story 0 (EG).
@@ -164,6 +166,8 @@ Die zurückgegebene GUID für den Rest des Auftrags im Arbeitsgedächtnis behalt
 
 ---
 
+> **User sagt:** „Zeig mir alle Zonen auf der aktiven Story mit Fläche."
+
 ## Worked Example — Zonen einer Story lesen
 
 Alle Zonen auf Story 0 auflisten, dann Bounding Box und Properties für die Test-Zone abrufen. `elements_get_details_of_elements` schlägt in AC29 fehl (Wrapper-Bug, siehe [Gotchas](#gotchas)) — daher Workaround via Bounding Box + Property-System.
@@ -204,6 +208,8 @@ Response: `{boundingBoxes: [{xMin: 14, yMin: 0, xMax: 18, yMax: 4}]}`.
 **Properties (z. B. Fläche):** Erst `properties_get_all_property_ids_of_elements` aufrufen um IDs zu holen, dann `properties_get_property_values_of_elements` mit den gewünschten IDs (z. B. „Calculated Area").
 
 ---
+
+> **User sagt:** „Benenn die Test-Zone in Wohnzimmer um, Nummer W01."
 
 ## Worked Example — Zone-Properties modifizieren
 
@@ -258,6 +264,8 @@ Hinweis: `stampPosition` steuert, wo der Stempel im Plan erscheint — nicht ob 
 
 ---
 
+> **User sagt:** „Lösch die Test-Zone."
+
 ## Worked Example — Zone löschen
 
 Zonen haben keine gehosteten Elemente — kein Pre-Check wie bei Wänden nötig. Trotzdem zeigen wir den Standard-Confirm.
@@ -292,6 +300,8 @@ mcp__archicad__archicad_call_tool(
 Response enthält typischerweise eine Bestätigungs-Struktur. Falls Response-Format unklar ist (Response-Wrapper-Variante aus Wave-1-Cleanup), prüfen: Zone nicht mehr in `elements_get_elements_by_type`-Listing → Erfolg.
 
 ---
+
+> **User sagt:** „Klassifizier die Test-Zone als Wohnen nach SAB."
 
 ## Worked Example — Zone klassifizieren
 
@@ -348,6 +358,8 @@ mcp__archicad__archicad_call_tool(
 **ZoneCategory-Attribute** (Archicad-interne Raum-Kategorie, separat von Projektklassifikation): GUIDs via `attributes_get_attributes_by_type` mit `attributeType: "ZoneCategory"` abfragen. Response liefert `{attributeId: {guid: "..."}, name: "..."}` — gewünschte GUID als `categoryAttributeId` beim Zone-Update übergeben. Beeinflusst Flächenberechnungsregeln und Schedule-Darstellung.
 
 ---
+
+> **User sagt:** „Setz den Bodenbelag aller Wohnräume auf Linoleum 2,5 (R9)."
 
 ## Worked Example — Property setzen (Bodenbelag-Pattern für Bulk-Updates)
 
@@ -484,6 +496,8 @@ mcp__archicad__archicad_call_tool(
 **Empfehlung für Bodenbelag-Sync:** Wenn viele Werte ergänzt werden müssen, vorher mit dem User die komplette Wunschliste aufnehmen, einmal alle ergänzen, dann erst Bulk-Set starten — statt iterativ Dialog-auf-zu.
 
 ---
+
+> **User sagt:** „Setz bei allen 220 Zonen die ASR-Temperatur nach Raumname."
 
 ## Worked Example — Numerische (integer) Property bulk-setzen (ASR-Temperatur-Pattern)
 

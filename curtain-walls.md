@@ -152,6 +152,8 @@ Beide nur in spezialisierten CurtainWall-Konfigurationen vorhanden. Settings-Fel
 
 ---
 
+> **User sagt:** „Zeig mir alle Curtain-Walls im Projekt und deren wichtigste Eigenschaften."
+
 ## Worked Example — CurtainWall (Top-Level) lesen
 
 <!-- 2026-05-20 verifiziert AC29 -->
@@ -224,6 +226,8 @@ Liefert `{xMin, yMin, xMax, yMax}` in Metern — gibt die 2D-Ausdehnung der Fass
 
 ---
 
+> **User sagt:** „Welche Panels, Frames und Segments hat die Fassade an der Südseite?"
+
 ## Worked Example — Sub-Elemente eines CurtainWall finden
 
 <!-- 2026-05-20 verifiziert AC29 -->
@@ -289,6 +293,8 @@ Bei Fassaden mit Ecken, T-Stößen oder Accessories erscheinen zusätzlich:
 
 ---
 
+> **User sagt:** „Weise dem Panel in der Fassade Süd das Material Glas klar zu."
+
 ## Worked Example — CurtainWallPanel modifizieren
 
 <!-- VERIFY --> Panel-Settings-Felder noch nicht in AC29 live getestet — Discovery in der Session vor dem ersten Schreib-Aufruf.
@@ -350,6 +356,8 @@ mcp__archicad__archicad_call_tool(
 **Material vs. Composite:** Building-Material impliziert eine Standard-Oberfläche. Wenn eine Composite-Zuweisung (mehrschichtiger Aufbau) gewünscht ist, Workflow in [`surfaces-materials.md`](surfaces-materials.md) nachschlagen — dort ist die Disambiguierung ausgearbeitet.
 
 ---
+
+> **User sagt:** „Änder das Profil der CW-Pfosten in der Fassade auf ein schmaleres."
 
 ## Worked Example — CurtainWallFrame modifizieren
 
@@ -418,6 +426,8 @@ Bei > 10 Frames erscheint der Summary-Confirm automatisch.
 
 ---
 
+> **User sagt:** „Gibt's Junctions in der L-Fassade an der Ecke und was kann ich damit machen?"
+
 ## Worked Example — CurtainWallJunction operations
 
 **Hinweis: Junctions existieren nur in bestimmten CurtainWall-Geometrien.** Eine einfache gerade Fassade generiert keine Junctions — sie entstehen bei Ecken (L-förmige Fassaden), T-Stößen oder Kreuzungspunkten mehrerer Fassadenelemente. Im Live-Test (2026-05-20, Default-Sandkasten) waren `cWallJunctions` nicht in der Sub-Element-Response enthalten.
@@ -457,6 +467,8 @@ mcp__archicad__archicad_call_tool(
 **Junction modifizieren:** <!-- VERIFY --> Verbindungs-Typ ist GDL-Parameter-getrieben. `elements_set_details_of_elements` mit `typeSpecificDetails` — Felder über Discovery ermitteln. Alternativ `elements_set_gdl_parameters_of_elements` (Cave: Pydantic-Bug bei großen Param-Sets — Gotcha G-10). Wenn Edit-Call einen Modal-Dialog öffnet: Code 4001 → Gotcha G-12.
 
 ---
+
+> **User sagt:** „Dreh das Raster im Fassaden-Segment um 30 Grad."
 
 ## Worked Example — CurtainWallSegment + Accessory Operations
 
@@ -541,6 +553,8 @@ mcp__archicad__archicad_call_tool(
 
 ---
 
+> **User sagt:** „Klassifizier die Fassade als Außenwand nach SAB."
+
 ## Worked Example — CurtainWall klassifizieren
 
 <!-- 2026-05-20 verifiziert AC29 (Klassifikations-Flow — identisch zu wall-operations.md) -->
@@ -603,6 +617,8 @@ mcp__archicad__archicad_call_tool(
 ```
 
 ---
+
+> **User sagt:** „Lösch die Curtain-Wall an der Nordseite, sag mir aber vorher was alles dranhängt."
 
 ## Worked Example — CurtainWall löschen (mit Sub-Element-Pre-Check)
 

@@ -132,6 +132,8 @@ Der `index` (Integer) entspricht dem `fillAttributeIndex` im HatchSettings.
 
 ---
 
+> **User sagt:** „Zeig mir alle Schraffuren auf der aktiven Story."
+
 ## Worked Example — Alle Hatches einer Story lesen
 
 Wir listen alle Hatch-Elemente der aktiven Story. <!-- 2026-05-21 verifiziert AC29 — elements_get_elements_by_type unterstützt "Hatch" als ElementType -->
@@ -168,6 +170,8 @@ Ergebnismenge verwenden. Grundregel: niemals auf einem partiellen Seiten-Ergebni
 projektweite Hatches zu listen.
 
 ---
+
+> **User sagt:** „Welche Fill-Pattern gibt's im Projekt — ich brauch den Index für Beton."
 
 ## Worked Example — Fill-Pattern-Attribute auflisten
 
@@ -222,6 +226,8 @@ den gewünschten `index` extrahieren. Der `index` aus der Listing-Response ist d
 für HatchSettings — kein separater Look-up nötig.
 
 ---
+
+> **User sagt:** „Lies mir die Eigenschaften dieser Schraffur — Muster, Pen, Winkel."
 
 ## Worked Example — Hatch-Eigenschaften lesen
 
@@ -358,6 +364,8 @@ Wegen der oben genannten Limit ist Bulk-Modify mehrerer Hatches via MCP nicht m�
 
 ---
 
+> **User sagt:** „Lösch diese Beton-Schraffur im Grundriss."
+
 ## Worked Example — Hatch löschen
 
 Hatches haben keine Hosted-Elemente (kein Fenster, keine Tür hängt an einer Schraffur) —
@@ -393,6 +401,8 @@ mcp__archicad__archicad_call_tool(
 pro Element eine Zeile (1–10) oder Summary (> 10). Keine Obergrenze für Batch-Größe.
 
 ---
+
+> **User sagt:** „Klassifizier diese Schraffur nach SAB."
 
 ## Worked Example — Hatch klassifizieren
 

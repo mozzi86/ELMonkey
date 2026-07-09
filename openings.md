@@ -109,6 +109,8 @@ Diese Parameter-Namen gelten für das Standard-Archicad-Fenster-Library-Objekt. 
 
 ---
 
+> **User sagt:** „Zeig mir welche Fenster diese Wand hostet."
+
 ## Worked Example — Öffnung lesen (mit Host-Wand-Identifikation)
 
 Dieses Beispiel demonstriert **SAFE-05 Element-ID-Threading**: die Wand-GUID `f1101930-e0bd-7044-a1f2-fdb20e520e21` aus dem Test-Set wird als Einstiegspunkt verwendet, ihre gehosteten Fenster werden abgefragt, und die zurückgegebene Fenster-GUID `7185f21a-ca8f-6b44-a8a3-28d0610f0d82` wird direkt in den Folge-Calls weitergeführt — ohne erneute Suche.
@@ -220,6 +222,8 @@ Für nicht-GDL-Eigenschaften (Layer, Renovation-Status, benutzerdefinierte Prope
 
 ---
 
+> **User sagt:** „Setz die Brüstungshöhe des Fensters EG Süd von 0.9 auf 1.0 Meter."
+
 ## Worked Example — Sill-Höhe ändern (GDL-Parameter-Update)
 
 Die Sill-Höhe (Brüstungshöhe) des Test-Fensters `7185f21a-ca8f-6b44-a8a3-28d0610f0d82` wird von 0.9 m auf 1.0 m angehoben.
@@ -281,6 +285,8 @@ Das Prinzip ist identisch — zuerst per `elements_get_gdl_parameters_of_element
 
 ---
 
+> **User sagt:** „Lösch das Fenster aus der Wand — die Wand soll bleiben."
+
 ## Worked Example — Öffnung löschen
 
 Das Test-Fenster `7185f21a-ca8f-6b44-a8a3-28d0610f0d82` wird gelöscht.
@@ -332,6 +338,8 @@ Erwartete Response:
 **Nach dem Delete:** Die GUID `7185f21a-ca8f-6b44-a8a3-28d0610f0d82` ist ungültig. Nicht mehr in Folge-Calls verwenden. Wenn die Öffnung neu gezeichnet wird, bekommt sie eine neue GUID.
 
 ---
+
+> **User sagt:** „Klassifizier das Fenster als Fenster nach SAB."
 
 ## Worked Example — Öffnung klassifizieren (Tür / Fenster)
 
