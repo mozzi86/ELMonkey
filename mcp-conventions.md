@@ -27,6 +27,15 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 
 **Genauigkeit der Query.** Vage Queries liefern vage Ergebnisse. „Wand" allein ist zu wenig — besser „create wall element on story" oder „get all walls in current story". Wir nehmen Verb + Objekt + Kontext.
 
+**Schema-Keyword-Anreicherung bei Fehltreffern.** Der Discovery-Index von tapir-archicad-MCP indexiert **nicht nur Namen und Beschreibungen, sondern auch Parameter-Schema-Keywords** (Feld: `f"{title}: {description} Keywords: {schema_keywords}"` — verifiziert im upstream `search_index.py`, Model `all-MiniLM-L6-v2`). Wenn eine Verb-Objekt-Query nicht trifft, konkrete Schema-Feldnamen anhängen — sie wirken als semantische Anker. <!-- 2026-07-09 -->
+
+- „get walls" → nichts Brauchbares? Probier „get walls elementType filter" oder „get walls WallSettings".
+- „set property" → probier „set property values elementPropertyValues".
+- „classify elements" → probier „classify elements classificationSystemId".
+- „get element details" → probier „get element details geometryType structureType".
+
+Merke: der Trick wirkt am stärksten, wenn ein Schema-Feld einen ungewöhnlich spezifischen Namen hat (`elementPropertyValues`, `classificationSystemId`, `begCoordinate`, `endCoordinate`) — die haben quasi keinen Wettbewerb im Index.
+
 **Mehrdeutige Treffer.** Wenn die Discovery mehrere Kandidaten gleichermaßen passend zurückgibt: nicht raten. Eine zweite, engere Query stellen oder den User fragen, welcher Tool-Name gemeint sein soll.
 
 **Negativ-Schluss nach 2 Versuchen.** Wenn zwei Discovery-Queries mit Synonymen *keinen* plausiblen Treffer für die gewünschte Operation liefern, und auch ein direkter Aufruf mit dem vermuteten Namen `Tool not found in registry` zurückgibt, dann existiert das Tool **nicht**. Nicht endlos suchen — den User informieren und nach einer alternativen Vorgehensweise fragen. Konkretes Beispiel: `elements_create_walls` existiert nicht in Archicad MCP v29 (siehe Capability-Tabelle unten).
