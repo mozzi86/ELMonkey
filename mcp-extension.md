@@ -120,3 +120,15 @@ alle in einem Batch normalisiert, 49.046/49.046 ok. Voraussetzung: Ebenenkombina
 Treffer meist exakt, da DWG-Farben ≈ AutoCAD-Palette ≈ Stift-Slots.
 **DevKit-Header lokal:** ~/Developer/APIDevKit29/Support/Inc — Feldnamen IMMER dort
 verifizieren statt raten.
+
+## ELM_SAB v0.3 + v0.4 (2026-07-13 nachmittags) — Wände aus 2D
+
+- **v0.3 `CreatePolygonWalls`**: Polygon-Wände (APIWtyp_Poly + Memo coords/pends,
+  Muster: Tapir CreateZones-Allokation). Tapir 1.5.3 kann nur gerade Wände.
+  Params: polygonCoordinates, floorIndex, height, bottomOffset, layerIndex,
+  compositeIndex/buildingMaterialIndex. Braucht aktives Grundriss-Fenster.
+- **v0.4 `Get2DGeometryOfElements`**: Line (beg/end), Arc/Circle (origin, r, ratio,
+  angle, beg/endAngle, reflected, whole), PolyLine (coords + arcs mit arcAngle,
+  1-basierte Indizes) + layerIndex/floorIndex. Liest cross-DB.
+- Workflow-Doku: `recipes/konturen-zu-waende.md`. Erster Produktivlauf: 2.032 Wände.
+- DevKit-Feld-Verifikation vor jedem neuen Befehl: ~/Developer/APIDevKit29/Support/Inc.
