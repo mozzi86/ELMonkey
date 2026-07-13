@@ -100,3 +100,19 @@ Distributor" und stilles Nicht-Laden. Signatur (ad-hoc) ist dagegen KEIN Blocker
 **Farbabgleich-Rezept (wiederverwendbar):** Inventur via GetPenOfElements (Batch 500)
 → RGB-Lookup in Stifttabelle (API.GetPenTableAttributes) → Mapping-Tabelle → Confirm
 → SetPenOfElements pro (Rolle, Ziel)-Gruppe → Nachher-Inventur als Verifikation.
+
+## v0.2 (2026-07-13, gleicher Tag) — RGB-Overrides + Auto-DB-Wechsel
+
+DWG-Importe brennen Füllungsfarben oft als **RGB-Override direkt ins Element**
+(API_HatchType.hatchFlags: APIHatch_HasFgRGBColor/HasBkgRGBColor + foregroundRGB/backgroundRGB)
+— unsichtbar für jede Stift-Logik. v0.2 kann beides:
+- `GetPenOfElements` liefert `hasForeground/BackgroundRGB` + Farbwerte
+- `SetPenOfElements` löscht Overrides (`clearForegroundRGB`/`clearBackgroundRGB`) und setzt
+  zugleich den Ziel-Stift; optionaler `databases`-Param wechselt selbst durch die
+  Arbeitsblätter (Tapir-Muster: ACAPI_Window_GetDatabaseInfo → ACAPI_Database_ChangeCurrentDatabase,
+  Ausgangs-DB wird wiederhergestellt) — v0.1-Klickerei entfällt.
+Produktiv: 1.878 Override-Schraffuren (27 Farben) in EINEM Lauf auf nächstliegende
+SAB-Stifte gemappt, 0 Fehler. Nearest-Pen-Matching = RGB-Distanz gegen Stifttabelle;
+Treffer meist exakt, da DWG-Farben ≈ AutoCAD-Palette ≈ Stift-Slots.
+**DevKit-Header lokal:** ~/Developer/APIDevKit29/Support/Inc — Feldnamen IMMER dort
+verifizieren statt raten.
