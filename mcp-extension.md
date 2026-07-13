@@ -112,7 +112,11 @@ DWG-Importe brennen Füllungsfarben oft als **RGB-Override direkt ins Element**
   Arbeitsblätter (Tapir-Muster: ACAPI_Window_GetDatabaseInfo → ACAPI_Database_ChangeCurrentDatabase,
   Ausgangs-DB wird wiederhergestellt) — v0.1-Klickerei entfällt.
 Produktiv: 1.878 Override-Schraffuren (27 Farben) in EINEM Lauf auf nächstliegende
-SAB-Stifte gemappt, 0 Fehler. Nearest-Pen-Matching = RGB-Distanz gegen Stifttabelle;
+SAB-Stifte gemappt, 0 Fehler. Anschließend Projekt-Vollscan (48 DBs: Grundriss, 41
+Arbeitsblätter, Schnitte/Ansichten/Details): weitere 49.046 Overrides in 10 Import-
+Arbeitsblättern (PDF Übersichtspläne 40k!, Möblierung, Sammel-Blätter, Plankopf) —
+alle in einem Batch normalisiert, 49.046/49.046 ok. Voraussetzung: Ebenenkombination
+„alles an" (Sichtbarkeit) + Teamwork-Reservierung. Nearest-Pen-Matching = RGB-Distanz gegen Stifttabelle;
 Treffer meist exakt, da DWG-Farben ≈ AutoCAD-Palette ≈ Stift-Slots.
 **DevKit-Header lokal:** ~/Developer/APIDevKit29/Support/Inc — Feldnamen IMMER dort
 verifizieren statt raten.
