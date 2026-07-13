@@ -1,10 +1,14 @@
 # Wand-Operationen
 
 Dieses Recipe deckt Lesen, Modifizieren, Löschen und Klassifizieren von Wänden ab.
-**Wand-Erstellung ist im Archicad-MCP v29 nicht verfügbar** — die Capability-Tabelle in
-`../reference/mcp-conventions.md` § Live-verifizierte Element-Create-Capabilities listet alle
-erstellbaren Typen. Braucht ein User eine neue Wand, zeichnet er sie manuell in Archicad;
-wir arbeiten dann mit dieser Wand weiter.
+**Update 2026-07-13:** Seit Tapir ≥ 1.5.3 / tapir-archicad-mcp ≥ 0.4.3 ist Wand-Erstellung
+verfügbar: `elements_create_walls` (Pflicht: `begCoordinate`, `endCoordinate`, `zCoordinate`,
+`height`, `thickness`; optional `referenceLineLocation`, `structureType`, `compositeId`,
+`profileId`, `buildingMaterialId`). Ebenso neu: `elements_modify_walls`, `create_windows`,
+`create_doors`, `create_openings`, `rotate_elements`, `get_element_preview_image`.
+Die Aussage „kein Create per MCP v29" galt nur bis Tapir 1.4.0 — Details und Update-Prozedur
+in [`../reference/mcp-extension.md`](../reference/mcp-extension.md).
+(Worked Example für Create folgt nach erstem Live-Einsatz.)
 
 ## Inhaltsverzeichnis
 
@@ -30,7 +34,7 @@ wir arbeiten dann mit dieser Wand weiter.
 - Wand löschen, mit vorangehendem Hosted-Element-Pre-Check (SAFE-04).
 - Wand-Klassifikation lesen oder setzen (im aktiven Klassifikations-System).
 
-Nicht abgedeckt: Wand erstellen (MCP-Lücke, kein Create-Tool in v29).
+Wand erstellen: seit Tapir 1.5.3 via `elements_create_walls` möglich (siehe Hinweis oben); Worked Example folgt.
 
 ---
 
