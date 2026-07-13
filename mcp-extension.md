@@ -78,3 +78,25 @@ Backup-Kopien im `Add-Ons/`-Ordner lassen — Archicad versucht sie zu laden
 - github.com/tlorantfy/archicad-additional-json-commands — Blaupause „eigenes Zusatz-Add-On"
 - github.com/tlorantfy/archicad-python-scripts — fertige Script-Patterns (recurring_publish u.a.)
 - github.com/GRAPHISOFT/archicad-addon-cmake — Build-Template (Basis von ELM_SAB_Add-On)
+
+## ELM_SAB_Add-On v0.1 — Live-Erkenntnisse (2026-07-13, THN-Farbabgleich)
+
+**Status: FUNKTIONIERT.** Erster Produktiveinsatz: 32.806 Elemente gelesen (0 Fehler),
+~9.200 Stift-Zuweisungen geändert (13→90, 240/19→91, 21→226, 93→253, 7→6).
+
+**MDID-Pflicht:** Add-Ons laufen nur mit offiziell registrierter MDID (Developer-ID +
+Local-ID, beide aus archicadapi.graphisoft.com/profile/add-ons — SAB: Dev-ID 944131939,
+ELM_SAB Local-ID 1033975726). Selbstgewählte IDs ⇒ „kann nicht freigeschaltet werden /
+Distributor" und stilles Nicht-Laden. Signatur (ad-hoc) ist dagegen KEIN Blocker.
+
+**Schreib-Limits von ACAPI_Element_Change (v0.1):**
+1. Nur Elemente der **aktiven Datenbank** änderbar (Lesen geht überall). Workaround:
+   User klickt Arbeitsblätter durch, Auto-Retry-Schleife stiftet um. → v0.2: DB-Wechsel einbauen.
+2. Elemente auf **ausgeblendeten Ebenen** sind nicht änderbar (err -2130312912-Familie).
+   Vorher Ebenen sichtbar schalten (Ansicht mit passender Ebenenkombination öffnen).
+3. **Teamwork:** Elemente müssen reserviert sein.
+4. Fehler-Response ist verschachtelt: `executionResults[i].error.error.message`.
+
+**Farbabgleich-Rezept (wiederverwendbar):** Inventur via GetPenOfElements (Batch 500)
+→ RGB-Lookup in Stifttabelle (API.GetPenTableAttributes) → Mapping-Tabelle → Confirm
+→ SetPenOfElements pro (Rolle, Ziel)-Gruppe → Nachher-Inventur als Verifikation.
