@@ -89,26 +89,87 @@ def worksheet_db(port, name_part):
 
 
 def polygons_live(port, layer_idx, db=None):
-    """Geschlossene Polylinien einer Ebene als Punktlisten."""
-    params = {"elementType": "PolyLine"}
-    if db:
-        params["databases"] = [{"databaseId": db}]
-    guids = [e["elementId"]["guid"] for e in tapir(port, "GetElementsByType", params).get("elements", [])]
-    polys = []
-    for i in range(0, len(guids), 500):
-        batch = [{"elementId": {"guid": g}} for g in guids[i:i + 500]]
-        det = tapir(port, "GetDetailsOfElements", {"elements": batch})
-        for d in det.get("detailsOfElements", []):
-            if d.get("layerIndex") != layer_idx:
+    """Alle 2D-Elemente (Line/Arc/Circle/PolyLine) einer Ebene via
+    ELM_SAB.Get2DGeometryOfElements lesen und per shapely zu Regionen verketten."""
+    import math
+    from shapely.ops import polygonize, unary_union
+    from shapely.geometry import LineString
+
+    def arc_points(cx, cy, r, a0, a1, ratio=1.0, rot=0.0, reflected=False, n_per_rad=8):
+        if reflected:
+            a0, a1 = a1, a0
+        while a1 < a0:
+            a1 += 2 * math.pi
+        steps = max(2, int((a1 - a0) * n_per_rad))
+        pts = []
+        for i in range(steps + 1):
+            t = a0 + (a1 - a0) * i / steps
+            ex, ey = r * math.cos(t), r * ratio * math.sin(t)
+            pts.append((cx + ex * math.cos(rot) - ey * math.sin(rot),
+                        cy + ex * math.sin(rot) + ey * math.cos(rot)))
+        return pts
+
+    def flatten_poly_arcs(coords, arcs):
+        """Polyline-Bogensegmente (arcAngle zwischen begIndex/endIndex) plätten."""
+        if not arcs:
+            return coords
+        arc_by_beg = {a["begIndex"]: a["arcAngle"] for a in arcs}
+        out = [coords[0]]
+        for i in range(1, len(coords)):
+            ang = arc_by_beg.get(i)     # 1-basierte Indizes aus dem Add-On
+            x1, y1 = coords[i - 1]
+            x2, y2 = coords[i]
+            if not ang:
+                out.append((x2, y2))
                 continue
-            coords = d.get("details", {}).get("coordinates") or []
-            if len(coords) < 4:
+            # Kreisbogen aus Sehne + Winkel rekonstruieren
+            chord = math.hypot(x2 - x1, y2 - y1)
+            if chord < 1e-9:
+                out.append((x2, y2))
                 continue
-            pts = [(c["x"], c["y"]) for c in coords]
-            dx, dy = pts[0][0] - pts[-1][0], pts[0][1] - pts[-1][1]
-            if (dx * dx + dy * dy) ** 0.5 < 0.005:      # geschlossen (5 mm Toleranz)
-                polys.append(pts[:-1] if pts[0] == pts[-1] else pts)
-    return polys
+            r = chord / (2 * math.sin(abs(ang) / 2))
+            mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+            h = r * math.cos(abs(ang) / 2)
+            nx, ny = -(y2 - y1) / chord, (x2 - x1) / chord
+            sign = 1.0 if ang > 0 else -1.0
+            cx, cy = mx - sign * h * nx, my - sign * h * ny
+            a0 = math.atan2(y1 - cy, x1 - cx)
+            steps = max(2, int(abs(ang) * 8))
+            for k in range(1, steps + 1):
+                t = a0 + ang * k / steps
+                out.append((cx + r * math.cos(t), cy + r * math.sin(t)))
+        return out
+
+    segs = []
+    for etype in ("Line", "Arc", "Circle", "PolyLine"):
+        params = {"elementType": etype}
+        if db:
+            params["databases"] = [{"databaseId": db}]
+        guids = [e["elementId"]["guid"] for e in tapir(port, "GetElementsByType", params).get("elements", [])]
+        for i in range(0, len(guids), 500):
+            batch = [{"elementId": {"guid": g}} for g in guids[i:i + 500]]
+            resp = addon(port, "ELM_SAB", "Get2DGeometryOfElements", {"elements": batch})
+            for g in resp.get("geometryOfElements", []):
+                if not g.get("success") or g.get("layerIndex") != layer_idx:
+                    continue
+                t = g.get("elementType")
+                if t == "Line":
+                    b, e = g["begCoordinate"], g["endCoordinate"]
+                    if (b["x"], b["y"]) != (e["x"], e["y"]):
+                        segs.append(LineString([(b["x"], b["y"]), (e["x"], e["y"])]))
+                elif t in ("Arc", "Circle"):
+                    o = g["origin"]
+                    a0, a1 = (0.0, 2 * math.pi) if g.get("whole") else (g["begAngle"], g["endAngle"])
+                    pts = arc_points(o["x"], o["y"], g["radius"], a0, a1,
+                                     g.get("ratio", 1.0), g.get("angle", 0.0), g.get("reflected", False))
+                    segs.append(LineString(pts))
+                elif t == "PolyLine":
+                    coords = [(c["x"], c["y"]) for c in g.get("coordinates", [])]
+                    if len(coords) >= 2:
+                        segs.append(LineString(flatten_poly_arcs(coords, g.get("arcs", []))))
+    print(f"  2D-Segmente gelesen: {len(segs)} — polygonisiere...")
+    merged = unary_union(segs)
+    return [list(p.exterior.coords)[:-1] for p in polygonize(merged)]
 
 
 def polygons_from_dxf(path, layer_name):
