@@ -45,10 +45,22 @@ Claude ──► tapir-archicad-mcp (Python, uv tool "archicad-server")
 
 ## Tapir ≥1.5.3 bringt neu (ggü. altem Stand „Wände nicht erstellbar")
 
-`CreateWalls`, `CreateBeams`, `CreateWindows/Doors/Openings`, `ModifyWalls/Slabs/...`,
-`RotateElements`, `LockElements/UnlockElements`, `GetElementPreviewImage`, `GetRoomImage`,
-`CreateSections`, `CreateAssociativeDimensions`. → Nach Bundle-Update Tool-Diff machen
-und `recipes/wall-operations.md` („kein Create per MCP v29") korrigieren.
+*Live verifiziert 2026-07-13 (`app_get_add_on_version` → 1.5.3, MCP 0.4.3):*
+`CreateWalls`, `CreateBeams`, `CreateWindows/Doors/Openings`, `CreateRoofs/Stairs/Morphs/
+Lamps/Texts/Labels`, `ModifyWalls/Slabs/Columns/Beams/Windows/Doors/Roofs/Morphs/Meshes`,
+`RotateElements`, `LockElements/UnlockElements`, `GetElementPreviewImage` (2D/Section/3D-PNG),
+`GetRoomImage`, `CreateSections`, `CreateAssociativeDimensions`, `GetDimensionData`;
+neue Modul-Gruppen `design_options`, `element_grouping`, `ifc`.
+`recipes/wall-operations.md` ist entsprechend korrigiert.
+
+## Update-Stolperfalle: Zweit-Instanzen (live erlebt 2026-07-13)
+
+Nach Bundle-Tausch meldete `app_get_add_on_version` weiter die alte Version. Ursache:
+**zwei Archicad-Prozesse** — eine Instanz lief seit Tagen im Hintergrund weiter (nur das
+Projektfenster war zu). Vor dem Update mit `pgrep -fl Archicad` prüfen, dass ALLE
+Archicad-Prozesse beendet sind (Cmd+Q, nicht nur Fenster schließen). Außerdem: keine
+Backup-Kopien im `Add-Ons/`-Ordner lassen — Archicad versucht sie zu laden
+(„Einige Add-Ons konnten nicht geladen werden").
 
 ## Erweiterungs-Entscheidungsbaum
 
