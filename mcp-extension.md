@@ -132,3 +132,18 @@ verifizieren statt raten.
   1-basierte Indizes) + layerIndex/floorIndex. Liest cross-DB.
 - Workflow-Doku: `recipes/konturen-zu-waende.md`. Erster Produktivlauf: 2.032 Wände.
 - DevKit-Feld-Verifikation vor jedem neuen Befehl: ~/Developer/APIDevKit29/Support/Inc.
+
+## ELM_SAB v0.5 (2026-07-14) — GetTextsOfElements
+
+- **`GetTextsOfElements`**: Inhalt (memo.textContent via APIMemoMask_TextContentUni),
+  Position (text.loc), Ebene, Geschoss. Schließt Tapirs Text-Lücke
+  („Not yet supported"). Produktiv: 40.479 Texte gelesen, 1.193 Durchbruch-
+  Beschriftungen extrahiert → 301 WDs mit echten DWG-Maßen/-Höhen gesetzt.
+- Nützliche Tapir-Befehle rund um Öffnungen: `GetFavoritesByType` /
+  `ApplyFavoritesToElementDefaults` (SAB-Favoriten aufs Tool anwenden, dann
+  `CreateOpenings`), `GetDetailsOfElements` liefert für Wände **floorIndex +
+  polygonOutline** (Host-Matching!), `API.Get2DBoundingBoxes` (offizieller
+  Befehl — Tapir hat keinen eigenen).
+- **Tapir-Bug (blacklist)**: `ModifySlabs` mit `polygonOutline` crasht Archicad
+  fatal; `holes: []` wird als „kein Feld" ignoriert. Details + Workaround:
+  `recipes/oeffnungen-aus-konturen.md`.
