@@ -21,6 +21,7 @@ Von Skill-Gerüst bis produktionsreifem Archicad-MCP-Skill in 8 Phasen. Jede Pha
 - [~] **Phase 6: Recipes Reihe 3 — 2D + Materials** — surfaces-materials, fills-hatches, lines-polylines. **STATUS:** Schema-only abgeschlossen (1848 Zeilen, alle 3 Recipes mit VERIFY-Markern). Live-Validation ausstehend sobald Archicad verfügbar. ✅ schema-only 2026-05-20
 - [ ] **Phase 7: Cross-Recipe Integrationstests** — INT-01 (Wand + Fenster + Material + Linie), INT-02 (vollständige Projekt-Klassifizierung)
 - [ ] **Phase 8: Smoke-Test + Gap-Close** — alle `<!-- ÜBERPRÜFEN -->`-Marker aus Phasen 2–7 abarbeiten; Definition-of-Done-Verifikation
+- [ ] **Phase 10: THN-Modellabgleich — offene Punkte** — Sammel-Phase der laufenden THN-Produktivarbeit (2026-07-14), damit nichts vergessen wird; Details unten
 
 ## Phase Details
 
@@ -121,6 +122,23 @@ Von Skill-Gerüst bis produktionsreifem Archicad-MCP-Skill in 8 Phasen. Jede Pha
 **Plans**: 2 plans
 - [ ] 07-01: INT-01 (Wand + Fenster + Material + Linie) live
 - [ ] 07-02: INT-02 (vollständige Klassifizierung) live
+
+### Phase 10: THN-Modellabgleich — offene Punkte (Stand 2026-07-14)
+**Goal**: Alle offenen Arbeitspunkte aus der THN-Session 2026-07-14 abarbeiten. Scratchpad-Daten liegen in der Session vom 14.07. (Scripts + Pläne sind deterministisch reproduzierbar).
+**Kontext**: Referenzmodell im selben Teamwork-Projekt, Versatz Referenz→generiert dx=0.001/dy=349.820. **Referenzmodell ist READ-ONLY** (User-Regel, siehe Memory).
+**Offene Punkte** (Reihenfolge = Priorität):
+  1. **Teamwork-Reservierung wiederherstellen** (Blocker für alles Folgende — Senden gab Reservierungen frei, Reserve-all hing).
+  2. **Eigenschafts-Transfer ausführen** (Script fertig, idempotent): Klasse „Wand" + Bauteilname (WB/WE/WD/WG/WA per kNN-Flügelzuordnung) + **SAB_Brandschutz** (2.171 Werte, nächste Ref-Wand ≤2,5 m) auf 4.500 generierte Wände. Wichtig: Properties sind erst NACH Klassifizierung verfügbar (notAvailable-Falle). Staubschutz/Baustelleneinrichtung NICHT übernehmen.
+  3. **Türen**: Smoke-Test wiederholen (Favorit „Bau_Tür" funktioniert; „T Innen…"-Favoriten schlagen per API fehl — Library-Problem?); centerOffset-Semantik in Polywänden klären (Probe landete Kantenmitte); dann 904 Türen aus Aufschlag-Bögen (Radius=Breite, Anschlag=Bogenzentrum) + Türnummern aus Referenzmodell übernehmen.
+  4. **Fehlende Elemente aus Referenz kopieren** (−349,82 m): Glas-Fassadenwände (Kollegin: Fassade als Wand, Material Glas), Rampen, neue Abhangdecken; Gebäudefugen mit DWGs abgleichen/verfeinern. OHNE Asbest-/Baustellen-Staubschutz (explizit ausgenommen).
+  5. **383 Wanddurchbrüche ohne Host-Wand** + **101 beim Crash verlorene Wände** nachziehen (Wandlücken schließen).
+  6. **OG2/UG-2**: Linienwerk liegt auf Alt-Ebenen (2MWTRAG_0, 2NMWTRAG0, 2ITUER__0…) → Wände+Decken erzeugen, dann 72 Warteliste-Öffnungen setzen.
+  7. **51 gedrehte BD/FBA** achsparallel gesetzt → nacharbeiten oder ELM_SAB v0.6 (Öffnung mit Rotation).
+  8. **48 Wandschlitze** (WS/BS/HS-Texte) → ELM_SAB v0.6: Öffnung mit Tiefenbegrenzung.
+  9. **Unterzüge** (615 Linien, Linienpaar→CreateBeams), **Dach** (CreateRoofs, Neigung vom User) → danach **Dachflächenfenster** (ELM_SAB, braucht Dächer), **Fenster** (Linien-Cluster, mittel-groß).
+  10. **Bemaßung**: CreateWallThicknessDimensions + Maßketten (Witness-Points testen); Höhenkoten = Tapir-Lücke.
+  11. **Tapir-Bugs an Maintainer melden**: ModifySlabs+polygonOutline = fataler Crash; holes:[] ignoriert; CreateDoors mit bestimmten Favoriten schlägt fehl.
+**Success Criteria**: Punkte 1–5 erledigt und in Teamwork gesendet; Punkte 6–11 erledigt oder bewusst als v0.6/Backlog markiert; Skill-Doku je Erkenntnis aktualisiert.
 
 ### Phase 8: Smoke-Test + Gap-Close
 **Goal**: Alle in den Phasen 2–7 entstandenen `<!-- ÜBERPRÜFEN -->`-Marker abarbeiten; Definition-of-Done-Verifikation durchführen; ggf. v2-Backlog auffüllen mit nicht abdeckbaren Punkten.
