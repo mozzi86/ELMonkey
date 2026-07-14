@@ -102,3 +102,26 @@ kontinuierliche Verschmierung 0–4 m → lokale Verzerrung, kein globaler Fehle
   den Wait; BIMcloud-Erreichbarkeit separat prüfen (ping/curl).
 - Nur **EIN API-Schreiber gleichzeitig** (auch bei Agenten-Delegation!) —
   parallele Schreiber produzieren „Invalid program status"-Kaskaden.
+
+## Zonen kopieren (live-verifiziert 2026-07-14, 632/632)
+
+- `CreateZones` (Param `zonesData`): floorIndex, name, numberStr,
+  categoryAttributeId{guid}, stampPosition, stampAngle, fixedStampAngle,
+  geometry (polygonOutline/polygonArcs/holes). **Kein layerIndex-Feld** —
+  Ebene danach per SetDetailsOfElements setzen (sonst aktive Ebene!).
+- `GetDetailsOfElements` für Zonen liefert per DIREKTEM Tapir-HTTP alles
+  (name, numberStr, Stempel, Polygon inkl. Bögen + Löcher) — der bekannte
+  AC29-Schema-Bug betrifft nur den MCP-Wrapper.
+- **name/numberStr sind Create-only** — kein Modify-Pfad; SetDetails kann bei
+  Zonen nur floor/layer + Stempel (typeSpecificDetails).
+- Falle: **Mikro-Duplikatpunkte** (µm-Abstand!) im Quellpolygon →
+  `-2130313102 Failed to create new Zone`. Distanz-Dedup der Punkte hilft
+  (exaktes Dedup reicht NICHT).
+
+## Befund-Nachtrag OG2 (2026-07-14 abends)
+
+Die These „OG2-Linienwerk liegt auf Fremdimport-Alt-Ebenen (2MWTRAG_0 …)"
+war FALSCH — dort lagen 0–1 Elemente; alles ist längst auf SAB-Ebenen migriert.
+Das echte OG2-Problem: Begrenzungslinien schließen schlecht (7.395 Regionen,
+aber nur 8 Teile > 20 m²). Lehre: **Ebenen-Hypothesen erst per Histogramm
+verifizieren** (Elementzahl je Ebene je Geschoss), dann Pipeline bauen.
