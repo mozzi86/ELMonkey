@@ -136,6 +136,7 @@ Von Skill-Gerüst bis produktionsreifem Archicad-MCP-Skill in 8 Phasen. Jede Pha
   7. **51 gedrehte BD/FBA** achsparallel gesetzt → nacharbeiten oder ELM_SAB v0.6 (Öffnung mit Rotation).
   8. **48 Wandschlitze** (WS/BS/HS-Texte) → ELM_SAB v0.6: Öffnung mit Tiefenbegrenzung.
   9. **Unterzüge** (615 Linien, Linienpaar→CreateBeams), **Dach** (CreateRoofs, Neigung vom User) → danach **Dachflächenfenster** (ELM_SAB, braucht Dächer), **Fenster** (Linien-Cluster, mittel-groß).
+  9b. **Treppen aus 2D** (A_06_TREPPE/F_05_TREPPE): Lauflinie→CreateStairs-Baseline, Stufenlinien→stepNum, Umriss→flightWidth; kein Referenz-Vorbild (beide Modelle treppenlos!). Smoke-Test→Masse. Fahrtreppen (M_21) gesondert.
   10. **Bemaßung**: CreateWallThicknessDimensions + Maßketten (Witness-Points testen); Höhenkoten = Tapir-Lücke.
   11. **Tapir-Bugs an Maintainer melden**: ModifySlabs+polygonOutline = fataler Crash; holes:[] ignoriert; CreateDoors mit bestimmten Favoriten schlägt fehl.
 **Success Criteria**: Punkte 1–5 erledigt und in Teamwork gesendet; Punkte 6–11 erledigt oder bewusst als v0.6/Backlog markiert; Skill-Doku je Erkenntnis aktualisiert.
