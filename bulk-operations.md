@@ -18,7 +18,7 @@ Diese Datei dokumentiert, wie wir Massen-Updates und Klassifizierungen durchfüh
 12. [Pre-Flight: Property-Enum-Normalisierung](#pre-flight-property-enum-normalisierung)
 13. [Identifier-Mapping bei externen Daten-Quellen](#identifier-mapping-bei-externen-daten-quellen)
 14. [GDL-Parameter vs. expression-verlinkte Property als Quelle](#gdl-parameter-vs-expression-verlinkte-property-als-quelle-live-verifiziert-2026-06-11)
-15. [TODO — Phase 5 Live-Verifikation](#todo--phase-5-live-verifikation)
+15. [Phase-5-Abschluss: Live-Antworten](#phase-5-abschluss-live-antworten-2026-07-14-thn-4500-wände-maßstab)
 
 ## Das universelle Read → Filter → Group → Confirm → Apply-Pattern
 
@@ -478,14 +478,39 @@ Bei einem Teamwork-Projekt liefert `SetPropertyValuesOfElements` **pro Element**
 
 **Achtung Selektions-Falle:** `ChangeSelectionOfElements` mit `addElementsToSelection` *addiert* zur bestehenden Auswahl. Wenn der User „mach alle Selektierten" sagt, kann seine Auswahl andere/mehr Elemente enthalten als die Rest-Menge — die echten Problemkinder sind evtl. gar nicht dabei (z. B. weil unreserviert/nicht selektierbar). Nach so einem Lauf **immer per Verify gegen die Soll-Menge** prüfen, ob die ursprünglichen Fehlschläge wirklich erledigt sind, statt sich auf „0 Fehler im letzten Batch" zu verlassen.
 
-## TODO — Phase 5 Live-Verifikation
+## Phase-5-Abschluss: Live-Antworten (2026-07-14, THN, 4.500-Wände-Maßstab)
 
-Diese Punkte werden in Phase 5 am laufenden Archicad geklärt:
+Alle offenen TODO-Punkte wurden im Produktivbetrieb geklärt:
 
-- **Exakte Discovery-Query für System-scoped GUID-Lookup.** Was ist der Tool-Name? Welche Parameter? Wie unterscheidet sich die Antwort zwischen aktiven und inaktiven Systemen?
-- **Geometrische „Innen vs. Außen"-Ableitung.** Welche MCP-Endpoints liefern Zone-Membership oder Polygon-Containment? Falls keine: müssen wir Geometrie selbst berechnen?
-- **Innere-Raum-Erkennung.** Via Zone-Listing oder via Geometrie? Was ist effizienter und zuverlässiger im realen Projekt?
-- **Subtype-Reliability bei Öffnungen.** Reicht der Subtype-Pfad alleine, oder brauchen wir Höhen-Fallback?
-- **Pagination-Felder im Klassifikations-Response.** Liste der Klassen oft groß — wie ist die Pagination strukturiert?
+- **System-scoped GUID-Lookup**: `API.GetAllClassificationSystems` → Systeme mit
+  GUID; `API.GetAllClassificationsInSystem {classificationSystemId}` → Item-Baum
+  (rekursiv `children` laufen, `classificationItemId.guid` + `id`/`name` sammeln;
+  THN: 299 Items in EINER Antwort, keine Pagination aufgetreten).
+  `GetClassificationsOfElements` braucht die System-ID **explizit** — leere
+  Systemliste ⇒ leeres Ergebnis. Leer-Klassifizierung = Item-GUID `00000000-…`.
+- **Innen/Außen bzw. semantische Ableitung**: Nicht geometrisch gelöst, sondern
+  über **Ebenen-Semantik + Referenz-Kreuztabelle** (Ebene × Klasse ist oft
+  deterministisch) und **räumliche kNN-Zuordnung** für Regionen-Kategorien —
+  siehe [`referenzmodell-abgleich.md`](referenzmodell-abgleich.md). Robuster als
+  Polygon-Containment bei verzerrten Beständen.
+- **Innere-Raum-Erkennung**: Zonen sind per direktem Tapir-HTTP VOLL lesbar
+  (polygonOutline + Bögen + Löcher) → Punkt-in-Zone offline mit shapely.
+- **Pagination**: Klassifikations-Endpunkte lieferten ungeteilt; nur der
+  MCP-Wrapper lagert Riesen-Antworten (>500 KB) in Dateien aus — direkter
+  HTTP-Zugriff umgeht das.
+- **Skalen-Beweis für das Read→Filter→Group→Confirm→Apply-Muster**: 4.500
+  Klassifizierungen + 4.500 Bauteilname + 2.171 Brandschutz in 300er-Batches,
+  0 Fehler. Reihenfolge zwingend: **erst Klassifizierung, dann Properties**
+  (notAvailable-Falle) — Formate/Fallen in
+  [`referenzmodell-abgleich.md § Property-API`](referenzmodell-abgleich.md).
 
-Wenn Phase 5 abgeschlossen ist, ersetzen wir die TODO-Marker hier durch live-verifizierte Werte mit Datums-Marker (siehe [`self-improvement.md`](self-improvement.md)).
+### CAP-03/CAP-04 aufgelöst <!-- 2026-07-14 -->
+
+- **CAP-03 (Selektion)**: `GetSelectedElements` produktiv als Markierungsrahmen-
+  Workflow (Rahmen + Cmd+A → bis 251.798 Elemente gelesen). Selektion überlebt
+  Fensterwechsel; per API setzbar via `ChangeSelectionOfElements`
+  (add/remove) — Basis für „Zoom auf Auswahl"-Übergaben an den User.
+- **CAP-04 (Raumnummer)**: Zonen-Nummer = Feld `numberStr` in den Zone-Details
+  (direkter Tapir-Abruf, MCP-Wrapper-Bug greift dort nicht). **Create-only** —
+  bei CreateZones mitgeben; kein Modify-Pfad. Element-IDs (z. B. Türnummern)
+  dagegen über BuiltIn-Property `General_ElementID` schreibbar.
