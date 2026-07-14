@@ -126,6 +126,8 @@ Von Skill-Gerüst bis produktionsreifem Archicad-MCP-Skill in 8 Phasen. Jede Pha
 ### Phase 10: THN-Modellabgleich — offene Punkte (Stand 2026-07-14)
 **Goal**: Alle offenen Arbeitspunkte aus der THN-Session 2026-07-14 abarbeiten. Scratchpad-Daten liegen in der Session vom 14.07. (Scripts + Pläne sind deterministisch reproduzierbar).
 **Kontext**: Referenzmodell im selben Teamwork-Projekt, Versatz Referenz→generiert dx=0.001/dy=349.820. **Referenzmodell ist READ-ONLY** (User-Regel, siehe Memory).
+**Fortschritt 2026-07-14 abends:** 1 ✓ (Reservierung), 2 ✓ (4.500 Wände klassifiziert+Properties), 3 ✓ teilweise (307 Türen via Türwand-Pattern, 153 nummeriert, Properties übertragen; Rest hängt an Wandlücken), 4 ✓ (334 Glas-Fassaden, 104 Abhangdecken, 859 Deckenstreifen, 632 Zonen in Arbeit, Umgebung/Gelände mit DWG-Kalibrierung dx=-252.896/dy=+277.480), 5 ✓ teilweise (254/256 nachgezogen; +46 Öffnungen; 337 Öffnungen + ~340 Türen bleiben = Knautsch-/OG2-Lücken), 9b ✓ (20 Treppenläufe, Steigung 17,5 cm, 4 Deckenausschnitte). Tapir-Issue-ENTWÜRFE in Session-Scratchpad tapir_issues/ (noch nicht gepostet).
+
 **Offene Punkte** (Reihenfolge = Priorität):
   1. **Teamwork-Reservierung wiederherstellen** (Blocker für alles Folgende — Senden gab Reservierungen frei, Reserve-all hing).
   2. **Eigenschafts-Transfer ausführen** (Script fertig, idempotent): Klasse „Wand" + Bauteilname (WB/WE/WD/WG/WA per kNN-Flügelzuordnung) + **SAB_Brandschutz** (2.171 Werte, nächste Ref-Wand ≤2,5 m) auf 4.500 generierte Wände. Wichtig: Properties sind erst NACH Klassifizierung verfügbar (notAvailable-Falle). Staubschutz/Baustelleneinrichtung NICHT übernehmen.
