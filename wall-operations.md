@@ -420,3 +420,12 @@ Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifiz
   Capability-Tabelle, Fehlerklassen.
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Bulk-Klassifizierungs-Pattern.
 - [`../reference/workflow-context.md`](../reference/workflow-context.md) — Warm-up-Felder im Detail.
+
+## CLASS-Worked-Example: 4.500 Wände (live 2026-07-14, THN)
+
+Muster: Klasse „Wand" (Item-GUID aus System-Baum) via `SetClassificationsOfElements`
+(300er-Batches) → DANACH Properties: Bauteilname (singleEnum, Gebäudeflügel per
+kNN über Referenzpunkte) + SAB_Brandschutz (multiEnum, nächste Referenzwand
+≤ 2,5 m, gleiche Etage, sonst ehrlich leer). Ergebnis 4.500/4.500 + 2.171
+Brandschutz-Werte, 0 Fehler. Confirm-Schleife davor: Summary-Tabelle mit
+Pro-Klasse-Counts, `ja` startet. Details: reference/referenzmodell-abgleich.md.

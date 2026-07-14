@@ -610,3 +610,12 @@ Details und Update-Calls (die trotz Bug funktionieren): [`../reference/mcp-conve
 - [`zones.md`](zones.md) — Zonen können auf Decken-Niveau verankert sein; `elements_get_elements_related_to_zones` verknüpft Stützen mit Zonen
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Bulk-Klassifizierung tragend/nicht-tragend für viele Elemente gleichzeitig
 - [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) — Capability-Tabelle (alle Create-fähigen Typen), Confirm-Format, Paginierung, Wrapper-Bug-Workarounds
+
+## CLASS-Worked-Example: Decken + Stützen (live 2026-07-14, THN)
+
+859 kopierte Deckenstreifen: 431× Item „Wand" + 428× Item „Decke" (wie
+Referenz-Vorbild, gruppiert nach Höhenlage) via SetClassificationsOfElements —
+859/859. Tragend/nicht-tragend kommt bei SAB über die QUELL-EBENE
+(A_01_TRAGWAND vs. A_02_LEICHTWAND), nicht über getrennte Klassen-Items.
+337 Stützen: Klassifizierung folgt dem Favorit; Referenzmodell führt Stützen
+als „Wand"-klassifizierte Elemente (Kreuztabelle prüfen, nicht raten!).

@@ -650,3 +650,11 @@ Schreibversuche (`set_property_values`, `set_classifications`, `set_details`) au
 - [`walls.md`](walls.md) — Innen/Außen-Klassifikation von Wänden basiert auf Zone-Membership (s. Phase-5-Stub oben).
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Universelles Bulk-Klassifizierungs-Muster für zonenbasierte Workflows.
 - [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) — Confirm-Format-Details, Fehlerklassen, Paginierung.
+
+## Worked-Example: 632 Zonen 1:1 kopiert (live 2026-07-14, THN)
+
+CreateZones mit name/numberStr/Stempel/Polygon(+Bögen+Löcher) — Felder und
+Fallen (kein layerIndex im Create!, Mikro-Duplikatpunkte, name/numberStr
+create-only): reference/referenzmodell-abgleich.md § Zonen. 632/632 inkl.
+Klassifizierungs-Übernahme; Properties der Gruppe „Räume" waren im
+Quellmodell durchgängig leer (ehrlicher Befund, kein Fehler).
