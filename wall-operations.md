@@ -58,14 +58,14 @@ Details in `../reference/workflow-context.md`.
 |-----------|-----------------|------------------------|
 | Wände listen | `"get elements by type wall"` | `elements_get_elements_by_type` <!-- 2026-05-19 verifiziert AC29 --> |
 | Element-Typ prüfen | `"get type of element"` | `elements_get_types_of_elements` <!-- 2026-05-19 verifiziert AC29 --> |
-| Property-IDs holen | `"get all property ids of elements"` | `properties_get_all_property_ids_of_elements` <!-- VERIFY --> |
-| Property-Werte holen | `"get property values of elements"` | `properties_get_property_values_of_elements` <!-- VERIFY --> |
-| Bounding Box | `"get 2d bounding boxes of elements"` | `elements_get_2_d_bounding_boxes` <!-- VERIFY --> |
+| Property-IDs holen | `"get all property ids of elements"` | `properties_get_all_property_ids_of_elements` <!-- verifiziert 2026-07-14 --> |
+| Property-Werte holen | `"get property values of elements"` | `properties_get_property_values_of_elements` <!-- verifiziert 2026-07-14 --> |
+| Bounding Box | `"get 2d bounding boxes of elements"` | `elements_get2_d_bounding_boxes` (kein Unterstrich in „get2"!) <!-- verifiziert 2026-07-14 --> |
 | Wand modifizieren | `"set details of elements"` | `elements_set_details_of_elements` <!-- 2026-05-19 verifiziert AC29 --> |
 | Wand löschen | `"delete elements"` | `elements_delete_elements` <!-- 2026-05-19 verifiziert AC29 --> |
 | Hosted Elemente prüfen | `"get connected elements"` | `elements_get_connected_elements` <!-- 2026-05-19 verifiziert AC29 --> |
 | Klassifikation lesen | `"get classifications of elements"` | `elements_get_classifications_of_elements` <!-- 2026-05-19 verifiziert AC29 --> |
-| Klassifikation setzen | `"set classification of elements"` | `elements_set_classifications_of_elements` <!-- VERIFY --> |
+| Klassifikation setzen | `"set classification of elements"` | `dev_set_classifications_of_elements` (Präfix `dev_`, nicht `elements_`!) <!-- verifiziert 2026-07-14 --> |
 | Klassifikations-Systeme | `"get all classification systems"` | `classifications_get_all_classification_systems` <!-- 2026-05-19 verifiziert AC29 --> |
 
 ---
@@ -85,8 +85,8 @@ Alle Felder optional — nur die zu ändernden angeben.
 | `offset` | `number` (m) | Versatz Wand-Mittellinie zur Reference Line. |
 | `begThickness` | `number` (m) | Wanddicke am Anfangspunkt. |
 | `endThickness` | `number` (m) | Wanddicke am Endpunkt (bei gerader Wand = `begThickness`). |
-| `structureType` | `string` | z. B. `"Composite"` (neu in AC29). <!-- VERIFY --> |
-| `geometryType` | `string` | z. B. `"Straight"`, `"Trapezoidal"`, `"Curved"`. <!-- VERIFY --> |
+| `structureType` | `string` | live gesehen: `"Basic"`, `"Composite"`. <!-- verifiziert 2026-07-14 --> |
+| `geometryType` | `string` | live gesehen: `"Straight"`, `"Polygonal"`. <!-- verifiziert 2026-07-14 --> |
 
 Details-Rahmen: `{"floorIndex": 0, "layerIndex": 3.0, "drawIndex": 1.0, "typeSpecificDetails": {...}}`.
 `layerIndex` ist ein Float (1-basiert, nicht 0-basiert).
@@ -119,7 +119,7 @@ Response: `{"propertyIds": [{"propertyId": {"guid": "aaa1..."}}, ...]}`.
 Typische Wand-Properties: `Height`, `Thickness`, `Layer`, `Composite`, `BuildingMaterial`.
 Property-IDs sind projekt-spezifisch.
 
-**Schritt 2 — Werte für gewünschte Properties holen:** <!-- VERIFY -->
+**Schritt 2 — Werte für gewünschte Properties holen:** <!-- verifiziert 2026-07-14 --> (4.500er-Lauf)
 
 ```
 mcp__archicad__archicad_call_tool(
@@ -148,7 +148,7 @@ mcp__archicad__archicad_call_tool(
 <!-- 2026-05-19 verifiziert AC29 — liefert {"typesOfElements": [{"type": "Wall"}]}, auch wo get_details scheitert -->
 
 Für die räumliche Lage: `elements_get_2_d_bounding_boxes` mit derselben GUID — gibt
-`xMin`, `yMin`, `xMax`, `yMax` in Metern zurück. <!-- VERIFY -->
+`xMin`, `yMin`, `xMax`, `yMax` in Metern zurück. <!-- verifiziert 2026-07-14 -->
 
 **Element-ID-Threading (SAFE-05):** Die GUID `f1101930-e0bd-7044-a1f2-fdb20e520e21` bleibt
 im Arbeitsgedächtnis für alle Folge-Operationen dieser Session. Nicht erneut suchen.
@@ -305,7 +305,7 @@ Response zeigt aktuelle Klasse oder `null`. Damit wissen wir den Ist-Zustand fü
 
 Falls die Klassen-GUID der Zielklasse (z. B. „Außenwand") noch unbekannt ist:
 `classifications_get_all_classifications_in_system` mit der System-GUID aufrufen — gibt die
-vollständige Klassenhierarchie mit GUIDs zurück. <!-- VERIFY -->
+vollständige Klassenhierarchie mit GUIDs zurück (THN: 299 Items, eine Antwort). <!-- verifiziert 2026-07-14 -->
 
 **Schritt 3 — Confirm (SAFE-01):**
 

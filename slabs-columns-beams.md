@@ -29,7 +29,7 @@ Dieses Recipe deckt drei strukturelle Standard-Bauteile ab. **Slabs (Decken) und
 |---|---|---|---|---|---|---|
 | Slab | Decke | ✓ verifiziert <!-- 2026-05-19 verifiziert AC29 --> | ✓ (Property-Workaround) | ✓ | ✓ | ✓ |
 | Column | Stütze | ✓ verifiziert <!-- 2026-05-19 verifiziert AC29 --> | ✓ (Property-Workaround) | ✓ | ✓ | ✓ |
-| Beam | Träger | ✗ Capability-Gap | ✓ (Property-Workaround) | ✓ <!-- VERIFY --> | ✓ <!-- VERIFY --> | ✓ <!-- VERIFY --> |
+| Beam | Träger | ✓ CreateBeams (Tapir ≥1.5.3) | ✓ (Property-Workaround) | ✓ Read <!-- verifiziert 2026-07-14 --> | ✓ <!-- VERIFY: Update ungetestet --> | ✓ <!-- VERIFY: Delete ungetestet --> |
 
 Beam-Create ist in Archicad MCP v29 nicht verfügbar. Der User zeichnet Träger manuell in Archicad; danach kann Claude sie per GUID greifen und modifizieren/klassifizieren.
 
@@ -70,7 +70,7 @@ Vor dem ersten MCP-Aufruf holen wir folgende Felder aus dem Warm-up (Details in 
 | Löschen | `"delete elements by id"` | `elements_delete_elements` |
 | Klassifizieren | `"set classifications of elements"` | `elements_set_classifications_of_elements` |
 
-### Beam <!-- VERIFY -->
+### Beam <!-- verifiziert 2026-07-14 -->
 
 | Operation | Discovery-Query | Bekannter Tool-Name |
 |---|---|---|
@@ -112,7 +112,7 @@ Update-Felder via `SlabSettings` (aus Pydantic-Fehler-Analyse bekannt): `thickne
 
 `z` ist die **Unterkante der Stütze** in absoluten Metern. Höhe und Profil-Attribut werden über einen separaten Update-Call gesetzt (`elements_set_details_of_elements` mit `ColumnSettings`).
 
-### Beam (`BeamDetails` — Schema aus Pydantic-Fehler-Analyse) <!-- VERIFY -->
+### Beam (`BeamDetails`) <!-- verifiziert 2026-07-14 -->
 
 BeamSettings-Felder aus AC29-Pydantic-Fehler bekannt:
 
@@ -253,7 +253,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-**Schritt 3 — Träger der aktuellen Story listen:** <!-- VERIFY -->
+**Schritt 3 — Träger der aktuellen Story listen:** <!-- verifiziert 2026-07-14 -->
 
 ```python
 mcp__archicad__archicad_call_tool(
@@ -353,7 +353,7 @@ Hinweis: Die genaue Struktur des `details`-Wrappers (ob `floorIndex` / `layerInd
 
 ## Worked Example — Column-Profil ändern
 
-<!-- VERIFY — Update-Schema für ColumnSettings in Phase 3 nicht live verifiziert -->
+<!-- VERIFY: ColumnSettings-UPDATE weiterhin ungetestet (Column-CREATE dagegen live: 337 Stützen 2026-07-14) -->
 
 Stütze `41adb22a-a347-784a-bcba-ac6137ce76e3` auf ein anderes Profil-Attribut umstellen.
 
@@ -519,7 +519,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-Für Beam-Klassifizierung: identisches Muster, GUID des Beam-Elements einsetzen. <!-- VERIFY -->
+Für Beam-Klassifizierung: identisches Muster, GUID des Beam-Elements einsetzen. <!-- verifiziert 2026-07-14 -->
 
 **Klassifikation lesen (Verifikation):**
 
@@ -583,7 +583,7 @@ Details und vollständiges Muster: [`../reference/bulk-operations.md`](../refere
 
 **Kein Create per MCP v29.** Der User zeichnet Träger manuell in Archicad. Nach dem Zeichnen kann Claude die Beam-GUIDs via `elements_get_elements_by_type` mit `"elementType": "Beam"` ermitteln.
 
-**Alle Beam-Worked-Examples sind nicht live verifiziert.** In Phase 3 war kein Beam im Test-Set vorhanden (User hat keinen Beam gezeichnet). Schema aus Discovery und Pydantic-Fehler-Response bekannt, aber nicht durch tatsächliche MCP-Calls bestätigt. Marker: `<!-- VERIFY -->` — bei der ersten Beam-Operation in einer späteren Session bitte prüfen und dieses Recipe aktualisieren.
+**Beam-Lesepfad live verifiziert 2026-07-14** (3 Referenz-Träger, THN): details = `{zCoordinate, begCoordinate, endCoordinate, level, offset, slantAngle, arcAngle, verticalCurveHeight}` — **kein Querschnitt in den Details!** Breite/Höhe nur über `API.Get3DBoundingBoxes` ableitbar. Beam-CREATE (CreateBeams) weiterhin ungetestet — kommt mit den THN-Unterzügen.
 
 **BeamSettings-Felder aus Pydantic-Fehler.** Die Felder `slantAngle`, `verticalCurveHeight`, `geometryType`, `structureType` sind AC29-spezifische Erweiterungen, die den `elements_get_details_of_elements`-Bug verursachen. Update-Calls via `elements_set_details_of_elements` sollten funktionieren — aber das exakte Schema-Mapping für BeamSettings ist noch nicht durch einen erfolgreichen Call belegt.
 

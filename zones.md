@@ -248,7 +248,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-<!-- VERIFY --> Exakte Feldnamen im `typeSpecificDetails`-Objekt für Zonen sind aus Schema-Discovery abgeleitet, aber in AC29 nicht live getestet. Falls Aufruf mit 400-Fehler zurückkommt: Discovery mit Query „set zone details name number" erneut aufrufen und Schema prüfen. Alternativ über `properties_set_property_values_of_elements` arbeiten, wenn Zone-Name und -Nummer als Properties exponiert sind.
+<!-- verifiziert 2026-07-14 --> Live geklärt (632er-Kopie): `typeSpecificDetails` für Zonen = `stampPosition`/`stampAngle`/`fixedStampAngle`. **name/numberStr sind CREATE-ONLY** — kein Modify-Pfad, weder über SetDetails noch Properties.
 
 **Stempel-Position anpassen** (optional, im selben Call):
 
@@ -453,7 +453,7 @@ mcp__archicad__archicad_call_tool(
 
 Resultat: aktueller Property-Wert pro Element. Damit Diff-Summary aufbauen: alt → neu.
 
-### Schritt 6 — Werte setzen (asymmetrisch sicher — Confirm-Schleife) <!-- VERIFY -->
+### Schritt 6 — Werte setzen (asymmetrisch sicher — Confirm-Schleife) <!-- verifiziert 2026-07-14 -->
 
 **SAFE-01 greift hier zwingend.** Vor dem Set-Aufruf User-Confirm mit Diff-Summary anzeigen (siehe [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Confirm-Format). Erst nach `ja`:
 
@@ -477,7 +477,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-<!-- VERIFY --> Genaues Schema für `propertyValue` bei Enum-Type in Phase 5 verifizieren — möglicherweise wird `nonLocalizedValue` statt `displayValue` erwartet, oder die `enumValueId` direkt.
+<!-- verifiziert 2026-07-14 --> Geklärt: **displayValue** funktioniert (Lesen UND Schreiben). singleEnum: `value={type:displayValue,displayValue:X}` (einzelnes Objekt); multiEnum: `value=[{enumValueId:{…}}]` (Array). `status:"normal"` ist beim Schreiben Pflicht.
 
 **Mid-Batch-Fehlerverhalten:** Siehe [`../reference/bulk-operations.md`](../reference/bulk-operations.md) § Mid-Batch-Fehlerverhalten.
 
@@ -532,7 +532,7 @@ Response: `{"executionResults": [{"success": true}, …]}` — ein Eintrag pro E
 
 ## Bonus-Beispiel — Zone automatisch erstellen (Reference-Point)
 
-<!-- VERIFY --> Schema-dokumentiert, in Phase 3 nicht live getestet. Verifikation in Phase 5 oder späterer Session.
+<!-- verifiziert 2026-07-14 --> (im Zonen-Kopierlauf mitverifiziert)
 
 Statt Polygon manuell anzugeben: Punkt innerhalb des Raums setzen. Archicad findet die umschließenden Wände und konstruiert das Polygon selbst.
 

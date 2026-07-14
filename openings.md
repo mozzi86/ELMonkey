@@ -66,10 +66,10 @@ Diese Tool-Namen wurden live gegen Archicad 29 / Port 19723 verifiziert. Falls e
 | Alle Fenster des Projekts / Stories | `"get elements by type window"` | `mcp__archicad__archicad_call_tool` → `elements_get_elements_by_type` <!-- 2026-05-19 verifiziert --> |
 | Element-Typ bestätigen | `"get type of element"` | `mcp__archicad__archicad_call_tool` → `elements_get_types_of_elements` <!-- 2026-05-19 verifiziert --> |
 | GDL-Parameter lesen | `"get gdl parameters of elements"` | `mcp__archicad__archicad_call_tool` → `elements_get_gdl_parameters_of_elements` <!-- 2026-05-19 verifiziert --> |
-| GDL-Parameter schreiben | `"set gdl parameters of elements"` | `mcp__archicad__archicad_call_tool` → `elements_set_gdl_parameters_of_elements` <!-- VERIFY --> |
+| GDL-Parameter schreiben | `"set gdl parameters of elements"` | `mcp__archicad__archicad_call_tool` → `elements_set_gdl_parameters_of_elements` <!-- VERIFY: weiterhin ungetestet — bei erstem GDL-Schreiben prüfen --> |
 | Properties lesen | `"get property values of elements"` | `mcp__archicad__archicad_call_tool` → `properties_get_property_values_of_elements` <!-- 2026-05-19 verifiziert --> |
 | Öffnung löschen | `"delete elements"` | `mcp__archicad__archicad_call_tool` → `elements_delete_elements` <!-- 2026-05-19 verifiziert --> |
-| Klassifikation setzen | `"set classification of elements"` | `mcp__archicad__archicad_call_tool` → `elements_set_classifications_of_elements` <!-- VERIFY --> |
+| Klassifikation setzen | `"set classification of elements"` | `mcp__archicad__archicad_call_tool` → `dev_set_classifications_of_elements` (Präfix `dev_`!) <!-- verifiziert 2026-07-14 --> |
 | Klassifikation lesen | `"get classifications of elements"` | `mcp__archicad__archicad_call_tool` → `elements_get_classifications_of_elements` <!-- 2026-05-19 verifiziert --> |
 
 ---
@@ -267,7 +267,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-<!-- VERIFY — Schema aus SCHEMAS.md abgeleitet, nicht live getestet -->
+<!-- verifiziert 2026-07-14 --> (Türen-/Öffnungs-Massenläufe)
 
 Erwartete Response bei Erfolg:
 
@@ -403,7 +403,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-<!-- VERIFY — Schema aus Discovery abgeleitet -->
+<!-- verifiziert 2026-07-14 --> (CreateOpenings 700+ produktiv)
 
 **Für Türen:** Dieselbe Sequenz mit einer anderen `elementId` (Tür-GUID) und dem Klassifikations-Item-GUID für „Tür". Das Muster ist identisch.
 

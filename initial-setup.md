@@ -30,7 +30,7 @@ Reihenfolge ist egal — funktionieren tut es erst, wenn alle drei stehen **und*
 3. **macOS:** ZIP entpacken, das `TapirAddOn_AC29_Mac.bundle` in den Add-Ons-Ordner legen:
    `/Applications/GRAPHISOFT/Archicad 29/Add-Ons/` <!-- live-verifiziert 2026-07-10 -->
    **Windows:** `.apx` nach `C:\Program Files\GRAPHISOFT\Archicad 29\Add-Ons\` legen.
-4. Falls macOS das Bundle blockiert („kann nicht überprüft werden"): Quarantäne-Flag entfernen: `xattr -dr com.apple.quarantine "/Applications/GRAPHISOFT/Archicad 29/Add-Ons/TapirAddOn_AC29_Mac.bundle"` <!-- VERIFY -->
+4. Falls macOS das Bundle blockiert („kann nicht überprüft werden"): Quarantäne-Flag entfernen: `xattr -dr com.apple.quarantine "/Applications/GRAPHISOFT/Archicad 29/Add-Ons/TapirAddOn_AC29_Mac.bundle"` <!-- verifiziert 2026-07-14 --> (mehrfach bei ELM_SAB-Bundle-Tausch angewandt)
 5. Archicad starten → **Optionen → Add-On-Manager**: Tapir muss in der Liste stehen und geladen sein. Bei Bedarf über „Add-On suchen" manuell auf das Bundle zeigen.
 
 ## Schritt 2 — MCP-Server installieren (uv)

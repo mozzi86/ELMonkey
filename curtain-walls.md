@@ -1,5 +1,7 @@
 # Fassaden / Pfosten-Riegel-Konstruktionen — CurtainWall + Sub-Elemente
 
+> **Status der VERIFY-Marker (2026-07-14):** Im THN-Projekt existieren 0 CurtainWall-Elemente — alle folgenden Marker sind mangels Testobjekt weiterhin unverifizierbar. Beim ersten realen CW-Projekt abarbeiten.
+
 Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-Element enthält eine Hierarchie von bis zu 5 Sub-Element-Typen (Segmente, Pfosten, Paneele, Knoten, Zubehör). **Erstellen via MCP v29 nicht verfügbar** — der User zeichnet die Fassade manuell mit dem Curtain-Wall-Werkzeug (nicht das Wand-Werkzeug — das sind verschiedene Tools in Archicad). Sub-Elemente entstehen automatisch mit dem Top-Level und werden über die Hierarchie navigiert, nicht eigenständig erstellt. Vollständige Capability-Tabelle: [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Live-verifizierte Element-Create-Capabilities.
 
 ## Inhaltsverzeichnis

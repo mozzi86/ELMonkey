@@ -364,7 +364,7 @@ mcp__archicad__archicad_call_tool(
 
 **Rotation** (um Z-Achse, im Bogenmaß): `"rotation": 1.5708` (= 90°) im `typeSpecificDetails`-Objekt.
 
-<!-- VERIFY --> Exakte Feldnamen im `typeSpecificDetails` für Objects in AC29 aus Schema-Discovery abgeleitet. Bei Fehler: Discovery mit `"set object details coordinates rotation"` erneut ausführen.
+<!-- VERIFY: Object-typeSpecificDetails-UPDATE weiterhin ungetestet; LESE-Pfad (libPart/origin/dimensions/angle) verifiziert 2026-07-14 -->
 
 **Nach dem Update:** Bounding-Box via `elements_get_3_d_bounding_boxes` zur Verifikation.
 
@@ -502,7 +502,7 @@ mcp__archicad__archicad_call_tool(
 
 Diff aufbauen: welche Objects haben bereits den Ziel-Wert (kein Update nötig), welche brauchen Update. Nur die Delta-Menge in den Confirm-Dialog aufnehmen.
 
-### Schritt 6 — Werte setzen (SAFE-01 Confirm) <!-- VERIFY -->
+### Schritt 6 — Werte setzen (SAFE-01 Confirm) <!-- verifiziert 2026-07-14 -->
 
 **Confirm-Dialog vor dem Aufruf:**
 
@@ -548,7 +548,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-<!-- VERIFY --> Genaues Schema für `propertyValue` bei Enum-Type in Phase 5 verifizieren — möglicherweise wird `nonLocalizedValue` oder direkte `enumValueId` erwartet statt `displayValue`. Analog zu zones.md Schritt 6.
+<!-- verifiziert 2026-07-14 --> Geklärt wie zones.md: displayValue, singleEnum einzelnes Objekt / multiEnum Array mit enumValueId, status:"normal" Pflicht.
 
 **Mid-Batch-Fehlerverhalten:** Systemischer Fehler (alle scheitern) → sofort stoppen. Einzelner Fehler → weitermachen, Report am Ende. Details: [`../reference/bulk-operations.md`](../reference/bulk-operations.md) § Mid-Batch-Fehlerverhalten.
 
@@ -719,3 +719,12 @@ Bei Scan-Meshes (pCon/Möbelkonverter-Exporte) mit stark fragmentierten UV-Insel
 - [`../reference/schedule-pipeline.md`](../reference/schedule-pipeline.md) — Wenn GDL-Werte nicht via MCP lesbar sind (Export-Parse-Match-Update-Pipeline).
 - [`../reference/property-expression-linking.md`](../reference/property-expression-linking.md) — Dauerhafter GDL-Parameter ↔ Property-Sync über Archicad-Expression-Editor.
 - [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) — Confirm-Format, Modal-Dialog-Handling, AC29-Bug-Tabelle.
+
+## Worked-Example: Lesen + Klassifikation live (2026-07-14, THN-Referenzmodell)
+
+596 Objekte: `GetDetailsOfElements` liefert `details.libPart{name, parentUnID, ownUnID}`
+(z. B. „Notdusche", „Labor-Arbeitsplatz") + `origin{x,y,z}`, `dimensions{x,y,z}`, `angle`.
+Klassifikation (System-Filter MUSS verschachtelt sein:
+`classificationSystemIds=[{classificationSystemId:{guid}}]` — flache Form gibt 4002):
+L_BRANDSCHUTZ-Objekte → Item „Brandschott", A_25_MOEBEL → „Möbel".
+Querschnitts-/Maßfragen: 2D-Symbol verfälscht die 2D-Box → `API.Get3DBoundingBoxes`.
