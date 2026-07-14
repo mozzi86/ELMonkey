@@ -147,3 +147,16 @@ verifizieren statt raten.
 - **Tapir-Bug (blacklist)**: `ModifySlabs` mit `polygonOutline` crasht Archicad
   fatal; `holes: []` wird als „kein Feld" ignoriert. Details + Workaround:
   `recipes/oeffnungen-aus-konturen.md`.
+
+## Robuste Detail-Reads + Ein-Schreiber-Regel <!-- 2026-07-14 -->
+
+`GetDetailsOfElements` scheitert bei einzelnen Elementen am AC29-Schema-Bug
+(Code 4009, Tapir-eigene Response-Validierung). Standard-Muster: **Bisektion** —
+Batch bei Fehler halbieren, defekte Einzelfälle überspringen statt den ganzen
+Batch zu verlieren.
+
+Bei Agent-Delegation gilt: **nur EIN Archicad-API-Schreiber gleichzeitig**
+(seriell); Parallelität nur für Offline-Analysen. Und die Fenster-Regel:
+Erzeugen von Modellelementen (Wände, Türen, Decken) braucht ein offenes
+GRUNDRISS-Fenster — im 3D-Fenster kommen irreführende Fehler.
+Details: `reference/referenzmodell-abgleich.md`, `recipes/tueren-aus-boegen.md`.
