@@ -1,6 +1,7 @@
 # Konturen → Wände (2D-Linienwerk zu Polygon-Wänden)
 
-*Live-verifiziert 2026-07-13, THN EG-Bestandsplan: 2.032 Wände aus 16.468 Segmenten.*
+*Live-verifiziert 2026-07-13/14, THN-Bestandsplan: 4.755 Wände über 7 Geschosse
+(EG als Ganze-Ebene-Lauf, UG-2 bis OG4 per Markierungsrahmen).*
 
 Automatisiert den Handgriff „Wand-Werkzeug → Geometriemethode Polygon → Magic Wand
 in jede geschlossene Kontur". Script: [`../scripts/konturen_zu_waende/`](../scripts/konturen_zu_waende/).
@@ -35,9 +36,13 @@ Braucht **ELM_SAB_Add-On ≥ v0.4**.
   IsVisibleByRenovation/IsVisibleByLayer/OnActualFloor) — wenn alle grün:
   Zoom-Problem → `ChangeSelectionOfElements` + User macht „Zoom auf Auswahl".
 - **Markierungsrahmen ist per API nicht lesbar** — Workaround: Rahmen aktiv +
-  Cmd+A = Selektion nur im Rahmen; Script-Scope = Selektion.
+  Cmd+A = Selektion nur im Rahmen; dann `--selektion`-Modus des Scripts
+  (Geschoss + Höhe automatisch, alle Wand-Ebenen zugleich). <!-- 2026-07-14 -->
 - **Duplikat-Falle**: Konturen bereits erzeugter Wände werden beim Neu-Lauf wieder
-  polygonisiert → vorher alte Testwände löschen (GUIDs sichern!).
+  polygonisiert → Duplikat-Registry des Scripts nutzen (merkt erzeugte Polygone
+  pro Geschoss). Registry muss **geschoss-bewusst** sein: übereinanderliegende
+  Geschosse haben oft identische XY-Konturen — reiner Geometrie-Vergleich hätte
+  im 2. UG echte Wände als „Duplikat vom 1. UG" verschluckt. <!-- 2026-07-14 -->
 - ~4 % der Polygone scheitern in ACAPI_Element_Create (degenerierte/selbst-
   schneidende Konturen) — normal, Fehlerliste prüfen reicht.
 - Median-Dicke im Bestandsplan wirkt dünn (10–11 cm): Öffnungslinien zerteilen
@@ -52,3 +57,23 @@ Braucht **ELM_SAB_Add-On ≥ v0.4**.
 | A_021_TRENNWAND | 117 | 14 | 12 | 2 |
 
 Ergebnis: 2.032 erzeugt, 85 degeneriert fehlgeschlagen, H=4.20, EG, ein Undo-Schritt pro Batch.
+
+## Worked Example 2: ganzes Gebäude per Markierungsrahmen (THN, 2026-07-14)
+
+Ablauf pro Geschoss: User zieht Rahmen im Grundriss + Cmd+A → Script `--selektion`
+liest Selektion, erkennt Geschoss am `floorIndex` der Konturen, leitet Wandhöhe aus
+den Story-Levels ab (Tapir `GetStories`), erzeugt auf Quell-Ebene:
+
+| Geschoss | Wände ✓ | ✗ | Höhe (auto) |
+|---|---|---|---|
+| UG-2 | 19 | 1 | 2,815 m |
+| UG-1 | 286 | 10 | 3,50 m |
+| OG1 | 945 | 53 | 4,20 m |
+| OG2 | 734 | 76 | 4,20 m |
+| OG3 | 673 | 10 | 3,60 m |
+| OG4 (oberstes) | 66 | 4 | 3,60 m (von OG3 übernommen) |
+
+Fehlquote schwankt 1,5–9 % je nach Qualität des Bestandslinienwerks — alles
+degenerierte/selbstschneidende Konturen, kein systematischer Fehler.
+Wichtig beim Geschoss-Wechsel: User muss den jeweiligen Grundriss aktiv haben
+(Erzeugung), das Script erkennt das Geschoss aber selbst — kein `--floor` nötig.
