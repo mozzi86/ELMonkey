@@ -4,6 +4,31 @@
 153 Türnummern übernommen. Muster: verzerrtes generiertes Modell ↔ gepflegtes
 Referenzmodell, ~350 m versetzt im selben Teamwork-Projekt.*
 
+## Referenz-Quellen (drei Wege)
+
+Das Referenzmodell muss NICHT in derselben Datei liegen:
+
+| Quelle | Zugriff | Versatz | Parallel lesbar? |
+|---|---|---|---|
+| **Gleiches Projekt** (THN-Fall) | eine API, räumlicher Versatz | Passpunkt-Paar | nein — ein Main-Thread |
+| **Zweite Archicad-Instanz** | eigener Port (Discovery listet alle; multiconn) | meist 0 — echte Koordinaten | **JA** — eigener Prozess/Main-Thread; Reader auf Port B parallel zum Writer auf Port A |
+| **IFC-Datei** | offline via ifcopenshell, ganz ohne Archicad | 0 (Projektkoordinaten) | **JA** — beliebig parallel, keine API-Last |
+
+Zweite Instanz ist der sauberste Weg: kein Versatz-Gerechne, keine
+Verwechslungsgefahr beim Schreiben (Ziel-Port ≠ Quell-Port), und Lese-Sweeps
+laufen parallel zur Schreibarbeit. IFC ist ideal für reine Daten-Extraktion
+(Properties, Klassifizierung, Geometrie) und als Snapshot/Archiv des Standes.
+
+## Parallelisierungs-Matrix (Ein-Schreiber-Regel beachten)
+
+Gleichzeitig möglich:
+- **1 Schreiber** auf der Ziel-Instanz (seriell, häppchenweise)
+- **n Leser** auf ANDEREN Instanzen (2. Archicad, andere Ports)
+- **n Offline-Worker**: IFC-Parsing (ifcopenshell), DWG-Parsing (ezdxf),
+  shapely-Analysen, Matching-Rechnung, Doku/Git
+- NICHT parallel: zweiter Reader auf DERSELBEN Instanz — Tapir-Befehle laufen
+  ohnehin seriell über den Main-Thread (kein Speedup, nur Timeout-Risiko).
+
 ## Grundregeln
 
 - **Referenzmodell ist READ-ONLY** — Kopierrichtung immer Referenz → Ziel.
