@@ -89,6 +89,17 @@ kontinuierliche Verschmierung 0–4 m → lokale Verzerrung, kein globaler Fehle
 - `Get2DBoundingBoxes` existiert nur als offizielles `API.Get2DBoundingBoxes`
   (nicht in Tapir). Für Türen/Objekte mit 2D-Symbol lügt die 2D-Box —
   `API.Get3DBoundingBoxes` nehmen.
+- **Öffnungen (Opening) sind API-blind** (AC29): `GetDetailsOfElements` →
+  details = „Not yet supported element type", `API.Get3DBoundingBoxes` →
+  Fehler 6000 für ALLE Openings. Nur die 2D-Box + top-level floorIndex/id
+  sind lesbar — der **Wirt ist nicht ermittelbar**. Achtung: floorIndex ist
+  das Erzeugungs-Geschoss, nicht das des Wirts.
+- **Snapshot-Diff statt Wirt-Abfrage**: Muss ein Element gelöscht werden, das
+  Öffnungen tragen KÖNNTE (Decken-Duplikat etc.): vorher alle Opening-GUIDs
+  + 2D-Boxen + IDs snapshotten, löschen (Wirt reißt seine Öffnungen mit),
+  danach diffen — die Verschwundenen waren seine und lassen sich aus dem
+  Snapshot auf dem Ersatz-Element rekonstruieren. THN: Decken-Duplikat OG4
+  gelöscht, Diff = 0 → Durchbrüche hingen nachweislich am verbleibenden Element.
 
 ## Teamwork-Diagnostik
 
