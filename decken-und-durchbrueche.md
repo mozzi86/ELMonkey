@@ -12,14 +12,16 @@ Folge-Workflow von [`konturen-zu-waende.md`](konturen-zu-waende.md).
    Begrenzungs-Ebenen. Wand-Ebenen allein reichen NICHT — erst **Fassaden- und
    Tür-/Fensterlinien schließen die Lücken** an Öffnungen (live: OG-Footprint
    sprang von 325 auf 3.478 m², als Fassade+Öffnungen dazukamen).
-2. **Durchbrüche**: `AUSSPAR_BODEN` des Geschosses + `AUSSPAR_DECKE` des
-   Geschosses DARUNTER (SAB-Lesart: Decke über X). Durchbruch-**Kreuzsymbole**
-   (Rechteck + Diagonalen) werden durch polygonize→union automatisch zum
-   Rechteck bereinigt. Zuordnung: Loch-Zentrum muss im Deckenteil liegen.
-3. **Erzeugen**: Tapir `CreateSlabs` — Löcher direkt als `holes` im selben
-   Request (ein Arbeitsgang statt CreateOpenings hinterher). Danach
+2. **Durchbrüche: NICHT als Slab-Löcher!** <!-- Revision 2026-07-14 --> Erster
+   Versuch lief mit `holes` im CreateSlabs — Ergebnis: unförmige Polygon-Löcher
+   (Dreiecke aus der Kreuz-Symbolik), nicht etikettierbar, vom User kassiert.
+   **SAB-Regel: Decken lochfrei erzeugen, Durchbrüche als Öffnungs-Elemente
+   mit Favoriten** → [`oeffnungen-aus-konturen.md`](oeffnungen-aus-konturen.md).
+3. **Erzeugen**: Tapir `CreateSlabs` (ohne holes). Danach
    `SetDetailsOfElements`: Ziel-Ebene (A_09_TRAGDECKE) + Geschoss.
    Referenzebene `Top`, Level = Geschoss-Level → Rohdecke hängt nach unten.
+   Löcher nachträglich entfernen: NIEMALS `ModifySlabs`+`polygonOutline`
+   (= fataler Crash, siehe Öffnungs-Recipe) — Decke löschen + neu erzeugen.
 
 ## ⚠️ Absturz-Lehren (2026-07-14, alle live erlebt)
 
