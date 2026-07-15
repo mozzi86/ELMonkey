@@ -43,6 +43,12 @@ freie Polygonform.
 
 ## CreateOpenings — live erarbeitete Semantik
 
+- **`ownerElementId: {guid}` ist PFLICHT** (Wirt-Wand/-Decke) — fehlt es, kommt
+  nur ein nichtssagender Schema-Fehler („required … #/openingsData/0").
+  Exaktes Schema je Item: `{ownerElementId, basePoint (3D), width?, height?}`,
+  `additionalProperties: false`. Bei Schema-Rätseln: Tapir-Quelle lesen
+  (`ExtendedElementCommands.cpp`, GetInputParametersSchema — raw.githubusercontent
+  funktioniert mit curl auch ohne Token). <!-- 2026-07-15 -->
 - **Wand-Öffnungen brauchen `width` UND `height`** — ohne height:
   „Can't use empty polygon!". Decken-Öffnungen: width+height = Grundriss-Maße.
 - **`basePoint.z` = absolute UK der Öffnung** (projektnull-bezogen) und
