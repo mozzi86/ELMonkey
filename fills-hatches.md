@@ -572,3 +572,24 @@ oder Fill-Attribute meint — häufige Verwechslung.
 - [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) — Confirm-Format, Capability-Tabelle, Fehlerklassen, Modal-Dialog-Warnung.
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Bulk-Klassifizierungs-Pattern (Read → Filter → Group → Confirm → Apply).
 - [`../reference/workflow-context.md`](../reference/workflow-context.md) — Warm-up-Felder im Detail, insb. Feld 5 (Layer) + Feld 6 (Pen-Set).
+
+## Etikett-Schraffur → Text mit Deckung (live-verifiziert 2026-07-16, THN BSN)
+
+Bestands-2D-Pläne stapeln oft „Schraffur als Etikett-Hintergrund + Text mit
+weißer Deckung obendrauf". Kompakter: Schraffur löschen, Text-Deckung erbt
+den Schraffur-Stift (`ELM_SAB.SetPenOfElements` mit `fillBackgroundPen` →
+setzt `usedFill`+`fillPen`; lesen via `GetPenOfElements`: `hasFill`/`fillPen`,
+−1 = Voreinstellung/weiß).
+
+- **Kandidaten-Sweep**: kompakte Hatches (< 30 m², schmalseitig < 3 m) mit
+  Text-Anker in der BBox. Polygon-BBox statt shapely-Fläche nehmen —
+  degenerierte Doppel-Konturen (µm-Versatz) kollabieren bei buffer(0) zu 0 m².
+- **Mehrfach-Texte** auf einer Schraffur: ALLE erben die Deckung; echte
+  Duplikate (gleicher Inhalt + Ort < 0,5 m — kommen in Bestandsplänen massiv
+  vor) mitlöschen.
+- **NICHT konvertieren**: Flächen-Schraffuren, deren Ausdehnung die Aussage
+  ist (Fluchtwege, Schächte), Legenden, bereits fertige farbige Labels.
+  Faustregel: erst Kandidaten SELEKTIEREN, User wählt Fehltreffer ab, dann
+  konvertieren.
+- **Arbeitsblatt-Falle**: 2D-Pläne liegen oft in eigenen Datenbanken — Reads
+  sehen nur das aktive Fenster (siehe referenzmodell-abgleich.md).
