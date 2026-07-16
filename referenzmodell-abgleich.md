@@ -148,3 +148,15 @@ war FALSCH — dort lagen 0–1 Elemente; alles ist längst auf SAB-Ebenen migri
 Das echte OG2-Problem: Begrenzungslinien schließen schlecht (7.395 Regionen,
 aber nur 8 Teile > 20 m²). Lehre: **Ebenen-Hypothesen erst per Histogramm
 verifizieren** (Elementzahl je Ebene je Geschoss), dann Pipeline bauen.
+
+## Cross-DB-Operationen (live 2026-07-16)
+
+- **Lesen über alle Datenbanken ohne Fensterwechsel**: `GetElementsByType` (u. a.)
+  akzeptiert `databases: [{databaseId: {guid}}]`. DB-GUIDs beschaffen:
+  `API.GetNavigatorItemTree` (ProjectMap) → `GetDatabaseIdFromNavigatorItemId`.
+- **`DeleteElements` funktioniert per GUID auch quer zur aktiven DB** (getestet:
+  Grundriss-Elemente gelöscht, während ein Arbeitsblatt aktiv war). Erst an
+  1 Element testen, dann Masse. **Create bleibt an die aktive DB gebunden.**
+- Text-Dupletten-Muster (Bestand): gleicher Inhalt + gleiches Geschoss +
+  Abstand < 10 cm → einer bleibt. THN Grundriss: 8.239 Dupletten, davon 6.235
+  im Referenzmodell (tabu!) — **Seiten-Filter (y-Grenze) nicht vergessen.**
