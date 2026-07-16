@@ -130,6 +130,8 @@ Von Skill-Gerüst bis produktionsreifem Archicad-MCP-Skill in 8 Phasen. Jede Pha
 
 **Fortschritt 2026-07-14 spätabends:** Zonen ✓ (632/632 mit Stempel+Klassifikation; Referenz-Properties waren leer), OG2 ✓ (Alt-Ebenen-These widerlegt — Linienwerk längst auf SAB-Ebenen; 8 Deckenteile 350 m² + 24/72 Warteliste-Öffnungen; 48 in echten Linienwerk-Lücken), Türen-Properties ✓ (Klasse ELEMENTE, Bauteilname, 152 Brandschutz), Tapir-Issues GEPOSTET (#452 ModifySlabs-Crash, #453 CreateDoors). Punkt 6 damit abgeschlossen, Punkt 11 erledigt.
 
+**Fortschritt 2026-07-15:** Unterzüge ✓ (213/215, OK=UK Decke, Norm 60/110, klassifiziert), OG2-Öffnungen ✓ (27 FBA; ownerElementId-Pflicht dokumentiert), Treppe Mitte ✓ (User-finalisiert als 1 Element mit Podestpunkt), ELM_SAB **v0.6 CreateRoofs** gebaut+installiert+kalibriert (CCW-Polygone, posSign=true, Traufketten-Merge). **Dächer ÜBERSPRUNGEN auf User-Wunsch** — Kalibrier-Dach (OG4, ~5,5 m², OK 19,80→20,85) bleibt absichtlich im Modell; Massenlauf jederzeit startbar: `dach_plan2.json` (74 Flächen, 20°, 30 cm) im Session-Scratchpad, Muster in dach_kalibrier3.py.
+
 **Offene Punkte** (Reihenfolge = Priorität):
   1. **Teamwork-Reservierung wiederherstellen** (Blocker für alles Folgende — Senden gab Reservierungen frei, Reserve-all hing).
   2. **Eigenschafts-Transfer ausführen** (Script fertig, idempotent): Klasse „Wand" + Bauteilname (WB/WE/WD/WG/WA per kNN-Flügelzuordnung) + **SAB_Brandschutz** (2.171 Werte, nächste Ref-Wand ≤2,5 m) auf 4.500 generierte Wände. Wichtig: Properties sind erst NACH Klassifizierung verfügbar (notAvailable-Falle). Staubschutz/Baustelleneinrichtung NICHT übernehmen.
