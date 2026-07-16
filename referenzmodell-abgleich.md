@@ -158,8 +158,10 @@ verifizieren** (Elementzahl je Ebene je Geschoss), dann Pipeline bauen.
   Grundriss-Elemente gelöscht, während ein Arbeitsblatt aktiv war). Erst an
   1 Element testen, dann Masse. **Create bleibt an die aktive DB gebunden.**
 - Text-Dupletten-Muster (Bestand): gleicher Inhalt + gleiches Geschoss +
-  Abstand < 10 cm → einer bleibt. THN Grundriss: 8.239 Dupletten, davon 6.235
-  im Referenzmodell (tabu!) — **Seiten-Filter (y-Grenze) nicht vergessen.**
+  Abstand < 10 cm → einer bleibt. **Seiten-Filter (y-Grenze) nicht vergessen** —
+  Referenz-Seite nur nach expliziter User-Freigabe anfassen. THN-Endstand
+  2026-07-16: 8.235 Dupletten gelöscht, beide Seiten 0 (Referenz nach Freigabe
+  + Reservierung + Ebenen-Einblenden mitbereinigt).
 
 ## DeleteElements versagt STILL (live 2026-07-16)
 
@@ -175,3 +177,11 @@ Ebenen-Status prüfen: `API.GetAttributesByType` ('Layer') →
 Elemente matchen. Abhilfe: User blendet alle Ebenen ein (API kann Attribute
 nicht ändern), dann löschen, dann zurück. THN: 2.199 sichtbare gelöscht,
 2.850 auf hidden Layern blieben unlöschbar bis zum Einblenden.
+
+Tückischste Folge: Ein früherer Massenlauf kann als Erfolg gemeldet worden
+sein, obwohl NICHTS passiert ist (THN: 2.004 „gelöschte" Dupletten waren
+tags darauf alle noch da — identische Zahl im Re-Sweep war der Verräter).
+Deshalb gehört zu jedem „erledigt" ein **frischer Komplett-Sweep**, nicht
+nur die Erfolgsmeldung des Delete-Calls. Auch der User-Blick taugt nicht als
+Verifikation, wenn die betroffenen Ebenen ausgeblendet sind — er sieht genau
+das nicht, was übrig blieb.
