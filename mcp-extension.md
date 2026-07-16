@@ -258,6 +258,15 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   ABGESTÜRZTEN eigenen Session sein — Verwerfen+Neu-Beitreten räumt sie auf.
   Rollout ist dank Manifest (Quader-GUIDs, URLs, QR-Chunks) + Skripten in
   ~3 min reproduzierbar — Wiederholbarkeit ist die beste Versicherung.
+- **Properties schreiben via Tapir `SetPropertyValuesOfElements`**: Items im
+  Array sind FLACH `{elementId, propertyId, propertyValue:{value}}` — KEIN
+  `elementPropertyValue`-Wrapper (Fehler „elementId is missing" trotz Wrapper
+  ist das Symptom; Schema in RFIX/Images/CommonSchemaDefinitions.json
+  nachschlagen). Capmo-Status-Abgleich: Tickets via curl (Cursor-Pagination
+  `data.after`, `data.items`, total in `data.total`); Matching über
+  Ticket-GUID aus der URL (`drawerTicketId=`), Fallback ticket_number =
+  Quader-ID-Feld. Bridge-Mapping: Ticket ID←ticket_number, Kurztext←name,
+  Stichwoerter←Deep-Link-URL.
 - **Massenersetzung assoziativer Etiketten** (Capmo-Rollout, 338 Stück):
   Tapir `CreateLabels` übernimmt den Etikett-WERKZEUG-Default (Symbol-Etikett
   inkl. Zeigerlinien-Einstellung!); mit `parentElementId` + beg/mid/end des
