@@ -48,6 +48,7 @@
 #include "GetTextsCommand.hpp"
 #include "CreateRoofsCommand.hpp"
 #include "SetTextSizeCommand.hpp"
+#include "SetTextsCommand.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -951,6 +952,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<SetTextSizeCommand> (
             elmSabCommands, "0.9.0",
             "ELM_SAB: Setzt Schriftgroesse von Texten und Text-Labels (mm oder Faktor)."
+        );
+        err |= RegisterCommand<SetTextsCommand> (
+            elmSabCommands, "0.9.0",
+            "ELM_SAB: Ersetzt den Inhalt von Texten und Text-Labels."
         );
         AddCommandGroup (elmSabCommands);
     }
