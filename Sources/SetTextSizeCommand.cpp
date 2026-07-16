@@ -1,5 +1,7 @@
 #include "SetTextSizeCommand.hpp"
 
+#include <cmath>
+
 GS::Optional<GS::UniString> SetTextSizeCommand::GetInputParametersSchema () const
 {
     return GS::UniString (R"({
@@ -98,15 +100,43 @@ GS::ObjectState SetTextSizeCommand::Execute (const GS::ObjectState& parameters, 
                         executionResults (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "Nur Text-Labels (kein Symbol-Etikett)"));
                         continue;
                     }
-                    // DevKit-Muster (Element_Test): textSize (top-level) UND
-                    // u.text.size setzen — nur das Union-Feld wird ignoriert.
-                    oldSize = element.label.textSize;
+                    // DevKit-Muster (Element_Test/Do_Label_Edit): Memo MUSS mitgegeben
+                    // werden, textSize (top-level) und u.text.size gemeinsam setzen.
+                    oldSize = element.label.u.text.size;
                     const double newLabelSize = hasSize ? sizeMm : oldSize * factor;
+
+                    API_ElementMemo memo = {};
+                    err = ACAPI_Element_GetMemo (element.header.guid, &memo, APIMemoMask_TextContentUni);
+                    if (err != NoError) {
+                        executionResults (CreateFailedExecutionResult (err, "Label-Memo nicht lesbar"));
+                        continue;
+                    }
+
                     element.label.textSize = newLabelSize;
                     element.label.u.text.size = newLabelSize;
                     ACAPI_ELEMENT_MASK_SET (mask, API_LabelType, textSize);
                     ACAPI_ELEMENT_MASK_SET (mask, API_LabelType, u.text.size);
-                    err = ACAPI_Element_Change (&element, &mask, nullptr, 0, true);
+                    err = ACAPI_Element_Change (&element, &mask, &memo, 0, true);
+
+                    // Rücklese-Verifikation: Archicad quittiert Label-Änderungen
+                    // teils mit NoError, ohne etwas zu schreiben.
+                    if (err == NoError) {
+                        API_Element check = {};
+                        check.header.guid = element.header.guid;
+                        if (ACAPI_Element_Get (&check) == NoError &&
+                            std::fabs (check.label.u.text.size - newLabelSize) > 1e-9) {
+                            // Eskalation: Voll-Maske (Element wurde frisch gelesen,
+                            // nur die Groesse ist veraendert).
+                            ACAPI_ELEMENT_MASK_SETFULL (mask);
+                            err = ACAPI_Element_Change (&element, &mask, &memo, 0, true);
+                            if (err == NoError &&
+                                ACAPI_Element_Get (&check) == NoError &&
+                                std::fabs (check.label.u.text.size - newLabelSize) > 1e-9) {
+                                err = APIERR_GENERAL; // ehrlich scheitern statt still
+                            }
+                        }
+                    }
+                    ACAPI_DisposeElemMemoHdls (&memo);
                     break;
                 }
 
