@@ -233,3 +233,28 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   `ChangeSelectionOfElements`. Teamwork-Grün im Plan = eigene Reservierung,
   keine Stiftfarbe. Modale Dialoge (Einstellungen, Favorites-Popup) blockieren
   die KOMPLETTE JSON-API (Fehler 4001) — Retry-Schleife einbauen.
+- **GDL: Properties des etikettierten Elements lesen** — der Request heißt
+  `Property_Value_Of_Parent` (aus Graphisofts „Property Label" abgeschaut;
+  „ASSOCEL_PROPVALUE" existiert NICHT): `r = request
+  ("Property_Value_Of_Parent", pgid, ty_, d1_, d2_, werte_[])`, Erfolg =
+  Rückgabe > 3, Werte im dim-Array. **PROPVAL_*-Konstanten sind
+  SKRIPT-definiert** (PROPVAL_STRING=4 usw., Definition im GS-Label) — keine
+  Builtins! Undefinierte GDL-Bezeichner sind still 0 → Typvergleich scheitert
+  ohne Fehlermeldung. Fundort der Referenz: Annotation Elements.libpack →
+  extractpackage → extractcontainer → „Property Label.gsm" → libpart2xml.
+- **Etiketten-Design API-tunbar halten**: Property-GUIDs (pgid1..3), Füllmuster
+  (qrfill), Stifte (bgpen/whitepen), Textgröße (txtfac) als PARAMETER — dann
+  gehen Fixes per SetAddParsOfElements statt per Bibliothekstausch.
+  Versions-Iteration über NEUE Libpart-Namen (v2…v7) umgeht das
+  Nicht-Überschreiben der eingebetteten Bibliothek. Textgröße
+  modell-proportional (`th_ = A * txtfac`, Stilgröße = th_/GLOB_SCALE*1000 mm)
+  passt bei jedem Maßstab. AC_*-Markerparameter (z. B. AC_TextPen_1) sind via
+  AddPars NICHT änderbar (Rücklese-Verifikation schlägt ehrlich fehl).
+- **Massenersetzung assoziativer Etiketten** (Capmo-Rollout, 338 Stück):
+  Tapir `CreateLabels` übernimmt den Etikett-WERKZEUG-Default (Symbol-Etikett
+  inkl. Zeigerlinien-Einstellung!); mit `parentElementId` + beg/mid/end des
+  ALTEN Etiketts entsteht der Ersatz an exakt gleicher Position, Assoziation
+  bleibt. Pipeline: Inventur (Label→Owner-Map) → Batch-Delete alt →
+  Batch-Create neu → Batch-Fill → **unabhängige Voll-Inventur als einzige
+  gültige Verifikation** (fand 71 stille Delete-Überlebende auf abweichendem
+  Layer, obwohl Delete + Stichproben-Check „Erfolg" meldeten).
