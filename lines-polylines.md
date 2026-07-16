@@ -634,3 +634,18 @@ Polylinien mit Linientyp:
   User vergleicht im Blatt, DANN alte löschen. Pfeile/Symbole auf derselben
   Ebene vorher per User-Abwahl rauswerfen.
 - THN: 25 Züge (1,6–52,5 m) ersetzen 1.248 Strichlein, 0 Fehler.
+
+### Nachtrag Massenlauf 7 Blätter (2026-07-16): 278 Züge ersetzen ~11.260 Strichlein
+
+- **Pfeile/Symbole vom selben Layer per STIFT trennen**, nicht per Geometrie
+  raten (THN: Rettungsweg-Striche Stift 90, Pfeile Stift 91 — ein
+  `contourPen`-Filter im Sweep und das Problem ist weg). Der User findet den
+  Diskriminator in Sekunden („Selektion hat Farbe 91").
+- **Sprung-Limit ist blattabhängig**: 1,2 m brückt Türöffnungen falsch →
+  0,7 m trennt dort sauber (mehr, kürzere Züge = korrekt).
+- **Batch-Delete mit Split-Fallback**: ist EINE GUID schon weg (User räumt
+  parallel auf), scheitert der ganze Batch — rekursiv halbieren statt einzeln.
+- **Lese-Inventur über alle Blätter ohne Fensterwechsel**: Tapir
+  `GetElementsByType` akzeptiert `databases:[{databaseId:{guid}}]`;
+  DB-GUIDs via `API.GetNavigatorItemTree` → `GetDatabaseIdFromNavigatorItemId`.
+  Schreiben/Erzeugen bleibt an die aktive DB gebunden (User klickt Tabs durch).
