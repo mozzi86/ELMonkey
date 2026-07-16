@@ -512,6 +512,24 @@ GS::ObjectState	SetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
             }
 
             const API_Guid elemGuid = GetGuidFromObjectState (*elementId);
+
+            // ELM_SAB-Schutz: APIAny_OpenParameters crasht bei Nicht-Objekten
+            // (z.B. Labels: GetLibPartId-Nullzeiger). Nur Object/Lamp zulassen,
+            // fuer Labels stattdessen ELM_SAB.SetAddParsOfElements verwenden.
+            {
+                API_Element typeCheck = {};
+                typeCheck.header.guid = elemGuid;
+                if (ACAPI_Element_Get (&typeCheck) != NoError) {
+                    executionResults (CreateFailedExecutionResult (APIERR_BADID, "Element not found"));
+                    continue;
+                }
+                const API_ElemTypeID tcId = typeCheck.header.type.typeID;
+                if (tcId != API_ObjectID && tcId != API_LampID) {
+                    executionResults (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "SetGDLParametersOfElements supports Object/Lamp only; use ELM_SAB.SetAddParsOfElements for Labels"));
+                    continue;
+                }
+            }
+
             API_ParamOwnerType paramOwner = {};
             paramOwner.libInd = 0;
 #ifdef ServerMainVers_2600

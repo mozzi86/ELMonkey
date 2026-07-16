@@ -49,6 +49,7 @@
 #include "CreateRoofsCommand.hpp"
 #include "SetTextSizeCommand.hpp"
 #include "SetTextsCommand.hpp"
+#include "SetAddParsCommand.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -956,6 +957,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<SetTextsCommand> (
             elmSabCommands, "0.9.0",
             "ELM_SAB: Ersetzt den Inhalt von Texten und Text-Labels."
+        );
+        err |= RegisterCommand<SetAddParsCommand> (
+            elmSabCommands, "0.9.0",
+            "ELM_SAB: Setzt GDL-Parameter (AddPars) via Memo — crash-sicher auch fuer Labels; mit Ruecklese-Verifikation."
         );
         AddCommandGroup (elmSabCommands);
     }
