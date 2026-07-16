@@ -593,3 +593,16 @@ setzt `usedFill`+`fillPen`; lesen via `GetPenOfElements`: `hasFill`/`fillPen`,
   konvertieren.
 - **Arbeitsblatt-Falle**: 2D-Pläne liegen oft in eigenen Datenbanken — Reads
   sehen nur das aktive Fenster (siehe referenzmodell-abgleich.md).
+
+### Worked Example (THN BSN-Nagel, 2026-07-16)
+
+7 Arbeitsblätter (je Geschoss eigene DB, User öffnet nacheinander): **~185
+Etikett-Schraffuren konvertiert**, ~50 Text-Duplikate gelöscht, 0 Fehler.
+Ablauf je Blatt: Abweichungs-Ebene automatisch → Sweep (kompakte Hatches mit
+Text) → Schema-Filter → Kandidaten SELEKTIEREN → User wählt ab (Shift-Klick!)
+→ konvertieren. Das Ausschluss-Schema wuchs über 4 Blätter durch User-Abwahlen
+(Schacht-Familie Pen 73/74, Symbole BM/SB/BMZ/BOS/BW/SA/LA, T30/T90/G30-Labels,
+E/Explosionsgefährlich, NEU-Marker, Plankopf-/Ebenen-Labels, Maßketten-Boxen
+≥ 4 Texte) und steckt projektspezifisch im Memory
+(`workflow_bsn_nagel_konvertierung.md`). Lehre: **Schema lernen lassen statt
+vorher raten** — Kandidaten zeigen, Abwahlen protokollieren, Tabu-Liste wächst.
