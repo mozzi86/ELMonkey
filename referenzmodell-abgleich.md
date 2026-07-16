@@ -101,6 +101,18 @@ kontinuierliche Verschmierung 0–4 m → lokale Verzerrung, kein globaler Fehle
   Snapshot auf dem Ersatz-Element rekonstruieren. THN: Decken-Duplikat OG4
   gelöscht, Diff = 0 → Durchbrüche hingen nachweislich am verbleibenden Element.
 
+## Arbeitsblätter sind eigene Datenbanken (live 2026-07-16)
+
+`GetElementsByType`/alle Element-Reads liefern nur die Datenbank des **aktiven
+Fensters**. Arbeitsblätter (z. B. Brandschutz-Pläne je Geschoss) sind eigene
+2D-Datenbanken: Im Grundriss sind ihre Elemente unsichtbar (Symptom: Text auf
+Schraffur sichtbar im Blatt, aber „kein Hatch gefunden") — der User muss das
+jeweilige Blatt-Fenster aktivieren, dann dieselben Abfragen erneut fahren.
+Elemente wirken dadurch auch scheinbar „doppelt", wenn Blätter Kopien enthalten.
+Workflow je Blatt: öffnen lassen → Sweep → Selektion zeigen → konvertieren.
+2D-Konvertierungs-Muster „Etikett-Schraffur → Text-Deckung" siehe
+[fills-hatches.md](../recipes/fills-hatches.md).
+
 ## Teamwork-Diagnostik
 
 - **Senden gibt Reservierungen frei** → danach scheitern ALLE Änderungen mit
