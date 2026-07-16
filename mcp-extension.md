@@ -250,6 +250,14 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   modell-proportional (`th_ = A * txtfac`, Stilgröße = th_/GLOB_SCALE*1000 mm)
   passt bei jedem Maßstab. AC_*-Markerparameter (z. B. AC_TextPen_1) sind via
   AddPars NICHT änderbar (Rücklese-Verifikation schlägt ehrlich fehl).
+- **Teamwork-Falle „Verwerfen"**: Lokale ungesendete Änderungen (Elemente UND
+  eingebettete Bibliothek!) verschwinden komplett, wenn der User beim
+  Beitreten „Änderungen verwerfen" wählt. Nach jedem Meilenstein SENDEN
+  erinnern. Zweite Erkenntnis: Nicht löschbare Elemente (silent no-op trotz
+  Reservierungs-Aufforderung) können Reservierungs-Leichen einer
+  ABGESTÜRZTEN eigenen Session sein — Verwerfen+Neu-Beitreten räumt sie auf.
+  Rollout ist dank Manifest (Quader-GUIDs, URLs, QR-Chunks) + Skripten in
+  ~3 min reproduzierbar — Wiederholbarkeit ist die beste Versicherung.
 - **Massenersetzung assoziativer Etiketten** (Capmo-Rollout, 338 Stück):
   Tapir `CreateLabels` übernimmt den Etikett-WERKZEUG-Default (Symbol-Etikett
   inkl. Zeigerlinien-Einstellung!); mit `parentElementId` + beg/mid/end des
