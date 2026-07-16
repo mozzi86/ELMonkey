@@ -613,3 +613,24 @@ Details + Reaktionsprotokoll: [`../reference/mcp-conventions.md`](../reference/m
   (aktive Story) und 6 (Pen-Set) im Detail.
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Universelles
   Bulk-Klassifizierungs-Pattern.
+
+## Hand-gestrichelte Ketten → eine Polylinie mit Linientyp (live 2026-07-16, THN)
+
+Bestandspläne zeichnen Strich-/Punktlinien oft als HUNDERTE Einzel-Elemente
+(THN: 1.320 Stück à 10 cm im 42-cm-Raster auf FW_Längen). Ersatz durch echte
+Polylinien mit Linientyp:
+
+- **Linientyp-Index ist per API nicht ermittelbar** (Tapir kennt kein
+  LineType-Attribut; API.GetLineAttributes liefert nur GUIDs, CreatePolylines
+  will einen Index) → Trick: **User stellt das Polylinien-Werkzeug ein**,
+  `CreatePolylines` OHNE lineTypeIndex erbt den Werkzeug-Default.
+- Ketten-Erkennung: kurze Elemente (< 1,5 m) je Ebene clustern (Enden < 2 m),
+  dann **Greedy entlang der Laufrichtung** (nächster Mittelpunkt < 1,2 m,
+  Richtungs-Kosinus > 0,3, sonst Split) — Graph-Ansätze über Endpunkt-Grade
+  scheitern, weil Punkt-Raster jedem Ende 3+ „Nachbarn" gibt.
+- Kollineare Zwischenpunkte ausdünnen (Kreuzprodukt-Toleranz) → 134 Striche
+  werden 1 Zug mit ~10 Ecken.
+- **Zweistufig ausführen**: erst alle neuen Züge erzeugen (alte bleiben!),
+  User vergleicht im Blatt, DANN alte löschen. Pfeile/Symbole auf derselben
+  Ebene vorher per User-Abwahl rauswerfen.
+- THN: 25 Züge (1,6–52,5 m) ersetzen 1.248 Strichlein, 0 Fehler.
