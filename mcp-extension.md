@@ -160,3 +160,44 @@ Bei Agent-Delegation gilt: **nur EIN Archicad-API-Schreiber gleichzeitig**
 Erzeugen von Modellelementen (Wände, Türen, Decken) braucht ein offenes
 GRUNDRISS-Fenster — im 3D-Fenster kommen irreführende Fehler.
 Details: `reference/referenzmodell-abgleich.md`, `recipes/tueren-aus-boegen.md`.
+
+## Kombi-Add-On ELM_SAB_Tapir + Label-Pipeline <!-- 2026-07-16 -->
+
+Seit 2026-07-16 ist Tapir 1.5.4 KOMPLETT in unser Add-On integriert
+(`ELM_SAB_Tapir/`, Bundle `ELM_SAB_AC29_Mac.bundle`, eigene CI-Release
+`elm-sab-tapir-latest`). Ein Bundle, beide Namespaces (`TapirCommand` +
+`ELM_SAB`), SAB-MDID. Originale Tapir-/ELM-Bundles liegen in `~/ELM_SAB_Backups/`.
+
+Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
+`SetTextsOfElements` (Inhalt Text/Label), `SetAddParsOfElements`
+(GDL-Parameter via AddPars-Memo — Object/Lamp/Label). Alle mit
+**eingebauter Rücklese-Verifikation** (NoError beweist nichts, s.u.).
+
+- **Tapir-Bug (Crash, live reproduziert)**: `SetGDLParametersOfElements` auf
+  einem LABEL → SIGSEGV in `VBElem::LibPartConnections::GetLibPartId`
+  (paramOwner.type ist hart API_ObjectID). Im Kombi-Add-On per Typ-Guard
+  entschärft; für Labels IMMER `ELM_SAB.SetAddParsOfElements` nehmen.
+- **Label-Größe ändern**: Nur `u.text.size` maskieren wird still ignoriert.
+  DevKit-Muster Do_Label_Edit: `textSize` (top-level) + `u.text.size` setzen
+  UND das Memo (textContent) an ACAPI_Element_Change übergeben.
+- **Etikett-Subtypen**: Eigene Label-GSMs brauchen Ancestry
+  `F938E33A…` (General GDL Object) → `B176ABF1…` → `4FD10D67…` →
+  `BDB8C3EE…` (Label). Reihenfolge Wurzel→Elternteil; falsche GUIDs =
+  Objekt existiert, ist aber im Werkzeug UNSICHTBAR.
+- **GSM-Erzeugung ohne Handarbeit**: LP_XMLConverter steckt in
+  `Archicad 29.app/Contents/MacOS/LP_XMLConverter.app` (xml2libpart);
+  Subtyp-GUIDs aus `BuiltInLibraryParts.libpack` (extractpackage →
+  extractcontainer → libpart2xml der Subtypes/*.gsm). Upload per Tapir
+  `AddFilesToEmbeddedLibrary` + `ReloadLibraries` — braucht in Teamwork die
+  **Reservierung der eingebetteten Bibliothek**; Überschreiben geht nicht
+  (erst im Bibliothekenmanager löschen).
+- **GDL-Fallen**: `mod` und `off` sind Operator-/Keyword-Namen — als Variablen
+  bricht das 2D-Skript still ab („Ungültiges 2D-Symbol" in den
+  Grundeinstellungen ist der einzige Hinweis). GDL-Parameterstrings kappen
+  API-seitig bei 255/512 Zeichen → lange Daten (QR-Bits: 2401) auf mehrere
+  Parameter à ≤250 splitten.
+- **Capmo-QR-Pipeline (Pilot)**: SAB_QR_Etikett (Label-GSM, zeichnet QR aus
+  qrbits1..10 + Ticket-Text + Mikro-URL) hängt per Etikett-Werkzeug am
+  Klappen-Quader; Befüllung via SetAddParsOfElements; QR-Matrix aus python
+  `qrcode` (ERROR_CORRECT_M, border=0, v8=49×49). Capmo-API: api.capmo.de
+  (Key in Bridge-config.json), kein Kurzlink-Feld — URL bleibt lang.
