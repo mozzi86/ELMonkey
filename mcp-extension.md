@@ -196,8 +196,40 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Grundeinstellungen ist der einzige Hinweis). GDL-Parameterstrings kappen
   API-seitig bei 255/512 Zeichen → lange Daten (QR-Bits: 2401) auf mehrere
   Parameter à ≤250 splitten.
-- **Capmo-QR-Pipeline (Pilot)**: SAB_QR_Etikett (Label-GSM, zeichnet QR aus
-  qrbits1..10 + Ticket-Text + Mikro-URL) hängt per Etikett-Werkzeug am
-  Klappen-Quader; Befüllung via SetAddParsOfElements; QR-Matrix aus python
-  `qrcode` (ERROR_CORRECT_M, border=0, v8=49×49). Capmo-API: api.capmo.de
-  (Key in Bridge-config.json), kein Kurzlink-Feld — URL bleibt lang.
+- **Capmo-QR-Pipeline (Pilot ABGENOMMEN 2026-07-16, QR scannt vom Bildschirm)**:
+  SAB_QR_Etikett (Label-GSM, zeichnet QR aus qrbits1..10 + Ticket-Text +
+  Mikro-URL) hängt per Etikett-Werkzeug am Klappen-Quader; Befüllung via
+  SetAddParsOfElements; QR-Matrix aus python `qrcode` (ERROR_CORRECT_M,
+  border=0, v8=49×49). Capmo-API: api.capmo.de (Key in Bridge-config.json),
+  kein Kurzlink-Feld — URL bleibt lang. Textgrößen: Ticket 0.4 mm, URL 0.1 mm.
+- **GDL-Falle Nr. 1 dieser Session — `poly2_b` füllt NUR geschlossene
+  Polygone**: frame_fill ist ein Bitfeld: 1=Rahmen, 2=Füllung, **4=Polygon
+  geschlossen**. Mit j=3 gilt das Polygon als OFFENER Linienzug → Archicad
+  zeichnet still nur die Kontur („umgedrehte C's", letzte Kante fehlt).
+  Richtig: **j=7** (Graphisofts eigene Marker-Macros nutzen 5/7, nie 3).
+  Kostete 3 Bibliothekstausch-Zyklen — Referenz: `Section-Elevation Marker
+  Macro` in BuiltInLibraryParts (libpart2xml + grep poly2_b).
+- **Objekt-Vorschau lügt**: Die 2D-Vorschau im Einstellungsdialog rendert
+  OHNE Projekt-Attribute — Füllungen erscheinen leer, obwohl sie im Grundriss
+  korrekt sind. Füll-/Attribut-Debugging NUR im Grundriss, nie in der Vorschau.
+- **Füllung parametrisch halten**: `fill qrfill` (FillPattern-Parameter) statt
+  im Skript hartkodiert/ind()-gesucht — Muster ist dann per
+  SetAddParsOfElements in Sekunden wechselbar, ohne Bibliothekstausch.
+  `ind (FILL, "Name")` funktioniert in GDL zur Laufzeit (Indizes sind
+  projektspezifisch!); Attribut-Check per `API.GetFillAttributes`
+  (pattern=2^64-1 ⇒ echtes Vollton-Bitmuster). Stifttabellen sind per
+  `API.GetPenTableAttributes` lesbar (alle 6 SAB-Tabellen: Stift 1 = schwarz).
+- **Eine Datenquelle — assoziatives Etikett**: Label-2D-Skript liest die
+  Capmo-Properties des etikettierten Elements live via
+  `REQUEST ("ASSOCEL_PROPVALUE", "<Property-GUID>", var)` (Ticket Kurztext /
+  Status / Stichwoerter=Capmo-URL); Etikett-Parameter nur als Fallback.
+  Nur die QR-Bits bleiben als berechneter Cache am Etikett (aus derselben
+  Quader-URL erzeugt). Property-GUIDs via Tapir `GetAllProperties` (Gruppe
+  „Capmo Klassifikationen", 14 Properties; Quader-ID-Feld = Ticketnummer).
+- **Debug-Zyklus ohne Bibliothekstausch**: Testobjekte unter NEUEM Namen
+  hochladen (kein Löschen nötig), platzieren per Tapir `CreateObjects`
+  (Feld heißt `objectsData`!), Geschoss nachträglich per `SetDetailsOfElements`
+  (`floorIndex` — CreateObjects landet sonst im EG), sichtbar machen per
+  `ChangeSelectionOfElements`. Teamwork-Grün im Plan = eigene Reservierung,
+  keine Stiftfarbe. Modale Dialoge (Einstellungen, Favorites-Popup) blockieren
+  die KOMPLETTE JSON-API (Fehler 4001) — Retry-Schleife einbauen.
