@@ -160,3 +160,18 @@ verifizieren** (Elementzahl je Ebene je Geschoss), dann Pipeline bauen.
 - Text-Dupletten-Muster (Bestand): gleicher Inhalt + gleiches Geschoss +
   Abstand < 10 cm → einer bleibt. THN Grundriss: 8.239 Dupletten, davon 6.235
   im Referenzmodell (tabu!) — **Seiten-Filter (y-Grenze) nicht vergessen.**
+
+## DeleteElements versagt STILL (live 2026-07-16)
+
+`DeleteElements` antwortet `{"success": true}` und löscht trotzdem NICHTS, wenn
+- das Element nicht **reserviert** ist (Teamwork), ODER
+- seine Ebene **ausgeblendet** ist (isHidden — auch reserviert!).
+
+Kein Fehlercode, keine executionResults — der einzige Beweis ist die
+**Rücklese** (Element noch per GUID lesbar?). Deshalb bei jedem Massen-Delete:
+1 Testelement löschen → Existenz prüfen → erst dann Masse → Stichprobe danach.
+Ebenen-Status prüfen: `API.GetAttributesByType` ('Layer') →
+`API.GetLayerAttributes` (isLocked/isHidden), Namen gegen layerIndex der
+Elemente matchen. Abhilfe: User blendet alle Ebenen ein (API kann Attribute
+nicht ändern), dann löschen, dann zurück. THN: 2.199 sichtbare gelöscht,
+2.850 auf hidden Layern blieben unlöschbar bis zum Einblenden.
