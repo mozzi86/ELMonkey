@@ -267,6 +267,15 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Ticket-GUID aus der URL (`drawerTicketId=`), Fallback ticket_number =
   Quader-ID-Feld. Bridge-Mapping: Ticket ID←ticket_number, Kurztext←name,
   Stichwoerter←Deep-Link-URL.
+- **Bestand-Beschriftung ↔ Elemente abgleichen (Rezept, live: EG-Unterzüge)**:
+  Maßtexte der Beschriftungs-Ebene (z. B. „UNTERZUG 60/75", „/40UKD/") via
+  GetTextsOfElements + Layer-Filter einsammeln, Regex-parsen (B/H in cm),
+  per Distanz zum Element-Mittelpunkt matchen (<6 m), Ist-Querschnitt über
+  Properties „Trägerbreite/-höhe (Archicad 20)" lesen (Werte kommen als
+  Strings mit DEUTSCHEM Komma!). Tapir ModifyBeams kann KEINEN Querschnitt
+  (nur Achse/Level) — bei wenigen Treffern: Abweichler selektieren, User
+  ändert im Dialog, danach Property-Rücklesen als Verifikation.
+  THN-Befund: 6/23 EG-Träger hatten Default 60/110 statt beschrifteter 60/75.
 - **Dopplungs-Sweep 2D (Rezept + Fallen)**: Tapir GetDetailsOfElements liefert
   für Hatch UND Text nur `{"error": "Not yet supported element type"}` und
   Get2DBoundingBoxes lehnt Hatch/Label ab (7203) — ein „0 Duplikate" aus so
