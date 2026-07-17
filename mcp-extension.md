@@ -267,6 +267,18 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Ticket-GUID aus der URL (`drawerTicketId=`), Fallback ticket_number =
   Quader-ID-Feld. Bridge-Mapping: Ticket ID←ticket_number, Kurztext←name,
   Stichwoerter←Deep-Link-URL.
+- **Etiketten positionieren: Symbol-Anker = ENDPUNKT, nicht Anfangspunkt!**
+  begCoordinate ist nur der Zeigerlinien-Start am Element — wer Positionen auf
+  beg verifiziert, bekommt „verifiziert und trotzdem verstreut". Das Symbol
+  hängt am endCoordinate mit festem Offset (SAB_QR_Etikett_7: Symbol sitzt
+  bullseye-mittig, wenn end = Kubusmitte − (0.125, 0.125); Offset per
+  User-Kalibrier-Schleife ermittelt: bekannte Deltas verschieben, User schaut).
+  `Get2DBoundingBoxes` unterstützt Labels NICHT (Fehler 7203) — Renderposition
+  ist per API nicht messbar, Kalibrierung am lebenden Objekt ist der Weg.
+  Umplatzieren IMMER via Tapir `MoveElements` (Element/Assoziation/Params
+  bleiben) statt Delete+Create — SAFE-02 gilt auch für Etiketten. Klumpen:
+  Greedy-Layout mit Schild-Footprint-Kollision (Ring-Kandidaten 0.7-m-Raster)
+  gegen fremde Kuben + platzierte Schilder, User-Handbeispiele als Fixpunkte.
 - **Massenersetzung assoziativer Etiketten** (Capmo-Rollout, 338 Stück):
   Tapir `CreateLabels` übernimmt den Etikett-WERKZEUG-Default (Symbol-Etikett
   inkl. Zeigerlinien-Einstellung!); mit `parentElementId` + beg/mid/end des
