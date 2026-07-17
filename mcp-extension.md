@@ -267,6 +267,17 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Ticket-GUID aus der URL (`drawerTicketId=`), Fallback ticket_number =
   Quader-ID-Feld. Bridge-Mapping: Ticket ID←ticket_number, Kurztext←name,
   Stichwoerter←Deep-Link-URL.
+- **Dopplungs-Sweep 2D (Rezept + Fallen)**: Tapir GetDetailsOfElements liefert
+  für Hatch UND Text nur `{"error": "Not yet supported element type"}` und
+  Get2DBoundingBoxes lehnt Hatch/Label ab (7203) — ein „0 Duplikate" aus so
+  einer Pipeline ist ein BLINDES Null! Funktionierende Quellen: PolyLine-Koordinaten
+  via Tapir-Details; Text-Inhalt+Position via ELM_SAB `GetTextsOfElements`;
+  Hatch-Polygone via ELM_SAB **`Get2DGeometryOfElements`** (so heißt er —
+  nicht „Get2DGeometry"; bei 4010 immer GetName() in den Quellen nachschlagen
+  statt einen Neubau anzuwerfen). Duplikat-Schlüssel: Geschoss + gerundete
+  (0,1 mm), richtungs-/reihenfolge-normalisierte Koordinaten (+Inhalt bei Text).
+  THN-Befund: 395 PolyLine- + 25 Text-Doppler, ALLE im EG (doppelter
+  DWG-Import), Schraffuren sauber. Verifikation IMMER als Voll-Neuinventur.
 - **Etiketten positionieren: Symbol-Anker = ENDPUNKT, nicht Anfangspunkt!**
   begCoordinate ist nur der Zeigerlinien-Start am Element — wer Positionen auf
   beg verifiziert, bekommt „verifiziert und trotzdem verstreut". Das Symbol
