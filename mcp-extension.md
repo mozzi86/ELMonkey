@@ -267,6 +267,13 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Ticket-GUID aus der URL (`drawerTicketId=`), Fallback ticket_number =
   Quader-ID-Feld. Bridge-Mapping: Ticket ID←ticket_number, Kurztext←name,
   Stichwoerter←Deep-Link-URL.
+- **Layer-Index → Name auflösen**: Tapir `GetAttributesByType {attributeType:
+  "Layer"}` liefert `index` + `name` pro Attribut — die OFFIZIELLE
+  API.GetLayerAttributes hat KEIN Index-Feld (Mapping unmöglich). Gleiches
+  Muster für andere Attributtypen. KI-Stempel-Praxis: „Hast du X schon
+  gezeichnet?" = Property „KI generiert" im Bereich abfragen (Bereich via
+  Get2DGeometryOfElements-Stichprobe der Selektion) — live beantwortet in
+  Sekunden (1.766 gestempelte Wände gefunden).
 - **Bestand-Beschriftung ↔ Elemente abgleichen (Rezept, live: EG-Unterzüge)**:
   Maßtexte der Beschriftungs-Ebene (z. B. „UNTERZUG 60/75", „/40UKD/") via
   GetTextsOfElements + Layer-Filter einsammeln, Regex-parsen (B/H in cm),
