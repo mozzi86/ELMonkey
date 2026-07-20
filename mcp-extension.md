@@ -267,6 +267,18 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Ticket-GUID aus der URL (`drawerTicketId=`), Fallback ticket_number =
   Quader-ID-Feld. Bridge-Mapping: Ticket ID←ticket_number, Kurztext←name,
   Stichwoerter←Deep-Link-URL.
+- **Klassifizieren: GUIDs IMMER frisch aus DIESEM Projekt** (live-Falle
+  2026-07-20): Klassifikations-System-/Item-GUIDs sind projektspezifisch —
+  gemerkte GUIDs aus anderem Projekt ⇒ „Failed to set classification item".
+  Frisch holen via OFFIZIELLER API (`API.GetAllClassificationSystems` +
+  `API.GetAllClassificationsInSystem` — in Tapir NICHT vorhanden). Set via
+  Tapir `SetClassificationsOfElements` mit `classificationId:
+  {classificationSystemId, classificationItemId}`; die RÜCKLESE-Antwort
+  (`GetClassificationsOfElements`) liefert classificationIds-Items dagegen
+  FLACH ohne classificationId-Wrapper — Parser entsprechend bauen, sonst
+  falsches „0 klassifiziert". Schraffur→Wand-Massenlauf: Dedup gegen Bestand
+  GESCHOSS-GETRENNT rechnen (Wand-BBoxen aller Geschosse ⇒ massiv
+  überschätzte Abdeckung).
 - **Layer-Index → Name auflösen**: Tapir `GetAttributesByType {attributeType:
   "Layer"}` liefert `index` + `name` pro Attribut — die OFFIZIELLE
   API.GetLayerAttributes hat KEIN Index-Feld (Mapping unmöglich). Gleiches
