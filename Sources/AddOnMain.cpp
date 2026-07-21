@@ -51,6 +51,7 @@
 #include "SetTextsCommand.hpp"
 #include "SetAddParsCommand.hpp"
 #include "GetColumnDetailsCommand.hpp"
+#include "SetColumnDetailsCommand.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -964,8 +965,12 @@ GSErrCode Initialize (void)
             "ELM_SAB: Setzt GDL-Parameter (AddPars) via Memo — crash-sicher auch fuer Labels; mit Ruecklese-Verifikation."
         );
         err |= RegisterCommand<GetColumnDetailsCommand> (
-            elmSabCommands, "0.9.3",
+            elmSabCommands, "0.9.4",
             "ELM_SAB: Liest Stuetzen-Drehwinkel (axisRotationAngle), Ursprung, Kernmasse — Felder, die sonst nirgends lesbar sind."
+        );
+        err |= RegisterCommand<SetColumnDetailsCommand> (
+            elmSabCommands, "0.9.4",
+            "ELM_SAB: Setzt Stuetzen-Kernmasse (nominalWidth/Height, alle Segmente) — mit Ruecklese-Verifikation."
         );
         AddCommandGroup (elmSabCommands);
     }
