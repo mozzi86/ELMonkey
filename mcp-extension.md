@@ -326,3 +326,19 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Batch-Create neu → Batch-Fill → **unabhängige Voll-Inventur als einzige
   gültige Verifikation** (fand 71 stille Delete-Überlebende auf abweichendem
   Layer, obwohl Delete + Stichproben-Check „Erfolg" meldeten).
+- **Die Verifikation verifizieren — „blinde Nullen"** *(2026-07-21)*: Auch
+  Prüf-Skripte können still fehlschlagen und fälschlich „0 Probleme" melden.
+  Erlebte Fälle: (a) `Get2DBoundingBoxes` als Tapir-Befehl aufgerufen — gibt
+  4010 (unbekannter Befehl), ein try/except drumherum machte daraus „Element
+  gelöscht"; (b) `GetDetailsOfElements` auf Hatch/Text → „Not yet supported",
+  als „0 Dopplungen" interpretiert. Regel: VOR dem Zählen die Antwortstruktur
+  an EINEM bekannten Positiv-Beispiel prüfen (Befehl existiert? Elementtyp
+  unterstützt? Feld heißt wirklich so?). Eine Null ist erst glaubwürdig, wenn
+  derselbe Code an einem Beispiel nachweislich eine Eins liefern kann.
+- **Teamwork-Neustart reset­tet Reservierungen** *(2026-07-21)*: Nach
+  Archicad-Crash/-Neustart sind ALLE Reservierungen der Session weg — zuvor
+  „reservierte" Schreibaktionen werden wieder zu stillen No-Ops (14/86
+  Rechtecke überlebten drei „erfolgreiche" Delete-Läufe). Nach jedem Neustart:
+  User neu reservieren lassen, dann Voll-Re-Inventur. Hängt Archicad bei
+  einem Delete/Timeout (99 % CPU), gilt die Aktion als NICHT ausgeführt, bis
+  die Inventur das Gegenteil beweist.
