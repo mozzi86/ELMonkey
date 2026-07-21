@@ -342,3 +342,8 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   User neu reservieren lassen, dann Voll-Re-Inventur. Hängt Archicad bei
   einem Delete/Timeout (99 % CPU), gilt die Aktion als NICHT ausgeführt, bis
   die Inventur das Gegenteil beweist.
+
+## Teamwork-Reservierung per API <!-- 2026-07-21 -->
+
+Tapir hat `TapirCommand ReserveElements {elements:[{elementId:{guid}}]}` — löst das Silent-No-Op-Problem bei Delete/Move auf unreservierte Elemente direkt per API, ohne manuellen Rechtsklick→Reservieren. Ablauf: ReserveElements → Schreiboperation → unabhängiger Read-back (z. B. `ELM_SAB Get2DGeometryOfElements`: success=false ⇒ gelöscht). Live-verifiziert THN 2026-07-21 (27 Beschriftungs-Rechtecke). Read-back bleibt PFLICHT — auch ReserveElements meldet success ohne Garantie.
+- **Reservierung ist flüchtig**: `ReserveElements` muss UNMITTELBAR vor der Schreibaktion im selben Ablauf stehen — ein Reserve aus einem früheren Call reicht nicht, SetDetailsOfElements liefert dann „Failed to change element" (-2130312912). Muster: pro Batch Reserve→Write→Read-back. Layer-Wechsel für 2D-Elemente (Line etc.) via `SetDetailsOfElements {elementsWithDetails:[{elementId,details:{layerIndex}}]}` funktioniert typunabhängig (live-verifiziert THN 2026-07-21, 442 Linien).
