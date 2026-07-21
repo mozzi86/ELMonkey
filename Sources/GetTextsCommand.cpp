@@ -93,6 +93,11 @@ GS::ObjectState GetTextsCommand::Execute (const GS::ObjectState& parameters, GS:
         loc.Add ("y", isLabel ? element.label.u.text.loc.y : element.text.loc.y);
         item.Add ("location", loc);
 
+        item.Add ("angleRad", isLabel ? element.label.u.text.angle : element.text.angle);
+        item.Add ("penIndex", (Int32) (isLabel ? element.label.u.text.pen : element.text.pen));
+        item.Add ("anchor", (Int32) (isLabel ? element.label.u.text.anchor : element.text.anchor));
+        item.Add ("widthMm", isLabel ? element.label.u.text.width : element.text.width);
+
         ACAPI_DisposeElemMemoHdls (&memo);
         textsOfElements (item);
     }
