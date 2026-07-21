@@ -9,7 +9,7 @@ GS::Optional<GS::UniString> SetAddParsCommand::GetInputParametersSchema () const
         "properties": {
             "elements": {
                 "type": "array",
-                "description": "Ziel-Elemente mit zu setzenden GDL-Parametern (Object, Lamp, Label).",
+                "description": "Ziel-Elemente mit zu setzenden GDL-Parametern (Object, Lamp, Label, Zone/Stempel).",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -167,8 +167,8 @@ GS::ObjectState SetAddParsCommand::Execute (const GS::ObjectState& parameters, G
             }
 
             const API_ElemTypeID typeId = element.header.type.typeID;
-            if (typeId != API_ObjectID && typeId != API_LampID && typeId != API_LabelID) {
-                executionResults (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "Nur Object, Lamp oder Label"));
+            if (typeId != API_ObjectID && typeId != API_LampID && typeId != API_LabelID && typeId != API_ZoneID) {
+                executionResults (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "Nur Object, Lamp, Label oder Zone"));
                 continue;
             }
 

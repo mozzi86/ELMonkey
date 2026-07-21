@@ -964,7 +964,7 @@ GSErrCode Initialize (void)
             "ELM_SAB: Setzt GDL-Parameter (AddPars) via Memo — crash-sicher auch fuer Labels; mit Ruecklese-Verifikation."
         );
         err |= RegisterCommand<GetColumnDetailsCommand> (
-            elmSabCommands, "0.9.1",
+            elmSabCommands, "0.9.2",
             "ELM_SAB: Liest Stuetzen-Drehwinkel (axisRotationAngle), Ursprung, Kernmasse — Felder, die sonst nirgends lesbar sind."
         );
         AddCommandGroup (elmSabCommands);
