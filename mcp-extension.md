@@ -335,6 +335,28 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   an EINEM bekannten Positiv-Beispiel prüfen (Befehl existiert? Elementtyp
   unterstützt? Feld heißt wirklich so?). Eine Null ist erst glaubwürdig, wenn
   derselbe Code an einem Beispiel nachweislich eine Eins liefern kann.
+- **Durchbruch-Objekt-Massenlauf (1.038 Stück, Rezept)** *(2026-07-23)*:
+  Texte (Grammatik ^-verankert) liefern ID+Maß, die gezeichnete Symbol-
+  Schraffur (nächste kleine Hatch ≤1,5 m, geschossgleich) liefert die
+  Position; Text-Maß gewinnt bei Konflikt, Abweichungen >5 cm in
+  Inventur-CSV. Kette pro Objekt: CreateObjects (`objectsData`,
+  `libraryPartName` reicht!) → **SetGDLParametersOfElements** für A/B
+  (ELM_SAB SetAddPars scheitert ehrlich — A/B sind KEINE AddPars) →
+  SetDetailsOfElements (layerIndex; `id` wird dort NICHT akzeptiert) →
+  Element-ID als BuiltIn-Property `General_ElementID` via
+  SetPropertyValuesOfElements → Klassifikation → Stempel.
+  **Reihenfolge zwingend: erst klassifizieren, DANN Property setzen** —
+  klassifikationsgebundene Properties (KI-Stempel!) verweigern sonst mit
+  „Failed to set property value" (erklärt rückwirkend ungestempelte
+  Openings). Objekt-Anker = linke UNTERE Ecke: für Zentrierung Ursprung =
+  Symbolmitte − (A/2, B/2), sonst sitzt alles versetzt (User sieht es
+  sofort). Verfügbare THN-Objekte: „Bodendurchbruch Symbol",
+  „Deckendurchbruch Symbol", „Bodenschlitz" — KEINE Wand-Varianten als
+  Objekt (Wanddurchbruch/Wandschlitz existieren nur als Fenster-LibParts;
+  Mapping WD→Deckendurchbruch, WS→Bodenschlitz, ID trägt die Wahrheit).
+  LibPart-Suche: platzierte via GetDetailsOfElements→details.libPart.name;
+  nicht platzierte via binärem grep in den TW-Library-Caches
+  (`~/Library/Application Support/Graphisoft/TW Daten/…/LIBR_*`).
 - **Get2DGeometryOfElements: Antwortfeld heißt `geometryOfElements`** *(2026-07-23)*:
   NICHT `geometries`. Ein `.get('geometries', [])` liefert leer → zip läuft
   ins Leere → 0 Treffer bei 500k Linien = blinde Null (zwei Scans betroffen,
