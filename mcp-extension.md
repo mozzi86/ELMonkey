@@ -335,6 +335,20 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   an EINEM bekannten Positiv-Beispiel prüfen (Befehl existiert? Elementtyp
   unterstützt? Feld heißt wirklich so?). Eine Null ist erst glaubwürdig, wenn
   derselbe Code an einem Beispiel nachweislich eine Eins liefern kann.
+- **Symbol↔Text-Matching: nur global 1:1 und layergleich** *(2026-07-23)*:
+  Naives „nächstes Symbol pro Text" erzeugt Mehrfachbelegung (256 Symbole
+  mit 2–3 Objekten) und Fehlzuordnungen über Gewerke hinweg. Richtig:
+  ALLE Symbolkandidaten (Hatch/PolyRect/Kreis/Linien-Rechteck) einsammeln,
+  vorher POSITIONSWEISE DEDUPLIZIEREN (dasselbe gezeichnete Symbol taucht
+  als Hatch UND Linienrechteck auf → sonst doppelte Objekte), dann
+  Paare (Text, Symbol) nach Distanz sortieren mit starkem Bonus für
+  Layer-Gleichheit und GREEDY 1:1 vergeben. Textlose Zwillings-Symbole
+  erben ID/Attribute vom layergleichen Nachbartext (User-Prinzip: „Objekt
+  kopieren, nicht ID erfinden"). Objekte ohne Zeichnungstiefe: WD-Plantiefe
+  Standard 0,25 m — NIE die Lochhöhe als Tiefe stehen lassen (User sieht
+  3-m-Rechtecke quer überm Flur). Höhen-Annotationen (OK=UKD, UK=… ü.FFB)
+  gehören NUR an WD/WS — an BD/DD sind sie physikalisch sinnlos.
+  User-Hand-Kopien ins eigene Objektregister übernehmen (Dedupe-Schutz).
 - **SetGDLParametersOfElements: Paket-Totalausfall + Options-Parameter** *(2026-07-23)*:
   Ein einziger ungültiger Parameter im gdlParameters-Array lässt ALLE
   Parameter des Elements still scheitern (1.140 von 1.602 Objekten defekt,
