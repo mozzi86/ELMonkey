@@ -335,6 +335,24 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   an EINEM bekannten Positiv-Beispiel prüfen (Befehl existiert? Elementtyp
   unterstützt? Feld heißt wirklich so?). Eine Null ist erst glaubwürdig, wenn
   derselbe Code an einem Beispiel nachweislich eine Eins liefern kann.
+- **SetGDLParametersOfElements: Paket-Totalausfall + Options-Parameter** *(2026-07-23)*:
+  Ein einziger ungültiger Parameter im gdlParameters-Array lässt ALLE
+  Parameter des Elements still scheitern (1.140 von 1.602 Objekten defekt,
+  weil `symb_text_1='Eigene'` als String mitgeschickt wurde — auch A/B
+  fielen mit um). Regeln: (1) Options-/Dropdown-Strings über ihren
+  **Integer-Zwilling** setzen (`iSymbText1=0` = „Eigene", dann den
+  _short-Freitext); (2) Booleans als echtes `true/false`, NIEMALS `1/0`
+  (wird still ignoriert); (3) Numerik und Beschriftung in GETRENNTEN Calls;
+  (4) Parameternamen sind PRO LIBPART verschieden (Deckendurchbruch:
+  `symb_text_1_*`, Bodenschlitz: `symb_text_*` ohne _1) — vor Batch je
+  Objekttyp einen Kalibrier-Einzeltest mit Read-back fahren, erst dann
+  skalieren. Verifikation nur elementweise über GetGDLParameters.
+- **WD im Grundriss: Text B/H ≠ Zeichnung B/T** *(2026-07-23)*: Beim
+  Wanddurchbruch beschreibt der Text Breite × HÖHE (Z-Achse, im Plan
+  unsichtbar), die Zeichnung zeigt Breite × WANDTIEFE. Fürs Symbol-Objekt:
+  A = Breite (Text), B = gezeichnete Tiefe, ZZYZX = Höhe (Text), Höhenlage
+  aus Annotationen wie „OK=UKD" (als symb_cust_text übernehmen). Maß-
+  Vergleich Text vs. Zeichnung ist bei WD/WS nur für die BREITE aussagekräftig.
 - **Durchbruch-Objekt-Massenlauf (1.038 Stück, Rezept)** *(2026-07-23)*:
   Texte (Grammatik ^-verankert) liefern ID+Maß, die gezeichnete Symbol-
   Schraffur (nächste kleine Hatch ≤1,5 m, geschossgleich) liefert die
