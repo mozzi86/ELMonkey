@@ -335,6 +335,35 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   an EINEM bekannten Positiv-Beispiel prüfen (Befehl existiert? Elementtyp
   unterstützt? Feld heißt wirklich so?). Eine Null ist erst glaubwürdig, wenn
   derselbe Code an einem Beispiel nachweislich eine Eins liefern kann.
+- **Get2DGeometryOfElements: Antwortfeld heißt `geometryOfElements`** *(2026-07-23)*:
+  NICHT `geometries`. Ein `.get('geometries', [])` liefert leer → zip läuft
+  ins Leere → 0 Treffer bei 500k Linien = blinde Null (zwei Scans betroffen,
+  darunter ein bereits als „belastbar" verkaufter Rechteck-Scan). Antwort-
+  Feldnamen IMMER erst an einem Element proben; nach Korrektur `assert
+  len(geo) == len(batch)` in den Loop einbauen.
+- **AutoCAD-Textrahmen-Erkennung (Rezept)** *(2026-07-23)*: Bestand-DWGs
+  hinterlassen Textrahmen als (a) 4 lose achsparallele Linien mit gemeinsamen
+  Ecken, (b) geschlossene 4/5-Punkt-Polylinien. Erkennung: kurze Linien
+  (<2 m, achsparallel) → Ecken-Hash (4-mm-Raster) → Rechtecke rekonstruieren;
+  Polys: bbox-Kantentest. Klassifizierung über Textanker-in-Rechteck. ABER:
+  Layer-Whitelist ist Pflicht — dieselben Signaturen sind anderswo ECHTE
+  Inhalte (0,15er-Pflasterraster, 0,6×0,6-Stützenquerschnitte MIT Text,
+  Bestuhlung, Planköpfe). Nur Beschriftungs-/BS-Layer freigeben, Grenzfälle
+  dem User layerweise selektieren. Größenlimit großzügig (bis 2 m — 1,4-m-
+  Rahmen existieren), User-Beispiele iterativ als neue Signaturen aufnehmen.
+- **Durchbruch-Grafik = Zusammenhangs-Klumpen, nicht Radius-Match** *(2026-07-23)*:
+  Zu einem Durchbruch-Text gehören Kreuz-Polylinien, Schraffuren, kurze
+  Linien UND die Verbindungslinie zwischen zwei Durchbrüchen — ein 1-m-Radius
+  um den Textanker trifft davon fast nichts (1/9 im User-Beispiel). Richtig:
+  alle 2D-Typen der Quell-Layer einsammeln, Punkte auf 10-cm-Raster hashen,
+  Union-Find über Berührung, dann ganze Gruppe dem Text zuordnen, der sie
+  berührt. Ergebnis 4.559 statt 3.078 Elemente. User-Selektion als Vorher-
+  Gegenprobe nutzen (8/9 abgedeckt = ok, das 9. war der Text selbst).
+- **Cross-Geschoss-Löschen via Selektion**: ChangeSelectionOfElements wirkt
+  über alle Geschosse; der User kann mit EINEM Entf die gesamte selektierte
+  Kandidatenliste löschen (420 über 6 Geschosse) — schneller als geschoss-
+  weises API-Löschen mit Reservierungs-Pingpong. Nulls danach IMMER mit
+  Positiv-Kontrolle absichern (safe_details an bekannt existierenden GUIDs).
 - **Tapir RotateElements ist bei Stützen ein stiller Blindgänger** *(2026-07-23)*:
   meldet Erfolg, ändert `axisRotationAngle` aber nicht (drei Läufe, 0/21).
   Diagnose per Mikro-Test: dieselbe Stütze ließ sich per MoveElements 1 mm
