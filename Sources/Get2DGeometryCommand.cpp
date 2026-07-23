@@ -79,6 +79,8 @@ GS::ObjectState Get2DGeometryCommand::Execute (const GS::ObjectState& parameters
                 geo.Add ("elementType", "Line");
                 geo.Add ("begCoordinate", CoordOS (element.line.begC.x, element.line.begC.y));
                 geo.Add ("endCoordinate", CoordOS (element.line.endC.x, element.line.endC.y));
+                geo.Add ("ltypeIndex", (Int32) element.line.ltypeInd.ToInt32_Deprecated ());
+                geo.Add ("penIndex", (Int32) element.line.linePen.penIndex);
                 break;
             }
             case API_ArcID:
@@ -93,10 +95,14 @@ GS::ObjectState Get2DGeometryCommand::Execute (const GS::ObjectState& parameters
                 geo.Add ("endAngle", element.arc.endAng);
                 geo.Add ("reflected", element.arc.reflected);
                 geo.Add ("whole", element.arc.whole);
+                geo.Add ("ltypeIndex", (Int32) element.arc.ltypeInd.ToInt32_Deprecated ());
+                geo.Add ("penIndex", (Int32) element.arc.linePen.penIndex);
                 break;
             }
             case API_PolyLineID: {
                 geo.Add ("elementType", "PolyLine");
+                geo.Add ("ltypeIndex", (Int32) element.polyLine.ltypeInd.ToInt32_Deprecated ());
+                geo.Add ("penIndex", (Int32) element.polyLine.linePen.penIndex);
                 API_ElementMemo memo = {};
                 err = ACAPI_Element_GetMemo (element.header.guid, &memo, APIMemoMask_Polygon);
                 if (err != NoError || memo.coords == nullptr) {
