@@ -335,6 +335,16 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   an EINEM bekannten Positiv-Beispiel prüfen (Befehl existiert? Elementtyp
   unterstützt? Feld heißt wirklich so?). Eine Null ist erst glaubwürdig, wenn
   derselbe Code an einem Beispiel nachweislich eine Eins liefern kann.
+- **Tapir RotateElements ist bei Stützen ein stiller Blindgänger** *(2026-07-23)*:
+  meldet Erfolg, ändert `axisRotationAngle` aber nicht (drei Läufe, 0/21).
+  Diagnose per Mikro-Test: dieselbe Stütze ließ sich per MoveElements 1 mm
+  bewegen (und zurück) → Reservierung/Schreibrechte OK, der Befehl selbst
+  greift nicht. Lösung: eigener Befehl `ELM_SAB SetColumnRotation`
+  (absoluter Zielwinkel in Grad, `ACAPI_Element_Change` mit Maske auf
+  `axisRotationAngle`, eingebaute Rücklese-Verifikation) — 21/21 auf Anhieb.
+  Merksatz: Bei stillen No-Ops IMMER erst Reservierung vs. Befehl per
+  Mikro-Test (1-mm-Move + Rückzug) trennen, bevor man den User erneut
+  reservieren schickt.
 - **Teamwork-Neustart reset­tet Reservierungen** *(2026-07-21)*: Nach
   Archicad-Crash/-Neustart sind ALLE Reservierungen der Session weg — zuvor
   „reservierte" Schreibaktionen werden wieder zu stillen No-Ops (14/86
