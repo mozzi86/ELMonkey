@@ -335,6 +335,18 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   an EINEM bekannten Positiv-Beispiel prüfen (Befehl existiert? Elementtyp
   unterstützt? Feld heißt wirklich so?). Eine Null ist erst glaubwürdig, wenn
   derselbe Code an einem Beispiel nachweislich eine Eins liefern kann.
+- **Bestand-Aufräum-Endspiel (Rezepte)** *(2026-07-23)*: (1) Zeigerlinien:
+  Text ohne Symbol daneben → Linienkette ab Textanker verfolgen (Hops ≤0,35 m),
+  Ende = wahre Durchbruch-Position; Kettenverfolgung ohne Hop-Limit driftet
+  aber durch fremde Linienzüge — max. Hops UND Ziel-Radius begrenzen, jede
+  Umsetzung als „bitte Stichprobe" in die Inventur. (2) Layer-Waisen per
+  NACHBARSCHAFTS-VOTING einsortieren: Mehrheits-Layer der Elemente im
+  0,5-m-Raster ringsum erbt; ohne Nachbarn → A_04_BESCHRIFT + Inventur.
+  (3) Durchbruch-Symbol-Objekte zeigen sich GESCHOSSABHÄNGIG auch im
+  Geschoss darunter (symb_text_2!) — kein Bug, sondern BD/DD-Zwilling;
+  User dazusagen, bevor er sich wundert. (4) Embedded-Library-Items sind
+  per Tapir NICHT löschbar (nur AddFiles/Reload) — Aufräumen bleibt
+  Bibliothekenmanager-Handarbeit.
 - **Symbol↔Text-Matching: nur global 1:1 und layergleich** *(2026-07-23)*:
   Naives „nächstes Symbol pro Text" erzeugt Mehrfachbelegung (256 Symbole
   mit 2–3 Objekten) und Fehlzuordnungen über Gewerke hinweg. Richtig:
