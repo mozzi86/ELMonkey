@@ -88,12 +88,40 @@ GS::ObjectState SetTextSizeCommand::Execute (const GS::ObjectState& parameters, 
             double oldSize = 0.0;
 
             switch (element.header.type.typeID) {
-                case API_TextID:
+                case API_TextID: {
+                    // Wie beim Label: Memo mitgeben + echte Rücklese-Verifikation.
+                    // Ohne Memo quittiert Archicad Text-Änderungen teils mit
+                    // NoError, ohne etwas zu schreiben (beobachtet 2026-07-23).
                     oldSize = element.text.size;
-                    element.text.size = hasSize ? sizeMm : element.text.size * factor;
+                    const double newTextSize = hasSize ? sizeMm : oldSize * factor;
+                    element.text.size = newTextSize;
+
+                    API_ElementMemo memo = {};
+                    err = ACAPI_Element_GetMemo (element.header.guid, &memo, APIMemoMask_TextContentUni);
+                    if (err != NoError) {
+                        executionResults (CreateFailedExecutionResult (err, "Text-Memo nicht lesbar"));
+                        continue;
+                    }
                     ACAPI_ELEMENT_MASK_SET (mask, API_TextType, size);
-                    err = ACAPI_Element_Change (&element, &mask, nullptr, 0, true);
+                    err = ACAPI_Element_Change (&element, &mask, &memo, 0, true);
+
+                    if (err == NoError) {
+                        API_Element check = {};
+                        check.header.guid = element.header.guid;
+                        if (ACAPI_Element_Get (&check) == NoError &&
+                            std::fabs (check.text.size - newTextSize) > 1e-9) {
+                            ACAPI_ELEMENT_MASK_SETFULL (mask);
+                            err = ACAPI_Element_Change (&element, &mask, &memo, 0, true);
+                            if (err == NoError &&
+                                ACAPI_Element_Get (&check) == NoError &&
+                                std::fabs (check.text.size - newTextSize) > 1e-9) {
+                                err = APIERR_GENERAL; // ehrlich scheitern statt still
+                            }
+                        }
+                    }
+                    ACAPI_DisposeElemMemoHdls (&memo);
                     break;
+                }
 
                 case API_LabelID: {
                     if (element.label.labelClass != APILblClass_Text) {
