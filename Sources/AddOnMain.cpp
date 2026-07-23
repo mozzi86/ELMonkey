@@ -52,6 +52,7 @@
 #include "SetAddParsCommand.hpp"
 #include "GetColumnDetailsCommand.hpp"
 #include "SetColumnDetailsCommand.hpp"
+#include "SetColumnRotationCommand.hpp"
 #include "CreateCurtainWallCommand.hpp"
 
 template <typename CommandType>
@@ -968,6 +969,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<GetColumnDetailsCommand> (
             elmSabCommands, "0.9.5",
             "ELM_SAB: Liest Stuetzen-Drehwinkel (axisRotationAngle), Ursprung, Kernmasse — Felder, die sonst nirgends lesbar sind."
+        );
+        err |= RegisterCommand<SetColumnRotationCommand> (
+            elmSabCommands, "0.9.6",
+            "ELM_SAB: Setzt den Achs-Drehwinkel von Stuetzen absolut in Grad — Tapir RotateElements aendert ihn nicht; mit Ruecklese-Verifikation."
         );
         err |= RegisterCommand<SetColumnDetailsCommand> (
             elmSabCommands, "0.9.5",
