@@ -771,6 +771,9 @@ Hinweis: In der Praxis werden Sub-Elemente selten direkt klassifiziert — die K
 **G-01b — `bottomOffset` war ein stiller No-Op.** <!-- 2026-07-25 live verifiziert -->
 `curtainWall.storyRelLevel` wird beim `ACAPI_Element_Create` **ignoriert**; die Fassade landet exakt auf Geschossniveau, ohne Fehlermeldung. Drei Fassaden sind so falsch platziert worden, bevor es auffiel. Ab Add-On 0.9.7 zieht der Command die Höhenlage per `APIEdit_Drag` nach und liefert `zMin`/`zMax` in der Antwort. **Diese zwei Werte immer gegen das Soll prüfen** — bei älterem Add-On stattdessen `MoveElements` mit `dz` hinterher.
 
+**G-01d — `GetElementPreviewImage` zeigt das RASTER, nicht den geschnittenen Körper.** <!-- 2026-07-25 live verifiziert -->
+Bei einer Giebelfassade mit 14 Paneelen rendert der Preview trotzdem alle 16 Zellen als Rechteck — die Kontur fehlt im Bild komplett. **Kein Beleg dafür, dass der Giebelschnitt fehlgeschlagen ist.** Belastbarer Nachweis stattdessen über die Sub-Elemente: Rahmen holen und die zählen, deren Bbox in **beiden** Richtungen ausgedehnt ist (`dy > 0,10 && dz > 0,10`) — das sind die Schrägriegel. Rechteckige CW: 0 davon. Giebel mit 4 Spalten: 8, paarweise spiegelsymmetrisch zur Firstachse.
+
 **G-01c — Top-Level-Bbox degeneriert, wenn die CW weit vom Heimgeschoss liegt.** <!-- 2026-07-25 -->
 Sitzt eine CW mehrere Geschosse über ihrem `floorIndex` (z. B. Geschoss 2, aber z = 16,05), liefert `Get3DBoundingBoxes` für das Top-Level `xMin == xMax` — sieht aus wie eine kaputte Fassade, ist aber nur ein Melde-Quirk. **Verifikation immer über die Sub-Elemente**, die haben volle Geometrie. Nebenbefund: `Get3DBoundingBoxes` gibt für CW-Paneele **geschossrelative** z-Werte zurück, für das Top-Level absolute — beim Vergleichen umrechnen.
 
