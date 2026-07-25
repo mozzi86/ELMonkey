@@ -1,8 +1,8 @@
 # Fassaden / Pfosten-Riegel-Konstruktionen — CurtainWall + Sub-Elemente
 
-> **Status der VERIFY-Marker (2026-07-14):** Im THN-Projekt existieren 0 CurtainWall-Elemente — alle folgenden Marker sind mangels Testobjekt weiterhin unverifizierbar. Beim ersten realen CW-Projekt abarbeiten.
+> **Status (2026-07-25):** Im THN-Projekt stehen 82 CurtainWalls — der frühere Marker „0 CW, alles unverifizierbar" ist überholt. Erstellen, Rastern und Giebelschnitt sind live verifiziert (siehe [Worked Example — CurtainWall erstellen](#worked-example--curtainwall-erstellen-elm_sab)); die Sub-Element-Update-Pfade tragen weiterhin VERIFY-Marker.
 
-Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-Element enthält eine Hierarchie von bis zu 5 Sub-Element-Typen (Segmente, Pfosten, Paneele, Knoten, Zubehör). **Erstellen via MCP v29 nicht verfügbar** — der User zeichnet die Fassade manuell mit dem Curtain-Wall-Werkzeug (nicht das Wand-Werkzeug — das sind verschiedene Tools in Archicad). Sub-Elemente entstehen automatisch mit dem Top-Level und werden über die Hierarchie navigiert, nicht eigenständig erstellt. Vollständige Capability-Tabelle: [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Live-verifizierte Element-Create-Capabilities.
+Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-Element enthält eine Hierarchie von bis zu 5 Sub-Element-Typen (Segmente, Pfosten, Paneele, Knoten, Zubehör). **Tapir/MCP kann CurtainWalls nicht erstellen** — das hauseigene `ELM_SAB.CreateCurtainWallFromAxes` kann es (seit 2026-07-21, Giebel/Trapez seit 0.9.7 / 2026-07-25). Sub-Elemente entstehen automatisch mit dem Top-Level und werden über die Hierarchie navigiert, nicht eigenständig erstellt. Vollständige Capability-Tabelle: [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Live-verifizierte Element-Create-Capabilities.
 
 ## Inhaltsverzeichnis
 
@@ -34,7 +34,8 @@ Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-El
 - Hierarchie-Navigation via `elements_get_subelements_of_hierarchical_elements` (live verifiziert).
 
 **Nicht abgedeckt:**
-- CurtainWall erstellen via MCP (Capability-Gap in v29 — kein Create-Tool).
+- CurtainWall erstellen via **Tapir/MCP** (Capability-Gap in v29 — kein Create-Tool). Weg über `ELM_SAB.CreateCurtainWallFromAxes`, siehe eigenes Worked Example.
+- **Raster nachträglich ändern** — es gibt kein `ModifyCurtainWall`. Andere Spalten/Zeilen = neu bauen + altes löschen (Ausnahme von „Ersetzen = umbauen", weil kein Umbauweg existiert; Confirm trotzdem Pflicht).
 - Sub-Elemente eigenständig erstellen (entstehen mit Top-Level, kein separates Create).
 - CurtainWallJunction + CurtainWallAccessory Update-Details (in Default-Fassaden nicht vorhanden, siehe Gotchas § Junction und § Accessory).
 
@@ -151,6 +152,62 @@ Für `typeSpecificDetails` in `elements_set_details_of_elements`. Alle Felder op
 ### CurtainWallJunction / CurtainWallAccessory
 
 Beide nur in spezialisierten CurtainWall-Konfigurationen vorhanden. Settings-Felder über Discovery in der konkreten Session ermitteln. <!-- VERIFY -->
+
+---
+
+> **User sagt:** „Bau mir hier eine Pfosten-Riegel-Fassade" / „das oberste als Giebel"
+
+## Worked Example — CurtainWall erstellen (ELM_SAB)
+
+<!-- 2026-07-25 live verifiziert AC29, Add-On 0.9.7, THN Fassade-013 -->
+
+`ELM_SAB.CreateCurtainWallFromAxes` (Namespace **`ELM_SAB`**, nicht `TapirCommand`).
+Frames und Panels kommen aus den **CW-Werkzeug-Defaults** — passenden Favoriten
+vorher via `ApplyFavoritesToElementDefaults` setzen, sonst erbt die neue Fassade
+das, was gerade im Werkzeug steht.
+
+```python
+addon("CreateCurtainWallFromAxes", {
+  "begCoordinate": {"x": 103.298, "y": 92.262},
+  "endCoordinate": {"x": 103.298, "y": 96.478},
+  "floorIndex": 2,
+  "bottomOffset": -0.15,
+  "columnWidths": [1.0539, 1.0539, 1.0539, 1.0539],   # Summe = Achslänge
+  "rowHeights":   [1.00, 1.20, 0.80, 1.00],           # von unten
+  "opaqueRows":   [0],                                 # optional: Brüstung
+  "topProfile":   [1.45, 2.50, 3.60, 2.50, 1.45]      # optional: Giebel
+})
+```
+
+**Geometrie-Konventionen (kalibriert, nicht geraten):**
+
+| Was | Regel |
+|---|---|
+| Segmentlänge | **exakt** `sum(columnWidths)`; `beg`/`end` sind die Bbox-Grenzen |
+| Randprofile | liegen **innen** → Paneelbreite = Feld − Profilbreite |
+| Referenzebene | `beg.x` ist die Bezugsebene; Profile bauen von dort nach +x, Paneele bei +0,133 (bei 0,168er Profil) |
+| Höhe | `sum(rowHeights)`, bei Kontur `max(v)` |
+| Zeilenmuster | `APICWSePL_FixedSizes` → wiederholt sich nach oben bis zur Firsthöhe |
+
+**Kontur / Giebel / Trapez** — zwei Wege, beide in **Segment-Lokalkoordinaten**
+(`u` = Lauflänge ab `begCoordinate`, `v` = Höhe über CW-Unterkante):
+
+- `topProfile`: genau `columnWidths + 1` Oberkantenhöhen an den Pfostenachsen.
+  Symmetrischer First braucht eine **gerade** Spaltenzahl, sonst liegt der First
+  nicht auf einer Achse.
+- `contour`: freies Polygon `[{u, v}, …]`, umlaufend, Schlusspunkt **nicht**
+  wiederholen. Für alles jenseits von Trapez/Giebel.
+
+Ein Giebel schneidet Eckzellen weg: 4 × 4 ergibt 16 Paneele rechteckig, aber
+14 mit Giebel. Die Panel-Oberkanten liegen ~0,07 m unter der Sollhöhe — das ist
+die Breite des Schrägriegels, **kein Maßfehler**.
+
+**Ohne Kalibrier-Testlauf nichts Produktives bauen:** eine Wegwerf-Fassade an
+leerer Stelle (z. B. x = −100) erzeugen, Bbox und Panel-Raster gegenmessen,
+löschen. Erst dann ans Modell.
+
+Danach: **erst klassifizieren, dann KI-Property** (siehe SKILL.md), dann
+Voll-Re-Inventur, dann ggf. das ersetzte Element löschen.
 
 ---
 
@@ -708,8 +765,14 @@ Hinweis: In der Praxis werden Sub-Elemente selten direkt klassifiziert — die K
 
 ### CurtainWall (Top-Level)
 
-**G-01 — Create nicht via MCP v29.**
-`elements_create_curtain_walls` existiert nicht. User zeichnet manuell mit dem Curtain-Wall-Werkzeug in Archicad (nicht das normale Wand-Werkzeug — das sind separate Werkzeuge). Danach Top-Level-GUID via `elements_get_elements_by_type` holen und weiterarbeiten.
+**G-01 — Create nicht via Tapir/MCP, aber via ELM_SAB.** <!-- korrigiert 2026-07-25 -->
+`elements_create_curtain_walls` existiert nicht. Stattdessen `ELM_SAB.CreateCurtainWallFromAxes` (eigenes Add-On, siehe Worked Example oben). Nur wenn das Add-On fehlt, zeichnet der User manuell mit dem Curtain-Wall-Werkzeug (nicht das normale Wand-Werkzeug — separate Werkzeuge) und wir holen die GUID via `elements_get_elements_by_type`.
+
+**G-01b — `bottomOffset` war ein stiller No-Op.** <!-- 2026-07-25 live verifiziert -->
+`curtainWall.storyRelLevel` wird beim `ACAPI_Element_Create` **ignoriert**; die Fassade landet exakt auf Geschossniveau, ohne Fehlermeldung. Drei Fassaden sind so falsch platziert worden, bevor es auffiel. Ab Add-On 0.9.7 zieht der Command die Höhenlage per `APIEdit_Drag` nach und liefert `zMin`/`zMax` in der Antwort. **Diese zwei Werte immer gegen das Soll prüfen** — bei älterem Add-On stattdessen `MoveElements` mit `dz` hinterher.
+
+**G-01c — Top-Level-Bbox degeneriert, wenn die CW weit vom Heimgeschoss liegt.** <!-- 2026-07-25 -->
+Sitzt eine CW mehrere Geschosse über ihrem `floorIndex` (z. B. Geschoss 2, aber z = 16,05), liefert `Get3DBoundingBoxes` für das Top-Level `xMin == xMax` — sieht aus wie eine kaputte Fassade, ist aber nur ein Melde-Quirk. **Verifikation immer über die Sub-Elemente**, die haben volle Geometrie. Nebenbefund: `Get3DBoundingBoxes` gibt für CW-Paneele **geschossrelative** z-Werte zurück, für das Top-Level absolute — beim Vergleichen umrechnen.
 
 **G-02 — Delete löscht alle 44+ Sub-Elemente automatisch.**
 Kein Vorwarning von Archicad selbst — das SAFE-04-Pre-Check-Pattern in diesem Recipe ist der einzige Schutz. Bei IFC-Exporten können verwaiste CW-Einträge ohne Sub-Elemente stille Strukturfehler erzeugen.
