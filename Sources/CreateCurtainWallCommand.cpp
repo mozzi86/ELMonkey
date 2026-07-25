@@ -45,7 +45,9 @@ GS::Optional<GS::UniString> CreateCurtainWallCommand::GetInputParametersSchema (
             "topProfile": {
                 "type": "array", "minItems": 2, "items": { "type": "number", "minimum": 0 },
                 "description": "Bequemer Weg zu Trapez/Giebel statt 'contour': Oberkanten-Hoehen v an den Pfostenachsen, also genau columnWidths+1 Werte (u = 0, c0, c0+c1, ...). Unterkante ist durchgehend v=0. Wird ignoriert, wenn 'contour' gesetzt ist."
-            }
+            },
+            "mullionClass": { "type": "integer", "minimum": 0, "description": "0-basierter Index in die Frame-Klassen der CW-Defaults fuer die SENKRECHTEN Rahmen (Pfosten). Default 0 = erste Klasse." },
+            "transomClass": { "type": "integer", "minimum": 0, "description": "0-basierter Index in die Frame-Klassen der CW-Defaults fuer die WAAGERECHTEN Rahmen (Riegel). Default 0 = erste Klasse." }
         },
         "required": ["begCoordinate", "endCoordinate", "columnWidths", "rowHeights"]
     })");
@@ -241,6 +243,28 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
     const short glassID  = APICWPanelClass_FirstCustomClass;
     const short opaqueID = (short) (APICWPanelClass_FirstCustomClass + (nPanelClasses > 1 ? 1 : 0));
 
+    // Frame-Klassen: APICWFrameClass_Division (=1) ist eine RESERVIERTE Generik-
+    // Klasse ohne Profil — Rahmen daraus haben Querschnitt 0 und sind unsichtbar.
+    // Echte Profile beginnen bei APICWFrameClass_FirstCustomClass (=4), analog zu
+    // den Paneelen. (Bug bis 0.9.7: alle Pfosten/Riegel unsichtbar, live 2026-07-25.)
+    const UInt32 nFrameClasses = BMpGetSize (reinterpret_cast<GSPtr> (memo.cWallFrameDefaults)) / sizeof (API_CWFrameType);
+    if (nFrameClasses == 0) {
+        ACAPI_DisposeElemMemoHdls (&memo);
+        return CreateErrorResponse (APIERR_GENERAL, "CW-Defaults ohne Frame-Klassen — Favorit mit Pfosten-/Riegelprofil setzen");
+    }
+    element.curtainWall.nFrameDefaults = nFrameClasses;
+
+    Int32 mullionClass = 0, transomClass = 0;
+    parameters.Get ("mullionClass", mullionClass);
+    parameters.Get ("transomClass", transomClass);
+    if (mullionClass < 0 || (UInt32) mullionClass >= nFrameClasses ||
+        transomClass < 0 || (UInt32) transomClass >= nFrameClasses) {
+        ACAPI_DisposeElemMemoHdls (&memo);
+        return CreateErrorResponse (APIERR_BADPARS, "mullionClass/transomClass ausserhalb der vorhandenen Frame-Klassen");
+    }
+    const short mullionID = (short) (APICWFrameClass_FirstCustomClass + mullionClass);
+    const short transomID = (short) (APICWFrameClass_FirstCustomClass + transomClass);
+
     GS::HashSet<Int32> opaqueSet;
     for (Int32 r : opaqueRows)
         opaqueSet.Add (r);
@@ -257,9 +281,9 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
             cells[i].crossingFrameType = APICWCFT_NoCrossingFrame;
             cells[i].leftPanelID    = panelID;
             cells[i].rightPanelID   = panelID;
-            cells[i].leftFrameID    = APICWFrameClass_Division;
-            cells[i].bottomFrameID  = APICWFrameClass_Division;
-            cells[i].crossingFrameID = APICWFrameClass_Division;
+            cells[i].leftFrameID    = mullionID;    // senkrecht = Pfosten
+            cells[i].bottomFrameID  = transomID;    // waagerecht = Riegel
+            cells[i].crossingFrameID = mullionID;
         }
         BMpKill (reinterpret_cast<GSPtr*> (&memo.cWSegPatternCells));
         memo.cWSegPatternCells = cells;
