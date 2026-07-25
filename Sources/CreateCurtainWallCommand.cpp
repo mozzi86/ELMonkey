@@ -1,4 +1,7 @@
 #include "CreateCurtainWallCommand.hpp"
+#include "MigrationHelper.hpp"
+
+#include <cmath>
 
 GS::Optional<GS::UniString> CreateCurtainWallCommand::GetInputParametersSchema () const
 {
@@ -16,20 +19,33 @@ GS::Optional<GS::UniString> CreateCurtainWallCommand::GetInputParametersSchema (
                 "required": ["x", "y"]
             },
             "floorIndex": { "type": "integer" },
-            "bottomOffset": { "type": "number", "description": "Unterkante relativ zum Geschoss (storyRelLevel), Meter." },
+            "bottomOffset": { "type": "number", "description": "Unterkante relativ zum Geschoss, Meter. Wird nach dem Create per Drag nachgezogen (storyRelLevel wirkt beim Create nicht) und rueckgelesen." },
             "columnWidths": {
                 "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 1,
                 "description": "Spaltenbreiten von beg nach end (Pfosten-Achsmasse), Meter. Summe sollte der Wandlaenge entsprechen."
             },
             "rowHeights": {
                 "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 1,
-                "description": "Zeilenhoehen von UNTEN nach oben, Meter. Summe = CW-Hoehe."
+                "description": "Zeilenhoehen von UNTEN nach oben, Meter. Bei nichtrechteckiger Kontur wird das Muster nach oben wiederholt."
             },
             "opaqueRows": {
                 "type": "array", "items": { "type": "integer", "minimum": 0 },
                 "description": "Zeilen-Indizes (0 = unterste), die die ZWEITE Panel-Klasse der Defaults bekommen (Bruestung/opak). Leer = alles erste Klasse."
             },
-            "cellOrderColumnMajor": { "type": "boolean", "description": "Zell-Reihenfolge transponieren, falls die Zeilen-Zuordnung vertauscht ankommt. Default false (row-major)." }
+            "cellOrderColumnMajor": { "type": "boolean", "description": "Zell-Reihenfolge transponieren, falls die Zeilen-Zuordnung vertauscht ankommt. Default false (row-major)." },
+            "contour": {
+                "type": "array", "minItems": 3,
+                "items": {
+                    "type": "object",
+                    "properties": { "u": { "type": "number" }, "v": { "type": "number" } },
+                    "required": ["u", "v"]
+                },
+                "description": "Optionale Fassaden-Kontur in SEGMENT-LOKAL-Koordinaten: u = Lauflaenge ab begCoordinate (0..Summe columnWidths), v = Hoehe ueber CW-Unterkante. Umlaufend, Schlusspunkt NICHT wiederholen. Fehlt der Parameter, entsteht ein Rechteck."
+            },
+            "topProfile": {
+                "type": "array", "minItems": 2, "items": { "type": "number", "minimum": 0 },
+                "description": "Bequemer Weg zu Trapez/Giebel statt 'contour': Oberkanten-Hoehen v an den Pfostenachsen, also genau columnWidths+1 Werte (u = 0, c0, c0+c1, ...). Unterkante ist durchgehend v=0. Wird ignoriert, wenn 'contour' gesetzt ist."
+            }
         },
         "required": ["begCoordinate", "endCoordinate", "columnWidths", "rowHeights"]
     })");
@@ -41,9 +57,51 @@ GS::Optional<GS::UniString> CreateCurtainWallCommand::GetResponseSchema () const
         "type": "object",
         "properties": {
             "elements": { "type": "array", "items": { "type": "object" } },
+            "height": { "type": "number" },
+            "contourVertices": { "type": "integer" },
+            "bottomOffsetApplied": { "type": "boolean" },
+            "zMin": { "type": "number" },
+            "zMax": { "type": "number" },
             "error": { "type": "object" }
         }
     })");
+}
+
+// Kontur-Polygon (Segment-Lokalkoordinaten) in memo.cWSegContour legen.
+// Archicad-Konvention: coords[1..nCoords], coords[nCoords] == coords[1],
+// also nCoords = Anzahl echter Ecken + 1. pends[1] = nCoords.
+static bool FillSegmentContour (API_ElementMemo& memo, const GS::Array<API_Coord>& corners)
+{
+    const Int32 nDistinct = (Int32) corners.GetSize ();
+    if (nDistinct < 3)
+        return false;
+    const Int32 nCoords = nDistinct + 1;
+
+    memo.cWSegContour = reinterpret_cast<API_CWContourData*> (BMpAllClear (sizeof (API_CWContourData)));
+    if (memo.cWSegContour == nullptr)
+        return false;
+    API_CWContourData& c = memo.cWSegContour[0];
+
+    c.polygon.nCoords    = nCoords;
+    c.polygon.nSubPolys  = 1;
+    c.polygon.nArcs      = 0;
+
+    c.coords = reinterpret_cast<API_Coord**> (BMAllocateHandle ((nCoords + 1) * sizeof (API_Coord), ALLOCATE_CLEAR, 0));
+    c.pends  = reinterpret_cast<Int32**> (BMAllocateHandle ((c.polygon.nSubPolys + 1) * sizeof (Int32), ALLOCATE_CLEAR, 0));
+    c.vertexIDs = reinterpret_cast<UInt32**> (BMAllocateHandle ((nCoords + 1) * sizeof (UInt32), ALLOCATE_CLEAR, 0));
+    c.parcs  = nullptr;
+    if (c.coords == nullptr || c.pends == nullptr || c.vertexIDs == nullptr)
+        return false;
+
+    for (Int32 k = 1; k <= nDistinct; ++k) {
+        (*c.coords)[k] = corners[k - 1];
+        (*c.vertexIDs)[k] = (UInt32) k;
+    }
+    (*c.coords)[nCoords] = corners[0];              // Polygon schliessen
+    (*c.vertexIDs)[nCoords] = (UInt32) nCoords;
+    (*c.pends)[1] = nCoords;
+
+    return true;
 }
 
 GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
@@ -67,6 +125,57 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
 
     const API_Coord beg = Get2DCoordinateFromObjectState (*begOS);
     const API_Coord end = Get2DCoordinateFromObjectState (*endOS);
+
+    double totalWidth = 0.0;
+    for (double w : columnWidths)
+        totalWidth += w;
+    double patternHeight = 0.0;
+    for (double h : rowHeights)
+        patternHeight += h;
+
+    // --- Kontur bestimmen: explizit ("contour") oder aus "topProfile" gebaut ---
+    GS::Array<API_Coord> contour;
+    GS::Array<GS::ObjectState> contourOS;
+    if (parameters.Get ("contour", contourOS) && contourOS.GetSize () >= 3) {
+        for (const GS::ObjectState& p : contourOS) {
+            API_Coord c = {};
+            p.Get ("u", c.x);
+            p.Get ("v", c.y);
+            contour.Push (c);
+        }
+    } else {
+        GS::Array<double> topProfile;
+        if (parameters.Get ("topProfile", topProfile) && !topProfile.IsEmpty ()) {
+            if (topProfile.GetSize () != columnWidths.GetSize () + 1)
+                return CreateErrorResponse (APIERR_BADPARS, "topProfile braucht genau columnWidths+1 Werte (Hoehen an den Pfostenachsen)");
+            for (double v : topProfile) {
+                if (v <= 0.0)
+                    return CreateErrorResponse (APIERR_BADPARS, "topProfile-Hoehen muessen > 0 sein");
+            }
+            // Unterkante links -> rechts, dann Oberkante rechts -> links (umlaufend).
+            contour.Push (API_Coord { 0.0, 0.0 });
+            contour.Push (API_Coord { totalWidth, 0.0 });
+            double u = totalWidth;
+            for (UIndex i = topProfile.GetSize (); i > 0; --i) {
+                contour.Push (API_Coord { u, topProfile[i - 1] });
+                if (i >= 2)
+                    u -= columnWidths[i - 2];
+            }
+        }
+    }
+
+    const bool hasContour = !contour.IsEmpty ();
+    double totalHeight = patternHeight;
+    if (hasContour) {
+        double vMax = 0.0;
+        for (const API_Coord& c : contour) {
+            if (c.y > vMax)
+                vMax = c.y;
+        }
+        if (vMax <= 0.0)
+            return CreateErrorResponse (APIERR_BADPARS, "Kontur ohne positive Hoehe");
+        totalHeight = vMax;
+    }
 
     API_Element element = {};
     API_ElementMemo memo = {};
@@ -92,6 +201,11 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
     memo.parcs = nullptr;
     element.curtainWall.nSegments = 1;
 
+    if (hasContour && !FillSegmentContour (memo, contour)) {
+        ACAPI_DisposeElemMemoHdls (&memo);
+        return CreateErrorResponse (APIERR_MEMFULL, "Kontur-Handles konnten nicht angelegt werden");
+    }
+
     // Primaeres Muster = Spalten (fixe Breiten)
     {
         memo.cWSegPrimaryPattern.nPattern = (UInt32) columnWidths.GetSize ();
@@ -104,16 +218,13 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
         memo.cWSegPrimaryPattern.pattern = p;
     }
     // Sekundaeres Muster = Zeilen (fixe Hoehen, von unten)
-    double totalHeight = 0.0;
     {
         memo.cWSegSecondaryPattern.nPattern = (UInt32) rowHeights.GetSize ();
         memo.cWSegSecondaryPattern.endWithID = memo.cWSegSecondaryPattern.nPattern - 1;
         memo.cWSegSecondaryPattern.logic = APICWSePL_FixedSizes;
         double* p = reinterpret_cast<double*> (BMpAll (sizeof (double) * memo.cWSegSecondaryPattern.nPattern));
-        for (UInt32 i = 0; i < memo.cWSegSecondaryPattern.nPattern; ++i) {
+        for (UInt32 i = 0; i < memo.cWSegSecondaryPattern.nPattern; ++i)
             p[i] = rowHeights[i];
-            totalHeight += rowHeights[i];
-        }
         BMpKill (reinterpret_cast<GSPtr*> (&memo.cWSegSecondaryPattern.pattern));
         memo.cWSegSecondaryPattern.pattern = p;
     }
@@ -156,9 +267,25 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
 
     GS::ObjectState response;
     err = APIERR_GENERAL;
+    bool dragDone = false;
     ACAPI_CallUndoableCommand ("ELM_SAB CreateCurtainWallFromAxes", [&] () -> GSErrCode {
         err = ACAPI_Element_Create (&element, &memo);
-        return err;
+        if (err != NoError)
+            return err;
+        // storyRelLevel wird beim Create ignoriert (live verifiziert 2026-07-25):
+        // Hoehenlage per Drag nachziehen, sonst sitzt die Fassade auf Geschossniveau.
+        if (std::fabs (bottomOffset) > 1e-9) {
+            GS::Array<API_Neig> toEdit = { API_Neig (element.header.guid) };
+            API_EditPars editPars = {};
+            editPars.typeID = APIEdit_Drag;
+            editPars.endC = API_Vector3D { 0.0, 0.0, bottomOffset };
+            editPars.withDelete = true;
+            const GSErrCode dragErr = ACAPI_Element_Edit (&toEdit, editPars);
+            if (dragErr != NoError)
+                return dragErr;
+            dragDone = true;
+        }
+        return NoError;
     });
     ACAPI_DisposeElemMemoHdls (&memo);
 
@@ -171,5 +298,19 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
     guidOS.Add ("guid", APIGuidToString (element.header.guid));
     idOS.Add ("elementId", guidOS);
     elements (idOS);
+
+    response.Add ("height", totalHeight);
+    response.Add ("contourVertices", (Int32) contour.GetSize ());
+    response.Add ("bottomOffsetApplied", dragDone || std::fabs (bottomOffset) <= 1e-9);
+
+    // Ruecklese-Verifikation der tatsaechlichen Hoehenlage
+    API_Elem_Head elemHead = {};
+    elemHead.guid = element.header.guid;
+    API_Box3D box3D = {};
+    if (ACAPI_Element_CalcBounds (&elemHead, &box3D) == NoError) {
+        response.Add ("zMin", box3D.zMin);
+        response.Add ("zMax", box3D.zMax);
+    }
+
     return response;
 }

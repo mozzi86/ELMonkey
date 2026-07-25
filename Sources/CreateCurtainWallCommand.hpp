@@ -3,6 +3,13 @@
 // Zeilenhöhen (aus Foto/Schnitt), inkl. opaker Brüstungszeilen. Frames/Panels
 // kommen aus den CW-Werkzeug-Defaults (vorher Favorit setzen!). Entstanden
 // 2026-07-21 (THN Südfassade: CW-Raster-Neubau per API war sonst unmöglich).
+//
+// 2026-07-25 erweitert (THN Giebelfassade):
+//   * "contour" / "topProfile" — nichtrechteckige Fassaden (Trapez, Giebel,
+//     Pultschräge) über memo.cWSegContour. Polygon in SEGMENT-LOKAL-Koordinaten
+//     u = Lauflänge ab begCoordinate, v = Höhe über CW-Unterkante.
+//   * bottomOffset war ein stiller No-Op (curtainWall.storyRelLevel wird beim
+//     Create ignoriert) — jetzt per APIEdit_Drag nachgezogen und rückgelesen.
 #pragma once
 
 #include "ELMCommandBase.hpp"

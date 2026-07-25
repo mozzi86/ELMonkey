@@ -979,8 +979,8 @@ GSErrCode Initialize (void)
             "ELM_SAB: Setzt Stuetzen-Kernmasse (nominalWidth/Height, alle Segmente) — mit Ruecklese-Verifikation."
         );
         err |= RegisterCommand<CreateCurtainWallCommand> (
-            elmSabCommands, "0.9.5",
-            "ELM_SAB: Erzeugt Pfosten-Riegel-Fassade aus Achsmassen (Spaltenbreiten aus 2D, Zeilenhoehen aus Foto, opake Bruestungszeilen)."
+            elmSabCommands, "0.9.7",
+            "ELM_SAB: Erzeugt Pfosten-Riegel-Fassade aus Achsmassen (Spaltenbreiten aus 2D, Zeilenhoehen aus Foto, opake Bruestungszeilen). Seit 0.9.7 auch nichtrechteckig (Trapez/Giebel via contour bzw. topProfile) und mit wirksamem bottomOffset."
         );
         AddCommandGroup (elmSabCommands);
     }
