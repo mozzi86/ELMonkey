@@ -85,7 +85,7 @@ GS::ObjectState GetTextsCommand::Execute (const GS::ObjectState& parameters, GS:
         item.Add ("elementType", isLabel ? "Label" : "Text");
         item.Add ("layerIndex", (Int32) element.header.layer.ToInt32_Deprecated ());
         item.Add ("floorIndex", (Int32) element.header.floorInd);
-        item.Add ("content", *memo.textContent);
+        item.Add ("content", GetMemoTextContentELM (memo));
         item.Add ("sizeMm", isLabel ? element.label.u.text.size : element.text.size);
 
         GS::ObjectState loc;

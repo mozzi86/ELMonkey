@@ -91,7 +91,7 @@ GS::ObjectState SetTextsCommand::Execute (const GS::ObjectState& parameters, GS:
             GS::UniString normalized = content;
             normalized.ReplaceAll ("\r\n", "\n");
             normalized.ReplaceAll ("\n", "\r");
-            *memo.textContent = normalized;
+            SetMemoTextContentELM (memo, normalized);
 
             API_Element mask = {};
             ACAPI_ELEMENT_MASK_CLEAR (mask);
