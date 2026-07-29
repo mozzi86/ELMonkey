@@ -13,15 +13,16 @@ Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-El
 5. [Typische Parameter pro Element-Typ](#typische-parameter-pro-element-typ)
 6. [Worked Example — CurtainWall (Top-Level) lesen](#worked-example--curtainwall-top-level-lesen)
 7. [Worked Example — Sub-Elemente eines CurtainWall finden](#worked-example--sub-elemente-eines-curtainwall-finden)
-8. [Worked Example — CurtainWallPanel modifizieren](#worked-example--curtainwallpanel-modifizieren)
-9. [Worked Example — CurtainWallFrame modifizieren](#worked-example--curtainwallframe-modifizieren)
-10. [Worked Example — CurtainWallJunction operations](#worked-example--curtainwalljunction-operations)
-11. [Worked Example — CurtainWallSegment + Accessory Operations](#worked-example--curtainwallsegment--accessory-operations)
-12. [Worked Example — CurtainWall klassifizieren](#worked-example--curtainwall-klassifizieren)
-13. [Worked Example — CurtainWall löschen (mit Sub-Element-Pre-Check)](#worked-example--curtainwall-löschen-mit-sub-element-pre-check)
-14. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
-15. [Gotchas pro Element-Typ](#gotchas-pro-element-typ)
-16. [Verwandte Recipes](#verwandte-recipes)
+8. [Worked Example — Profillängen (lfm) bulk lesen für die Ausschreibung](#worked-example--profillängen-lfm-bulk-lesen-für-die-ausschreibung)
+9. [Worked Example — CurtainWallPanel modifizieren](#worked-example--curtainwallpanel-modifizieren)
+10. [Worked Example — CurtainWallFrame modifizieren](#worked-example--curtainwallframe-modifizieren)
+11. [Worked Example — CurtainWallJunction operations](#worked-example--curtainwalljunction-operations)
+12. [Worked Example — CurtainWallSegment + Accessory Operations](#worked-example--curtainwallsegment--accessory-operations)
+13. [Worked Example — CurtainWall klassifizieren](#worked-example--curtainwall-klassifizieren)
+14. [Worked Example — CurtainWall löschen (mit Sub-Element-Pre-Check)](#worked-example--curtainwall-löschen-mit-sub-element-pre-check)
+15. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
+16. [Gotchas pro Element-Typ](#gotchas-pro-element-typ)
+17. [Verwandte Recipes](#verwandte-recipes)
 
 ---
 
@@ -349,6 +350,44 @@ Bei Fassaden mit Ecken, T-Stößen oder Accessories erscheinen zusätzlich:
 - Alle GUIDs im Arbeitsgedächtnis behalten (SAFE-05) — nicht erneut Discovery-Calls absetzen.
 
 **Hinweis — Pattern gilt auch für andere hierarchische Elemente:** `Stair`, `Railing`, `Beam` (mit BeamSegments), `Column` (mit ColumnSegments) — gleicher Tool-Name, gleiche Aufruf-Struktur.
+
+---
+
+> **User sagt:** „Im Auswertungs-Export fehlen die Profillängen — hol mir die lfm aus dem Modell."
+
+## Worked Example — Profillängen (lfm) bulk lesen für die Ausschreibung
+
+<!-- 2026-07-27 live verifiziert AC29, Futurelab, 3.563 Frames zu 100 % zugeordnet -->
+
+Auswertungs-Exporte (XLSX) enthalten für CW-Profile oft nur Breite + Volumen — die
+ausschreibungsrelevanten **laufenden Meter fehlen**. Sie stehen als Built-in-Property
+**„Fassadenprofil / Profil-Länge"** am Frame und lassen sich per HTTP-Bypass in Minuten
+für tausende Profile nachziehen. Der Join zum Export läuft über die Spalte
+**„Eindeutige ID"** — das ist die Element-GUID (im Export groß geschrieben, im Modell
+klein → lowercased vergleichen).
+
+**Ablauf (alles read-only, kein Confirm nötig):**
+
+1. **Frames projektweit listen** — bei tausenden Elementen nicht über MCP paginieren,
+   sondern HTTP-Bypass: Tapir `GetElementsByType` mit `{"elementType": "CurtainWallFrame"}`
+   (Namespace `TapirCommand`, Antwort unpaginiert; live: 27.452 Frames in einem Call).
+2. **Property-GUID ermitteln** — Tapir `GetAllProperties`, lokal nach
+   `propertyGroupName == "Fassadenprofil"` + `propertyName == "Profil-Länge"` filtern.
+   Nicht über `API.GetPropertyIds` mit geratenen `nonLocalizedName`s versuchen
+   (`General_Length` existiert nicht → 4005). Nützliche Nachbarn in derselben Gruppe:
+   „Profil-Typ", „Profil-Breite", „Profilhöhe", „Profil BxH".
+3. **Werte bulk lesen** — Tapir `GetPropertyValuesOfElements` (NICHT der offizielle
+   `API.GetPropertyValuesOfElements` — der wirft für Subelemente pro Element
+   `7203 Element not supported`). Chunks à 500. **Werte kommen als lokalisierte
+   Strings** (`"0,315"`, Dezimalkomma, Meter) — parsen vor dem Rechnen, sonst
+   filtert ein Zahlen-Typcheck stillschweigend alles weg.
+4. **Join + Plausibilisierung** — über lowercased GUIDs mappen; Zuordnungsquote
+   berichten (Soll: 100 %), Summe/min/max gegen Erwartung prüfen (CW-Profile:
+   Stücke von wenigen mm bis ~3,5 m sind normal — Mini-Stummel existieren).
+
+**Für die Mengenauswertung beachten:** Ein Frame-Datensatz ist ein **Segment**,
+kein durchlaufendes Profil — dieselbe Element-ID kann auf dutzende Segmente
+verteilt sein. Für lfm-Positionen zählt die Längensumme, nie die Stückzahl.
 
 ---
 
@@ -798,6 +837,9 @@ Eine Default-CurtainWall generiert sofort viele Frames (live: 31 Stück). Bulk-F
 
 **G-07 — Profil-Attribut-Index vs. GUID.**
 Profile-Felder heißen in manchen AC-Versionen `profileAttrIndex` (Float, 1-basiert) und in anderen `profileAttributeId` (GUID-Objekt). Discovery in der Session klärt das Schema — nicht raten. GUID-basierter Zugriff ist robuster gegen Attribute-Reihenfolge-Änderungen.
+
+**G-07b — Frame-Properties nur über den Tapir-Command lesbar; Werte sind lokalisierte Strings.** <!-- 2026-07-27 live verifiziert -->
+Der offizielle `API.GetPropertyValuesOfElements` wirft für Frames (und alle CW-Subelemente) pro Element `7203 Element not supported` — der **Tapir**-`GetPropertyValuesOfElements` kann Subelemente. Dessen Werte kommen als **lokalisierte Display-Strings** („0,315", Dezimalkomma, ohne Einheit) — vor jeder Rechnung parsen. Der Modell-eigene „Profil-Typ" ist übrigens meist uniform „Integriertes Profil" und taugt **nicht** zur Typunterscheidung — Pfosten/Riegel/Rand unterscheidet man über die Element-ID-Namenskonvention. Voller Workflow: [Worked Example — Profillängen](#worked-example--profillängen-lfm-bulk-lesen-für-die-ausschreibung).
 
 ### CurtainWallPanel
 
