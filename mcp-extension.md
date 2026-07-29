@@ -209,6 +209,49 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Richtig: **j=7** (Graphisofts eigene Marker-Macros nutzen 5/7, nie 3).
   Kostete 3 Bibliothekstausch-Zyklen — Referenz: `Section-Elevation Marker
   Macro` in BuiltInLibraryParts (libpart2xml + grep poly2_b).
+  **Nachtrag 2026-07-28 (PDF-Plot-Test):** Für WINZIGE Füllflächen (QR-Module
+  ~0,25 mm) gilt **j=6** (Füllung+geschlossen, OHNE Rahmen-Bit 1) — am
+  Bildschirm sieht j=7 gut aus, aber beim PDF-Plot bekommt die Kontur die
+  echte Stiftstärke und schmiert benachbarte Module zu einem schwarzen
+  Klotz zusammen. j=7 nur für Flächen, deren Kantenlänge ≫ Stiftstärke.
+  Fix-Zyklus: XML editieren → LP_XMLConverter xml2libpart → User löscht
+  Alt-Libpart im Bibliothekenmanager → AddFilesToEmbeddedLibrary +
+  ReloadLibraries; gleiche GUID in der XML ⇒ platzierte Etiketten
+  reconnecten automatisch (340/340 verifiziert).
+  **CRASH-FALLE `UpdateDrawings` (2026-07-28):** Tapir `UpdateDrawings`
+  ({elements:[Drawing-GUIDs]}) aus dem GRUNDRISS-Kontext heraus → Archicad
+  stürzt komplett ab (Connection closed, Prozess weg). Zeichnungs-Update
+  nur MANUELL (Layout öffnen → Zeichnungen aktualisieren) oder Neuaufbau
+  ⌘⇧R durch den User. WICHTIG danach: API-gesetzte Änderungen (z. B.
+  Zonenstempel via SetDetailsOfElements) erscheinen im Publisher-PDF erst
+  nach Neuaufbau/Drawing-Update — Modell-Rücklese allein beweist nicht,
+  dass der Plot sie zeigt!
+  **Text-Entzerrungs-Pipeline (2026-07-28, THN Sanierungsübersicht):**
+  PDF-getriebene Überlagerungs-Korrektur über MEHRERE DBs: (1) Layout-PDF =
+  Modell-Viewport + Nagel-Arbeitsblatt-Viewport übereinander; Transform je
+  Drawing per String-Matching kalibrieren (Fixskala 1pt=0,0353m bei 1:100,
+  Translation per Dichte-Cluster; Referenzmodell-Geist = Δy 350 aussortieren).
+  Modell-Viewport am robustesten über ZONENNUMMERN kalibrieren (eindeutig!).
+  (2) `GetTextsOfElements` (ELM_SAB) liefert content/location/sizeMm/widthMm/
+  angleRad/anchor — Zeilentrenner ist `\r`, NICHT `\n`! (3) Arbeitsblätter sind
+  eigene DBs: Inventur+Moves nur bei AKTIVEM Fenster; User klickt Blätter durch,
+  Skript erkennt aktive DB an GUID-Schnittmenge und wendet idempotent an
+  (verify-first: erst Ist-Lage vs. Snapshot klassifizieren, nie blind
+  re-moven!). (4) MoveElements auf AUSGEBLENDETEM Layer = Silent-No-Op mit
+  success:true — Layer sichtbar schalten geht NUR manuell (kein API-Befehl).
+  (5) **Zonenstempel verschieben**: `SetDetailsOfElements` mit
+  `details.typeSpecificDetails.stampPosition` {x,y} (Nesting beachten —
+  direkt unter details → 4002!); vorher ReserveElements, Ziel per
+  Punkt-in-Polygon in der Zone halten; Referenz-Zonen (y<350) tabu.
+  **AddFilesToEmbeddedLibrary-Schema (2026-07-28):** `files` ist ein Array
+  von OBJEKTEN `{inputPath, outputPath}` (outputPath = Dateiname in der
+  eingebetteten Bibliothek). Eine flache Pfadliste `files:["/pfad.gsm"]`
+  ist ein SILENT-NO-OP (`executionResults: []` — leer heißt „nichts
+  verarbeitet", nicht „Erfolg"). Verifikation immer per
+  GetGDLParametersOfElements auf einer platzierten Instanz (fehlendes
+  `parameters`-Feld = Libpart fehlt). Achtung außerdem: Tapir-Reads laufen
+  gegen das AKTIVE Fenster — im Layout/Arbeitsblatt liefert
+  GetElementsByType fast nichts; vor Inventuren Grundriss aktivieren.
 - **Objekt-Vorschau lügt**: Die 2D-Vorschau im Einstellungsdialog rendert
   OHNE Projekt-Attribute — Füllungen erscheinen leer, obwohl sie im Grundriss
   korrekt sind. Füll-/Attribut-Debugging NUR im Grundriss, nie in der Vorschau.
