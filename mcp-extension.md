@@ -506,3 +506,77 @@ Tapir hat `TapirCommand ReserveElements {elements:[{elementId:{guid}}]}` — lö
 - **Fassaden-Vollausbau aus 2D (live THN 2026-07-21, 90 Elemente)**: Layer A_05_FASSADE → Linien clustern (Union-Find, BBox-Nähe) → pro Zug Pfosten = Kurzlinien senkrecht zur Fassade (Achs-Cluster 3 cm) → Sektionen = Achsfolgen mit Feldern 0,5–2,6 m (Pfeilerzonen trennen) → Glasebene = Linienpaar 3–9 cm Abstand nahe Pfostenebene → je Sektion CreateCurtainWallFromAxes pro Geschoss + CreateWalls-Brüstungsband. PERFORMANCE: >10 CWs ⇒ Archicad regeneriert minutenlang (API nur IsAlive) — alle Folge-Ops in 6er-Chunks mit 15-s-Retry; Selektion von CWs triggert denselben Rebuild. Flächige Gitter (Glasdach) NICHT als Fassade bauen.
 - **Reihenfolge-Lektion Fassaden-Pipeline (2026-07-21)**: ERST Layer sanieren (fehlplatzierte Fassadenlinien via User-verifizierter Selektion auf A_05_FASSADE), DANN Muster parsen und bauen — sonst zerfallen durchgehende Fronten in Scheinabschnitte (Hof-Ost: 4 Kurzstücke mussten nach Layer-Umzug gegen 1 durchgehende Front ersetzt werden). Muster-Scans über alle Layer produzieren massives Rauschen (Bemaßung, Wandkappen, Fremd-/Referenzzonen ±350 m) — Kandidaten IMMER erst selektieren und vom User bestätigen lassen.
 - **Silent-No-Op-Ursache #3: GRUPPEN (2026-07-21)**. Elemente in Gruppen verweigern Einzeländerungen (SetDetails/Delete: „Failed to change element" -2130312912 bzw. still wirkungslos), solange „Gruppierung unterbrechen" (Alt+G) AUS ist — kein Reservierungskonflikt, kein Hotlink, kein Lock. Diagnose-Reihenfolge bei wirkungslosen Writes: (1) ReserveElements-conflicts[] prüfen (Fremd-Reservierung), (2) UnlockElements testen, (3) GetHotlinks (leer ⇒ kein Hotlink), (4) User „Gruppierung unterbrechen" einschalten lassen → Retry. Live THN: 98 gruppierte Höhenkoten-Symbole erst nach Alt+G änderbar; erklärt rückwirkend auch die „unlöschbaren" Alt-Etiketten.
+
+## Mehrversionsbau: AC27/28/29 aus einer Quelle <!-- 2026-07-29 -->
+
+Seit 2026-07-29 baut die CI (`.github/workflows/build-elm-sab-tapir.yml`) alle sechs
+Kombinationen aus AC27/28/29 und Mac/Windows in die rollende Vorabversion
+`elm-sab-tapir-latest`. Lokal ist der Build auf dem SAB-Mac **nicht** möglich: es fehlen
+cmake und das vollständige Xcode (nur Command Line Tools installiert). Wer bauen will,
+pusht — oder nimmt `workflow_dispatch`.
+
+**Die Versionsstaffelung, die man kennen muss** (steht in `Tools/CMakeCommon.cmake`, greift
+automatisch — aber sie bestimmt, was man in eigenen Befehlen schreiben darf):
+
+| | AC27 | AC28 | AC29 |
+|---|---|---|---|
+| C++-Standard | C++17 | C++17 | C++20 |
+| MSVC-Toolset | v142 | v142 | v143 |
+| DevKit-Build (upstream-erprobt) | 27.3001 | 28.3001 | 29.3000 |
+
+Konsequenz für neue ELM_SAB-Befehle: **keine C++20-Sprachfeatures** (keine ranges, kein
+`std::span`, kein `.starts_with`, keine designated initializers) — sonst bricht der
+AC27/28-Build, während AC29 grün bleibt. Der Windows-Runner ist auf `windows-2022`
+gepinnt, weil neuere Images v142 nicht mehr mitliefern; das ist kein Versehen, sondern
+dieselbe Entscheidung, die Upstream-Tapir 2026-05 getroffen hat. macOS braucht keinen
+Split (ein `-G Xcode` für alle), ab AC26 baut CMakeCommon universal für x86_64+arm64.
+Nicht versionsabhängig: die MDID (eine Registrierung gilt für alle Versionen) und
+`CompileResources.py` (lässt die Dark-Mode-Icons unter AC29 selbst weg).
+
+DevKit-URLs bewusst gleich wie Upstream, nicht die neuesten. Neuer wären 27.6003 /
+28.4001 / 29.3100 (in `ELM_SAB_Add-On/Tools/APIDevKitLinks.json` schon hinterlegt), aber
+für diesen Quellstand unerprobt. Achtung falls doch gewechselt wird: 29.3100 enthält
+**keinen LP_XMLConverter** mehr — für GSM-Arbeit weiterhin 29.3000 ziehen.
+
+**Die AC28-Bruchstelle `textContent`** (kostete den ersten Fehlschlag): In Archicad 28 ist
+`API_ElementMemo::textContent` von einem `char**`-Handle auf `GS::UniString*` umgestellt
+worden (offizielle AC28-Release-Note). Wer direkt zugreift, baut gegen DevKit 27 nicht.
+Tückischer ist der Lesepfad: `item.Add ("content", *memo.textContent)` **kompiliert unter
+AC27 fehlerfrei**, bindet an die `const char*`-Überladung und liefert leeren oder falschen
+Text — obwohl mit `APIMemoMask_TextContentUni` gelesen wurde. Ein Fehlschlag, der sich als
+Erfolg tarnt. Beide Richtungen laufen jetzt über `GetMemoTextContentELM` /
+`SetMemoTextContentELM` in `Sources/ELMCommandBase.hpp`; das Muster für den AC27-Zweig
+steht in Tapirs `SetTextContentAndParagraphs` (ElementCreationCommands.cpp) und baut dort
+für AC25–29. **Merksatz: Bei jedem neuen Befehl, der ein Memo-Feld direkt anfasst, gegen
+die AC28-Release-Note prüfen** — die Doxygen-Membertabellen der DevKit-Repos zeigen pro
+Version den echten Feldtyp.
+
+**CI-Ergebnis aus einem PRIVATEN Repo ohne Token lesen.** Actions-Logs und Release-Assets
+sind von außen nur mit Token erreichbar, und `gh` ist auf dem SAB-Mac nicht installiert.
+Lösung: der Publish-Job schreibt seine Bilanz als Waisen-Commit auf einen eigenen Zweig,
+der per SSH erreichbar ist:
+
+```bash
+git fetch origin ci-status  && git show FETCH_HEAD:status.md      # welche 6 Builds liefen
+git fetch origin ci-release && git show FETCH_HEAD:release-inventory.txt  # was hängt am Release
+```
+
+Der Zweig liegt außerhalb der `paths`-Filter und löst darum keinen neuen Lauf aus; die
+Build-Logs wandern gleich mit, damit ein Fehlschlag ohne User diagnostizierbar ist.
+Zwei Fallen dabei, beide selbst erlebt:
+
+- **`ncipollo/release-action` verschiebt einen BESTEHENDEN Tag nicht** — auch nicht mit
+  `commit:`, das wirkt nur beim Anlegen. Ein rollender Tag ist also **kein** Beleg dafür,
+  dass der aktuelle Lauf durchgelaufen ist. Wer das als Erfolgssignal nimmt, wartet ewig.
+- **Erfolgsprüfung per grep auf „fehlgeschlagen" schlug falsch an**, weil derselbe Text im
+  Erklärsatz des Release-Bodys stand („Zu jeder fehlgeschlagenen Version liegt das Log
+  bei"). Deshalb nennt die Inventur pro erwarteter Datei ausdrücklich „vorhanden" oder
+  „FEHLT", statt eine Liste zum Selbstnachzählen zu liefern. Gegenstück zu den „blinden
+  Nullen" weiter oben: hier war es ein **falscher Alarm** statt einer falschen Null — die
+  Regel „Antwortstruktur an einem bekannten Positivbeispiel prüfen" gilt in beide
+  Richtungen.
+
+Ein `-T v142`-Build ist übrigens auch der Grund, warum AC27/28-Windows-Logs winzig sind
+(~2 KB) gegenüber macOS (~320 KB): MSVC ist wortkarg. **Loggröße taugt als
+Plausibilitätsprüfung nur im Vergleich derselben Plattform** — AC27-Mac sprang beim Fix von
+53 KB (Abbruch) auf 327 KB (voller Durchlauf) und lag damit gleichauf mit AC28/29.
