@@ -218,11 +218,39 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Alt-Libpart im Bibliothekenmanager → AddFilesToEmbeddedLibrary +
   ReloadLibraries; gleiche GUID in der XML ⇒ platzierte Etiketten
   reconnecten automatisch (340/340 verifiziert).
-  **CRASH-FALLE `UpdateDrawings` (2026-07-28):** Tapir `UpdateDrawings`
-  ({elements:[Drawing-GUIDs]}) aus dem GRUNDRISS-Kontext heraus → Archicad
-  stürzt komplett ab (Connection closed, Prozess weg). Zeichnungs-Update
-  nur MANUELL (Layout öffnen → Zeichnungen aktualisieren) oder Neuaufbau
-  ⌘⇧R durch den User. WICHTIG danach: API-gesetzte Änderungen (z. B.
+  **CRASH-FALLE `UpdateDrawings` (2026-07-28), Ursache gefunden + behoben in
+  0.9.9 (2026-08-03):** Tapir `UpdateDrawings` ({elements:[Drawing-GUIDs]})
+  → Archicad stürzt komplett ab (Connection closed, Prozess weg). **Ursache:**
+  `UpdateDrawingsCommand::Execute` rief `ACAPI_Drawing_Update_Drawings` ohne
+  umgebenden Command-Scope; das Zeichnungs-Update öffnet aber einen
+  ODB-Modification-Scope, und `ODB::Database::OpenModificationScope` schlägt
+  dann als Assert fehl → BugRep → FATAL. Belegt im Crashreport
+  (`BugReporting-29/…-FATAL.rpt`, oberster eigener Frame
+  `UpdateDrawingsCommand::Execute`). Ab ELM_SAB 0.9.9 in
+  `ACAPI_CallUndoableCommand` gekapselt wie jeder andere ändernde Befehl.
+  **Live verifiziert 2026-08-03 am THN** (leere Liste, echte Zeichnung
+  unreserviert, echte Zeichnung reserviert — dreimal saubere Antwort statt
+  Absturz). Upstream-Tapir hat den ungekapselten Aufruf Stand 2026-08-03
+  noch — PR-Kandidat. **Noch offen:** der Befehl meldet `success:false`
+  (`-2130312306`) statt zu aktualisieren; liegt NICHT an der Reservierung
+  (mit ReserveElements gegengeprüft). Der DevKit-Aufruf braucht vermutlich
+  einen bestimmten DB-/Fenster-Kontext — eigenes Arbeitspaket. Bis dahin:
+  Zeichnungs-Update weiterhin MANUELL (Layout öffnen → Zeichnungen
+  aktualisieren) oder Neuaufbau ⌘⇧R durch den User — aber ohne
+  Absturzrisiko bei versehentlichem Aufruf.
+  **THN-Praxiswarnung (User, 2026-08-03):** die THN-Zeichnungen sind extrem
+  voll — Drawing-Reads und -Updates blockieren Archicad minutenlang und
+  sehen wie ein Hänger aus. Vorher ankündigen, Einzelstücke statt
+  Massenläufe, „hängt" nie am Antwortverhalten diagnostizieren, sondern an
+  Prozess/CPU. Drawing-Elemente sind übrigens auch bei AKTIVEM Layout nicht
+  per GetElementsByType lesbar (0 Treffer, offizielle wie Tapir-Variante);
+  der verlässliche Weg ist Selektion durch den User + `GetSelectedElements`.
+  Und `API.GetTypesOfElements` kennt Drawings nicht (7203) — der Typ-Check
+  läuft dort ins Leere. **Merksatz:** Ein Upstream-Befehl, der etwas ändert und
+  NICHT in `ACAPI_CallUndoableCommand` läuft, ist ein Crash-Kandidat — beim
+  Übernehmen fremder Befehle darauf prüfen (Crashreports liegen unter
+  `~/Library/Application Support/Graphisoft/BugReporting-29/`, NICHT in
+  `~/Library/Logs/DiagnosticReports` — dort steht zu Archicad nichts). WICHTIG danach: API-gesetzte Änderungen (z. B.
   Zonenstempel via SetDetailsOfElements) erscheinen im Publisher-PDF erst
   nach Neuaufbau/Drawing-Update — Modell-Rücklese allein beweist nicht,
   dass der Plot sie zeigt!
@@ -552,7 +580,9 @@ die AC28-Release-Note prüfen** — die Doxygen-Membertabellen der DevKit-Repos 
 Version den echten Feldtyp.
 
 **CI-Ergebnis aus einem PRIVATEN Repo ohne Token lesen.** Actions-Logs und Release-Assets
-sind von außen nur mit Token erreichbar, und `gh` ist auf dem SAB-Mac nicht installiert.
+sind von außen nur mit Token erreichbar. `gh` liegt inzwischen unter `~/.local/bin/gh`, ist
+aber **bei keinem Host angemeldet** (`gh auth status` → „not logged into any GitHub hosts") —
+ein installiertes `gh` ist also kein Zugang, und Anmelden ist Nutzersache.
 Lösung: der Publish-Job schreibt seine Bilanz als Waisen-Commit auf einen eigenen Zweig,
 der per SSH erreichbar ist:
 
@@ -560,6 +590,16 @@ der per SSH erreichbar ist:
 git fetch origin ci-status  && git show FETCH_HEAD:status.md      # welche 6 Builds liefen
 git fetch origin ci-release && git show FETCH_HEAD:release-inventory.txt  # was hängt am Release
 ```
+
+**Seit 2026-08-03 liegen auch die gebauten Bundles dort** (`bundles/`), weil ein
+Bundle-Tausch sonst am Token scheitert und über den Browser laufen müsste:
+
+```bash
+git fetch origin ci-status
+git show origin/ci-status:bundles/ELM_SAB_Tapir_AC29_Mac.zip > /tmp/elm.zip
+```
+
+Der Zweig wird als Waisen-Commit force-gepusht und wächst darum nicht mit jedem Lauf.
 
 Der Zweig liegt außerhalb der `paths`-Filter und löst darum keinen neuen Lauf aus; die
 Build-Logs wandern gleich mit, damit ein Fehlschlag ohne User diagnostizierbar ist.
@@ -580,3 +620,50 @@ Ein `-T v142`-Build ist übrigens auch der Grund, warum AC27/28-Windows-Logs win
 (~2 KB) gegenüber macOS (~320 KB): MSVC ist wortkarg. **Loggröße taugt als
 Plausibilitätsprüfung nur im Vergleich derselben Plattform** — AC27-Mac sprang beim Fix von
 53 KB (Abbruch) auf 327 KB (voller Durchlauf) und lag damit gleichauf mit AC28/29.
+
+## Welcher Build läuft eigentlich? — `ELM_SAB.GetAddOnVersion` <!-- 2026-08-03 -->
+
+`TapirCommand.GetAddOnVersion` meldet `ADDON_VERSION` aus `Sources/AddOnVersion.hpp` — das
+ist die Version des **Tapir-Unterbaus** (1.5.4) und bleibt gleich, egal welcher ELM_SAB-Stand
+im Bundle steckt. Zusammen mit dem **rollenden** Tag `elm-sab-tapir-latest` war damit am
+laufenden Archicad nicht feststellbar, ob das installierte Bundle aktuell ist: ein vier Tage
+altes Bundle antwortete identisch zu einem frischen. Genau das ist die Update-Stolperfalle
+weiter oben, nur ohne die Zweit-Instanz als Ausrede.
+
+Seit 0.9.9 gibt es `ELM_SAB.GetAddOnVersion` → `{version, tapirBaseVersion, buildStamp}`.
+`version` ist `ELM_SAB_VERSION`, `buildStamp` ist `__DATE__ " " __TIME__` des Builds und
+identifiziert den konkreten Bundle-Build auch dann, wenn die Versionsnummer mal vergessen
+wird. **Nach jedem Bundle-Tausch als erstes abfragen** — das ist die Rücklese für die
+Installation selbst.
+
+Pflicht bei jeder Änderung an ELM_SAB-Befehlen: `ELM_SAB_VERSION` hochziehen und die
+`RegisterCommand`-Versionsangabe des geänderten Befehls mitziehen.
+`ELM_SAB.GetAddOnVersion` existierte vorher NICHT — ein `4010` auf diesen Namen ist also
+kein Beleg dafür, dass der Namespace fehlt (Gegenprobe: irgendein echter ELM_SAB-Befehl).
+
+## ELM_SAB-Kandidaten aus der Vorlagen-Session <!-- 2026-07-30 -->
+
+Der Vorlagen-Umbau hat die verbliebenen API-Lücken scharf abgegrenzt. Nach der Hausregel
+(**Schreiboperationen als eigene ELM_SAB-Befehle mit Rücklese-Verifikation; Tapir nur für
+Reads und Selektion**) sind das die Kandidaten — nach Nutzen sortiert. Jeder Eintrag nennt
+die Lücke, den vermuteten DevKit-Weg und den Verifikationsstand.
+
+| # | Befehl (Arbeitsname) | Schließt diese Lücke | DevKit-Weg | Stand |
+|---|---|---|---|---|
+| 1 | `GetProfileBuildingMaterialsELM` | Baustoffe in **Profilen** sind per Tapir nicht auslesbar ⇒ jeder „unbenutzt"-Befund bleibt unvollständig, Löschen muss in den Attributmanager | `ACAPI_Attribute_GetDefExt` → `API_AttributeDefExt.profile` (ProfileVectorImage), Baustoff-Indizes der Schichten auslesen | <!-- VERIFY --> Feld existiert, Auslesepfad noch nicht gebaut |
+| 2 | `SetElementDefaultELM` | `favorites_apply_favorites_to_element_defaults` scheitert bei **Dach** (`-2130313114`); Defaults sind sonst nur per UI-Doppelklick setzbar | `ACAPI_Element_GetDefaults` / `ACAPI_Element_ChangeDefaults` je `API_ElemTypeID`, inkl. Klassifizierung und Ebene | <!-- VERIFY --> API dokumentiert, Roof-Sonderfall zu prüfen |
+| 3 | `CreatePropertyDefinitionELM` | Property-Anlage ist derzeit **UI-only** (Enum-Werte, Gruppe, Verfügbarkeit je Klassifizierung) — betrifft jede Vorlagenpflege | `ACAPI_Property_CreatePropertyGroup` + `ACAPI_Property_CreatePropertyDefinition`, Availability über Classification-Item-GUIDs | <!-- VERIFY --> gilt in AC29 als fragil (defaultValue-Pflicht), genau deshalb als eigener Befehl mit Rücklese sinnvoll |
+| 4 | `GetLibraryPartsELM` | `library_get_available_library_parts` ist **defekt** (immer leer, hoher `skippedCount`) ⇒ eingebettete Teile sind nur im UI prüfbar | `ACAPI_LibraryPart_GetNum` + `ACAPI_LibraryPart_Get`, Filter auf eingebettete Bibliothek | <!-- VERIFY --> Standardpfad, sollte unkritisch sein |
+| 5 | `SaveProjectAsELM` | **Sichern / Sichern unter (.tpl)** hat keinen Endpoint ⇒ eine Stunde API-Umbau bleibt ungesichert im RAM | `ACAPI_ProjectOperation_Save` mit `API_FileSavePars` (Format `.pln` / `.tpl`) | <!-- VERIFY --> heikel: Zielpfad-Validierung und „Original nicht überschreiben" gehören in den Befehl |
+| 6 | `GetIFCTranslatorSettingsELM` | der **Typ-Zuordnungsbaum** des IFC-Übersetzers ist weder lesbar noch schreibbar ⇒ der wirksamste Vorlagen-Fix bleibt UI + Vorher/Nachher-Probe | IFC-Manager-Funktionen des DevKit (`ACAPI_IFC_*`) | <!-- VERIFY --> unklar, ob der Zuordnungsbaum überhaupt exponiert ist; **erst lesen können, dann über Schreiben nachdenken** |
+
+Reihenfolge-Empfehlung: **1, 2, 4** zuerst — kleine, klar umrissene Befehle, die je eine
+dokumentierte Lücke schließen und sich mit einer Rücklese sauber verifizieren lassen.
+**3 und 5** danach, weil sie Projektzustand verändern und eine Absicherung im Befehl selbst
+brauchen. **6** ist ein Forschungsauftrag, kein Bauauftrag: solange nicht belegt ist, dass
+der Baum lesbar ist, bleibt der UI-Weg der richtige — und `dev_get_ifc_type_of_elements`
+(Tapir, Read) ist die Erfolgskontrolle dafür.
+
+Was **nicht** nach ELM_SAB gehört, weil Tapir es kann: Favoriten-Round-Trip, Ebenen löschen,
+Ebenenkombinationen, Baustoffe anlegen, IFC-Export, Klassifizierung setzen. Vor jedem neuen
+Befehl also erst zwei Discovery-Queries — die Lückenliste veraltet mit jedem Tapir-Release.
