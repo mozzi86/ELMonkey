@@ -54,6 +54,7 @@
 #include "SetColumnDetailsCommand.hpp"
 #include "SetColumnRotationCommand.hpp"
 #include "CreateCurtainWallCommand.hpp"
+#include "GetVersionCommandELM.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -930,6 +931,10 @@ GSErrCode Initialize (void)
 
     { // ELM_SAB Commands (Namespace "ELM_SAB")
         CommandGroup elmSabCommands ("ELM_SAB Commands");
+        err |= RegisterCommand<ELMGetAddOnVersionCommand> (
+            elmSabCommands, "0.9.9",
+            "ELM_SAB: Meldet die Version DIESES Bundles plus Tapir-Unterbau und Build-Zeitstempel — TapirCommand.GetAddOnVersion liefert nur den Unterbau."
+        );
         err |= RegisterCommand<SetPenOfElementsCommand> (
             elmSabCommands, "0.9.0",
             "ELM_SAB: Setzt Stifte (Kontur/Schraffur-VG/HG, Text-Deckung) von 2D-Elementen; optional ueber mehrere Datenbanken."

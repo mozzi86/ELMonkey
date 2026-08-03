@@ -149,7 +149,14 @@ GS::ObjectState UpdateDrawingsCommand::Execute(const GS::ObjectState& parameters
     parameters.Get("elements", elements);
 
     const GS::Array<API_Guid> elemIds = elements.Transform<API_Guid>(GetGuidFromElementsArrayItem);
-    GSErrCode err = ACAPI_Drawing_Update_Drawings(elemIds);
+
+    // Das Zeichnungs-Update oeffnet einen ODB-Modification-Scope. Ohne umgebenden
+    // Command-Scope schlaegt ODB::Database::OpenModificationScope als Assert fehl und
+    // reisst Archicad fatal mit (Crashreport 2026-07-28, Frame UpdateDrawingsCommand::Execute).
+    // Alle anderen aendernden Befehle hier laufen darum in ACAPI_CallUndoableCommand.
+    GSErrCode err = ACAPI_CallUndoableCommand ("UpdateDrawingsCommand", [&]() -> GSErrCode {
+        return ACAPI_Drawing_Update_Drawings (elemIds);
+    });
 
     return err == NoError
         ? CreateSuccessfulExecutionResult()
