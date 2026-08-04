@@ -165,6 +165,10 @@ Details: `reference/referenzmodell-abgleich.md`, `recipes/tueren-aus-boegen.md`.
 
 **Sichtbarer Name seit 0.9.10 (2026-08-04): „ELMonkey SAB"** — Menüreiter,
 Add-On-Manager und About-Dialog (zeigt `ELM_SAB x.x.x · Tapir x.x.x · Port n`).
+Seit 0.9.11 mit eigenem Logo (King Kong am Hochhaus; Palette: Affenkopf —
+`Sources/RFIX/Images/ELMonkeyLogo*.svg`, Ressourcen-IDs heißen weiter
+`ID_TAPIR_LOGO*`) und Dankeszeile an die Tapir-Macher im About. Vom Nutzer
+abgenommen 2026-08-04 („der Affe bleibt").
 Die Namespaces `TapirCommand`/`ELM_SAB` sind unverändert. **Upstream-Auto-Update
 ist stillgelegt** (Menüpunkt entfernt, `TapirPalette::UpdateAddOn` returnt false):
 Tapirs am 31.07. repariertes macOS-Auto-Update hätte sonst das Vanilla-Tapir über
