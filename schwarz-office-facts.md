@@ -82,7 +82,25 @@ System-GUID: `0eae85a4-23e0-5243-b1cc-d6465a28dfc9`
 | Schornstein | `5de8075d-f291-a64c-b0d7-899cf0ee994b` |
 | Sonnenschutz | `4ad45d3e-70cb-374b-ac77-46304ad7fce3` |
 
-## Layer-Naming-Konvention (Z_/A_-Schema)
+## Layer-Naming-Konvention
+
+> ⚠️ **KORREKTUR 2026-07-30, live an der Bürovorlage gemessen.** Das unten beschriebene
+> `Z_NN_`/`A_NN_`-Schema ist **projektspezifisch (THN)** und **nicht** die Büro-Konvention.
+> Die Bürovorlage hat 87 Ebenen, davon **78 im Schema `NN Name`** (`10 Wand außen`,
+> `10 Wand innen tragend`, `20 Decke abgehängt`, `20 Fußbodenaufbau`,
+> `90 Bemaßung Allgemein`, `91/92 … - Rohbau / - Ausbau`, `93 Brandschutz`, `98 … Marker`,
+> `99 Import Fachplaner`) und **null** im `A_`/`Z_`-Schema. Genau `NN Name` erwarten auch
+> die NOVA-AVA-Filter — sie matchen auf `ifc_layer` mit *equals*, weshalb Ebenen-Renames
+> hier der riskanteste Eingriff überhaupt sind.
+>
+> Ebenfalls korrigiert: die Suffixe bedeuten `_BS` = **Beschriftung** (nicht Bestand),
+> `_BM` = **Bemaßung**, `_SCHR` = **Schraffur** — und auch das nur im THN-Projekt.
+> Folge dort: Grafik (z. B. Türaufschläge) auf den Basis-Layer, Texte/Labels auf `_BS`.
+>
+> Die Systemebene **„Archicad-Ebene"** taucht in Tapir-Listen nie auf — kein Fehlbefund
+> daraus ableiten.
+
+### THN-Projekt-Schema (nicht Büro)
 
 Strukturierte 2-Prefix-Konvention:
 
@@ -125,7 +143,25 @@ Bei Plan-Erstellung: passende Pen-Table je Plan-Maßstab wählen.
 
 ### IFC-Übersetzer mapped ALLES als IfcBuildingElementProxy (kritisch)
 
-<!-- 2026-05-21 live-verifiziert am AFW-WC-Projekt -->
+<!-- 2026-05-21 live-verifiziert am AFW-WC-Projekt; 2026-07-30 in der Bürovorlage bestätigt und ergänzt -->
+
+> **Ergänzung 2026-07-30 — es sind zwei Fehler, nicht einer.** Der Übersetzer-Fix unten
+> behebt nur „alles wird Proxy". Er behebt **nicht**, dass die SAB-Klasse im IFC fehlt:
+> das kommt daher, dass die Bauteile gar nicht klassifiziert sind, weil in der Vorlage
+> **alle 446 Favoriten ein leeres `<ClassificationItemSet/>`** hatten (Folge in einem
+> Projekt: 2 von 544 Bauteilen klassifiziert). Beleg für die Unabhängigkeit: ein Projekt
+> mit 98,4 % Klassifizierung exportierte trotzdem 100 % Proxy. Beide Fixes einzeln fahren
+> — Kanäle und Diagnose in [`ifc-mapping-und-diagnose.md`](ifc-mapping-und-diagnose.md),
+> Favoriten-Fix in [`favoriten-und-defaults.md`](favoriten-und-defaults.md).
+>
+> **Der Bug ist übersetzerabhängig.** Im selben Projekt lieferte IFC4 ReferenceView alles
+> als Proxy, IFC2X3 CoordinationView echte Klassen. Bei jedem Proxy-Befund zuerst fragen,
+> mit welchem Übersetzer exportiert wurde.
+>
+> **Schnellprobe ohne Export** (2026-07-30 live): `dev_get_ifc_type_of_elements` an ein
+> paar Wänden. In der Bürovorlage kam für die ersten 3 von 19 Wänden
+> `IfcBuildingElementProxy` — der Bug steckt also in der Vorlage selbst und vererbt sich
+> in jedes Projekt.
 
 Der IFC-Übersetzer („Allgemeiner Übersetzer IFC4") im Schwarz-Template hat die Typ-Zuordnung auf **„Klassifikations-basiert"** stehen, aber das **Quell-Klassifizierungssystem ist nicht gesetzt** („Nicht verfügbar"). Folge: alle Bauteile (Wände, Türen, Fenster, Decken, Stützen, …) fallen in die Default-Kategorie „Nicht klassifizierte Elemente" und werden als `IfcBuildingElementProxy` exportiert. Die SAB-Klassifikation der Elemente wird ignoriert.
 
@@ -161,6 +197,39 @@ Der IFC-Übersetzer („Allgemeiner Übersetzer IFC4") im Schwarz-Template hat d
 | Leuchte | `IfcLightFixture` | — |
 
 Diesen Fix sollte das Office einmal zentral im Vorlagen-Template machen, dann profitieren alle künftigen Projekte.
+
+## Bürovorlage — Ist-Stand und Erbfehler <!-- 2026-07-30 live gemessen -->
+
+Gemessen an `Vorlagendatei ArchiCAD SAB.tpl` (AC29). Diese Zahlen sind die Basislinie für
+jeden künftigen Vorlagen-Umbau; Ablauf dazu in
+[`../recipes/vorlagen-pflege.md`](../recipes/vorlagen-pflege.md).
+
+| Bereich | Stand |
+|---|---|
+| Klassifikationssysteme | **genau eines**: `SAB_Klassifizierung_29` v02 (2026-05-18). Kein Altsystem v01, kein Graphisoft-Standard, kein Uniformat |
+| User-Properties | **160 in 11 Gruppen** — die laufende Vorlage ist **neuer** als `SAB_Klassifizierung_29_MERGED.xml` (~145). Nur in der Vorlage: Gruppen `Baustelleneinrichtung`, `SAB_Brandschutz` (40 Enum-Werte), `BS-BST.` (40). ⇒ **Ein Reimport der XML würde Properties verlieren — die laufende Vorlage ist die Wahrheit** |
+| Ebenen | 87, davon 78 im Schema `NN Name` |
+| Baustoffe | 122, davon 105 mit `_NNN`-Suffix (= `connectionPriority`), 41 Verbünde, 53 Profile |
+| Favoriten | 446 |
+| Bibliotheken | **nur die Graphisoft-Standardpakete** — keine Service-Bibliothek, kein BIM all doors, keine SAB-Furniture |
+
+**Erbfehler, die sich in jedes Projekt vererben:**
+
+- **Alle 446 Favoriten hatten ein leeres `<ClassificationItemSet/>`** — wer über Favoriten
+  zeichnet, erzeugt unklassifizierte Bauteile. In einem Projekt: 2 von 544 klassifiziert.
+- **IFC-Übersetzer auf „Klassifizierung"** ⇒ Proxy-Bug, per
+  `dev_get_ifc_type_of_elements` an Wänden der Vorlage direkt nachweisbar.
+- **6 fehlende Bibliothekselemente** (Raumstempel DIN 27 12×, Linearer Zeichnungstitel 27
+  6×, Stand/Wand WC + Waschbecken 2, ASR-Tool 3) — AC27/28-Migrationsrückstände. Erklärung:
+  die Vorlage referenziert Objekte aus Bibliotheken, die sie nicht lädt.
+- **50 Favoriten lagen auf fachfremden Ebenen** (Bemaßung auf „10 Dämmung", Etiketten auf
+  „10 Wand innen tragend", Barrierefrei-Schraffuren auf „99 Import Fachplaner").
+- **`Einbauort` ist `string`, kein Enum** ⇒ die Grafiküberschreibung „Prüfung Lage
+  innen – außen" erwartet Enum-GUIDs und greift nicht.
+- **Rutschhemmung** existierte nur als Baustoff-Variante (`Fliesen - Rutschhemmung`), nicht
+  als Raum-Property ⇒ aus 7 saubere Bodenbelag-Werten wurden im Projekt 21.
+- **Asbest-/Schadstoff-Baustoffe fehlten** (Putze waren vorhanden — die frühere Notiz
+  „Putz fehlt" betraf ein Projektmodell, nicht die Vorlage).
 
 ## Teamwork-spezifische Stolperfallen
 
@@ -198,6 +267,12 @@ User Mudi pflegt regelmäßig Property/GDL-Stempel-Sync für Bodenbeläge in Rau
 ### Bulk-Klassifizierung (Innen/Außen, tragend/nicht-tragend)
 
 Wiederkehrender Kern-Workflow. Pattern: Read → Filter → Group → Confirm → Apply → Verify (reverse-lookup wegen silent-success-Bug). Details: `bulk-operations.md`.
+
+### Bürovorlage pflegen
+
+Wiederkehrend beim Versionswechsel und bei Qualitätsoffensiven. Reihenfolge, Sicherungs-
+strategie und Abschlussbeleg: [`../recipes/vorlagen-pflege.md`](../recipes/vorlagen-pflege.md).
+Kernhebel sind Favoriten + Werkzeug-Defaults (API) und der IFC-Übersetzer (UI).
 
 ### DWG-Lageplan → IFC-Decken-Hotlink
 

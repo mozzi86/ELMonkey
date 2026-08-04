@@ -25,6 +25,10 @@ Gleichzeitig wollen wir keine Skill-Bloat. Jeder neue Eintrag muss eine Hürde �
 | Neue Gotcha eines Elementtyps (z. B. „geschwungene Wände erwarten `radius` statt `endPoint`") | `recipes/<typ>.md` → Gotchas-Sektion |
 | Allgemeines MCP-Verhalten (Paginierungs-Quirk, ungewöhnlicher Fehler-Code, neuer Idiom) | `reference/mcp-conventions.md` |
 | Geometrie-Ableitungs-Trick für Bulk-Klassifizierung (z. B. „Innen-Erkennung via Zone-Membership funktioniert in Archicad 29") | `reference/bulk-operations.md` → entsprechende Sub-Sektion |
+| Favoriten-/Default-Mechanik, XML-Formatregeln, AddPars & Co. | `reference/favoriten-und-defaults.md` |
+| Attribut-Mechanik (Ebenen, Kombis, Baustoffe, Verbünde, Profile), Lösch-/Rename-Risiken | `reference/attribute-und-ebenen.md` |
+| IFC-Übersetzer, Zuordnungsbäume, Export-Diagnose, Klassifikationsbäume | `reference/ifc-mapping-und-diagnose.md` |
+| „Das geht nur im UI" / „das geht doch per API" + Klickpfade | `reference/ui-aufgaben.md` |
 | Neuer Worked Example für ein Rezept (eine reale Aufgabe, die nicht offensichtlich aus den existierenden Beispielen abzuleiten war) | `recipes/<typ>.md` → Worked-Examples-Sektion |
 | User-Präferenz („dieser User akzeptiert keine Caps in Confirm-Dialogen") | **Memory** — nicht Skill |
 | Projekt-spezifischer Fakt („Layer ‚Wände-OG' enthält die OG-Bestandswände") | **Memory** — nicht Skill |
@@ -82,6 +86,31 @@ Manche Lern-Einträge halten der Realität nicht stand — Archicad ändert sich
 - **Wenn nach Re-Verifikation der Eintrag falsch ist** → korrigieren oder ganz entfernen, NICHT „abschwächen" („normalerweise…" / „manchmal…").
 
 Diese Schleife verhindert, dass falsche Lern-Einträge sich verewigen — eines der größten Risiken eines selbst-lernenden Skills (Hallucination-Feedback-Loop, Pitfall P9 aus der Research).
+
+## Nullbefunde brauchen eine Gegenprobe <!-- 2026-07-30 -->
+
+Ein Nullbefund („keiner dieser Favoriten referenziert die Ebene", „das Attribut ist
+unbenutzt", „die Bibliothek enthält nichts") ist die gefährlichste Art von Ergebnis: er
+sieht wie Wissen aus, entsteht aber genauso leicht aus einer kaputten Methode wie aus der
+Wirklichkeit — und er führt direkt zu Löschempfehlungen.
+
+**Regel: Bevor ein Nullbefund gemeldet wird, die Methode an einem bekannten Positivfall
+prüfen.** Praktisch: „Welche Ebene benutzt ein *Wand*-Favorit?" — kommt darauf auch nichts,
+ist die Auswertung defekt, nicht der Datenbestand.
+
+Zwei live erlebte Fälle:
+
+- „Diese 8 Ebenen haben 0 Favoriten-Referenzen, also verwaist" — falsch. Die `AttrTable`
+  mischt Attributtypen; der Namensvergleich hatte auf Schraffuren und Oberflächen gleichen
+  Namens getroffen. Tatsächlich lagen **50 Favoriten auf fachfremden Ebenen**. Der Nutzer
+  fand es an einem Symptom, das die Auswertung nie zeigte.
+- „`library_get_available_library_parts` liefert leer, also ist nichts eingebettet" —
+  falsch. Das Tool ist defekt (hoher `skippedCount`). Eine leere Antwort eines defekten
+  Tools ist kein Befund.
+
+Spiegelbildlich gilt es für **falsche Alarme**: eine Erfolgsprüfung per Textsuche schlug an,
+weil das Suchwort im Erklärtext stand. Deshalb: Antwortstruktur immer an einem bekannten
+Positivbeispiel kalibrieren — in beide Richtungen.
 
 ## Grenzen — was NICHT in den Skill gehört
 
