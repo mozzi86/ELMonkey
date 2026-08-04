@@ -25,7 +25,7 @@ Stand 2026-07-30, AC29 / Tapir 1.5.3.
 | Aufgabe | Warum | Belegt |
 |---|---|---|
 | **IFC-Übersetzer** — Auswahl, Typ-Zuordnungsbaum, Datenkonvertierungs-Checkboxen | kein API-Endpoint | 2026-07-30 |
-| **Property-Definitionen** anlegen/ändern (Eigenschaften-Manager) | Create per API in AC29 fragil: `defaultValue`-Pflicht, eigene Gruppe nötig, Availability-Kopplung → nicht empfohlen | 2026-07-17 |
+| **Property-Definitionen ÄNDERN** (Verfügbarkeit, Enum-Werte, Typ einer bestehenden Property) | es gibt nur `create` und `delete`, **kein** `ModifyPropertyDefinitions`. Delete+Create ist SAFE-02-pflichtig — GUID-Referenzen (z. B. GDL `Property_Value_Of_Parent`) brechen dabei | 2026-08-04 |
 | **Attributmanager**-Löschungen mit Ersatzwahl (Baustoffe, Verbünde, Profile) | API kennt die Profil-Verwendung nicht, würde den Ersatz still wählen | 2026-07-30 |
 | **Dach-Werkzeug-Default** setzen | `apply_favorites_to_element_defaults` scheitert bei Roof (`-2130313114`) | 2026-07-30 |
 | **Bibliothekenmanager** — fehlende Elemente auflösen, Zuordnung prüfen | kein API-Endpoint für Migrationsrückstände | 2026-07-30 |
@@ -48,6 +48,8 @@ zurückgeben:
 | Bibliotheksdateien einbetten | `library_add_files_to_embedded_library` |
 | IFC exportieren | `dev_ifc_file_operation` (`method: "save"`) |
 | „Welchen IFC-Typ bekäme diese Wand?" | `dev_get_ifc_type_of_elements` |
+| **Property-Definitionen ANLEGEN** — inkl. Enum-Werten und Availability je Klassifikations-Item | `properties_create_property_definitions` (+ `properties_create_property_groups`). **Live verifiziert 2026-08-04**: 17 Brandschutz-Properties in einem Aufruf, Availability bauteilgerecht, Rücklese 177/177. Der alte Eintrag „UI-only, fragil" war ab Tapir 1.5.4 falsch |
+| Klassifikations-**Items** in ein bestehendes System hängen | `dev_create_classification_items` mit `parentClassificationItemId` (Antwort `executionResults: []` ist ein Fehlalarm — Rücklese zählt) |
 | Klassifikationssystem samt Baum anlegen | `dev_create_classification_systems` (schwerer Eingriff, s. IFC-Datei) |
 
 **Regel:** Bevor eine Aufgabe als „geht nur im UI" gemeldet wird, eine Discovery-Runde mit
