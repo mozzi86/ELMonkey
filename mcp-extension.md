@@ -163,6 +163,16 @@ Details: `reference/referenzmodell-abgleich.md`, `recipes/tueren-aus-boegen.md`.
 
 ## Kombi-Add-On ELM_SAB_Tapir + Label-Pipeline <!-- 2026-07-16 -->
 
+**Sichtbarer Name seit 0.9.10 (2026-08-04): „ELMonkey SAB"** — Menüreiter,
+Add-On-Manager und About-Dialog (zeigt `ELM_SAB x.x.x · Tapir x.x.x · Port n`).
+Die Namespaces `TapirCommand`/`ELM_SAB` sind unverändert. **Upstream-Auto-Update
+ist stillgelegt** (Menüpunkt entfernt, `TapirPalette::UpdateAddOn` returnt false):
+Tapirs am 31.07. repariertes macOS-Auto-Update hätte sonst das Vanilla-Tapir über
+unser Bundle installiert — alle ELM_SAB-Befehle und SAB-Fixes weg. Updates kommen
+ausschließlich aus der eigenen CI (`ci-status`, `bundles/`). Upstream steht auf
+**1.5.7** (neu ggü. 1.5.4: `GetRelationsOfElements`, `GetMEPPreferenceTables`,
+Object/Lamp-Vollsupport) — Nachzug ist ein eigenes, offenes Arbeitspaket.
+
 Seit 2026-07-16 ist Tapir 1.5.4 KOMPLETT in unser Add-On integriert
 (`ELM_SAB_Tapir/`, Bundle `ELM_SAB_AC29_Mac.bundle`, eigene CI-Release
 `elm-sab-tapir-latest`). Ein Bundle, beide Namespaces (`TapirCommand` +
