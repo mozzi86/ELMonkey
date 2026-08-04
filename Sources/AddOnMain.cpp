@@ -137,7 +137,12 @@ GSErrCode RegisterInterface (void)
     GSErrCode err = NoError;
 
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_FOR_PALETTE, 0, MenuCode_UserDef, MenuFlag_Default);
-    err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_FOR_UPDATE, 0, MenuCode_UserDef, MenuFlag_Default);
+    // "Check for Updates..." ist im SAB-Kombi-Bundle BEWUSST nicht registriert:
+    // Tapirs Auto-Update wuerde das Vanilla-Tapir ueber dieses Bundle
+    // installieren — die ELM_SAB-Befehle und alle SAB-Fixes waeren weg.
+    // Updates kommen hier ausschliesslich aus der eigenen CI
+    // (Zweig ci-status, bundles/).
+    // err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_FOR_UPDATE, 0, MenuCode_UserDef, MenuFlag_Default);
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU, 0, MenuCode_UserDef, MenuFlag_Default);
 
     return err;
@@ -148,7 +153,9 @@ GSErrCode Initialize (void)
     GSErrCode err = NoError;
 
     err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_FOR_PALETTE, MenuCommandHandler);
-    err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_FOR_UPDATE, MenuCommandHandler);
+    // Update-Menue ist nicht registriert (siehe RegisterInterface) — Handler
+    // dafuer zu installieren wuerde nur einen Fehler in err einmischen.
+    // err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_FOR_UPDATE, MenuCommandHandler);
     err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU, MenuCommandHandler);
     err |= TapirPalette::RegisterPaletteControlCallBack ();
 

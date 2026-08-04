@@ -20,6 +20,7 @@ AboutDialog::AboutDialog () :
     GS::UniString versionTextContent = versionText.GetText ();
     GS::UniString versionTextNewContent = GS::UniString::SPrintf (
         versionTextContent,
+        GS::UniString (ELM_SAB_VERSION).ToPrintf (),
         GS::UniString (ADDON_VERSION).ToPrintf (),
         GS::ValueToUniString (portNumber).ToPrintf ()
     );

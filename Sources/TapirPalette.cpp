@@ -643,6 +643,14 @@ void TapirPalette::SetRunButtonIcon ()
 
 bool TapirPalette::UpdateAddOn ()
 {
+    // SAB-Kombi-Bundle: Upstream-Auto-Update ist KOMPLETT stillgelegt.
+    // Es wuerde das Vanilla-Tapir ueber dieses Bundle installieren und damit
+    // die ELM_SAB-Befehle und alle SAB-Fixes entfernen. Updates kommen
+    // ausschliesslich aus der eigenen CI (Zweig ci-status, bundles/).
+    // Deckt auch den Palette-Pfad ab (askUpdatingAddOnBeforeEachExecution).
+    return false;
+
+#if 0
     if (VersionChecker::IsUsingLatestVersion ()) {
         return false;
     }
@@ -697,6 +705,7 @@ bool TapirPalette::UpdateAddOn ()
     SetRunButtonIcon ();
 
     return true;
+#endif // Upstream-Auto-Update stillgelegt (SAB-Kombi-Bundle)
 }
 
 #define PREFERENCES_VERSION 10
