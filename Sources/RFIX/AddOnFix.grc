@@ -5,12 +5,14 @@
 	1033975726 /* Local ID "ELM_SAB_Add-On / SAB JSON commands", Portal 2026-07-13 */
 }
 
-'GICN' ID_TAPIR_LOGO "TapirLogo" {
-    "TapirLogo"
+/* Ressourcen-IDs heissen historisch ID_TAPIR_LOGO* — die Bilder sind seit
+   0.9.11 der ELMonkey (King Kong am Hochhaus / Affenkopf fuer die Palette). */
+'GICN' ID_TAPIR_LOGO "ELMonkeyLogo" {
+    "ELMonkeyLogo"
 }
 
-'GICN' ID_TAPIR_LOGO_MINI "TapirLogoMini" {
-    "TapirLogoMini"
+'GICN' ID_TAPIR_LOGO_MINI "ELMonkeyLogoMini" {
+    "ELMonkeyLogoMini"
 }
 
 'GICN' ID_RUN_BUTTON_ICON "Run" {

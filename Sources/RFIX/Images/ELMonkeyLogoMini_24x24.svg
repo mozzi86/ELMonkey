@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg version="1.1" viewBox="0 0 128 128" width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+  <!-- ELMonkey SAB — Mini-Variante fuer die 24-px-Palette: nur der Affenkopf.
+       Das grosse King-Kong-Motiv wird bei 24 px unleserlich. -->
+  <circle cx="64" cy="64" r="62" fill="#202225"/>
+  <!-- Ohren -->
+  <circle cx="30" cy="58" r="15" fill="#FFFFFF"/>
+  <circle cx="98" cy="58" r="15" fill="#FFFFFF"/>
+  <circle cx="30" cy="58" r="7" fill="#202225"/>
+  <circle cx="98" cy="58" r="7" fill="#202225"/>
+  <!-- Kopf -->
+  <circle cx="64" cy="62" r="32" fill="#FFFFFF"/>
+  <!-- Haarschopf -->
+  <path d="M 56,32 Q 60,22 68,26 Q 64,28 66,32 Q 60,29 56,32 Z" fill="#FFFFFF"/>
+  <!-- Augen -->
+  <circle cx="52" cy="56" r="5" fill="#202225"/>
+  <circle cx="76" cy="56" r="5" fill="#202225"/>
+  <!-- Nase -->
+  <circle cx="60" cy="70" r="2.5" fill="#202225"/>
+  <circle cx="68" cy="70" r="2.5" fill="#202225"/>
+  <!-- Laecheln -->
+  <path d="M 52,78 Q 64,88 76,78" stroke="#202225" stroke-width="4" fill="none" stroke-linecap="round"/>
+</svg>
