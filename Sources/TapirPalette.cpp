@@ -265,7 +265,8 @@ void TapirPalette::ButtonClicked (const DG::ButtonClickEvent& ev)
             }
         }
     } else if (ev.GetSource () == &tapirButton) {
-        OpenWebpage ("https://github.com/ENZYME-APD/tapir-archicad-automation");
+        // Der Affe ist ELMonkey SAB, nicht Tapir -> eigenes Repo. Tapir-Dank steht im About-Dialog.
+        OpenWebpage ("https://github.com/mozzi86/-archicad");
     } else if (ev.GetSource () == &openScriptButton) {
         GS::Ref<PopUpItemData> popUpItemData = GS::DynamicCast<PopUpItemData> (scriptSelectionPopUp.GetItemObjectData (scriptSelectionPopUp.GetSelectedItem ()));
         if (popUpItemData->repoRelLoc.IsEmpty ()) {
