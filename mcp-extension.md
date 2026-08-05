@@ -60,7 +60,11 @@ Nach Bundle-Tausch meldete `app_get_add_on_version` weiter die alte Version. Urs
 Projektfenster war zu). Vor dem Update mit `pgrep -fl Archicad` prüfen, dass ALLE
 Archicad-Prozesse beendet sind (Cmd+Q, nicht nur Fenster schließen). Außerdem: keine
 Backup-Kopien im `Add-Ons/`-Ordner lassen — Archicad versucht sie zu laden
-(„Einige Add-Ons konnten nicht geladen werden").
+(„Einige Add-Ons konnten nicht geladen werden"). <!-- 2026-08-05: real verletzt — ein
+.bak-Bundle lag seit 23. Juni im Add-Ons-Ordner und war die ganze Zeit die Ursache der
+Meldung. --> Deshalb als **Pflichtschritt jeder Update-Prozedur**: vor dem Archicad-Start
+den `Add-Ons/`-Ordner auf `*.bak`/Backup-Bundles prüfen (`ls`) und Sicherungen NUR
+außerhalb ablegen (z. B. `~/ELM_SAB_Backups/`).
 
 ## Erweiterungs-Entscheidungsbaum
 
