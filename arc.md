@@ -28,6 +28,7 @@ $ARGUMENTS
 | Welches Projekt ist offen? | `arc call GetProjectInfo` |
 | Aktuelle Selection? | `arc selected` |
 | Wieviele Zonen? | `arc zones \| wc -l` |
+| Was ist im aktiven Fenster? | `arc view-elements` |
 | Layer mit Namen … | `arc layers <regex>` |
 | Elemente auf Story N? | `arc tapir GetElementsByType '{"elementType":"Wall"}'` |
 | Rohdaten für Debugging | `arc call <CommandName> '<json>'` oder `arc tapir <TapirCmd> '<json>'` |
