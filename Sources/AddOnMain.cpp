@@ -54,6 +54,7 @@
 #include "SetColumnDetailsCommand.hpp"
 #include "SetColumnRotationCommand.hpp"
 #include "CreateCurtainWallCommand.hpp"
+#include "CaptureViewCommand.hpp"
 #include "GetVersionCommandELM.hpp"
 
 template <typename CommandType>
@@ -989,6 +990,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<SetColumnDetailsCommand> (
             elmSabCommands, "0.9.5",
             "ELM_SAB: Setzt Stuetzen-Kernmasse (nominalWidth/Height, alle Segmente) — mit Ruecklese-Verifikation."
+        );
+        err |= RegisterCommand<CaptureViewCommand> (
+            elmSabCommands, "0.9.12",
+            "ELM_SAB: Speichert das aktive Fenster (2D oder 3D) als PNG — die visuelle Ruecklese fuer Agenten: Highlight setzen, FitInWindow, CaptureView, Bild lesen. outputPath erforderlich; crop=true beschneidet auf den aktuellen Zoom."
         );
         err |= RegisterCommand<CreateCurtainWallCommand> (
             elmSabCommands, "0.9.8",
