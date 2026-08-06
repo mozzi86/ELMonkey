@@ -15,6 +15,9 @@ Verwendung:
   arc layers [regex]                 # Layer, optional per Regex gefiltert
   arc info                           # Projekt-Info + aktive Story + Einheit
   arc doctor                         # Self-Check (Ports, Tapir-Verfügbarkeit)
+  arc launch [datei.pln]             # Archicad kontrolliert starten + auf JSON-API warten
+  arc view-elements                  # Elemente im aktiven Fenster (2D: VisLayer+ActFloor, 3D: In3D)
+  arc splash <Property> [--clear]    # Elemente nach Property-Wert einfärben + Legende
 
 Port-Auswahl:
   --port N        Expliziter Port (Default: 19723, dann Auto-Scan bei Fehler)
@@ -221,6 +224,187 @@ def cmd_info(args) -> None:
         print(f"Story:       — ({e})")
 
 
+def cmd_launch(args) -> None:
+    """Archicad kontrolliert starten und warten, bis die JSON-API antwortet.
+
+    Übernommen aus revit-mcp-python (launch_revit): Start + Readiness-Polling in
+    einem Schritt. Umgeht nebenbei den Doppelklick-Start-Bug (taub bleibende
+    Instanz), weil der Erfolg hier verifiziert statt angenommen wird.
+    """
+    import subprocess
+    import time
+    from pathlib import Path
+
+    if sys.platform != "darwin":
+        die("arc launch ist macOS-only (nutzt 'open -na').")
+
+    project_file = None
+    if args.file:
+        project_file = Path(args.file).expanduser()
+        if not project_file.exists():
+            die(f"Projektdatei nicht gefunden: {project_file}")
+        if project_file.suffix.lower() not in (".pln", ".pla"):
+            die(f"Nur .pln/.pla starten sinnvoll — '{project_file.suffix}' nicht "
+                "(.tpl kann die JSON-API nicht öffnen, Vorlagen öffnet der Nutzer selbst).")
+
+    before = {p["port"] for p in scan_ports()}
+    cmd = ["open", "-na", args.app]
+    if project_file:
+        cmd.append(str(project_file))
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        stderr = getattr(e, "stderr", "") or ""
+        die(f"Start fehlgeschlagen ({args.app}): {stderr.strip() or e}")
+
+    print(f"{args.app} gestartet — warte auf JSON-API (max. {args.wait}s) …", file=sys.stderr)
+    expected = project_file.stem.lower() if project_file else None
+    deadline = time.time() + args.wait
+    seen_new = None
+    while time.time() < deadline:
+        time.sleep(3)
+        for p in scan_ports():
+            if p["port"] in before:
+                continue
+            seen_new = p
+            if expected is None:
+                print(f"Port {p['port']}: bereit ({p['projectName']})")
+                return
+            if expected in p["projectName"].lower() or expected in (p["projectPath"] or "").lower():
+                print(f"Port {p['port']}: {p['projectName']} geladen")
+                return
+    if seen_new:
+        die(f"Instanz antwortet auf Port {seen_new['port']}, aber das Projekt '{expected}' ist "
+            f"nach {args.wait}s nicht geladen (aktuell: {seen_new['projectName']}). Großes Projekt? "
+            f"--wait erhöhen oder mit 'arc ports' weiterbeobachten.")
+    die(f"Keine neue Instanz nach {args.wait}s erreichbar. Mögliche Ursachen: JSON-API in den "
+        "Add-On-Einstellungen deaktiviert, Instanz außerhalb 19723..19730, oder der bekannte "
+        "Start-Bug (Instanz dauerhaft taub) — dann Archicad beenden und erneut per 'arc launch' starten.")
+
+
+def _current_view_filters(port: int) -> "tuple[list[str], str]":
+    """Filter-Satz für „im aktiven Fenster sichtbar" je Fenstertyp."""
+    win = tapir(port, "GetCurrentWindowType")
+    wtype = win.get("currentWindowType", "?")
+    if wtype == "3DModel":
+        return ["In3D"], wtype
+    if wtype == "FloorPlan":
+        return ["OnVisLayer", "OnActFloor"], wtype
+    # Schnitt/Ansicht/Arbeitsblatt & Co.: sichtbare Ebenen als bestmögliche Näherung
+    return ["OnVisLayer"], wtype
+
+
+def cmd_view_elements(args) -> None:
+    """Kontext-Primitive aus revit-mcp-python (get_current_view_elements) —
+    per Tapir-Kombi GetCurrentWindowType + GetAllElements(filters), kein C++ nötig."""
+    port = resolve_port(args.port, args.project)
+    filters, wtype = _current_view_filters(port)
+    result = tapir(port, "GetAllElements", {"filters": filters})
+    elements = result.get("elements", [])
+    guids = [e.get("elementId", {}).get("guid", "?") for e in elements]
+    if args.json:
+        print(json.dumps({"windowType": wtype, "filters": filters, "guids": guids}, indent=2))
+        return
+    for g in guids:
+        print(g)
+    print(f"({len(guids)} Elemente im aktiven Fenster [{wtype}], Filter: {'+'.join(filters)})", file=sys.stderr)
+
+
+# RGBA 0–255, angelehnt an Okabe-Ito (farbenblind-tauglich); letzter Wert = Sammelfarbe.
+SPLASH_PALETTE = [
+    [230, 159, 0, 255], [86, 180, 233, 255], [0, 158, 115, 255],
+    [240, 228, 66, 255], [0, 114, 178, 255], [213, 94, 0, 255],
+    [204, 121, 167, 255], [153, 153, 153, 255], [146, 0, 0, 255],
+    [0, 68, 27, 255], [64, 0, 128, 255],
+]
+SPLASH_REST = [60, 60, 60, 255]
+
+
+def cmd_splash(args) -> None:
+    """color_splash aus revit-mcp-python: Elemente nach Property-Wert einfärben.
+
+    Reine Bildschirm-Überlagerung (Tapir HighlightElements) — kein Projektinhalt,
+    kein Teamwork-Sync. PFLICHT-CLEANUP danach: `arc splash --clear`, sonst sieht
+    das Modell für den Nutzer nach „kaputten Farben" aus.
+    """
+    port = resolve_port(args.port, args.project)
+
+    if args.clear:
+        tapir(port, "HighlightElements", {"elements": [], "highlightedColors": []})
+        print("Highlights entfernt.")
+        return
+
+    if not args.prop:
+        die("Property-Name fehlt (oder --clear zum Aufräumen).")
+
+    # 1) Property per Name auflösen (exakter Treffer vor Teilstring)
+    props = tapir(port, "GetAllProperties").get("properties", [])
+    needle = args.prop.lower()
+    exact = [p for p in props if p.get("propertyName", "").lower() == needle]
+    matches = exact or [p for p in props if needle in p.get("propertyName", "").lower()]
+    if not matches:
+        die(f"Keine Property passt zu '{args.prop}'. Tipp: arc tapir GetAllProperties | grep -i …")
+    if len(matches) > 1:
+        namelist = [f"{m.get('propertyGroupName','?')} / {m.get('propertyName','?')}" for m in matches[:10]]
+        die(f"{len(matches)} Properties passen zu '{args.prop}' — bitte genauer: " + "; ".join(namelist))
+    prop = matches[0]
+    prop_label = f"{prop.get('propertyGroupName','?')} / {prop.get('propertyName','?')}"
+
+    # 2) Elemente bestimmen: Selektion > Typ > aktives Fenster
+    if args.selected:
+        elements = post(port, "API.GetSelectedElements").get("elements", [])
+        scope = "Selektion"
+    elif args.eltype:
+        elements = tapir(port, "GetElementsByType", {"elementType": args.eltype}).get("elements", [])
+        scope = f"Typ {args.eltype}"
+    else:
+        filters, wtype = _current_view_filters(port)
+        elements = tapir(port, "GetAllElements", {"filters": filters}).get("elements", [])
+        scope = f"aktives Fenster [{wtype}]"
+    if not elements:
+        die(f"Keine Elemente gefunden ({scope}).")
+
+    # 3) Werte lesen (lokalisierte Strings, siehe Memory Tapir-Property-Bulk-Read)
+    values_resp = tapir(port, "GetPropertyValuesOfElements", {
+        "elements": elements,
+        "properties": [{"propertyId": prop["propertyId"]}],
+    }, timeout=max(args.timeout, 60))
+    per_element = values_resp.get("propertyValuesForElements", [])
+
+    def value_of(item) -> str:
+        try:
+            return str(item["propertyValues"][0]["propertyValue"]["value"])
+        except (KeyError, IndexError, TypeError):
+            return "— (kein Wert)"
+
+    values = [value_of(v) for v in per_element]
+    if len(values) != len(elements):
+        die(f"Antwortlänge passt nicht ({len(values)} Werte für {len(elements)} Elemente) — Abbruch statt falscher Färbung.")
+
+    # 4) Werte → Farben (häufigste Werte zuerst; Überhang wird zusammengefasst)
+    from collections import Counter
+    counts = Counter(values)
+    ranked = [v for v, _ in counts.most_common()]
+    color_of = {}
+    for i, v in enumerate(ranked):
+        color_of[v] = SPLASH_PALETTE[i] if i < len(SPLASH_PALETTE) else SPLASH_REST
+    highlighted = [color_of[v] for v in values]
+
+    tapir(port, "HighlightElements", {
+        "elements": elements,
+        "highlightedColors": highlighted,
+        "nonHighlightedColor": [180, 180, 180, 120],
+    }, timeout=max(args.timeout, 60))
+
+    # 5) Legende
+    print(f"Splash: {prop_label} — {len(elements)} Elemente ({scope})")
+    for i, v in enumerate(ranked):
+        rgba = color_of[v]
+        tag = "" if i < len(SPLASH_PALETTE) else "  [Sammelfarbe]"
+        print(f"  RGB {rgba[0]:>3},{rgba[1]:>3},{rgba[2]:>3}  {counts[v]:>5}×  {v}{tag}")
+    print("Aufräumen nicht vergessen: arc splash --clear", file=sys.stderr)
+
+
 def cmd_doctor(args) -> None:
     print("== arc doctor ==")
     ports = scan_ports()
@@ -284,6 +468,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("info", help="Projekt + Story + Teamwork-Info").set_defaults(func=cmd_info)
     sub.add_parser("doctor", help="Self-Check: Instanzen, Tapir, MCP-Config").set_defaults(func=cmd_doctor)
+
+    la = sub.add_parser("launch", help="Archicad kontrolliert starten (optional mit Projekt) + auf JSON-API warten")
+    la.add_argument("file", nargs="?", help="Projektdatei .pln/.pla")
+    la.add_argument("--app", default="Archicad 29", help="App-Name (Default: Archicad 29)")
+    la.add_argument("--wait", type=int, default=180, help="Wartezeit in Sekunden (Default 180)")
+    la.set_defaults(func=cmd_launch)
+
+    ve = sub.add_parser("view-elements", help="Alle Elemente im aktiven Fenster (2D: VisLayer+ActFloor, 3D: In3D)")
+    ve.set_defaults(func=cmd_view_elements)
+
+    sp = sub.add_parser("splash", help="Elemente nach Property-Wert einfärben (Highlight-Overlay) + Legende")
+    sp.add_argument("prop", nargs="?", help="Property-Name (exakt oder Teilstring, case-insensitive)")
+    sp.add_argument("--type", dest="eltype", help="Elementtyp statt aktivem Fenster (z.B. Wall, Zone)")
+    sp.add_argument("--selected", action="store_true", help="Nur aktuelle Selektion einfärben")
+    sp.add_argument("--clear", action="store_true", help="Highlights entfernen (Pflicht-Cleanup)")
+    sp.set_defaults(func=cmd_splash)
 
     # Prefixiere alle Subparser mit den globalen Optionen — vererbt sich via parent
     return p
