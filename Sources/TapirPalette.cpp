@@ -364,6 +364,32 @@ GSErrCode TapirPalette::RegisterPaletteControlCallBack ()
 
 void TapirPalette::ExecuteScript (const PopUpItemData& popUpItemData)
 {
+    // Bestaetigungs-Riegel vor JEDEM Skriptlauf. Anlass (2026-08-06): ein versehentlicher
+    // Klick auf UnusedViewCleaner.py loeschte alle unplatzierten Ausschnitte ohne
+    // Rueckfrage — Rettung nur durch "Schliessen ohne Speichern".
+    IO::Name scriptFileName;
+    popUpItemData.fileLocation.GetLastLocalName (&scriptFileName);
+    const GS::UniString scriptNameStr = scriptFileName.ToString ();
+    if (scriptNameStr.BeginsWith ("UnusedViewCleaner")) {
+        const short response = DGAlert (DG_WARNING,
+            "UnusedViewCleaner",
+            "Sind Sie sicher, dass Sie ALLE nicht verwendeten Ansichten/Ausschnitte löschen wollen?",
+            "Das Skript löscht unplatzierte Ausschnitte sofort und ohne weitere Rückfrage. Rückgängig nur über „Schließen ohne Speichern“.",
+            "Abbrechen", "Ja, alle löschen");
+        if (response != 2) {    // 2 = zweiter Button; Abbrechen ist bewusst der Default
+            return;
+        }
+    } else {
+        const short response = DGAlert (DG_INFORMATION,
+            "Skript ausführen",
+            GS::UniString::Printf ("Skript „%T“ jetzt ausführen?", scriptNameStr.ToPrintf ()),
+            GS::EmptyUniString,
+            "Ausführen", "Abbrechen");
+        if (response != DG_OK) {
+            return;
+        }
+    }
+
     GS::UniString filePath;
     popUpItemData.fileLocation.ToPath (&filePath);
 
