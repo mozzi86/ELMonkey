@@ -14,6 +14,7 @@
 #pragma once
 
 #include "ELMCommandBase.hpp"
+#include "FileSystem.hpp"
 
 class CaptureViewCommand : public ELMCommandBase
 {
@@ -102,6 +103,13 @@ public:
         err = ACAPI_ProjectOperation_Save (&fsp, &pict);
         if (err != NoError) {
             return CreateErrorResponse (err, "Fensterinhalt nicht als PNG speicherbar (Fenstertyp exportierbar? Pfad beschreibbar?)");
+        }
+
+        // Ruecklese: NoError beweist nichts (mcp-extension.md) — die Datei muss
+        // tatsaechlich existieren, bevor wir ihren Pfad als Erfolg melden.
+        bool exists = false;
+        if (IO::fileSystem.Contains (fileLocation, &exists) != NoError || !exists) {
+            return CreateErrorResponse (APIERR_COMMANDFAILED, "Save meldete Erfolg, aber die PNG-Datei existiert nicht (Ruecklese fehlgeschlagen)");
         }
 
         GS::ObjectState response;

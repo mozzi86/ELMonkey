@@ -364,28 +364,21 @@ GSErrCode TapirPalette::RegisterPaletteControlCallBack ()
 
 void TapirPalette::ExecuteScript (const PopUpItemData& popUpItemData)
 {
-    // Bestaetigungs-Riegel vor JEDEM Skriptlauf. Anlass (2026-08-06): ein versehentlicher
-    // Klick auf UnusedViewCleaner.py loeschte alle unplatzierten Ausschnitte ohne
-    // Rueckfrage — Rettung nur durch "Schliessen ohne Speichern".
+    // Sicherheitsrueckfrage NUR fuer UnusedViewCleaner (Nutzer-Auftrag 2026-08-06 nach
+    // Vorfall: versehentlicher Klick loeschte alle unplatzierten Ausschnitte ohne
+    // Rueckfrage — Rettung nur durch "Schliessen ohne Speichern"). Ein genereller
+    // Bestaetigungsdialog war nicht beauftragt (Review-Fix 0.9.13). Achtung, bewusste
+    // Schwaeche: Erkennung haengt am Dateinamen — wird das Skript upstream umbenannt,
+    // laeuft es wieder ungefragt.
     IO::Name scriptFileName;
     popUpItemData.fileLocation.GetLastLocalName (&scriptFileName);
-    const GS::UniString scriptNameStr = scriptFileName.ToString ();
-    if (scriptNameStr.BeginsWith ("UnusedViewCleaner")) {
+    if (scriptFileName.ToString ().BeginsWith ("UnusedViewCleaner")) {
         const short response = DGAlert (DG_WARNING,
             "UnusedViewCleaner",
             "Sind Sie sicher, dass Sie ALLE nicht verwendeten Ansichten/Ausschnitte löschen wollen?",
             "Das Skript löscht unplatzierte Ausschnitte sofort und ohne weitere Rückfrage. Rückgängig nur über „Schließen ohne Speichern“.",
             "Abbrechen", "Ja, alle löschen");
-        if (response != 2) {    // 2 = zweiter Button; Abbrechen ist bewusst der Default
-            return;
-        }
-    } else {
-        const short response = DGAlert (DG_INFORMATION,
-            "Skript ausführen",
-            GS::UniString::Printf ("Skript „%T“ jetzt ausführen?", scriptNameStr.ToPrintf ()),
-            GS::EmptyUniString,
-            "Ausführen", "Abbrechen");
-        if (response != DG_OK) {
+        if (response != 2) {    // 2 = zweiter Button; Abbrechen (Button 1) ist bewusst der Default
             return;
         }
     }
