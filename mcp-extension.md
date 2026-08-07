@@ -686,3 +686,35 @@ der Baum lesbar ist, bleibt der UI-Weg der richtige — und `dev_get_ifc_type_of
 Was **nicht** nach ELM_SAB gehört, weil Tapir es kann: Favoriten-Round-Trip, Ebenen löschen,
 Ebenenkombinationen, Baustoffe anlegen, IFC-Export, Klassifizierung setzen. Vor jedem neuen
 Befehl also erst zwei Discovery-Queries — die Lückenliste veraltet mit jedem Tapir-Release.
+
+## ELM_SAB 0.9.12/0.9.13 — CaptureView, Paletten-Rückfrage, arc-Ausbau <!-- 2026-08-06 -->
+
+Aus dem revit-mcp-python-Vergleich (Abwägung: `~/.scratch/elmonkey/pyrevit-vergleich.md`):
+
+- **`ELM_SAB.CaptureView`** speichert das aktive Fenster (2D/3D) als PNG — die visuelle
+  Rücklese für Agenten (Highlight → FitInWindow → CaptureView → PNG lesen). Zwei Fallen,
+  beide beim Schreiben gefunden: `API_SavePars_Picture` zero-initialisiert wäre
+  `APIColorDepth_BW` (Schwarzweiß!) — explizit `APIColorDepth_FromSourceImage` setzen;
+  und `ACAPI_ProjectOperation_Save` mit Parametern existiert erst ab AC27 nativ
+  (MigrationHelper shimt nur die parameterlose Variante, betrifft uns nicht).
+  Seit 0.9.13 mit Datei-Existenz-Rücklese via `IO::fileSystem.Contains` — NoError vom
+  Save allein beweist nichts. **Live-Test am Modell steht aus** (Bundle noch nicht eingebaut).
+- **Paletten-Rückfrage** (TapirPalette::ExecuteScript): Sicherheitsdialog NUR für
+  `UnusedViewCleaner.py` (Nutzer-Auftrag nach Vorfall 2026-08-06; Abbrechen = Default-Button).
+  0.9.12 hatte zusätzlich einen generischen Dialog vor jedem Skript — als unbeauftragter
+  Scope-Creep im Review entfernt. Bewusste Schwäche: Erkennung per Dateinamen-Präfix;
+  benennt Upstream das Skript um, läuft es wieder ungefragt.
+- **`arc` neu:** `launch` (Start per `open -na` + Port-Polling bis Bridge antwortet — nutzt
+  nebenbei den Doppelklick-Start-Bug ab), `view-elements` (GetCurrentWindowType →
+  GetAllElements mit OnVisLayer+OnActFloor bzw. In3D; auf Schnitt/Ansicht/Arbeitsblatt nur
+  Näherung, wird in der Ausgabe gekennzeichnet), `splash` (Property-Werte → HighlightElements
+  mit Okabe-Ito-Palette + Legende; Overlay-only, `--clear` ist Pflicht-Cleanup).
+- **Bugfund im Review, live bestätigt:** `API.GetSelectedElements` existiert in der
+  offiziellen JSON-API NICHT (Fehler 2002) — es ist ein Tapir-Befehl. `arc selected` hatte
+  ihn seit v1.1 über `post()` aufgerufen und meldete deshalb still „(0 selected)", egal was
+  selektiert war. Merksatz: Ein leeres Ergebnis an einem bekannten Positivbeispiel
+  gegenprüfen — dieselbe „blinde Null" wie bei den Property-Reads.
+- **CI-Erkenntnis:** Der 6-Kombi-Lauf braucht nur ~4 min (Jobs parallel) — Plausibilität
+  über die Log-GRÖSSE prüfen (~320 KB Mac = Volldurchlauf), nie über die Dauer. Zudem
+  triggern `*.md`/`Examples/`-Änderungen unter `ELM_SAB_Tapir/` seit 0.9.12 keinen Build
+  mehr (paths-Negation).
