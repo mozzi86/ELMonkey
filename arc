@@ -7,7 +7,7 @@ Queries und für Bulk-Operationen (>100 Elemente), wo die MCP-Pagination den
 Claude-Context sprengt. Siehe reference/mcp-conventions.md § "Direkter HTTP-Zugriff".
 
 Verwendung:
-  arc ports                          # aktive Archicad-Instanzen (19723..19730)
+  arc ports                          # aktive Archicad-Instanzen (19723..19744)
   arc call <Cmd> [json]              # offizieller API.<Cmd>
   arc tapir <TapirCmd> [json]        # Tapir-Add-On-Command via API.ExecuteAddOnCommand
   arc selected                       # aktuelle Selektion (GetSelectedElements)
@@ -41,7 +41,7 @@ import urllib.request
 from typing import Any
 
 DEFAULT_PORT = 19723
-SCAN_PORTS = range(19723, 19731)  # 19723..19730
+SCAN_PORTS = range(19723, 19745)  # 19723..19744 — volles Tapir-Portfenster (Review-Fix 2026-08-06)
 HTTP_TIMEOUT = 10  # Sekunden für kleine Queries; Bulk kann länger dauern
 
 
@@ -94,7 +94,7 @@ def resolve_port(explicit: int | None, project_match: str | None) -> int:
         return explicit
     ports = scan_ports()
     if not ports:
-        die("Keine aktive Archicad-Instanz gefunden auf Ports 19723..19730. Läuft Archicad? Tapir Add-On aktiv?")
+        die("Keine aktive Archicad-Instanz gefunden auf Ports 19723..19744. Läuft Archicad? Tapir Add-On aktiv?")
     if project_match:
         m = [p for p in ports if project_match.lower() in p["projectName"].lower()]
         if len(m) == 1:
@@ -157,7 +157,9 @@ def cmd_tapir(args) -> None:
 
 def cmd_selected(args) -> None:
     port = resolve_port(args.port, args.project)
-    result = post(port, "API.GetSelectedElements")
+    # API.GetSelectedElements gibt es offiziell nicht (Fehler 2002) — der Befehl ist
+    # ein Tapir-Command. Der alte post()-Aufruf meldete still "(0 selected)".
+    result = tapir(port, "GetSelectedElements")
     ids = [e["elementId"]["guid"] for e in result.get("elements", [])]
     if args.json:
         print(json.dumps(ids, indent=2))
@@ -278,7 +280,7 @@ def cmd_launch(args) -> None:
             f"nach {args.wait}s nicht geladen (aktuell: {seen_new['projectName']}). Großes Projekt? "
             f"--wait erhöhen oder mit 'arc ports' weiterbeobachten.")
     die(f"Keine neue Instanz nach {args.wait}s erreichbar. Mögliche Ursachen: JSON-API in den "
-        "Add-On-Einstellungen deaktiviert, Instanz außerhalb 19723..19730, oder der bekannte "
+        "Add-On-Einstellungen deaktiviert, Instanz außerhalb 19723..19744, oder der bekannte "
         "Start-Bug (Instanz dauerhaft taub) — dann Archicad beenden und erneut per 'arc launch' starten.")
 
 
@@ -307,7 +309,8 @@ def cmd_view_elements(args) -> None:
         return
     for g in guids:
         print(g)
-    print(f"({len(guids)} Elemente im aktiven Fenster [{wtype}], Filter: {'+'.join(filters)})", file=sys.stderr)
+    note = "" if wtype in ("3DModel", "FloorPlan") else " — NÄHERUNG: nur sichtbare Ebenen, geschossübergreifend"
+    print(f"({len(guids)} Elemente im aktiven Fenster [{wtype}], Filter: {'+'.join(filters)}{note})", file=sys.stderr)
 
 
 # RGBA 0–255, angelehnt an Okabe-Ito (farbenblind-tauglich); letzter Wert = Sammelfarbe.
@@ -338,7 +341,7 @@ def cmd_splash(args) -> None:
         die("Property-Name fehlt (oder --clear zum Aufräumen).")
 
     # 1) Property per Name auflösen (exakter Treffer vor Teilstring)
-    props = tapir(port, "GetAllProperties").get("properties", [])
+    props = tapir(port, "GetAllProperties", timeout=max(args.timeout, 60)).get("properties", [])
     needle = args.prop.lower()
     exact = [p for p in props if p.get("propertyName", "").lower() == needle]
     matches = exact or [p for p in props if needle in p.get("propertyName", "").lower()]
@@ -352,14 +355,14 @@ def cmd_splash(args) -> None:
 
     # 2) Elemente bestimmen: Selektion > Typ > aktives Fenster
     if args.selected:
-        elements = post(port, "API.GetSelectedElements").get("elements", [])
+        elements = tapir(port, "GetSelectedElements").get("elements", [])
         scope = "Selektion"
     elif args.eltype:
-        elements = tapir(port, "GetElementsByType", {"elementType": args.eltype}).get("elements", [])
+        elements = tapir(port, "GetElementsByType", {"elementType": args.eltype}, timeout=max(args.timeout, 60)).get("elements", [])
         scope = f"Typ {args.eltype}"
     else:
         filters, wtype = _current_view_filters(port)
-        elements = tapir(port, "GetAllElements", {"filters": filters}).get("elements", [])
+        elements = tapir(port, "GetAllElements", {"filters": filters}, timeout=max(args.timeout, 60)).get("elements", [])
         scope = f"aktives Fenster [{wtype}]"
     if not elements:
         die(f"Keine Elemente gefunden ({scope}).")
@@ -409,7 +412,7 @@ def cmd_doctor(args) -> None:
     print("== arc doctor ==")
     ports = scan_ports()
     if not ports:
-        print("[FAIL] Keine aktive Archicad-Instanz auf 19723..19730")
+        print("[FAIL] Keine aktive Archicad-Instanz auf 19723..19744")
         print("        - Läuft Archicad?")
         print("        - Ist das Tapir Add-On aktiv (Optionen → Add-On Manager)?")
         sys.exit(1)
