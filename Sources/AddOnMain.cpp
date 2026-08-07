@@ -997,7 +997,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<CreateCurtainWallCommand> (
             elmSabCommands, "0.9.8",
-            "ELM_SAB: Erzeugt Pfosten-Riegel-Fassade aus Achsmassen (Spaltenbreiten aus 2D, Zeilenhoehen aus Foto, opake Bruestungszeilen). Seit 0.9.7 auch nichtrechteckig (Trapez/Giebel via contour bzw. topProfile) und mit wirksamem bottomOffset. 0.9.8: Pfosten/Riegel bekommen echte Frame-Klassen (FirstCustomClass statt der profillosen Generik-Klasse Division)."
+            "ELM_SAB: Erzeugt Pfosten-Riegel-Fassade aus Achsmassen (Spaltenbreiten aus 2D, Zeilenhoehen aus Foto, opake Bruestungszeilen). Seit 0.9.7 auch nichtrechteckig (Trapez/Giebel via contour bzw. topProfile) und mit wirksamem bottomOffset. 0.9.8: Pfosten/Riegel bekommen echte Frame-Klassen (FirstCustomClass statt der profillosen Generik-Klasse Division). 0.9.14: optionaler angle-Parameter (Grad, 90=senkrecht) fuer geneigte Fassaden — Masse bleiben in-plane, vertikale Hoehe wird sin-skaliert, Ruecklese via verticalHeight/zMin/zMax."
         );
         AddCommandGroup (elmSabCommands);
     }

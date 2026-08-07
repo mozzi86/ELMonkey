@@ -20,6 +20,7 @@ GS::Optional<GS::UniString> CreateCurtainWallCommand::GetInputParametersSchema (
             },
             "floorIndex": { "type": "integer" },
             "bottomOffset": { "type": "number", "description": "Unterkante relativ zum Geschoss, Meter. Wird nach dem Create per Drag nachgezogen (storyRelLevel wirkt beim Create nicht) und rueckgelesen." },
+            "angle": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180, "description": "Neigung in Grad, Konvention wie CW-Dialog und Tapir-GetDetailsOfElements: 90 = senkrecht, 135 = um 45 Grad zur Extrusionsseite gekippt. columnWidths/rowHeights/contour bleiben IN-PLANE-Masse; die vertikale Hoehe setzt der Befehl intern auf totalHeight*sin(angle). Optional, Default 90." },
             "columnWidths": {
                 "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 1,
                 "description": "Spaltenbreiten von beg nach end (Pfosten-Achsmasse), Meter. Summe sollte der Wandlaenge entsprechen."
@@ -59,7 +60,9 @@ GS::Optional<GS::UniString> CreateCurtainWallCommand::GetResponseSchema () const
         "type": "object",
         "properties": {
             "elements": { "type": "array", "items": { "type": "object" } },
-            "height": { "type": "number" },
+            "height": { "type": "number", "description": "IN-PLANE-Gesamthoehe (Summe rowHeights bzw. Kontur-vMax)." },
+            "verticalHeight": { "type": "number", "description": "Vertikale Hoehe = height*sin(angle); Soll-Wert fuer die bbox-dz-Ruecklese." },
+            "angleApplied": { "type": "number" },
             "contourVertices": { "type": "integer" },
             "bottomOffsetApplied": { "type": "boolean" },
             "zMin": { "type": "number" },
@@ -121,9 +124,13 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
     const bool hasFloor = parameters.Get ("floorIndex", floorIndex);
     double bottomOffset = 0.0;
     parameters.Get ("bottomOffset", bottomOffset);
+    double angle = 90.0;
+    parameters.Get ("angle", angle);
 
     if (begOS == nullptr || endOS == nullptr || columnWidths.IsEmpty () || rowHeights.IsEmpty ())
         return CreateErrorResponse (APIERR_BADPARS, "begCoordinate/endCoordinate/columnWidths/rowHeights noetig");
+    if (angle <= 0.0 || angle >= 180.0)
+        return CreateErrorResponse (APIERR_BADPARS, "angle muss zwischen 0 und 180 Grad liegen (exklusiv; 90 = senkrecht)");
 
     const API_Coord beg = Get2DCoordinateFromObjectState (*begOS);
     const API_Coord end = Get2DCoordinateFromObjectState (*endOS);
@@ -230,7 +237,16 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
         BMpKill (reinterpret_cast<GSPtr*> (&memo.cWSegSecondaryPattern.pattern));
         memo.cWSegSecondaryPattern.pattern = p;
     }
-    element.curtainWall.height = totalHeight;
+    // Neigung (0.9.14): Das Feld ist GRAD-basiert — Tapir GetDetailsOfElements gibt
+    // elem.curtainWall.angle roh aus und lieferte live 90 bzw. 116.7 (kein DEGRAD!).
+    // curtainWall.height ist die VERTIKALE Hoehe (live 2026-08-07: 116.7-Grad-CW hat
+    // height = bbox-dz = 2.148, in-plane = height/sin = 2.404); rowHeights und contour
+    // bleiben in-plane. Ohne die sin-Skalierung fuellte das FixedSizes-Muster bei
+    // Neigung ueber die Soll-Flaeche hinaus. GetDefaults liefert den Dialog-Winkel
+    // NICHT mit (live verifiziert: Dialog 135 -> erzeugt 90), darum immer explizit.
+    const double angleRad = angle * 3.14159265358979323846 / 180.0;
+    element.curtainWall.angle = angle;
+    element.curtainWall.height = totalHeight * std::sin (angleRad);
 
     // Panel-Klassen der Defaults verwenden: 1. Klasse = Standard (Glas),
     // 2. Klasse (falls vorhanden) fuer opaqueRows.
@@ -324,6 +340,8 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
     elements (idOS);
 
     response.Add ("height", totalHeight);
+    response.Add ("verticalHeight", totalHeight * std::sin (angleRad));
+    response.Add ("angleApplied", angle);
     response.Add ("contourVertices", (Int32) contour.GetSize ());
     response.Add ("bottomOffsetApplied", dragDone || std::fabs (bottomOffset) <= 1e-9);
 

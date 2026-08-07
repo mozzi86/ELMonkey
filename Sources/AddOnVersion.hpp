@@ -8,7 +8,7 @@
 // ELM_SAB-Befehlen hoch — sonst ist am laufenden Archicad nicht feststellbar, welcher
 // Build geladen ist, und ein veraltetes Bundle sieht aus wie ein frisches (genau die
 // Update-Stolperfalle aus reference/mcp-extension.md).
-#define ELM_SAB_VERSION "0.9.13"
+#define ELM_SAB_VERSION "0.9.14"
 
 // Identifiziert den konkreten Build — die CI baut aus einem rollenden Tag, der Tag allein
 // ist also kein Beleg dafür, welcher Stand im Bundle steckt.
