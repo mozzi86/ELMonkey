@@ -718,3 +718,20 @@ Aus dem revit-mcp-python-Vergleich (Abwägung: `~/.scratch/elmonkey/pyrevit-verg
   über die Log-GRÖSSE prüfen (~320 KB Mac = Volldurchlauf), nie über die Dauer. Zudem
   triggern `*.md`/`Examples/`-Änderungen unter `ELM_SAB_Tapir/` seit 0.9.12 keinen Build
   mehr (paths-Negation).
+
+## Teamwork: Delete/Move-No-Op trotz success:true <!-- 2026-08-28 -->
+
+Am THN (AC29 Teamwork, Gesamtplanung): `DeleteElements` und `MoveElements` liefern
+`success:true`, ändern aber NICHTS — auch bei Elementen, die dieselbe Session eben
+erst erstellt hat, auch nach `ReserveElements` (meldet ebenfalls Erfolg) und nach
+`TeamworkSend`/`TeamworkReceive` (beide existieren als TapirCommand und laufen leer
+durch). **Creates funktionieren durchgehend.** Einziger verlässlicher Weg zum
+Löschen: User löscht im UI (⌘F Suchen & Auswählen nach Elementtyp+Ebene+Geschoss),
+Claude erstellt danach neu. Konsequenz für Workflows: bei Massen-2D-Importen
+IMMER damit rechnen, dass eine fehlerhafte Charge nur per UI-Löschung + Neu-Create
+ersetzt werden kann — Verifikation ausschließlich per Voll-Re-Inventur
+(GetElementsByType + GetDetailsOfElements, Zählung je layerIndex/floorIndex).
+`API.SetPropertyValuesOfElements` auf PolyLines → 7203 „Element not supported"
+(2D-Elemente tragen keine User-Properties; KI-Stempel dort nicht möglich,
+GUID-Register lokal führen). `TapirCommand.SetDetailsOfElements` für PolyLines:
+Schema unbekannt, alle probierten Formen 4002.
