@@ -649,3 +649,32 @@ Polylinien mit Linientyp:
   `GetElementsByType` akzeptiert `databases:[{databaseId:{guid}}]`;
   DB-GUIDs via `API.GetNavigatorItemTree` → `GetDatabaseIdFromNavigatorItemId`.
   Schreiben/Erzeugen bleibt an die aktive DB gebunden (User klickt Tabs durch).
+
+## HLS-Werkplan-PDF → Kanal-Polylinien im Modell (live-verifiziert 2026-08-28, THN WE)
+
+7 Geschosse Lüftungs-Werkplanung (Plancal-PDF, Vektor) als 2D-Polylinien auf
+Q_22_LUEFTUNG ins Teamwork-Modell — 20.344 Linien. Pipeline:
+
+1. **PDF-Ebenen nutzen:** PyMuPDF `page.get_drawings()` liefert je Pfad den
+   OCG-Layernamen (`d["layer"]`) — TGA-Ebenen (L_ZUL/L_ABL/L_AUL/L_FOL/L_BSK)
+   sauber trennbar vom Architektur-Unterbau. Bezier (`"c"`-Items) in 8 Segmente
+   tesselieren, sonst werden Kanalbögen zu falschen Diagonalen (User sieht es sofort).
+2. **Einpassung (Similarity PDF→Modell):** Raumnummern! PDF-Text `WE.xxx`
+   (`get_text("words")`) gegen Zonen-`stampPosition` per 2-Punkt-RANSAC
+   (Maßstab ~1:50, Rotation ±3° um 90°), dann **ICP auf Wandachsen** des
+   Ziel-Geschosses (Zonen-Stempel haben konstanten Anker-Offset ~1 m — nie als
+   Endstand nehmen!). Erreicht 4–13 cm Median. ⚠ Achsraster macht Wand-ICP
+   mehrdeutig: grobe Raster-Korrelation rastete 19 m falsch ein und sah mit
+   „median 0,4 m" plausibel aus — IMMER gegen Raumnummern gegenprüfen.
+   ⚠ Projekt kann MEHRERE Modellkopien enthalten (Zonen-Nummern doppelt!) —
+   mz-Dict nach Ziel-Kopie filtern (stamp-Koordinatenfenster).
+3. **Strichellinien rekonstruieren:** gestrichelte Kanäle = zehntausende
+   Fragmente. Je Ebene Segmente nach (Winkel-Bin 2°, Normalabstand-Bin 6 cm)
+   gruppieren, entlang der Richtung sortieren, Lücken ≤ 0,45 m verschmelzen,
+   Stücke < 0,15 m verwerfen: 162.000 Fragmente → 3.900 Linien im EG.
+4. **Create:** `TapirCommand.CreatePolylines` mit
+   `polylinesData:[{floorInd, layerIndex, coordinates:[{x,y}]}]` (Batch 250).
+   layerIndex = Position in `API.GetAttributesByType`-Reihenfolge (1-basiert),
+   per Testelement + `GetDetailsOfElements` (echo't layerIndex) verifizieren.
+5. **Ersetzen einer Fehl-Charge:** siehe mcp-extension.md → Delete/Move-No-Op;
+   User löscht per ⌘F, Claude erstellt neu.
