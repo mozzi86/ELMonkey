@@ -146,7 +146,8 @@ verifizieren statt raten.
 - Nützliche Tapir-Befehle rund um Öffnungen: `GetFavoritesByType` /
   `ApplyFavoritesToElementDefaults` (SAB-Favoriten aufs Tool anwenden, dann
   `CreateOpenings`), `GetDetailsOfElements` liefert für Wände **floorIndex +
-  polygonOutline** (Host-Matching!), `API.Get2DBoundingBoxes` (offizieller
+  `floorPlanPolygons`** (Host-Matching! — das Feld heißt NICHT `polygonOutline`,
+  siehe Korrektur 2026-08-31 weiter unten), `API.Get2DBoundingBoxes` (offizieller
   Befehl — Tapir hat keinen eigenen).
 - **Tapir-Bug (blacklist)**: `ModifySlabs` mit `polygonOutline` crasht Archicad
   fatal; `holes: []` wird als „kein Feld" ignoriert. Details + Workaround:
@@ -722,10 +723,21 @@ Aus dem revit-mcp-python-Vergleich (Abwägung: `~/.scratch/elmonkey/pyrevit-verg
 ## Teamwork: Delete/Move-No-Op trotz success:true — UND die Auflösung <!-- 2026-08-28 korrigiert -->
 
 **Auflösung (gleicher Tag, live verifiziert):** Die No-Ops betreffen den Zustand
-VOR einem Teamwork-Senden. Nach „Senden & Empfangen" (User im UI; die Tapir-Befehle
-`TeamworkSend`/`TeamworkReceive` existieren, liefen aber wirkungslos durch)
-funktioniert die Kombination **`ReserveElements` → `DeleteElements` per API
-einwandfrei** (2026-08-28: 17.000+ Polylinien geschossweise gelöscht, Rücklese 0).
+VOR einem Teamwork-Senden. Nach „Senden & Empfangen" funktioniert die Kombination
+**`ReserveElements` → `DeleteElements` per API einwandfrei**
+(2026-08-28: 17.000+ Polylinien geschossweise gelöscht, Rücklese 0).
+
+> **Korrektur 2026-08-31: `TeamworkReceive` per API reicht — und die Befehle wirken.**
+> Der frühere Zusatz „die Tapir-Befehle `TeamworkSend`/`TeamworkReceive` existieren,
+> liefen aber wirkungslos durch" ist falsch. Live am THN: `DeleteElements` auf 20
+> Objekte meldete `success:true` und löschte nichts (Voll-Re-Inventur: 2.480
+> unverändert, alle 20 weiter lesbar). Ein einziger **`TeamworkReceive` per Tapir**
+> löste die Blockade, danach ReserveElements → DeleteElements → 2.480→2.460, genau
+> 20 weg, 0 Kollateralschaden. Ein `TeamworkSend` war dafür NICHT nötig; separat
+> ausgeführt lief er ebenfalls sauber durch (Persistenz nach Receive gegengeprüft).
+> Merkregel: bei Write-No-Op **erst `TeamworkReceive` per API probieren** — das ist
+> unkritisch, weil es nur zieht. `TeamworkSend` veröffentlicht dagegen ALLE offenen
+> lokalen Änderungen des Users → vorher fragen.
 Merkregeln: (1) Delete-Fehlschlag ⇒ erst senden lassen, dann Reserve+Delete erneut;
 (2) `ChangeSelectionOfElements` EXISTIERT (addElementsToSelection/removeElementsFromSelection)
 — der frühere „nicht registriert"-Befund war ein Timeout-Artefakt; Selektion in
@@ -790,3 +802,64 @@ IMMER per Text-Werkzeug-Probe bestimmen (User stellt Tool-Ebene, CreateTexts-Pro
 liefert layerIndex), NIE aus der Listenlänge raten.
 Wiederherstellungs-Grundregel bei Layer-Aufräumläufen: NIE „alles auf Layer X minus
 mein Register" löschen, ohne vorher Positionen/Inhalte der Fremdelemente zu sichern.
+
+## Antwortfelder + Namespaces: was wo liegt <!-- 2026-08-31c -->
+
+Drei Fehlerklassen, die alle wie „Befehl kaputt" aussehen, aber nur falsche Felder
+bzw. der falsche Namespace sind. Live am THN geklärt (AC29 5101 GER, Teamwork).
+
+**(1) Add-On-Befehle laufen NUR über `API.ExecuteAddOnCommand`.** Ein direktes
+`{"command":"ELM_SAB.GetProjectInfo"}` bzw. `{"command":"TapirCommand.X"}` gibt
+`2002 Command not found` — das ist KEIN Beleg, dass das Add-On fehlt. Hülle:
+```json
+{"command":"API.ExecuteAddOnCommand","parameters":{
+  "addOnCommandId":{"commandNamespace":"TapirCommand","commandName":"GetDetailsOfElements"},
+  "addOnCommandParameters":{...}}}
+```
+Antwort steckt in `result.addOnCommandResponse`. Existiert der Befehl im Namespace
+nicht, kommt `4010 …does not have the registered Add-On command with the name` —
+DAS ist der ehrliche Nichtvorhanden-Befund, nicht 2002.
+
+**(2) Diese Befehle sind eingebaut (`API.`), nicht Tapir.** `TapirCommand.` davor
+gibt 4010 und führt in die Irre:
+| Aufgabe | richtiger Befehl | Antwortfeld |
+|---|---|---|
+| Klassifikationssysteme | `API.GetAllClassificationSystems` | `classificationSystems` |
+| Klassifikation lesen | `API.GetClassificationsOfElements` (braucht `classificationSystemIds`!) | `elementClassifications` |
+| Property-IDs | `API.GetAllPropertyIds {propertyType:"UserDefined"}` | `propertyIds` |
+| Property-Definitionen | `API.GetDetailsOfProperties` | **`propertyDefinitions`** (NICHT `propertyDetails`), je Eintrag `propertyDefinition.{name,group.name,type}` |
+| Property-Werte | `API.GetPropertyValuesOfElements` | `propertyValuesForElements` |
+
+**(3) `GetDetailsOfElements` — die Felder je Elementtyp.** Vorher an EINEM Element
+proben, die Namen sind nicht raten-bar:
+- **Objekt/Bibliothekselement:** `details.{origin, angle, dimensions{x,y,z}, libPart{name}}`.
+  Es gibt KEIN `coordinate`/`offsettedCoordinate`. `angle` ist die Platzierungs-
+  drehung — damit ist „steht das Objekt schief zur Wand?" direkt prüfbar; **Einheit
+  (Grad oder Bogenmaß) noch UNGEPRÜFT**, weil alle 996 gelesenen Werte 0 waren. Vor
+  der ersten Auswertung ≠ 0 an einem gedrehten Element gegenproben. `dimensions` =
+  A/B/ZZYZX, `origin` ist die linke UNTERE Ecke (Mitte = origin + (A/2, B/2), gilt
+  nur bei angle 0).
+- **Wand:** `floorIndex`, `layerIndex`, `id`, `details.{geometryType, begCoordinate,
+  endCoordinate, begThickness, endThickness, height, zCoordinate, bottomOffset}` und
+  **`floorPlanPolygons: [{coordinates:[…]}]`** auf der obersten Ebene (nicht in
+  `details`!). `geometryType` ∈ Straight / Polygonal / Trapezoid.
+- **Text:** hat KEIN `coordinate` im Detail-Response; Positionen kommen aus
+  `ELM_SAB.GetTextsOfElements` bzw. `ELM_SAB.Get2DGeometryOfElements`.
+- **Hatch:** Detail-Response ohne Koordinaten → Geometrie über
+  `ELM_SAB.Get2DGeometryOfElements` (Feld `geometryOfElements`, je Eintrag
+  `{success, layerIndex, floorIndex, elementType, coordinates[], arcs[]}`).
+
+**Bonus-Falle: `floorPlanPolygons` ist an Öffnungen AUFGESPLITTET.** Eine gerade
+Wand mit drei Türen liefert vier Teilpolygone. Punkt-in-Polygon als Host-Test
+verwirft damit genau die Fälle, die man sucht — Durchbruch-Symbole liegen
+typischerweise IN der Wandlücke. Für Host-Matching stattdessen **Wandachse +
+Dicke** nehmen: `dist(Punkt, Segment beg→end) ≤ thickness/2`. Das ist lückenrobust,
+liefert nebenbei den Wandwinkel und die echte Wanddicke. Für `Polygonal`-Wände
+(Polywände) bleibt nur der Polygon-Weg — dort alle Teilringe unionieren und
+zusätzlich eine Kantendistanz zulassen.
+
+**`4001 Invalid program status (ongoing user input)`** trifft auch kleine
+Einzelaufrufe, nicht nur Massenläufe — der User hat einfach ein Werkzeug aktiv
+oder zieht gerade etwas. Backoff (5–8 s) und wiederholen; nicht als Fehler melden.
+`4001 (no open project)` dagegen heißt: diese Instanz hat kein Projekt offen —
+beim Port-Scan sind mehrere Archicad-Instanzen normal, nur eine trägt das Projekt.
