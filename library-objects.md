@@ -728,3 +728,21 @@ Klassifikation (System-Filter MUSS verschachtelt sein:
 `classificationSystemIds=[{classificationSystemId:{guid}}]` — flache Form gibt 4002):
 L_BRANDSCHUTZ-Objekte → Item „Brandschott", A_25_MOEBEL → „Möbel".
 Querschnitts-/Maßfragen: 2D-Symbol verfälscht die 2D-Box → `API.Get3DBoundingBoxes`.
+
+## Objekte per API erstellen und vollständig ausstatten (live-verifiziert 2026-08-31, AC29 Teamwork THN)
+
+`TapirCommand.CreateObjects` nimmt pro Objekt nur drei Felder — alles Weitere erbt vom Werkzeug-Default:
+
+```json
+{"objectsData": [{"libraryPartName": "Deckendurchbruch Symbol",
+                  "coordinates": {"x": 118.31, "y": 497.36, "z": 8.4},
+                  "dimensions": {"x": 0.98, "y": 0.25, "z": 0.3}}]}
+```
+
+- `dimensions {x,y,z}` mappt auf GDL `A/B/ZZYZX`. Es gibt **kein** `floorIndex`-, `layerIndex`-, `angle`- oder `id`-Feld.
+- Geerbt werden **Ebene, Element-ID und das aktive Geschoss** vom Objekt-Werkzeug (bei uns: Ebene 4, ID „Stuhl-010" — vom letzten Favoriten). Nach dem Create daher immer:
+  1. `SetDetailsOfElements` mit `{layerIndex, floorIndex, drawIndex}` (funktioniert auf frisch erstellten eigenen Elementen auch in Teamwork ohne Reserve).
+  2. Element-ID: **kein** Tapir-Kommando (`SetElementsId`/`SetIdOfElements` existieren nicht), aber die ID ist eine BuiltIn-Property — `API.GetPropertyIds {"properties":[{"type":"BuiltIn","nonLocalizedName":"General_ElementID"}]}` liefert die GUID, dann normal `API.SetPropertyValuesOfElements`.
+  3. User-Properties (z. B. KI-Stempel): erst **nach** dem Setzen der Klassifizierung möglich — auf unklassifizierten Objekten kommt `6703 Property not available` (Verfügbarkeit ist an Klassifizierungen gekoppelt). Reihenfolge: Create → SetDetails → SetClassifications → SetProperties.
+- Rotation: `angle` ist bei GDL-Objekten ein normaler GDL-Parameter → `SetGDLParametersOfElements`, nicht SetDetails.
+- Klon-Rezept (Modell→Modell-Versatz): Versatz nie schätzen, sondern per Wand-Matching bestimmen — Segmente beider Cluster nach Signatur (Länge mm-genau, Winkel Grad) matchen, Translation per Mittelpunkt-Differenz-Voting; Achtung Selbstähnlichkeits-Falle bei Schulflügeln → mit Zonen-Nummern oder zweitem Kandidaten gegenprüfen. Danach 1:1 kopieren (Geschoss/Ebene/drawIndex/Maße/Klassifizierung/ID) und chunk-weise rücklesen (Position auf ±1 mm).
