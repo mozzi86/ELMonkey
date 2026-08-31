@@ -766,3 +766,12 @@ Schema unbekannt, alle probierten Formen 4002.
   drawIndex (+typeSpecificDetails Wall/Zone) — additionalProperties strikt.
 - Achteck-Polylinien (r≈0,18 m) als Melder-/Punktsymbole: robust, sichtbar,
   schnell — 1.398 Stück in Minuten.
+
+### Nachtrag 2026-08-31: Attribut-Index ≠ Listenposition <!-- 2026-08-31 -->
+GetDetailsOfElements meldete für die Text-Werkzeug-Ebene layerIndex 1184, obwohl
+GetAttributesByType nur 1067 Layer listet — Attribut-Indizes haben Lücken
+(gelöschte Attribute). Listenposition als Index funktionierte bei 182/205/664/1067
+nur zufällig/weil niedrig. Regel: Ziel-Index IMMER per Testelement + Sichtprüfung
+verifizieren; für Texte gilt ohnehin: Werkzeug-Ebene bestimmt den Layer.
+Probe-Text-Polling (Create→GetDetails→Reserve+Delete alle 5 min) ist ein sauberer
+Weg, eine User-UI-Umstellung automatisch zu erkennen — hinterlässt nichts.
