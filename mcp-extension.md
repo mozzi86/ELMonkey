@@ -748,3 +748,21 @@ ersetzt werden kann — Verifikation ausschließlich per Voll-Re-Inventur
 (2D-Elemente tragen keine User-Properties; KI-Stempel dort nicht möglich,
 GUID-Register lokal führen). `TapirCommand.SetDetailsOfElements` für PolyLines:
 Schema unbekannt, alle probierten Formen 4002.
+
+## Element-Erzeugung: verifizierte Grenzen (2026-08-28) <!-- 2026-08-28 -->
+
+- `TapirCommand.CreateLayers` EXISTIERT: `{"layerDataArray":[{"name":"..."}]}` →
+  legt sichtbare Ebene an (THN: Q_22_KAELTE, Index = Listenposition in
+  GetAttributesByType-Reihenfolge, per Testelement verifizieren).
+- `CreateTexts`: KEIN layerIndex-Parameter — Texte erben die **Werkzeug-Default-
+  Ebene** (am THN „98 Schnitt Marker", versteckt+gesperrt!). SetDetailsOfElements
+  auf gesperrter Ebene → -2130312912. Ebenen-Attribute sind per API NICHT
+  änderbar (kein ModifyLayers/SetLayerAttributes/API.ModifyLayerAttributes) —
+  User muss Text-Werkzeug-Ebene im UI setzen, DANN CreateTexts.
+- `CreatePolylines` lehnt Polylinien mit identischen Folgepunkten ab
+  (-2130313102 je Element, Batch läuft weiter) — nach Koordinatenrundung
+  IMMER consecutive-dedupe.
+- `SetDetailsOfElements` (Tapir): erlaubte Details NUR floorIndex/layerIndex/
+  drawIndex (+typeSpecificDetails Wall/Zone) — additionalProperties strikt.
+- Achteck-Polylinien (r≈0,18 m) als Melder-/Punktsymbole: robust, sichtbar,
+  schnell — 1.398 Stück in Minuten.

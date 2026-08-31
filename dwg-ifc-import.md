@@ -210,3 +210,30 @@ Bei einem neuen Lageplan-Projekt: Scripts in einen Arbeitsordner kopieren, anpas
 - **Nicht** den Füller weglassen, „weil ja eh alles abgedeckt ist" — die konkaven Lücken zwischen Straßen-Polygonen sind im Renderer sichtbar als Löcher.
 - **Nicht** alle Klassen in eine einzige IFC bauen ohne Z-Staffel — Slabs verschmelzen visuell und der Höhen-Unterschied zwischen Straße und Bordstein geht verloren.
 - **Nicht** `ratio` der konkaven Hülle nach Augenmaß setzen — immer mit `0.05` starten und nur bei sichtbaren Hüllen-Lücken erhöhen.
+
+## PDF-Plan → Modell-Registrierung (TGA-Import-Pipeline, live 2026-08-28 THN) <!-- 2026-08-28 -->
+
+Verallgemeinertes Rezept, mit dem an einem Abend Lüftung (Werkplan), Schottungen
+(Prüfplan 1:200), Kälte (Bestand 2014, 1:100) und BMA (Noris, ohne Ebenen/Text)
+ins Teamwork-Modell übertragen wurden:
+
+1. **Quelle klassifizieren** (PyMuPDF): `get_drawings()` → gibt es OCG-Layer
+   (`d["layer"]`)? Text (`get_text("words")`)? Farben (`d["color"]/d["fill"]`)?
+   Danach richtet sich alles.
+2. **Registrierung, 3 Stufen:**
+   a) Raumnummern-RANSAC (PDF-Wörter ↔ Zonen-`stampPosition`) wenn Text da —
+      2-Punkt-Hypothesen, Maßstabs-/Rotationsfenster als Filter;
+   b) FFT-Korrelation der Architektur-Konturen gegen Modellwände (Raster 0,5 m)
+      wenn kein Text — Maßstabs-Kandidaten (1:50/100/200) × Rotationen testen;
+   c) IMMER Wand-ICP als Feinschliff, Rotation auf exakt 0/90 FIXIEREN
+      (freier Fit driftet 0,2–0,7° und verkippt alles gegen die Modellachsen).
+3. **Serien-Konsistenz:** Blätter einer Planserie haben dieselbe Rotation —
+   freie Wahl pro Blatt rastete 2 von 7 BMA-Blättern falsch ein (Score täuscht!).
+4. **Legenden/Plankopf raus:** Symbol-Muster wiederholen sich im Legendenraster.
+   Bester Filter: DICHTE (≥6 Nachbarn in 3 m, zusammenhängende Cluster ≥20 =
+   Legende). Wandabstand/Hüllen-Filter löschen echte Elemente (2× passiert!).
+5. **NIE ohne Kontrollbild erstellen:** matplotlib-Overlay (Marker/Linien über
+   Modellwänden) VOR jedem Create rendern und ansehen. Zwei falsche
+   ICP-Minima und zwei Filter-Fehler wurden nur so gefangen.
+6. **Bestätigte Zahlen:** Zonen-Stempel haben ~1 m Anker-Offset (nie als
+   Endstand); Registrierqualität 4–30 cm je nach Referenzdichte.
