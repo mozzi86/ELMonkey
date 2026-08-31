@@ -775,3 +775,18 @@ nur zufällig/weil niedrig. Regel: Ziel-Index IMMER per Testelement + Sichtprüf
 verifizieren; für Texte gilt ohnehin: Werkzeug-Ebene bestimmt den Layer.
 Probe-Text-Polling (Create→GetDetails→Reserve+Delete alle 5 min) ist ein sauberer
 Weg, eine User-UI-Umstellung automatisch zu erkennen — hinterlässt nichts.
+
+### Korrektur zur Index-Falle: die verlässliche Index-Tabelle <!-- 2026-08-31b -->
+Der Schaden aus der Listenpositions-Annahme war real: 32.000+ Elemente lagen auf
+falschen Ebenen (Listenposition 182/205/664/1067 statt wahrer Indizes 1184/25/865/…),
+und ein Aufräumlauf löschte 145 fremde Juli-Texte auf der echten Q_22_LUEFTUNG.
+Reparatur, vollständig per API: (1) wahre Indizes aus dem Juli-Register
+`Zeichnungen/claude/daten/layer_names.json` (Index→Name-Tabelle! IMMER zuerst dort
+schauen bzw. Tabelle pflegen); (2) `SetDetailsOfElements {details:{layerIndex:X}}`
+verschiebt zuverlässig (vorher chunk-weise ReserveElements, danach ReleaseElements);
+(3) verlorene Texte aus `durchbruch_alle_objekte*.json` (textguid/px/py/content)
+rekonstruiert und Register nachgeführt. Neue Ebene per CreateLayers: wahren Index
+IMMER per Text-Werkzeug-Probe bestimmen (User stellt Tool-Ebene, CreateTexts-Probe
+liefert layerIndex), NIE aus der Listenlänge raten.
+Wiederherstellungs-Grundregel bei Layer-Aufräumläufen: NIE „alles auf Layer X minus
+mein Register" löschen, ohne vorher Positionen/Inhalte der Fremdelemente zu sichern.
