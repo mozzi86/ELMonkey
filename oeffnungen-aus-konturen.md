@@ -34,10 +34,12 @@ freie Polygonform.
    - Zuordnung: Radius 4 m, gleiches Geschoss; Maßtexte eindeutig-greedy
      (nächstes Paar zuerst), Höhentexte teilbar.
 4. **Host finden**: Wände via `GetDetailsOfElements` (liefert **floorIndex +
-   polygonOutline** auch für Polywände!) → Punkt-im-Polygon, gleiche Etage;
-   Pass 2 mit Abstand ≤ 0,5 m (Durchbruch-Symbole liegen oft in Wandband-LÜCKEN,
-   weil die Bestandslinien dort unterbrochen sind). Decken analog über die
-   Footprint-Polygone.
+   `floorPlanPolygons`** auch für Polywände — das Feld heißt NICHT `polygonOutline`,
+   Korrektur 2026-08-31) → Punkt-im-Polygon, gleiche Etage; Pass 2 mit Abstand
+   ≤ 0,5 m (Durchbruch-Symbole liegen oft in Wandband-LÜCKEN, weil die
+   Bestandslinien dort unterbrochen sind). **Besser als Punkt-im-Polygon:
+   Achse + Dicke** — die Polygone sind an bestehenden Öffnungen aufgesplittet,
+   siehe „Host-Deckung messen" unten. Decken analog über die Footprint-Polygone.
 5. **Erzeugen**: `ApplyFavoritesToElementDefaults([favorit])` einmal pro Gruppe,
    dann `CreateOpenings` in 25er-Batches mit Fortschritts-Datei.
 
@@ -74,3 +76,78 @@ freie Polygonform.
 aus Text, 80 Fallback OK=UKD). Offen: 383 ohne Host-Wand (Wandlücken /
 verlorene Wände), 72 Warteliste OG2-Decke, 51 gedrehte achsparallel gesetzt,
 48 Schlitz-Texte (WS/BS) für v0.5+.
+
+## ⚠️ Anti-Pattern: Wanddurchbruch als freistehendes Deckendurchbruch-Objekt <!-- 2026-08-31 -->
+
+*Gemessen am THN 2026-08-31 an 996 WD/WS-Objekten aus dem Juli-Massenlauf.*
+
+Wenn die Projektbibliothek kein Wand-Objekt hat (THN: nur „Bodendurchbruch Symbol",
+„Deckendurchbruch Symbol", „Bodenschlitz" — Wanddurchbruch/Wandschlitz existieren nur
+als **Fenster**-LibParts), ist die Versuchung groß, WD auf das Deckendurchbruch-Symbol
+zu mappen und die Wahrheit in die Element-ID zu schreiben. Das skaliert nicht. Was
+dabei live herauskam:
+
+| Symptom | Messung |
+|---|---|
+| Platzierungswinkel | `angle = 0` bei **996 von 996** — jedes Objekt achsparallel, egal wie die Wand läuft |
+| Objekttiefe `B` ≠ echte Wanddicke | **505 von 578** mit Wirt, Median 10 cm daneben, max **1,34 m** |
+| davon auf dem Default `B = 0,25 m` | 171 |
+| Wirtsbindung | keine — kein 3D-Schnitt, wandert bei Wandbewegung nicht mit, kennt die Wanddicke nicht |
+
+`B` wird als Wandtiefe missbraucht und `ZZYZX` als Lochhöhe; sickert die Lochhöhe in
+`B` durch, liegen 3-m-Rechtecke quer über dem Flur (User sieht es sofort). Eine
+**Öffnung im Wirt hat all das strukturell nicht** — sie *ist* die Wanddicke und erbt
+die Wandrichtung. Symbol-Objekte sind nur dort vertretbar, wo es gar keine Wirtswand
+gibt (siehe nächster Abschnitt).
+
+## Host-Deckung messen, bevor man umbaut <!-- 2026-08-31 -->
+
+Vor der Entscheidung „Öffnung oder Symbol-Objekt" erst read-only zählen, wie viele
+Kandidaten überhaupt einen Wirt finden würden. Rezept (THN: 13.155 Wände in 13 s,
+996 Objekte gematcht):
+
+1. `TapirCommand.GetElementsByType {elementType:"Wall"}` → alle GUIDs;
+   `GetDetailsOfElements` in 250er-Batches mit Bisektion (Schema-Bug 4009).
+2. Wandband bilden: `Straight`/`Trapezoid` → Achse `beg→end`, Dicke
+   `(begThickness+endThickness)/2`; `Polygonal` → `floorPlanPolygons` unionieren.
+   **Nicht** Punkt-in-Polygon als Primärtest (an Öffnungen aufgesplittet, siehe
+   `reference/mcp-extension.md`).
+3. Objektmitte = `origin + (A/2, B/2)` aus `GetDetailsOfElements` — nicht aus dem
+   eigenen Register! Das Register kann veraltet sein (THN: Median 1,07 m Abweichung
+   zwischen Juli-Register und heutiger Modellposition). **Das Modell ist die Wahrheit.**
+4. Grid-Index je `floorIndex` (Zelle 4 m), dann `clearance = dist(Mitte, Achse) − t/2`.
+   Pass 1: `clearance ≤ 0`. Pass 2: `≤ 0,5 m` (Symbole liegen in Wandlücken).
+5. Ergebnis als CSV mit `befund`, `wall_id`, `wall_th`, `tiefe_falsch_cm` ausgeben —
+   das ist zugleich die Arbeitsliste.
+
+THN-Ergebnis: **58 %** mit Wirt (27 % Pass 1, 31 % Pass 2), 69,5 % bei 1-m-Toleranz.
+Von den wirtlosen lagen 114 zwischen 0,5 und 1,0 m — die Toleranz entscheidet also
+spürbar. Vorsicht: Pass-2-Treffer können die FALSCHE Wand erwischen (Ecken, Schächte);
+für die Messung tragbar, für den echten Umbau pro Objekt gegen Gewerke-Layer und
+Textrichtung plausibilisieren.
+
+**Wirtlos heißt nicht wertlos.** Am THN lagen 82 WD + 33 BD in einem Bereich, in dem
+es 85 Stützen und 229 Schraffuren (Flucht-/Brandschutzsymbole, Deckenaussparungen),
+aber keine einzige Wand und keine Decke gibt — ein Planbereich, der nie ins 3D gebaut
+wurde. Die Objekte sitzen dort korrekt auf ihren gezeichneten Symbolen. Vor dem
+Löschen von „wirtlosen" Durchbrüchen also IMMER prüfen, ob 2D-Inhalt darunter liegt
+(`ELM_SAB.Get2DGeometryOfElements` über die Schraffuren, nach Cluster auszählen) —
+und das Ergebnis **visuell rendern**, nicht nur zählen.
+
+## ⚠️ Parser-Falle: Bauteil-Kürzel kollidiert mit der Durchbruch-Grammatik <!-- 2026-08-31 -->
+
+Die Grammatik `[Gewerk] WD|BD|WS|DD B/H` trifft auch Raumnummern, wenn ein **Bauteil**
+so heißt wie ein Durchbruchstyp. Am THN heißen die Häuser WA/WB/WD/WE/WG — Texte wie
+`WD.01.022`, `WD.02.018 T90-1 RS` oder `WD.101 Kühlschrank für Lebensmittel` wurden
+als Wanddurchbrüche gelesen, und die **Raumnummer landete als Breite in Metern**:
+`WD.01.022` → A = 1,02 m, `WD.04.001` → A = 4,00 m, `WD.101` → A = 1,01 m. 20 solcher
+Objekte standen zwei Monate klassifiziert und KI-gestempelt im Modell, darunter drei
+Brandschutztüren und fünf Laborgeräte.
+
+Gegenmittel:
+- Grammatik verankern: nach `WD` muss ein **Trenner + Maß** kommen, ein `.` gefolgt
+  von Ziffern (`WD\.\s*\d`) disqualifiziert den Treffer.
+- Die Bauteil-Kürzel des Projekts aus der Property `Allgemeine Werte / Bauteilname`
+  ziehen (`API.GetAllPropertyIds` → `GetDetailsOfProperties` → `possibleEnumValues`)
+  und als Blacklist gegen die Typ-Kürzel prüfen. Am THN steht „WD" dort wörtlich drin.
+- Plausibilitätsgrenze: eine Durchbruchsbreite von 4,00 m ist ein Alarm, kein Maß.
