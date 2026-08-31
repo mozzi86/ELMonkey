@@ -719,7 +719,20 @@ Aus dem revit-mcp-python-Vergleich (Abwägung: `~/.scratch/elmonkey/pyrevit-verg
   triggern `*.md`/`Examples/`-Änderungen unter `ELM_SAB_Tapir/` seit 0.9.12 keinen Build
   mehr (paths-Negation).
 
-## Teamwork: Delete/Move-No-Op trotz success:true <!-- 2026-08-28 -->
+## Teamwork: Delete/Move-No-Op trotz success:true — UND die Auflösung <!-- 2026-08-28 korrigiert -->
+
+**Auflösung (gleicher Tag, live verifiziert):** Die No-Ops betreffen den Zustand
+VOR einem Teamwork-Senden. Nach „Senden & Empfangen" (User im UI; die Tapir-Befehle
+`TeamworkSend`/`TeamworkReceive` existieren, liefen aber wirkungslos durch)
+funktioniert die Kombination **`ReserveElements` → `DeleteElements` per API
+einwandfrei** (2026-08-28: 17.000+ Polylinien geschossweise gelöscht, Rücklese 0).
+Merkregeln: (1) Delete-Fehlschlag ⇒ erst senden lassen, dann Reserve+Delete erneut;
+(2) `ChangeSelectionOfElements` EXISTIERT (addElementsToSelection/removeElementsFromSelection)
+— der frühere „nicht registriert"-Befund war ein Timeout-Artefakt; Selektion in
+Batches ≤500, sonst hängt die UI minutenlang; (3) `4001 ongoing user input` beim
+Massenlauf: mit Backoff (8 s) wiederholen, User klickt gerade im Modell.
+
+### Ursprünglicher Befund (überholt, Kontext siehe oben)
 
 Am THN (AC29 Teamwork, Gesamtplanung): `DeleteElements` und `MoveElements` liefern
 `success:true`, ändern aber NICHTS — auch bei Elementen, die dieselbe Session eben

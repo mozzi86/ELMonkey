@@ -199,6 +199,17 @@ Defaults prüfen. Ein `success: true` ist hier kein Beleg.
 Die einzige belastbare Prüfung ist: **neu exportieren und die Soll-Tabelle gegenrechnen.**
 Nicht die Import-Antwort, nicht ein Stichproben-Screenshot.
 
+**Favoriten-Stand gilt pro Datei-Linie.** <!-- 2026-08-07 --> Ein verifizierter
+Favoriten-Patch in Datei A sagt nichts über Datei B — auch wenn B eine spätere Kopie
+„derselben" Vorlage ist. Real erlebt: eine datierte TPL-Kopie trug alle Attribut- und
+Klassifizierungsarbeiten (Quarantäne-Ebene, 324 Items), aber die Favoriten waren der
+ungepatchte Urzustand (0/446 klassifiziert, alte Ebenen-Fehler). Nach jedem Datei-Wechsel
+den Stand per Frisch-Export prüfen, nie aus Handoff/Gedächtnis übernehmen.
+Zweiter Merkposten daraus: der Klassifizierungs-Block referenziert das System über den
+**Namen** — nach einer System-Umbenennung müssen neue Patches den aktuellen Namen und
+die aktuelle `EditionVersion` tragen (Ist-Werte vorher per `API.GetAllClassificationSystems`
+holen, nicht aus alten Patch-Dateien kopieren).
+
 Gute Kennzahlen für den Abschlussbericht:
 
 - „N von N Favoriten mit Soll-Klasse haben sie" (positiv)
