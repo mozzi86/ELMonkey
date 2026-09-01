@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-15T06:30:00.000Z"
-last_activity: 2026-05-21 — Phase 6 Live-Promotion abgeschlossen (50 VERIFY → 0) + 5 cross-recipe Schema-Fixes
+last_updated: "2026-09-01T00:00:00.000Z"
+last_activity: 2026-09-01 — Quick: zwei Schedule-Export-Lernpunkte aus der ARZ-Möbel-Session aufgenommen
 progress:
   total_phases: 8
   completed_phases: 6
@@ -32,6 +32,12 @@ Progress: [████████████░░░] 75% (6 von 8 Phasen + 
 Last activity: 2026-05-21 — Phase 6 Live-Promotion: 50 VERIFY-Marker durch Live-Verification ersetzt (lines-polylines 12, surfaces-materials 21, fills-hatches 17). 7 MCP-v29-Findings in Memory: Typo `get2_d` ohne Unterstrich; `set_details.typeSpecificDetails=WallSettings-only`; 3 Create-Endpoints (surfaces, composites, building_materials) existieren mit korrigierten Param-Namen; `set_classifications` korrektes Schema = `elementClassifications+classificationId`-Single (NICHT elementsWithClassifications+classifications-Array, alte Form ergibt Pydantic-Error); pagination `page_token` ist Top-Level; `attributes_get_composite_attributes`+`_surface_attributes` existieren; `move_attributes_and_folders` für Folder-Workflow. Cross-recipe Schema-Bug in 5 weiteren Recipes (wall-operations, slabs-columns-beams, zones, library-objects, curtain-walls) gefixt — Recipes waren wegen falscher Code-Snippets seit Phase 3-5 nicht live anwendbar.
 
 Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-Promotion + Schema-Cross-Fix).
+
+## Quick Tasks Completed
+
+| Datum | Slug | Ergebnis |
+|-------|------|----------|
+| 2026-09-01 | schedule-export-lernpunkte | GDL-Preise vs. leere Property + eingebettete Summenzeilen in Schedule-Exports dokumentiert (3 Dateien, 32 Zeilen) |
 
 ## Performance Metrics
 
