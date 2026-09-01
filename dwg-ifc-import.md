@@ -237,3 +237,23 @@ ins Teamwork-Modell übertragen wurden:
    ICP-Minima und zwei Filter-Fehler wurden nur so gefangen.
 6. **Bestätigte Zahlen:** Zonen-Stempel haben ~1 m Anker-Offset (nie als
    Endstand); Registrierqualität 4–30 cm je nach Referenzdichte.
+
+## Vektor-TGA-Pläne: Symbol-Marken extrahieren + registrieren (live 2026-09-01, THN Kälte)
+
+- **Marken-Signatur statt Heuristik:** CAD-PDF-Symbole bestehen oft aus MEHREREN Pfaden mit
+  exakt identischem Bounding-Rect (Schirra: `qu`-Quad + Diagonale / Gegendiagonale als 2. Pfad;
+  Knab: 5-Linien-Pfad + Einzeldiagonale). Erst nach Rect gruppieren, dann Signatur prüfen
+  (Umriss vorhanden + ≥2 Ecke-zu-Ecke-Diagonalen). Stroke-Schrift (Kurven-Text) täuscht
+  Kleinelemente vor → Zeilen-Cluster-Filter in BEIDEN Achsrichtungen (Blatt kann gedreht sein).
+- **Blatt ≠ ein Koordinatensystem:** Ausführungspläne enthalten Panels/Detail-Einsätze mit
+  eigenem Offset — globale Registrierung scheitert dann still (unser 502A: zwei Panels,
+  Δty≈184 m). Verlässlich: **lokale Fenster-Registrierung je Markengruppe** — Raumanker als
+  Seed (alte Bauteil-Raumnummern ↔ neue Zonennummern, z. B. D001↔WD.001), dichtes
+  Distanzfeld über Modellwände (0,25-m-Raster), Translationsscan ±7 m, Score = Anteil
+  Planwandpunkte ≤0,4 m an Modellwand. Fit <40 % = ablehnen; 50–80 % = brauchbar.
+- **Achsraster als Maßstabs-Anker:** Strichpunkt-Achsen als kollineare Dash-Bins detektieren
+  (viele Kurzsegmente gleicher x/y). Teilung ÷ 8,10 m liefert den WAHREN Maßstab (nominal
+  1:100 war 1,2 % daneben — Signatur-Voting bricht daran). Modellseitig stehen die Achsen in
+  den Standard-Rastermarkern (GDL `AC_MarkerText_1`).
+- Signatur-Voting (Länge/Winkel exakt) funktioniert Modell↔Modell, aber NICHT Plan↔Modell
+  (andere Segment-Stückelung) — dort immer Distanzfeld-Scoring.
