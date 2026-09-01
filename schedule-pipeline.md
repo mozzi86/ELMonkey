@@ -20,6 +20,8 @@ Pipeline-Pattern für Bulk-Updates, wenn der MCP-Server die Quell-Daten **nicht 
 - Beispiele: GDL-Parameter-Werte ins Property-System synchronisieren; externe Daten-Quellen (Capmo, Bautagebuch, Excel-Listen) ins Modell einspielen.
 - Wenn der reine [`bulk-operations.md`](bulk-operations.md) Read → Filter → Group → Confirm → Apply nicht reicht, weil READ den entscheidenden Wert nicht findet.
 
+**Erst prüfen, ob die Property überhaupt trägt.** <!-- 2026-09-01 --> Bei Library-Objekten ist der Fall häufig, dass eine Property zwar existiert, aber projektweit den Default hält, während der echte Wert nur im GDL-Parameter steckt. Live-Fall: Property „Preis Netto" stand bei **allen 1.322 Möbeln auf 0,000**, die echten Einkaufspreise lagen im GDL-Parameter „Einkauf netto" und kamen ausschließlich über den Schedule-Export mit. `GetPropertyValuesOfElements` meldet dabei Erfolg — man bekommt lauter Nullen und merkt nichts. Vor jeder Kosten- oder Preisauswertung deshalb an ein paar Objekten mit **bekannt unterschiedlichen** Werten gegenprüfen, ob die Property befüllt ist; sonst direkt über den Export gehen. Ausführlich in [bulk-operations.md § GDL-Parameter vs. expression-verlinkte Property](bulk-operations.md#gdl-parameter-vs-expression-verlinkte-property-als-quelle-live-verifiziert-2026-06-11).
+
 **Alternative prüfen zuerst:** Wenn der GDL-Wert via [Property-Expression-Linking](property-expression-linking.md) automatisch ans Property gebunden werden kann, ist das eleganter als diese Pipeline. Erst dann diese Pipeline, wenn Linking nicht passt oder nicht gewünscht.
 
 ## Die 6 Schritte
@@ -72,6 +74,27 @@ rows = [{cell.value for cell in row} for row in ws.iter_rows(values_only=True)]
 ```
 
 **Resultat:** Liste von Dicts mit den Schedule-Spalten als Keys.
+
+### Eingebettete Summenzeilen filtern
+
+<!-- 2026-09-01 -->
+
+Ein Schedule mit **Gruppierung** schreibt seine Zwischensummen als ganz normale Tabellenzeilen mit in den Export. Sie sehen so aus:
+
+- Gruppierungsspalte (z. B. „Möbel Vertragsart") **leer**
+- GUID-/ID-Spalte (z. B. „Eindeutige ID") **leer**
+- die **Stückzahl** steht in einer Textspalte (z. B. „Bibliothekselement-Name")
+- die **Zwischensumme** steht in der Wertspalte
+
+Live-Fall: 1.334 Datenzeilen, davon **7 Summenzeilen**. Ungefiltert zählt man sie als echte Elemente mit und verdoppelt die Summe — der Fehler fällt nicht auf, weil die Zeilen strukturell unauffällig sind.
+
+**Filter:** Nur Zeilen **mit gefüllter GUID-Spalte** sind echte Elemente.
+
+```python
+echt = [r for r in rows if str(r.get("Eindeutige ID") or "").strip()]
+```
+
+**Pflicht-Gegenprobe:** Die selbst gerechneten Gruppensummen müssen die eingebetteten Zwischensummen **exakt** treffen. Im Live-Fall 614.163,52 / 102.818,00 / 148.553,01 / 30.535,00 / 930,00 € und Gesamt 896.999,53 €. Trifft es nicht auf den Cent, ist der Filter falsch — nicht die Zwischensumme.
 
 ## Schritt 3 — Identifier-Mapping (GUID-Match)
 
@@ -164,4 +187,6 @@ Bulk-Update Bodenbelag fertig:
 - **Enum-IDs vs. Display-Werte.** Properties haben Enum-IDs (GUIDs) und Display-Werte (Strings). Beim Set immer die GUID übergeben, nicht den String. Mapping via `properties_get_all_property_names` oder Property-Definition-Read.
 - **`get_details_of_elements`-Bug in AC29** macht direkten Schedule-ähnlichen Read im MCP unzuverlässig — deshalb diese Pipeline überhaupt.
 - **Encoding-Fallen** bei CSV: deutsche Umlaute werden je nach Archicad-Export-Variante als UTF-8, Windows-1252 oder Latin-1 gespeichert. `chardet`-Detect vor Parse hilft.
+- **Eingebettete Summenzeilen** in gruppierten Exports werden ungefiltert als Elemente mitgezählt — nur Zeilen mit gefüllter GUID-Spalte sind echt, und die eigenen Summen müssen die Zwischensummen exakt treffen. <!-- 2026-09-01 -->
+- **Property leer, GDL-Parameter befüllt.** Preise und andere Katalog-Werte von Library-Objekten liegen oft nur im GDL-Parameter; die gleichnamige Property hält projektweit den Default (live: „Preis Netto" = 0,000 bei allen 1.322 Möbeln). Der Read meldet trotzdem Erfolg. <!-- 2026-09-01 -->
 - **Schedule-Spalten-Reihenfolge** kann sich zwischen Archicad-Versionen ändern. Spalten **immer per Name addressieren** (DictReader), nicht per Index.
