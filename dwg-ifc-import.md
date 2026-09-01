@@ -257,3 +257,14 @@ ins Teamwork-Modell übertragen wurden:
   den Standard-Rastermarkern (GDL `AC_MarkerText_1`).
 - Signatur-Voting (Länge/Winkel exakt) funktioniert Modell↔Modell, aber NICHT Plan↔Modell
   (andere Segment-Stückelung) — dort immer Distanzfeld-Scoring.
+- **As-built-Gegenprobe schlägt Lokalfit:** Ein einziger starrer Frame, der N−k Marken auf
+  ≤0,2 m trifft, ist beweiskräftiger als ein lokaler Fenster-Fit mit 67 % Wandtreffern — bei
+  Schulbauten wiederholen sich Schacht/Aufzug/Treppe-Muster geschossweise UND gebäudeweise
+  (unsere G0-Gruppe saß deshalb 49 m falsch). Regel: Vor dem Create jede Markengruppe gegen
+  eine ZWEITE unabhängige Quelle (as-built-Plan, anderes Planwerk) kreuzprüfen; Ausreißer der
+  starren Transformation = eigener Platzierungsfehler, nicht Quellenfehler. Korrektur in
+  Teamwork: Reserve→MoveElements→Release funktioniert nach Senden zuverlässig.
+- **Implizite Durchführungen** (Leitung×Wand ohne Symbol): Kreuzung nur werten, wenn (a)
+  Winkel >30°, (b) Leitung beidseits ≥10 pt weiterläuft (Segmentketten-Verfolgung), (c) die
+  Wand als Doppellinie getroffen wird (2 Parallelen ≤14 pt, filtert Maßlinien), (d) Ziel in
+  Gebäudehülle. Bei uns: 425 Rohkandidaten → 86 echte Stellen.
