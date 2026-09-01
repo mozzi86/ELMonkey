@@ -648,6 +648,9 @@ Für das vollständige Read → Filter → Group → Confirm → Apply-Muster: [
 
 ## Gotchas
 
+- **Preise und Katalog-Werte liegen im GDL-Parameter, nicht in der Property.** <!-- 2026-09-01 --> Live: Property „Preis Netto" = 0,000 bei allen 1.322 Möbeln, die echten Einkaufspreise nur im GDL-Parameter „Einkauf netto" und nur über den Schedule-Export lesbar. Der Property-Read meldet dabei Erfolg. Details in [`../reference/bulk-operations.md`](../reference/bulk-operations.md#gdl-parameter-vs-expression-verlinkte-property-als-quelle-live-verifiziert-2026-06-11).
+- **Schedule-Exporte von Objekt-Listen enthalten eingebettete Summenzeilen** (Gruppierungs- und GUID-Spalte leer, Stückzahl in einer Textspalte). Nur Zeilen mit gefüllter GUID sind echte Objekte — siehe [`../reference/schedule-pipeline.md`](../reference/schedule-pipeline.md#eingebettete-summenzeilen-filtern). <!-- 2026-09-01 -->
+
 ### Gotcha 1 — `get_details_of_elements`-Bug in AC29
 
 `elements_get_details_of_elements` wirft Pydantic-Validierungs-Fehler für viele Element-Typen in AC29 (Schema-Drift durch neue Server-Felder). Für Objects bedeutet das: direkte Geometrie, Position und Layer-Info sind via diesem Tool unzuverlässig. **Workaround:** Bounding Box via `elements_get_3_d_bounding_boxes`, Properties via `properties_get_property_values_of_elements`. Memory-Eintrag: `issue_archicad_mcp_get_details_bug.md`. Gilt bis MCP-Plugin-Update.
