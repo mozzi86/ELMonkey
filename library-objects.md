@@ -646,6 +646,23 @@ Für das vollständige Read → Filter → Group → Confirm → Apply-Muster: [
 
 ---
 
+## Vorschaubild eines Elements per API rendern <!-- 2026-09-01 -->
+
+Hat ein Bibliothekselement keine eingebettete Vorschau (im Schedule-Export nur ein weißer Streifen mit Alpha), rendert Tapir trotzdem ein Bild:
+
+```
+API.ExecuteAddOnCommand → TapirCommand.GetElementPreviewImage
+{"elementId":{"guid":…},"imageType":"3D","format":"png","width":512,"height":512}
+→ {"previewImage":"<Base64-PNG, RGBA>"}
+```
+
+- `imageType` **3D** liefert brauchbare Objektansichten; **2D** ist nur das Grundriss-Symbol, für Bildlisten unbrauchbar. Defaults: 3D, png, 128 px.
+- Reiner Lesezugriff — keine Reservierung, kein KI-Stempel.
+- Live 2026-09-01 (Möbel_LOY, AC29 Teamwork, ELM_SAB 0.9.14): 18 von 24 bildlosen Positionen gerendert, 0,1–30 s je Objekt. Erst an einem Positivfall testen (Objekt, dessen Bild man kennt), dann einzeln.
+- **Schwere Legacy-Meshes hängen den Renderer minutenlang — und damit die gesamte JSON-API der Instanz.** Ablauf, Abbruchregel und Diagnose in [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md#renderer-hänger-ein-element-blockiert-die-api-minutenlang).
+
+---
+
 ## Gotchas
 
 - **Preise und Katalog-Werte liegen im GDL-Parameter, nicht in der Property.** <!-- 2026-09-01 --> Live: Property „Preis Netto" = 0,000 bei allen 1.322 Möbeln, die echten Einkaufspreise nur im GDL-Parameter „Einkauf netto" und nur über den Schedule-Export lesbar. Der Property-Read meldet dabei Erfolg. Details in [`../reference/bulk-operations.md`](../reference/bulk-operations.md#gdl-parameter-vs-expression-verlinkte-property-als-quelle-live-verifiziert-2026-06-11).
