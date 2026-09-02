@@ -156,6 +156,8 @@ Die JSON-/MCP-Ports (typisch ab 19723 aufwärts) sind **nicht stabil einer besti
 
 **Regel:** Niemals „Port X = Datei Y" über die Dauer einer Session hinaus annehmen oder aus einer früheren Session übernehmen. Vor jeder Operation, die den Port aus dem Warm-up wiederverwendet, **die offene Datei verifizieren** — via `GetProjectInfo` (Tapir) und Abgleich des `projectName`/`projectPath`. Wenn der erwartete Port keine Antwort gibt: nicht raten, alle aktiven Instanzen neu auflisten und den `projectName` matchen.
 
+**Port → Prozess zuordnen, bevor man CPU oder Zustand misst.** <!-- 2026-09-01 --> Bei mehreren Instanzen zeigt `ps` mehrere gleichnamige `Archicad`-Prozesse; welcher zu welchem Port gehört, sagt nur `lsof -nP -iTCP:<port> -sTCP:LISTEN`. Live-Fehldiagnose: „7 % CPU, Zustand S → vermutlich modaler Dialog“ — gemessen war aber die THN-Instanz (19723, PID 9015); die tatsächlich betroffene Möbel-Instanz (19724, PID 14543) lief mit 95 % im Zustand R, also rechnend, nicht wartend. Es liefen **drei** Instanzen (19725 = PID 14850), obwohl nur zwei erwartet waren.
+
 **Symptom für „Port tot / verschoben":** `IsAlive` liefert nichts oder die Verbindung ist refused, obwohl Archicad sichtbar läuft. Dann: aktive Instanzen neu auflisten, korrekten Port per Projektname bestimmen.
 
 ## Live-verifizierte Element-Create-Capabilities (AC29)
@@ -239,6 +241,16 @@ Nicht nur modale Dialoge blockieren. Auch ein **aktiv bearbeitetes / beschäftig
 **Diagnose-Idiom:** Erst `IsAlive` (muss `true` sein), dann ein **kleiner** Modell-Call (z. B. `GetElementsByType` auf einen Typ mit wenigen Elementen). Schlägt der kleine Call fehl, obwohl `IsAlive=true` → Modell ist busy, **nicht** die Verbindung tot.
 
 **Reaktion:** Nicht in einer Schleife retryen — das blockiert nur weiter. User bitten, das Modell kurz **idle** zu lassen (einmal auf leere Stelle klicken, damit nichts selektiert/aktiv ist, keine offene Dialogbox), dann den Call wiederholen. Große Payloads (Projekte mit vielen tausend Elementen) brauchen ohnehin längere Timeouts (≥120–180 s) und vertragen einen kleinen Retry mit Pause.
+
+### Renderer-Hänger: ein Element blockiert die API minutenlang <!-- 2026-09-01 -->
+
+Ein einzelner Render-Call kann die Instanz für Minuten sperren. Live: `GetElementPreviewImage` auf `Pflanze_Mittel_1800` (Alt-Pflanzen-Mesh) hielt die Möbel-Instanz **~7 min bei 95–120 % CPU** — in der Zeit blieb auch `GetProjectInfo` ohne Antwort. Weitere Verdachtsfälle derselben Art: `Pflanze_Mittel_1800_Bambus`, `Pflanze_klein_12001`, `Pflanzentopf_Klein_D21`, `INU012 (2)_HD`, `RunderTisch faces`. Normale Objekte brauchen 0,1–30 s.
+
+**Regeln für Render-Batches:**
+1. Erst ein bekannter Positivfall, dann der Batch — einzeln, mit kurzem Client-Timeout.
+2. **Beim ersten Hänger abbrechen.** Weiterlaufen erzeugt nur eine Timeout-Kaskade: der Client gibt auf, Archicad rechnet serverseitig weiter, jeder Folge-Call reiht sich dahinter ein.
+3. Rückkehr der API mit einem Wächter abwarten (`until curl … GetProjectInfo | grep -q succeeded; do sleep 5; done`), nicht mit Retry-Schleifen.
+4. Bekannte Hänger in eine Skip-Liste, Rest weiterrendern.
 
 ## Direkter HTTP-Zugriff auf die JSON-API (MCP-Bypass) <!-- 2026-06-11 -->
 
