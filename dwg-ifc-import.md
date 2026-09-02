@@ -268,3 +268,19 @@ ins Teamwork-Modell übertragen wurden:
   Winkel >30°, (b) Leitung beidseits ≥10 pt weiterläuft (Segmentketten-Verfolgung), (c) die
   Wand als Doppellinie getroffen wird (2 Parallelen ≤14 pt, filtert Maßlinien), (d) Ziel in
   Gebäudehülle. Bei uns: 425 Rohkandidaten → 86 echte Stellen.
+
+## Scan-Bestandsplaene (Lichtpausen 1:50, 96 dpi) selbst auslesen — Kosten und Methode (live 2026-09-02, THN)
+
+- **Achslineal statt Registrierung:** Alte SuD-Pläne tragen das Achsraster am Rand. Bubbles
+  lesen → Seeds; Strichpunkt-Achslinien per Spaltenprojektion in leeren Randzonen verfeinern;
+  Ausreißer über die bekannte Teilung (8,10 m = 460 pt bei 1:50) ersetzen. Umrechnung
+  **stückweise linear zwischen Nachbarachsen** — Lichtpausen haben Papierverzug bis 20 cm.
+- **Kachel-Lesen:** 5×5 Kacheln @2,8× (≈2000 px) sind die Lesegrenze für Normschrift auf
+  96-dpi-Scans (≈9 px nativ). Mehr Zoom bringt nichts. Kontaktbögen für Nachlesen **nie
+  herunterskalieren** (5×→400 px war effektiv 1,8× = schlechter als die Kacheln).
+- **Kosten:** ein A0-Blatt ≈ 25 Kacheln ≈ 35 % Kontext einer Session. Für Serien (>3 Blätter)
+  zwingend an Agenten delegieren; Rate-Limits einplanen (max 3–4 parallel).
+- **Ebenen-Regel HKL-Serie:** G-Nummer im Dateinamen == Modell-Floor; Plankopf-Ebenenname
+  ist um 1 versetzt → immer FFB-Kote gegen Story-Level prüfen (GetStories).
+- **Validierung:** identische Labels in Plan und Bestand am selben Ort (z. B. „SH BD 110/60"
+  bei 0,32 m) sind der beste Registrierungsbeweis — vor dem Create suchen.
