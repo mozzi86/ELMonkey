@@ -1,6 +1,6 @@
 ---
 status: complete
-completed: 2026-09-01
+completed: 2026-09-03
 slug: teamwork-6001-diagnose
 ---
 

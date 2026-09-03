@@ -1,6 +1,6 @@
 ---
 status: complete
-completed: 2026-09-01
+completed: 2026-09-03
 slug: schedule-export-lernpunkte
 ---
 
@@ -12,7 +12,7 @@ Zwei live verifizierte Befunde aus der ARZ-Möbel-Session aufgenommen.
 | Datei | Was |
 |---|---|
 | `reference/schedule-pipeline.md` | Quellen-Warnung bei „Wann diese Pipeline verwenden"; neuer Unterabschnitt „Eingebettete Summenzeilen filtern" in Schritt 2; 2 Gotcha-Bullets |
-| `reference/bulk-operations.md` | Absatz „Fortschreibung 2026-09-01" am bestehenden GDL-vs-Property-Abschnitt |
+| `reference/bulk-operations.md` | Absatz „Fortschreibung 2026-09-03" am bestehenden GDL-vs-Property-Abschnitt |
 | `recipes/library-objects.md` | 2 Querverweis-Bullets in „Gotchas" |
 
 ## Entscheidung beim Einbau

@@ -2,14 +2,14 @@
 gsd_plan_version: 1.0
 type: quick
 slug: schedule-export-lernpunkte
-created: 2026-09-01
+created: 2026-09-03
 ---
 
 # Quick Task — Zwei Schedule-Export-Lernpunkte aufnehmen
 
-Zwei live verifizierte Befunde aus der ARZ-Möbel-Session (2026-09-01, Projekt
+Zwei live verifizierte Befunde aus der ARZ-Möbel-Session (2026-09-03, Projekt
 `Möbel_LOY_datei_New_work_Futurelab_V29_1652`, Port 19724, AC29 Teamwork) in den
-Skill aufnehmen. Beide mit Datums-Marker `<!-- 2026-09-01 -->`.
+Skill aufnehmen. Beide mit Datums-Marker `<!-- 2026-09-03 -->`.
 
 ## Befund 1 — Preise liegen im GDL-Parameter, die Property ist leer
 
