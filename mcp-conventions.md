@@ -252,6 +252,14 @@ Ein einzelner Render-Call kann die Instanz für Minuten sperren. Live: `GetEleme
 3. Rückkehr der API mit einem Wächter abwarten (`until curl … GetProjectInfo | grep -q succeeded; do sleep 5; done`), nicht mit Retry-Schleifen.
 4. Bekannte Hänger in eine Skip-Liste, Rest weiterrendern.
 
+### 4001 nennt den Dialog beim Namen <!-- 2026-09-01 -->
+
+Seit AC29 steht der blockierende Dialog im Fehlertext: `Invalid program status (there is an open modal dialog: Teamwork-Projekt öffnen/beitreten)` — ebenso beim offenen Eigenschaften-Manager. Kein Retry, nicht raten: dem Nutzer sagen, welcher Dialog offen ist, und warten. Ein leerer Rückgabekörper ohne `executionResults` bei einem Set-Call ist dasselbe Symptom — immer die Rohantwort auf `succeeded`/`error` prüfen.
+
+### API-Selektion ist ortsgebunden — der Nutzer sieht sie nur auf seinem Geschoss <!-- 2026-09-01 -->
+
+`ChangeSelectionOfElements` + `GetSelectedElements` bestätigten 17/17 selektiert; der Nutzer meldete „nix ist selektiert“, weil die Elemente im 1.OG lagen (er stand auf einem anderen Geschoss) bzw. ihre Ebene ausgeblendet war. Seine manuelle Teamwork-Reservierung griff deshalb ins Leere. **Regel:** Soll der Nutzer auf eine API-Selektion reagieren, vorher `FitInWindow` auf die Elemente (zoomt und wechselt die Ansicht) und Ebene sichtbar machen — dann rückfragen, ob er die Markierung sieht. Meist besser: gleich per API reservieren (`ReserveElements`), das funktioniert, sobald die Ebene sichtbar ist (siehe [bulk-operations.md § 6001](bulk-operations.md#teamwork-bulk-set-scheitert-pro-element-mit-code-6001)).
+
 ## Direkter HTTP-Zugriff auf die JSON-API (MCP-Bypass) <!-- 2026-06-11 -->
 
 Der Archicad-MCP-Server ist nur ein dünner Wrapper über Archicads **JSON-Command-API**, die direkt per HTTP auf dem Instanz-Port lauscht (`POST http://127.0.0.1:<port>`, Body `{"command": ..., "parameters": ...}`). Bei **großen Bulk-Aufträgen** (hunderte/tausende Elemente) ist der direkte HTTP-Zugriff oft die bessere Wahl als der MCP-Tool-Pfad — aus zwei Gründen, beide live verifiziert an einem 1.899-Möbel-Auftrag:
