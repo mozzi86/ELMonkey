@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 last_updated: "2026-09-01T00:00:00.000Z"
-last_activity: 2026-09-01 — Quick: Element-Preview-Rendering + Renderer-Hänger (ARZ-Möbel-Session) aufgenommen
+last_activity: 2026-09-01 — Quick: Teamwork-6001-Diagnose + ortsgebundene API-Selektion (ARZ-Möbel-Session) aufgenommen
 progress:
   total_phases: 8
   completed_phases: 6
@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-09-01 | teamwork-6001-diagnose | 6001 = zuerst Ebene ausgeblendet/Hotlink prüfen (Rezept ein-/ausblenden); 4001 nennt Dialog; API-Selektion ortsgebunden (3 Dateien) |
 | 2026-09-01 | element-preview-render | Tapir `GetElementPreviewImage` als Bildquelle für Objekte ohne Export-Vorschau; Renderer-Hänger bei Legacy-Meshes + Port→PID-Diagnosefalle (3 Dateien, 30 Zeilen) |
 | 2026-09-01 | schedule-export-lernpunkte | GDL-Preise vs. leere Property + eingebettete Summenzeilen in Schedule-Exports dokumentiert (3 Dateien, 32 Zeilen) |
 
