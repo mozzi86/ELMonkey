@@ -115,6 +115,9 @@ Kandidaten überhaupt einen Wirt finden würden. Rezept (THN: 13.155 Wände in 1
 3. Objektmitte = `origin + (A/2, B/2)` aus `GetDetailsOfElements` — nicht aus dem
    eigenen Register! Das Register kann veraltet sein (THN: Median 1,07 m Abweichung
    zwischen Juli-Register und heutiger Modellposition). **Das Modell ist die Wahrheit.**
+   <!-- 2026-09-06 --> Vergleichsgröße ist immer die geometrische Mitte, nie `origin` —
+   ein Lauf mit `origin` statt Mitte lieferte scheinbar schwankende Trefferzahlen
+   (287 → 173 → 88); die Messung war falsch, nicht das Modell.
 4. Grid-Index je `floorIndex` (Zelle 4 m), dann `clearance = dist(Mitte, Achse) − t/2`.
    Pass 1: `clearance ≤ 0`. Pass 2: `≤ 0,5 m` (Symbole liegen in Wandlücken).
 5. Ergebnis als CSV mit `befund`, `wall_id`, `wall_th`, `tiefe_falsch_cm` ausgeben —
@@ -133,6 +136,19 @@ wurde. Die Objekte sitzen dort korrekt auf ihren gezeichneten Symbolen. Vor dem
 Löschen von „wirtlosen" Durchbrüchen also IMMER prüfen, ob 2D-Inhalt darunter liegt
 (`ELM_SAB.Get2DGeometryOfElements` über die Schraffuren, nach Cluster auszählen) —
 und das Ergebnis **visuell rendern**, nicht nur zählen.
+
+## Mittig in der Wand: Kriterium, Reihenfolge, Grenzen <!-- 2026-09-06 -->
+
+- Kriterium „mittig in der Wand": `|clearance + Dicke/2| ≤ 2 cm` (NICHT
+  `|clearance|` — ein Objekt exakt auf der Achse hat `clearance = −Dicke/2`).
+- Reihenfolge Drehen → Tiefe → Zentrieren: MoveElements senkrecht zur
+  Wandachse (längs bleibt Planposition); die kleinere Tiefe verschiebt die
+  Mitte um (B_alt − B_neu)/2 — nach jedem Schritt neu messen und iterieren
+  bis nichts mehr offen ist (THN Runde 2: 0/0/0).
+- Tiefe = Wanddicke gilt nur für Durchbrüche (WD/MD/HD/BSK); Schlitze
+  (WS/SWS) gehen planmäßig nicht durch die Wand und behalten ihre Tiefe.
+- An Wandkreuzungen wird die Zuordnung nach dem Zentrieren mehrdeutig —
+  bewusst belassen.
 
 ## ⚠️ Parser-Falle: Bauteil-Kürzel kollidiert mit der Durchbruch-Grammatik <!-- 2026-08-31 -->
 

@@ -633,6 +633,17 @@ Auch bei `type: "integer"` erwartet `properties_set_property_values_of_elements`
 
 `properties_set_property_values_of_elements` (und die anderen `properties_*`/`elements_*`-Tools) erwarten `arguments = {"port": <port>, "params": {…}}`. Wer `port` und `elementPropertyValues` flach nebeneinander legt, bekommt einen Pydantic-Fehler `port: Extra inputs are not permitted [extra_forbidden]`, weil `port` dann fälschlich im inneren Params-Modell landet. `port` gehört auf die oberste Ebene, alles andere in `params`.
 
+### 11. Haus/Bauteil ohne Zonen: Wand-Property „Bauteilname" als Fallback <!-- 2026-09-06 -->
+
+Liegen im Fundbereich keine Zonen, liefert die Wand-Property „Bauteilname"
+(Gruppe „Allgemeine Werte", GUID projektspezifisch über `API.GetAllPropertyIds`
++ `GetDetailsOfProperties` suchen, per `GetPropertyValuesOfElements` an den
+Wänden im Bereich lesen) das Haus zuverlässig — THN Nr28: 83 von 93 Wänden „WA".
+Ordnername, Dateiname und Rühl-Stempel sind unzuverlässig: Ordner WA/Dateiname
+„BT-B" mit Plankopf „BT. C" = Haus WB (Nr24/27/32); Dateiname „BT-A" mit
+Plankopf „BAUTEIL D" = Haus WA (Nr28). Regel: Haus immer aus Zonen ODER
+Wand-Bauteilname ableiten, nie aus Datei-/Ordnernamen.
+
 ### 10. Teamwork: Fehler `-2130312909` = fehlende Reservierung <!-- 2026-06-29 verifiziert AC29 -->
 
 Schreibversuche (`set_property_values`, `set_classifications`, `set_details`) auf einer Teamwork-Datei scheitern für **jedes** Element mit `code -2130312909, "Failed to set property value for element"`, wenn die Zonen nicht reserviert sind. Wichtig:
