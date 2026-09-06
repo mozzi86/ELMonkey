@@ -42,6 +42,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-09-03 | element-preview-render | Tapir `GetElementPreviewImage` als Bildquelle für Objekte ohne Export-Vorschau; Renderer-Hänger bei Legacy-Meshes + Port→PID-Diagnosefalle (3 Dateien, 30 Zeilen) |
 | 2026-09-03 | schedule-export-lernpunkte | GDL-Preise vs. leere Property + eingebettete Summenzeilen in Schedule-Exports dokumentiert (3 Dateien, 32 Zeilen) |
 | 2026-09-06 | 260905-ro7 | ELM_SAB.SetStoryVisibilityOfElements/GetStoryVisibilityOfElements (Auf Geschossen zeigen, Object+Lamp) neu registriert v0.9.15; CI-Build ausstehend |
+| 2026-09-06 | 260906-hs0 | layerIndex-Gotcha (Index ≠ Listenposition, `API.GetAttributesIndices`); Geschosslogik+Beschriftungsgrammatik der Durchbruch-Symbole (Verweis statt Duplikat); 3 MCP-Betriebs-Fallen (600-s-Zeitgrenze, Aktionsbefehle nie leer testen, Archicad nie per kill beenden) — 3 Dateien |
 
 ## Performance Metrics
 
