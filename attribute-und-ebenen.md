@@ -62,13 +62,23 @@ und Kalkulationsfilter (NOVA-AVA & Co.) matchen häufig auf `ifc_layer` mit Oper
 *equals*. Ein Umbenennen bricht solche Filter sofort und geräuschlos. **Vor jedem
 Ebenen-Rename klären, ob eine AVA-Filterbibliothek darauf zeigt.**
 
-Zwei Dinge, die in der Praxis überraschen:
+Drei Dinge, die in der Praxis überraschen:
 
 - **Die Systemebene „Archicad-Ebene" tauchte in Tapir-Listen nie auf.** Wer sie als
   „fehlt / gelöscht" meldet, erzeugt falschen Alarm — sie ist da, sie wird nur nicht
   gelistet.
 - **Leere Ebenen sind per API gefahrlos löschbar** (verifiziert an 6 Dubletten). Bei
   belegten Ebenen dagegen entscheidet die API die Ersatzfrage still — dann UI.
+- **`layerIndex` (den `SetDetailsOfElements` verlangt) ist weder die GUID-Reihenfolge
+  noch die Position in der Attributliste.** <!-- 2026-09-06 --> Beleg: A_01_TRAGWAND
+  hat Index 342, steht aber an Listenposition 104; A_125_DACHFLAECHENFENSTER 662/123;
+  Q_22_ELEKTRO 865/664. Aus einem lebenden Element ableitbar ist der Index nur, wenn
+  auf der Ebene bereits ein Element liegt — bei leeren Zielebenen scheitert das. Der
+  native Weg ist `API.GetAttributesIndices` (Antwort
+  `attributeIndicesAndGuids[].attributeIndexAndGuid.{guid,index}`); Tapir 1.5.4 kennt
+  den Befehl noch nicht (Fehler 4010). Indizes sind projektspezifisch — vor
+  Wiederverwendung neu holen. Live THN 2026-09-06: A_21_AUSSPAR_WAND=567,
+  A_22_AUSSPAR_DECKE=127, A_23_AUSSPAR_BODEN=117.
 
 ## Ebenenkombinationen
 

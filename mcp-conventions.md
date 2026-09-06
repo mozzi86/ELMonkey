@@ -325,3 +325,22 @@ Flach (`classificationSystemId`/`classificationItemId` direkt neben `elementId`)
 - **Format des Reports:** „127 verarbeitet, 124 erfolgreich, 3 Fehler bei IDs 0x1A2B, 0x1A2C, 0x1A30 — Gründe: A, B, C."
 
 **Confirm war `ja`, aber das Ergebnis überrascht.** Element verschwindet, Eigenschaft sieht anders aus als erwartet: stoppen, lesen, berichten. Wir korrigieren nicht durch Folge-Operationen, weil wir nicht wissen, was der MCP-Server genau gemacht hat.
+
+## Betriebs-Fallen (THN-Live-Sitzung) <!-- 2026-09-06 -->
+
+- **Zeitgrenze auf 600 s setzen, auch bei „timed out" wiederholen.**
+  Teamwork-Schreibungen und Senden können über 180 s dauern; die HTTP-Zeitgrenze
+  im Hilfsmodul auf 600 s setzen und nicht nur bei 4001 (modaler Dialog, siehe
+  oben) wiederholen, sondern auch beim reinen Timeout-Symptom „timed out" —
+  beides ist vorübergehend, nicht fatal.
+- **Aktionsbefehle nie mit leeren Parametern „zum Schema-Test" aufrufen — sie
+  werden AUSGEFÜHRT.** `FitInWindow {}` setzt den Zoom auf „alles einpassen",
+  `ChangeWindow` löscht die Selektion des Nutzers (kostete 2026-09-06 eine vom
+  Nutzer markierte Objektgruppe). Schema stattdessen per Discovery lesen, nie
+  live gegentesten.
+- **Archicad nie per `kill` beenden.** Ein abgelehnter `osascript … to quit`
+  mit `-128 „Von Benutzer:in abgebrochen"` heißt Abbruch durch den Nutzer,
+  nicht Hänger. `kill -TERM` erzeugte 2026-09-06 einen Absturz mit
+  Graphisoft-Bug-Reporter; folgenlos war das nur, weil kein Projekt offen war.
+  Vor jedem Beenden `GetProjectInfo` je Port prüfen — bei offenem Projekt erst
+  `TeamworkSend`, sonst den Nutzer selbst beenden lassen.
