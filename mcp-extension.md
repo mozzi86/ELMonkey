@@ -863,3 +863,30 @@ Einzelaufrufe, nicht nur Massenläufe — der User hat einfach ein Werkzeug akti
 oder zieht gerade etwas. Backoff (5–8 s) und wiederholen; nicht als Fehler melden.
 `4001 (no open project)` dagegen heißt: diese Instanz hat kein Projekt offen —
 beim Port-Scan sind mehrere Archicad-Instanzen normal, nur eine trägt das Projekt.
+
+## ELM_SAB 0.9.15 — Auf Geschossen zeigen <!-- 2026-09-05 -->
+
+Neu: `ELM_SAB.SetStoryVisibilityOfElements` / `ELM_SAB.GetStoryVisibilityOfElements`.
+Nur Object und Lamp (`API_LampType` ist ein Alias auf `API_ObjectType`).
+
+**Set-Parameter:** `elements[]`, dazu entweder `visibility` (Enum `HomeOnly` /
+`HomeAndOneUp` / `HomeAndOneDown` / `HomeAndOneUpAndDown` / `AllStories` /
+`AllRelevant`) oder `custom` (`{showOnHome, showAllAbove, showAllBelow,
+showRelAbove 0|1, showRelBelow 0|1}`), plus `reserve` (Default `true`). Antwort:
+`executionResults[]`, bei Erfolg mit zurückgelesenem `visibility`.
+
+**Get-Antwort:** `storyVisibilities[]` je Element mit `visibility`,
+`isAutoOnStoryVisibility`, den vier Rohfeldern und `homeStory`.
+
+**Warum es diesen Befehl braucht:** Tapirs `SetDetailsOfElements` kann nur
+`floorInd` (= Ursprungsgeschoss), nicht die Geschoss-Sichtbarkeit; die offizielle
+JSON-API kennt kein Property dafür.
+
+**Offene Verifikation — noch nicht live verifiziert:** Die DevKit-Header-Doku
+sagt, das Relativ-Geschoss-Feature sei für `API_ObjectType` „not extended" —
+`showRelAbove/showRelBelow` sind an Objekten unerprobt. Vor jedem Massenlauf an
+EINEM Testobjekt setzen, per `GetStoryVisibilityOfElements` und in der Objekt-UI
+gegenlesen. Fallback: `AllRelevant` (per DevKit-Beispiel belegt) oder
+`AllStories`. Der Build läuft in CI, der Befehl ist bislang ungetestet am
+laufenden Archicad — erst nach Live-Test darf dieser Vermerk auf „verifiziert"
+geändert werden.
