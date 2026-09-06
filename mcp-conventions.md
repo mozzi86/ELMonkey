@@ -344,3 +344,12 @@ Flach (`classificationSystemId`/`classificationItemId` direkt neben `elementId`)
   Graphisoft-Bug-Reporter; folgenlos war das nur, weil kein Projekt offen war.
   Vor jedem Beenden `GetProjectInfo` je Port prüfen — bei offenem Projekt erst
   `TeamworkSend`, sonst den Nutzer selbst beenden lassen.
+- Python puffert `print` in Pipes — `ps`-Laufzeit und Änderungszeit der
+  Logdatei trennen „arbeitet" von „hängt", bevor man einen Lauf für hängend
+  hält. Abhilfe: `sys.stdout.reconfigure(line_buffering=True)` oder direkt in
+  die Datei schreiben; kein `| grep` hinter langen Läufen (grep puffert
+  zusätzlich).
+- Modell-Durchgang über alle Objekte einmal je Lauf cachen statt je Geschoss
+  wiederholen (2045 Objekte ≈ 8 Minuten pro Durchgang).
+- Parallele Lesezugriffe während eines Schreiblaufs erzeugen Zeitüberschreitungen
+  — nur ein Prozess am Modell.
