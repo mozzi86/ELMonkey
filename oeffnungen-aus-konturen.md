@@ -151,3 +151,32 @@ Gegenmittel:
   ziehen (`API.GetAllPropertyIds` → `GetDetailsOfProperties` → `possibleEnumValues`)
   und als Blacklist gegen die Typ-Kürzel prüfen. Am THN steht „WD" dort wörtlich drin.
 - Plausibilitätsgrenze: eine Durchbruchsbreite von 4,00 m ist ein Alarm, kein Maß.
+
+## Geschosslogik + Beschriftung der Durchbruch-Symbole <!-- 2026-09-06 -->
+
+Die Objekte „Bodendurchbruch Symbol", „Deckendurchbruch Symbol" und „Bodenschlitz"
+zeichnen Geschossdarstellung und Typtext SELBST: `lineTypeFloor` gilt im eigenen
+Geschoss, `lineTypeCeiling` im Nachbargeschoss, und der Typtext wechselt
+spiegelbildlich (Bodendurchbruch auf Geschoss n zeigt „BD", auf n−1 „DD";
+Deckendurchbruch umgekehrt nach oben). Ob im Nachbargeschoss überhaupt gezeichnet
+wird, hängt allein an der Elementeinstellung „Auf Geschossen zeigen" — nicht am
+Skript. Per Tapir nicht setzbar; seit ELM_SAB 0.9.15 dafür
+`ELM_SAB.SetStoryVisibilityOfElements` / `GetStoryVisibilityOfElements` (Befehl
++ Parameter vollständig dokumentiert in
+[`../reference/mcp-extension.md`](../reference/mcp-extension.md#elm_sab-0915--auf-geschossen-zeigen),
+hier nur der Fachkontext). Live verifiziert THN 2026-09-06:
+`visibility: "HomeAndOneDown"` → Rücklese `showRelBelow: 1`, Sichtbeleg im
+Grundriss (eigenes Geschoss durchgezogen, Geschoss darunter gestrichelt, Text
+BD→DD). Die DevKit-Warnung, das Relativ-Geschoss-Feature sei für
+`API_ObjectType` „not extended", trifft in AC29 damit NICHT zu.
+
+**Beschriftung derselben Objekte:** Text = `symb_use_short` (nur wenn
+`bShowPrefix`) + Typtext + `A` + „ /" + `B`. `iSymbUse`: 1 Elektro · 2 Gas ·
+3 Heizung · 4 Lüftung · 5 Sanitär · 0 „Eigene" — es gibt KEIN Kälte und KEINE
+Kombi-Gewerke (HS, HLS, SH, ESH …); die laufen über `iSymbUse=0` +
+`bShowCustomText=true` + `symb_cust_text`. Bei String/Integer-Paaren
+(`symb_use`/`iSymbUse`) führt der Integer, der String wird bei Regeneration
+daraus abgeleitet. Ohne `bShowPrefix=1` erscheint das Gewerkskürzel NIE — am
+THN stand es projektweit auf 0, deshalb las der Plan „BD 1,60 /0,25" ohne
+Gewerk, während 992 Objekte zusätzlich pauschal auf „Lüftung" (Werksdefault)
+standen.
