@@ -87,6 +87,7 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 | `CreateCurtainWallFromAxes` | Vorhangwände aus Pfostenachsen, auch nichtrechteckig (Giebel, Trapez, freies Polygon). |
 | `GetColumnDetails` / `SetColumnDetails` | Kernmaße von Stützen. |
 | `SetColumnRotation` | Absoluter Drehwinkel von Stützen. Tapirs `RotateElements` meldet hier Erfolg, ändert aber nichts. |
+| `GetStoryVisibilityOfElements` / `SetStoryVisibilityOfElements` | „Auf Geschossen zeigen" von Objekten und Lampen lesen und setzen. Presets (HomeOnly … AllRelevant) oder Rohfelder. Weder Tapir noch die offizielle JSON-API fassen diese Felder an. |
 
 ## Selbst bauen
 
