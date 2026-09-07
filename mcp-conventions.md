@@ -13,6 +13,8 @@ Diese Datei dokumentiert, wie wir mit dem Archicad-MCP-Server umgehen. [SKILL.md
 7. [Modal-Dialoge in Archicad blockieren MCP](#modal-dialoge-in-archicad-blockieren-mcp)
 8. [Direkter HTTP-Zugriff auf die JSON-API (MCP-Bypass)](#direkter-http-zugriff-auf-die-json-api-mcp-bypass)
 9. [Verhalten bei „nein" oder Mid-Batch-Fehler](#verhalten-bei-nein-oder-mid-batch-fehler)
+10. [Teamwork: Konflikt trotz success, stille No-Ops](#teamwork-konflikt-trotz-success-stille-no-ops)
+11. [Werkzeug-Hygiene für Hilfsskripte](#werkzeug-hygiene-für-hilfsskripte)
 
 ## Discovery-Pattern im Detail
 
@@ -353,3 +355,35 @@ Flach (`classificationSystemId`/`classificationItemId` direkt neben `elementId`)
   wiederholen (2045 Objekte ≈ 8 Minuten pro Durchgang).
 - Parallele Lesezugriffe während eines Schreiblaufs erzeugen Zeitüberschreitungen
   — nur ein Prozess am Modell.
+
+## Teamwork: Konflikt trotz success, stille No-Ops <!-- 2026-09-07 -->
+
+Anschluss an die Fehlerklassen-Zeile „Reserve meldet success, Write scheitert mit
+6001" oben — hier ist der Fall ANDERS: der Write scheitert NICHT, er tut nur nichts.
+
+- Tapir `ReserveElements` antwortet mit `executionResult.success:true` UND
+  `conflicts: [{elementId, user}]`, wenn ein anderer Nutzer das Element reserviert hat.
+  Folge-Aufrufe (`MoveElements`, `RotateElements`, `SetGDLParametersOfElements`)
+  melden dann ebenfalls `success` und ändern trotzdem nichts. → `conflicts` immer
+  auswerten, betroffene Elemente überspringen, jede Schreibung rücklesen.
+- `SetGDLParametersOfElements` ignoriert Bool-Parameter stillschweigend, wenn `0`/`1`
+  statt `true`/`false` übergeben wird.
+- Die Archicad-Warnung „Teamwork-Operation nicht erfolgreich / Verbindung zum Server
+  fehlgeschlagen" blockiert die API bis zum OK — per System Events auslesen und
+  bestätigen (Anschluss an den Modal-Dialog-Abschnitt oben).
+- `GetDetailsOfElements` liefert für Beams nur die Achse (`begCoordinate`/
+  `endCoordinate`) — Breite aus `API.Get3DBoundingBoxes` herleiten.
+- Objekte ohne Wandwirt zusätzlich in Unterzügen (Beams) suchen, bevor man sie als
+  wirtlos einstuft (Querverweis auf „Host-Deckung messen" im Öffnungs-Rezept).
+
+## Werkzeug-Hygiene für Hilfsskripte <!-- 2026-09-07 -->
+
+- Hilfsdateinamen mit Datum brechen am Datumswechsel → Datum zur Laufzeit bilden,
+  nicht im Namen festschreiben.
+- Globs eng fassen: `wirt_suche_*.json` las die eigene Ausgabe
+  `wirt_suche_unterzug_….json` wieder ein.
+- Subprozess-Hilfsläufe auf Exit-Code UND Dateialter der Ausgabe prüfen, nicht auf
+  Vorhandensein der Datei.
+- In zsh-Subshells kein `echo "== …"` (`=`-Expansion schlägt fehl).
+- Nur EIN Schreiblauf gegen Archicad gleichzeitig; vorher per `ps` prüfen, dass kein
+  zweiter läuft (verschärft die bestehende Regel „nur ein Prozess am Modell").
