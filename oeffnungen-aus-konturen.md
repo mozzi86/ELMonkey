@@ -196,3 +196,26 @@ daraus abgeleitet. Ohne `bShowPrefix=1` erscheint das Gewerkskürzel NIE — am
 THN stand es projektweit auf 0, deshalb las der Plan „BD 1,60 /0,25" ohne
 Gewerk, während 992 Objekte zusätzlich pauschal auf „Lüftung" (Werksdefault)
 standen.
+
+## Nachlese in HL-/Trassenplänen: was ein Fund ist <!-- 2026-09-07 -->
+
+- Fund-Definition: jede Wandkreuzung einer Trasse, die ein Öffnungssymbol trägt —
+  gekreuzter Kasten, WD-Marker auch ohne Maßangabe, Klappe, Bowtie.
+- ⚠️ Kernfalle: Maßangaben mit „/" sind KEIN Ausschlusskriterium; der WG-Pilotlauf
+  filterte sie heraus und verlor dadurch rund 40 % der Funde.
+- Maß-Kaskade: Maß aus dem Label; sonst Kanalquerschnitt + 10 cm, dann als unsicher
+  markieren; sonst `MASS?`-Platzhalter — nie stillschweigend raten oder verwerfen.
+- Einheit mm/cm pro Blatt am Kanalmaß verifizieren (Blätter mischen die Einheiten).
+- Steigschächte = Rechteck mit Diagonalkreuz (BD/DD). KEIN Fund: Treppen-Bruchlinien,
+  Rundstützen (Kreis mit Kreuz), kreuzschraffierte 60/60-Stützen.
+- Entdopplung: Symbol und Fahne liegen bis 2 m auseinander → über Label-Signatur bzw.
+  Klappen-ID zusammenführen, nicht über Abstand allein.
+- Gewerk normalisieren: Kombi-Angabe „H/L/S" → „HLS" (Anschluss an die bestehende
+  Kombi-Gewerk-Regel `iSymbUse=0` + `symb_cust_text` oben, per Querverweis).
+- Klappen: FSK/SK/ESK werden als BSK geführt, Maße in mm.
+- Rohrhülsen `ROHRH D=…` in Wänden werden runde Wanddurchführung HD mit DN — nicht
+  als 20/20-WD abbilden.
+- Nebenzeichnungen mit eigenem Lineal per Skalierungsfaktor ins Hauptlineal überführen.
+- Blätter ohne Achsraster (1:20-Schachtpläne) über Wandflächen gegen die
+  3D-BoundingBoxen der Modellwände registrieren (`API.Get3DBoundingBoxes`);
+  am THN Residuen ≤ 8 mm erreicht.
