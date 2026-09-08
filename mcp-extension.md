@@ -890,3 +890,76 @@ gegenlesen. Fallback: `AllRelevant` (per DevKit-Beispiel belegt) oder
 `AllStories`. Der Build läuft in CI, der Befehl ist bislang ungetestet am
 laufenden Archicad — erst nach Live-Test darf dieser Vermerk auf „verifiziert"
 geändert werden.
+
+## Leere `executionResults[]` = Undo-Scope hat nicht gestartet <!-- 2026-09-08, THN SuD, live -->
+
+**Symptom (THN, 3037 KI-Durchbruchsobjekte):** `ReserveElements` meldet `success`,
+`SetGDLParametersOfElements`, `SetDetailsOfElements` und `MoveElements` antworten
+mit `{"executionResults": []}` — leere Liste, kein Fehler, keine Änderung.
+`API.SetPropertyValuesOfElements` schreibt an denselben Elementen anstandslos.
+1896 Objekte standen deshalb auf Bibliotheks-Defaults (A/B/ZZYZX = 0,70/0,40/0,30),
+obwohl sie mit anderen Maßen erzeugt worden waren.
+
+**Ursache:** Diese Tapir-Befehle bauen ihre Ergebnisliste **innerhalb** des Lambdas
+von `ACAPI_CallUndoableCommand` auf und **werfen dessen Rückgabewert weg**. Führt
+Archicad das Lambda nicht aus, läuft die Schleife nie — die Liste bleibt leer, und
+der Befehl meldet trotzdem `succeeded: true`. Es ist **kein** Element-Zustand:
+weder Sperre, noch Gruppe, noch Hotlink, noch Teamwork-Reservierung.
+
+**Beleg (live 2026-09-08, AC29/5101, Teamwork):**
+- Gemischter Batch aus einem „gesperrten" und einem nachweislich änderbaren Objekt
+  → **beide** ohne Ergebnis. Also kein Element-, sondern ein Sitzungszustand.
+- `FilterElements` mit `IsEditable` / `InMyWorkspace` schlägt für **alle** Objekte
+  fehl, für die änderbaren genauso — taugt nicht als Unterscheidungsmerkmal.
+- `GetDetailsOfElements`: identischer Bibliotheksteil (gleiche `ownUnID`) bei
+  änderbaren und nicht änderbaren Objekten; `GetGDLParametersOfElements` zeigt
+  `isLocked: false`.
+- Entscheidend: `ELM_SAB.SetStoryVisibilityOfElements` legt seinen Ergebnisvektor
+  **außerhalb** des Lambdas an und lieferte für dasselbe Objekt
+  `-2130313215` = `0x81060001` = `APIERR_GENERAL` — exakt den Initialwert, den nur
+  ein **nie gelaufenes Lambda** stehen lässt.
+- Kein blockierender Dialog (`API.GetProductInfo` antwortet sauber),
+  `GetCurrentWindowType` = `FloorPlan`.
+
+**Merksatz:** Ein leeres `executionResults` ist nie „alle übersprungen", sondern
+immer „die Schleife lief nicht". Nicht nach Element-Eigenschaften suchen —
+den Sitzungszustand prüfen (offener Dialog, aktives Werkzeug/Eingabe,
+Teamwork-Schreibrecht) und Archicad notfalls neu starten. Der Zustand ist
+klebrig: er hält bis zum Neustart und trifft *alle* Undo-gekapselten Befehle.
+
+## ELM_SAB 0.9.16 — `SetObjectParametersForce` <!-- 2026-09-08 -->
+
+Antwort auf genau den Fall oben. `ELM_SAB.SetObjectParametersForce` setzt GDL-
+Parameter (AddPars) von **Object, Lamp, Label und Zone** und schweigt nie:
+
+- Ergebnisvektor liegt **außerhalb** des Undo-Lambdas → jedes Element bekommt ein
+  Resultat mit echtem `error.code`, auch wenn nichts lief.
+- Der `GSErrCode` von `ACAPI_CallUndoableCommand` wird gemeldet:
+  `undoScope: {executed, errorCode, mode, hint}`. `executed: false` benennt das
+  Problem im Klartext, statt es zu verstecken.
+- `mode: "direct"` — lief das Lambda nicht, wird derselbe Durchgang **ohne**
+  Undo-Klammer wiederholt (`allowWithoutUndoScope`, Default `true`). Lieber eine
+  Änderung ohne Undo-Eintrag als gar keine; scheitert auch das, steht der Fehler-
+  code von `ACAPI_Element_Change` im Ergebnis.
+- **Kein `APIFilt`-Vorfilter** — `IsEditable`/`InMyWorkspace` sind am THN wertlos
+  (siehe oben) und würden nur wieder still filtern.
+- `syncObjectRatios` (Default `true`): `A`/`B` werden bei Objekten zusätzlich in
+  `xRatio`/`yRatio` gespiegelt — wer nur die AddPars schreibt, ändert die
+  Parameterliste, aber nicht die Maße des platzierten Objekts.
+- Ruecklese-Verifikation je Element (`NoError` beweist nichts) und
+  Teamwork-Reservierung mit Freigabe der erfolgreichen Elemente (`reserve`).
+- `parametersNotInLibPart` zählt Parameter, die es im Bibliotheksteil gar nicht
+  gibt — ein Tippfehler im Namen fällt dadurch auf.
+
+**Parameter:** `elements[{elementId:{guid}, gdlParameters[{name, value}]}]`,
+optional global `gdlParameters[]` (gilt für alle Elemente ohne eigene Liste),
+`reserve`, `syncObjectRatios`, `allowWithoutUndoScope`. Werte gehen als `value`
+(Zahl/String/Bool) oder explizit als `numberValue`/`stringValue`/`boolValue`.
+
+**Antwort:** `executionResults[]` (je Element `elementId`, `parametersSet`,
+`parametersNotInLibPart` bzw. `error`), `undoScope`, `successCount`,
+`elementCount`.
+
+**Testplan vor jedem Massenlauf:** ein einzelnes Objekt setzen, `undoScope.executed`
+prüfen, dann per `GetGDLParametersOfElements` **und** `GetDetailsOfElements`
+(`dimensions`) gegenlesen. Erst wenn beide stimmen, den Batch fahren.
