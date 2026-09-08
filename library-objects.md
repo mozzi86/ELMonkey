@@ -766,3 +766,26 @@ Querschnitts-/Maßfragen: 2D-Symbol verfälscht die 2D-Box → `API.Get3DBoundin
   3. User-Properties (z. B. KI-Stempel): erst **nach** dem Setzen der Klassifizierung möglich — auf unklassifizierten Objekten kommt `6703 Property not available` (Verfügbarkeit ist an Klassifizierungen gekoppelt). Reihenfolge: Create → SetDetails → SetClassifications → SetProperties.
 - Rotation <!-- 2026-09-06 -->: `angle` ist bei GDL-Objekten ein interner (Text-)Winkel — Sollwert 180° wurde zu 3,1°, `details.angle` blieb 0 (sofort zurücksetzen bei Fehlversuch). Richtig ist Tapir `RotateElements`: `origin` = Objektmitte, berechnet aus Einfügepunkt + (A/2, B/2) im aktuellen Winkel gedreht (`cx = ox + (A/2)·cos a − (B/2)·sin a`, `cy = oy + (A/2)·sin a + (B/2)·cos a`), `beginPoint = (cx+1, cy)`, `endPoint = (cx+cos Δ, cy+sin Δ)`. Live 2026-09-06: 0°→270° bei 0,0 mm Versatz der Mitte, 141 Objekte. `SetDetailsOfElements` kennt kein `angle` (Schemafehler). Die Tiefe `B` bleibt per `SetGDLParametersOfElements` setzbar und wirkt sowohl im GDL-Parameter als auch in `details.dimensions`.
 - Klon-Rezept (Modell→Modell-Versatz): Versatz nie schätzen, sondern per Wand-Matching bestimmen — Segmente beider Cluster nach Signatur (Länge mm-genau, Winkel Grad) matchen, Translation per Mittelpunkt-Differenz-Voting; Achtung Selbstähnlichkeits-Falle bei Schulflügeln → mit Zonen-Nummern oder zweitem Kandidaten gegenprüfen. Danach 1:1 kopieren (Geschoss/Ebene/drawIndex/Maße/Klassifizierung/ID) und chunk-weise rücklesen (Position auf ±1 mm).
+
+## Steuerparameter vs. abgeleitete Werte — vor jedem Massenlauf klären <!-- 2026-09-09 -->
+
+Bei den SAB-Bibliotheksobjekten „Deckendurchbruch Symbol" und „Bodendurchbruch
+Symbol" sind `A`, `B` und `ZZYZX` **abgeleitete** Werte: das Parameterskript
+rechnet sie aus den Steuerparametern und überschreibt jeden direkt gesetzten
+Wert. Steuerparameter sind `gs_hole_width` (Breite), `gs_hole_depth` (Tiefe),
+`gs_slab_thickness` (Höhe/Deckenstärke) und, bei runden Durchbrüchen,
+`gs_hole_diameter`.
+
+Folge: `dimensions` beim `CreateObjects` (siehe oben, `A/B/ZZYZX`-Mapping) und
+direktes Setzen von `A`/`B`/`ZZYZX` fallen auf die Bibliotheks-Defaults
+0,70/0,40/0,30 zurück — der Aufruf meldet dabei Erfolg. Live THN 2026-09-09:
+2110 Objekte standen auf diesen Defaults, Reparatur 1856/1856 über die
+Steuerparameter (Skript `mass_reparatur.py`).
+
+Regel: Vor einem Massenlauf an einem GDL-Objekt an EINEM Exemplar prüfen,
+welche Parameter Steuer- und welche abgeleitete Werte sind — setzen und über
+`GetDetailsOfElements` (`dimensions`) **und** `GetGDLParametersOfElements`
+gegenlesen; erst dann den Batch fahren. Konkreter Live-Fall zu Gotcha 9
+(`dimensions`-Override-Caveat, oben) — dort steht das Muster, hier die
+Ausprägung an den Durchbruch-Symbolen. Details zu `SetObjectParametersForce`
+(0.9.16) und dem Undo-Scope-Diagnosemuster: [`../reference/mcp-extension.md`](../reference/mcp-extension.md).

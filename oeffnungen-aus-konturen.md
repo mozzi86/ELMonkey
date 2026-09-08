@@ -219,3 +219,18 @@ standen.
 - Blätter ohne Achsraster (1:20-Schachtpläne) über Wandflächen gegen die
   3D-BoundingBoxen der Modellwände registrieren (`API.Get3DBoundingBoxes`);
   am THN Residuen ≤ 8 mm erreicht.
+
+## Maße der Durchbruch-Symbole: Steuerparameter setzen, Register gegenlesen <!-- 2026-09-09 -->
+
+Maße der Deckendurchbruch-/Bodendurchbruch-Symbole nie über `dimensions` oder
+`A`/`B`/`ZZYZX` erzeugen — beide fallen still auf die Bibliotheks-Defaults
+0,70/0,40/0,30 zurück (Anti-Pattern-Beleg oben, `B`/`ZZYZX`-Missbrauch). Nur
+über die Steuerparameter `gs_hole_width`/`gs_hole_depth`/`gs_slab_thickness`
+(rund: `gs_hole_diameter`) setzen; Parameterliste und Reparaturweg stehen in
+[`../recipes/library-objects.md`](../recipes/library-objects.md#steuerparameter-vs-abgeleitete-werte--vor-jedem-massenlauf-klären-).
+
+Live THN 2026-09-09: 2110 Objekte standen auf den Defaults, 1856/1856 repariert.
+
+Abnahmeregel: Die Abnahme eines Durchbruch-Laufs prüft die tatsächlichen Maße
+gegen das Register/die Fundliste — „Objekt existiert" und „Befehl meldete
+Erfolg" reichen nicht (Anschluss an die Nachlese-Regel <!-- 2026-09-07 --> oben).
