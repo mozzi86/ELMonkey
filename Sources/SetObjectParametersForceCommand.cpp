@@ -343,12 +343,15 @@ GS::ObjectState SetObjectParametersForceCommand::Execute (const GS::ObjectState&
     std::vector<ElemResult>             results (n);
 
     for (size_t i = 0; i < n; ++i) {
-        const GS::ObjectState* id = elements[i].Get ("elementId");
+        // MSVC behandelt die size_t->GS::UIndex-Verengung in GS::Array::operator[]
+        // als Fehler (C4267 + /WX) — deshalb der explizite Cast.
+        const GS::ObjectState& item = elements[(GS::UIndex) i];
+        const GS::ObjectState* id = item.Get ("elementId");
         if (id != nullptr)
             guids[i] = GetGuidFromObjectState (*id);
 
         GS::Array<GS::ObjectState> items;
-        if (elements[i].Get ("gdlParameters", items))
+        if (item.Get ("gdlParameters", items))
             ReadParChanges (items, changes[i]);
         if (changes[i].empty ())
             changes[i] = globalChanges;
