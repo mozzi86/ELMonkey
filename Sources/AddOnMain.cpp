@@ -56,6 +56,7 @@
 #include "CreateCurtainWallCommand.hpp"
 #include "CaptureViewCommand.hpp"
 #include "StoryVisibilityCommands.hpp"
+#include "SetObjectParametersForceCommand.hpp"
 #include "GetVersionCommandELM.hpp"
 
 template <typename CommandType>
@@ -1007,6 +1008,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<GetStoryVisibilityOfElementsCommand> (
             elmSabCommands, "0.9.15",
             "ELM_SAB: Liest 'Auf Geschossen zeigen' von Objekten/Lampen."
+        );
+        err |= RegisterCommand<SetObjectParametersForceCommand> (
+            elmSabCommands, "0.9.16",
+            "ELM_SAB: Setzt GDL-Parameter (AddPars) von Object/Lamp/Label/Zone mit ECHTEM Fehlercode je Element — kein stilles Ueberspringen. Meldet zusaetzlich, ob ACAPI_CallUndoableCommand das Lambda ueberhaupt gestartet hat (undoScope), und wiederholt den Durchgang notfalls ohne Undo-Klammer. Spiegelt A/B in xRatio/yRatio, mit Ruecklese-Verifikation und Teamwork-Reservierung."
         );
         AddCommandGroup (elmSabCommands);
     }
