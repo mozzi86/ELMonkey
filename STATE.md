@@ -46,6 +46,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-09-06 | 260906-hs0 | layerIndex-Gotcha (Index ≠ Listenposition, `API.GetAttributesIndices`); Geschosslogik+Beschriftungsgrammatik der Durchbruch-Symbole (Verweis statt Duplikat); 3 MCP-Betriebs-Fallen (600-s-Zeitgrenze, Aktionsbefehle nie leer testen, Archicad nie per kill beenden) — 3 Dateien
 | 2026-09-06 | 260906-jw7 | Rotation-Zeile in library-objects.md korrigiert (RotateElements statt SetGDLParametersOfElements); Host-Deckung-Punkt-3 präzisiert + Mittig-Kriterium/Reihenfolge Drehen→Tiefe→Zentrieren/Schlitze/Wandkreuzungen ergänzt; Bauteilname-Fallback ohne Zonen in zones.md; 3 Betriebs-Fallen an mcp-conventions.md angehängt — 4 Dateien
 | 2026-09-07 | 260907-lme | THN-SuD-Kampagne-Lehren: Nachlese-Regeln HL-/Trassenpläne (11 Punkte, u.a. „/"-Falle verlor 40% der Funde, Rohrhülsen, Steigschacht-Abgrenzung) in oeffnungen-aus-konturen.md; Teamwork-Konflikt-trotz-success + Werkzeug-Hygiene (9 Punkte) in mcp-conventions.md — 2 Dateien |
+| 2026-09-09 | 260909-0tg | GDL-Steuerparameter der SAB-Durchbruch-Symbole (`gs_hole_width`/`gs_hole_depth`/`gs_slab_thickness`/`gs_hole_diameter`; A/B/ZZYZX sind abgeleitet, THN 2110 betroffen/1856 repariert) + Nachtrag sitzungsweites leeres `executionResults` (Neustart-Abhilfe, Verweis auf 0.9.16-Diagnose) — 3 Dateien |
 
 ## Performance Metrics
 
