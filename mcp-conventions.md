@@ -387,3 +387,18 @@ Anschluss an die Fehlerklassen-Zeile „Reserve meldet success, Write scheitert 
 - In zsh-Subshells kein `echo "== …"` (`=`-Expansion schlägt fehl).
 - Nur EIN Schreiblauf gegen Archicad gleichzeitig; vorher per `ps` prüfen, dass kein
   zweiter läuft (verschärft die bestehende Regel „nur ein Prozess am Modell").
+
+## Nachtrag: leeres `executionResults` ist sitzungsweit <!-- 2026-09-09 -->
+
+Das Muster tritt nicht nur je Element, sondern **sitzungsweit** auf: startet
+`ACAPI_CallUndoableCommand` das Lambda nicht, wirft Tapir dessen Rückgabewert
+weg und meldet trotzdem Erfolg. Abhilfe, die live wirkt: **Archicad neu
+starten** — der Zustand ist klebrig und hält bis dahin.
+
+`ELM_SAB.SetObjectParametersForce` (0.9.16) macht den Zustand sichtbar:
+`undoScope.executed` / `errorCode` / `mode`. Details nur verlinkt in
+[`mcp-extension.md`](mcp-extension.md), Abschnitte <!-- 2026-09-08 -->.
+
+Nachdokumentation: Der Add-on-Umbau 0.9.16 wurde ausnahmsweise auf
+Nutzer-Auftrag direkt committet (Commit 83d06a2) und wird hier nachträglich
+dokumentiert.
