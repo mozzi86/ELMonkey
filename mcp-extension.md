@@ -963,3 +963,194 @@ optional global `gdlParameters[]` (gilt für alle Elemente ohne eigene Liste),
 **Testplan vor jedem Massenlauf:** ein einzelnes Objekt setzen, `undoScope.executed`
 prüfen, dann per `GetGDLParametersOfElements` **und** `GetDetailsOfElements`
 (`dimensions`) gegenlesen. Erst wenn beide stimmen, den Batch fahren.
+
+## ELM_SAB 0.9.17 — Stufe 2 „Auge": Ereignis-Log, EditState, UIState, Deviations <!-- 2026-09-09 -->
+
+Sechs neue Befehle im Namespace `ELM_SAB`. Zweck: Ein Agent sah bisher nur, was er
+selbst zurücklas. Alles, was der Nutzer zwischendurch tut — Projekt schließen,
+Teamwork-Receive, Bibliothek neu laden, Elemente löschen — blieb unsichtbar, und
+genau daraus entstehen die stillen Fehlschläge weiter oben.
+
+### Welche Benachrichtigungen das DevKit hergibt (geprüft in DevKit 29.3100)
+
+Die im Auftrag genannten `ACAPI_Notify_Catch*`-Namen sind der Stand bis AC26. Ab
+AC27 heißen sie anders (`MigrationHelper.hpp` shimt die alten Namen für ≤AC26).
+Verwendet werden:
+
+| Benachrichtigung | Funktion (AC27–29) | Wofür |
+|---|---|---|
+| Projekt-Ereignisse | `ACAPI_ProjectOperation_CatchProjectEvent` | New/Open/PreSave/Save/Close/Quit/TempSave, **SendChanges/ReceiveChanges**, ChangeProjectDB/Window/Floor/**Library**, AllInputFinished, UnitChanged, Property-/Klassifikations-Sichtbarkeit, ShowIn3DChanged |
+| Selektion | `ACAPI_Notification_CatchSelectionChange` | letztes selektiertes Element (`API_Neig`) |
+| Werkzeug | `ACAPI_Notification_CatchToolChange` | Werkzeugwechsel in der Toolbox |
+| Neue Elemente | `ACAPI_Element_CatchNewElement (nullptr, …)` | global, alle Typen |
+| Änderung/Löschung | `ACAPI_Element_InstallElementObserver` | **nur** für Elemente mit `ACAPI_Element_AttachObserver` |
+| Teamwork-Reservierung | `ACAPI_Notification_CatchElementReservationChange` | reserviert / freigegeben / von anderen gelöscht |
+| Lockable-Reservierung | `ACAPI_Notification_CatchLockableReservationChange` | Attribute, Favoriten, Modellansichts-Optionen |
+
+**Was es NICHT gibt** (dokumentiert, nicht erfunden): eine globale „irgendein
+Element wurde geändert/gelöscht"-Benachrichtigung. Änderung und Löschung kommen
+ausschließlich **elementweise** über `AttachObserver`. Ein Rundum-Attach über das
+ganze Modell — was Tapirs `SetElementNotificationClient` tut — ist am THN
+(>100 k Elemente) zu teuer und wird bewusst nicht gemacht. Dafür gibt es
+`WatchElements`.
+
+**Zweiter DevKit-Zwang:** pro Benachrichtigungsart darf nur **ein** Handler
+installiert sein. Tapirs `SetElementNotificationClient` installiert eigene Element-
+und Reservierungs-Handler und hätte das Log abgeschaltet. Beide Seiten gehen
+deshalb über die Weichen `ELMCombinedElementEventHandler` /
+`ELMCombinedReservationChangeHandler` (EventLogCommands.cpp); die Weiche
+protokolliert zuerst und gibt danach an Tapir weiter — an Tapir nur, wenn dort
+überhaupt ein Client registriert ist (`AddElementNotificationClientCommand::HasClients`).
+
+### `ELM_SAB.GetRecentEvents`
+
+Ringpuffer, **5000 Einträge**, gefüllt ab Add-On-Start (erster Eintrag
+`EventLogStarted`). Zeitstempel sind ISO 8601 **UTC**, millisekundengenau.
+
+Parameter (alle optional): `since` (ISO-Zeit; der Vergleich ist ein reiner
+Zeichenkettenvergleich auf genau den Stempeln, die die Antwort liefert — keine
+Zeitzonenfalle), `sinceSeq` (der stabilere Weg zum Weiterlesen), `categories[]`
+(`project` / `element` / `selection` / `tool` / `reservation`), `elements[]`,
+`limit` (Default 200, es kommen die **jüngsten**).
+
+```json
+{"command":"ELM_SAB.GetRecentEvents","parameters":{"sinceSeq":0,"categories":["project","reservation"],"limit":50}}
+```
+```json
+{"events":[
+  {"seq":1,"time":"2026-09-09T06:12:03.114Z","category":"project","type":"EventLogStarted","detail":"ELM_SAB 0.9.17"},
+  {"seq":7,"time":"2026-09-09T06:31:44.902Z","category":"project","type":"TeamworkReceiveChanges"},
+  {"seq":8,"time":"2026-09-09T06:31:47.330Z","category":"reservation","type":"ElementReserved",
+   "elementId":{"guid":"A1B2…"},"user":"Sophia Pickel"}],
+ "eventCount":3,"matchedCount":3,"capacity":5000,"storedCount":8,"recordedCount":8,
+ "droppedCount":0,"oldestSeq":1,"newestSeq":8,"serverTime":"2026-09-09T06:32:10.008Z",
+ "installedHandlers":[{"notification":"ProjectEvent (ACAPI_ProjectOperation_CatchProjectEvent)","errorCode":0,"installed":true}, …]}
+```
+
+`installedHandlers` ist die Selbstauskunft: welche Benachrichtigung sich
+tatsächlich registrieren ließ. Fehler beim Registrieren werden **nicht** in den
+`err` des Add-Ons eingemischt — ein fehlendes Log darf das Add-On nicht scheitern
+lassen.
+
+### `ELM_SAB.ClearEvents`
+
+Ohne Parameter. `{"clearedCount": 812, "success": true}`. Setzt auch
+`recordedCount`/`droppedCount` zurück, nicht die `seq`-Zählung.
+
+### `ELM_SAB.WatchElements`
+
+`{"elements":[{"elementId":{"guid":"…"}}], "watch": true}` → `executionResults[]`
+plus `watchedCount`. `watch:false` nimmt den Observer wieder ab. **Erst hiernach**
+tauchen `ElementChanged` / `ElementDeleted` / `ElementUndo*` für diese Elemente im
+Log auf. Vor einem Massenlauf die betroffenen Elemente anmelden, danach abmelden —
+sonst wächst der Puffer mit jeder Nutzeraktion.
+
+### `ELM_SAB.GetElementEditState`
+
+`{"elements":[{"elementId":{"guid":"…"}}]}` → `editStates[]`, `editableCount`,
+`elementCount`. Je Element: `exists`, `elemType`, `floorIndex`, `layerIndex`,
+`layerName`, `layerHidden`, `layerLocked`, `isLocked`, `inGroup` (+ `groupId`),
+`hotlink` (+ `hotlinkId`), in Teamwork zusätzlich `ownerUserId`/`ownerUserName`,
+`lockUserId`/`reservedByUser`, `isReservedByMe`, `hasDeleteModifyRight`, bei
+bibliotheksteilbasierten Typen `libPartName` und `libPartMissing`, dazu
+`filterFlags` und das Gesamturteil `editable` + `reason`.
+
+`reason` in Prüfreihenfolge: `layerHidden` → `layerLocked` → `elementLocked` →
+`hotlink` → `reservedByUser:<Name>` → `libraryPartMissing` → `editable`.
+Gruppenmitgliedschaft blockiert die API **nicht** und fließt nicht ins Urteil ein,
+sondern nur in `note`.
+
+`filterFlags` (`isEditable`, `onVisibleLayer`, `inMyWorkspace`, `hasAccessRight`
+aus `ACAPI_Element_Filter`) wird mitgeliefert, aber **bewusst nicht** für das
+Urteil benutzt: am THN meldete `IsEditable`/`InMyWorkspace` auch für nachweislich
+änderbare Elemente `false` (siehe „Leere `executionResults[]`" oben).
+
+Zwei Feinheiten aus der DevKit-Doku zu `API_Elem_Head`: `lockId` ist **in
+Teamwork** die Nutzer-ID des Reservierenden, **außerhalb** ein bool-Sperrschalter —
+`isLocked` wird deshalb nur außerhalb von Teamwork aus `lockId` gebildet. Und
+„fehlender Bibliotheksteil" steckt in `API_LibPart::missingDef`, nicht im
+Fehlercode von `ACAPI_LibraryPart_Get` (Archicad hält für fehlende Teile eine
+virtuelle Referenz).
+
+### `ELM_SAB.GetUIState`
+
+Ohne Parameter. Antwort: `modalDialogOpen`, `modalDialogCount`,
+`modelessDialogCount`, `currentWindow {type, title, name, index}`,
+`teamwork {isTeamworkProject, hasConnection, isOnline, userId, userName, workGroupMode}`,
+`project {untitled, name, path}`, `elmSabVersion`.
+
+**Zwei Grenzen offen benannt:**
+1. Der **Titel** eines Dialogs ist nicht abrufbar — `DG::Dialog::GetTitle()` ist im
+   DevKit `protected`, es gibt keinen öffentlichen Weg an den Text eines fremden
+   Dialogs. Gezählt wird über `DG::GetFirstModalDialog()` +
+   `GetNextModalDialog()`; es gibt also nur die **Anzahl**, nicht „welcher".
+2. ELM_SAB-Befehle laufen per `ScheduleForExecutionOnMainThread`. Blockiert ein
+   modaler Dialog den Hauptthread, kann die Antwort ausbleiben. Der belastbare
+   Nutzen ist deshalb die **Negativaussage** „`modalDialogCount: 0`, kein Dialog im
+   Weg" — ein Timeout ist selbst schon das Signal „Dialog offen". Noch nicht live
+   mit offenem Dialog gegengeprüft.
+
+### `ELM_SAB.GetDeviations`
+
+```json
+{"command":"ELM_SAB.GetDeviations","parameters":{
+  "expected":[{"guid":"A1B2…","dimsMm":[700,400,300]},
+              {"guid":"C3D4…","dims":[0.7,0.4,0.3]}],
+  "toleranceMm":1.0}}
+```
+```json
+{"deviations":[
+  {"elementId":{"guid":"A1B2…"},"exists":true,"elemType":"Object",
+   "boundingBox3D":{"xMin":…,"zMax":…},
+   "dims":[0.70,0.40,0.30],"dimsSource":"objectRatiosAndBoundingBox",
+   "expectedDims":[0.70,0.40,0.30],"deviationMm":[0,0,0],"maxDeviationMm":0,
+   "checked":true,"withinTolerance":true},
+  {"elementId":{"guid":"C3D4…"},"exists":true,"elemType":"Object",
+   "dims":[0.70,0.40,0.25],"expectedDims":[0.70,0.40,0.30],
+   "deviationMm":[0,0,-50],"maxDeviationMm":50,
+   "checked":true,"withinTolerance":false,"deviatingAxes":"z"}],
+ "elementCount":2,"checkedCount":2,"deviatingCount":1,"toleranceMm":1.0}
+```
+
+`elements[]` ist optional — fehlt es, werden alle Elemente aus `expected[]`
+geprüft. Sollmaße als `dims` (**Meter**, Archicad-Einheit) oder `dimsMm`
+(Millimeter). Elemente ohne Sollmaß bekommen `checked:false` und nur ihre
+Ist-Maße. Toleranz gilt **pro Achse**, Default 1,0 mm.
+
+`dimsSource` sagt immer, woher die Ist-Maße kommen:
+`objectRatiosAndBoundingBox` (Object/Lamp: `xRatio`/`yRatio` = die Maße, mit denen
+Nutzer und GDL-Parameter `A`/`B` arbeiten, z aus der 3D-Hülle),
+`wallLengthThicknessHeight` (Wand: Achslänge / Dicke / Höhe) oder
+`boundingBox3D` (alle übrigen Typen). Wichtig: bei gedrehten oder überstehenden
+Symbolen ist die 3D-Hülle **nicht** A/B — deshalb wird bei Objekten bewusst nicht
+die Hülle verglichen.
+
+`SetWatch`/`CheckWatch` gibt es bewusst **nicht**: der Vergleich gegen ein Register
+bleibt clientseitig, das Add-On liefert nur die Ist-Werte und rechnet die
+Abweichung. Ein zweites Sollwert-Register im Add-On wäre eine dritte Quelle der
+Wahrheit neben Register und Herkunfts-Properties (Stufe 3).
+
+### Testplan (noch NICHT am laufenden Archicad verifiziert)
+
+Der Build ist grün, die Befehle sind ungetestet. Erst nach diesen Schritten darf
+dieser Vermerk auf „verifiziert" geändert werden:
+
+1. `ELM_SAB.GetAddOnVersion` → muss `0.9.17` melden. Sonst läuft das alte Bundle.
+2. `ELM_SAB.GetRecentEvents` → `installedHandlers` prüfen: alle sieben
+   `installed: true`? Was `false` meldet, gehört in diese Datei nachgetragen.
+3. `ELM_SAB.GetUIState` → `currentWindow.type` gegen das tatsächliche Fenster,
+   `teamwork.userName` gegen den angemeldeten Nutzer, `modalDialogCount: 0`.
+4. Im Archicad ein Element anklicken, dann Werkzeug wechseln → `GetRecentEvents`
+   muss `SelectionChanged` und `ToolChanged` zeigen.
+5. Ein Testobjekt per `WatchElements` anmelden, es in der UI verschieben, dann
+   löschen → `ElementChanged` und `ElementDeleted` müssen im Log stehen.
+   **Das ist der Test, der die AttachObserver-Grenze belegt** — ein NICHT
+   angemeldetes Element darf keine Change-Ereignisse liefern.
+6. Teamwork-Receive auslösen → `TeamworkReceiveChanges` im Log.
+7. `GetElementEditState` an vier bekannten Fällen: normales Objekt,
+   Objekt auf ausgeblendeter Ebene, Hotlink-Element, von Sophia Pickel
+   reserviertes Element. `reason` muss jeweils passen.
+8. `GetDeviations` an einem Durchbruchsobjekt mit bekanntem A/B/ZZYZX:
+   erst mit korrektem Sollmaß (`withinTolerance: true`), dann mit absichtlich
+   falschem (`deviatingAxes` muss die richtige Achse nennen).
+9. `ClearEvents`, danach `GetRecentEvents` → `storedCount: 0`.
