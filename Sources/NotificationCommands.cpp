@@ -11,6 +11,7 @@
 #include "ObjectStateJSONConversion.hpp"
 
 #include "MigrationHelper.hpp"
+#include "EventLogCommands.hpp"
 
 static
 GS::String ElementEventTypeToString (AddElementNotificationClientCommand::ElementEventType eventType)
@@ -171,7 +172,8 @@ GS::ObjectState AddElementNotificationClientCommand::Execute (const GS::ObjectSt
     }
 
     if (notifyOnNew && !hasClientToNotifyOnNew) {
-        ACAPI_Element_CatchNewElement (nullptr, ElementEventHandlerProc);
+        // ELM_SAB: ueber die Weiche, damit das Ereignis-Log nicht abgeschaltet wird.
+        ACAPI_Element_CatchNewElement (nullptr, ELMCombinedElementEventHandler);
         hasClientToNotifyOnNew = true;
     }
 
@@ -185,11 +187,11 @@ GS::ObjectState AddElementNotificationClientCommand::Execute (const GS::ObjectSt
     }
 
     if (notifyOnReservationChanges && !hasClientToNotifyOnReservationChanges) {
-        ACAPI_Notification_CatchElementReservationChange (ElementReservationChangeHandler);
+        ACAPI_Notification_CatchElementReservationChange (ELMCombinedReservationChangeHandler);
         hasClientToNotifyOnReservationChanges = true;
     }
 
-    ACAPI_Element_InstallElementObserver (ElementEventHandlerProc);
+    ACAPI_Element_InstallElementObserver (ELMCombinedElementEventHandler);
 
     return CreateSuccessfulExecutionResult ();
 }

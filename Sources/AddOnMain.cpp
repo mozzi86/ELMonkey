@@ -58,6 +58,8 @@
 #include "StoryVisibilityCommands.hpp"
 #include "SetObjectParametersForceCommand.hpp"
 #include "GetVersionCommandELM.hpp"
+#include "EventLogCommands.hpp"
+#include "InspectionCommands.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -161,6 +163,13 @@ GSErrCode Initialize (void)
     // err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_FOR_UPDATE, MenuCommandHandler);
     err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU, MenuCommandHandler);
     err |= TapirPalette::RegisterPaletteControlCallBack ();
+
+    // ELM_SAB Stufe 2 „Auge": Ereignis-Log ab jetzt mitschreiben. Muss VOR der
+    // Befehlsregistrierung stehen, damit auch das Oeffnen des Projekts noch im Log
+    // landet. Fehler beim Registrieren einzelner Benachrichtigungen werden NICHT in
+    // err eingemischt — ein fehlendes Log darf das Add-On nicht scheitern lassen;
+    // GetRecentEvents.installedHandlers meldet, was geklappt hat.
+    ELMEventLog::InstallHandlers ();
 
     { // Application Commands
         CommandGroup applicationCommands ("Application Commands");
@@ -1012,6 +1021,30 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<SetObjectParametersForceCommand> (
             elmSabCommands, "0.9.16",
             "ELM_SAB: Setzt GDL-Parameter (AddPars) von Object/Lamp/Label/Zone mit ECHTEM Fehlercode je Element — kein stilles Ueberspringen. Meldet zusaetzlich, ob ACAPI_CallUndoableCommand das Lambda ueberhaupt gestartet hat (undoScope), und wiederholt den Durchgang notfalls ohne Undo-Klammer. Spiegelt A/B in xRatio/yRatio, mit Ruecklese-Verifikation und Teamwork-Reservierung."
+        );
+        err |= RegisterCommand<GetRecentEventsCommand> (
+            elmSabCommands, "0.9.17",
+            "ELM_SAB: Liefert das Ereignis-Log (Projekt-Events, Selektion, Werkzeug, neue Elemente, Teamwork-Reservierungen, Aenderung/Loeschung beobachteter Elemente) mit Zeitstempel, Typ, Element-GUID und Nutzer. Filter: since / sinceSeq / categories / elements / limit."
+        );
+        err |= RegisterCommand<ClearEventsCommand> (
+            elmSabCommands, "0.9.17",
+            "ELM_SAB: Leert das Ereignis-Log und setzt die Zaehler zurueck."
+        );
+        err |= RegisterCommand<WatchElementsCommand> (
+            elmSabCommands, "0.9.17",
+            "ELM_SAB: Haengt Element-Observer an bzw. ab. Ohne Observer gibt es KEINE Aenderungs-/Loeschungs-Ereignisse — das DevKit kennt dafuer nur den elementweisen Weg (ACAPI_Element_AttachObserver)."
+        );
+        err |= RegisterCommand<GetElementEditStateCommand> (
+            elmSabCommands, "0.9.17",
+            "ELM_SAB: Meldet je Element, ob und warum es aenderbar ist — Ebene ausgeblendet/gesperrt, Element gesperrt, Gruppe, Hotlink, fremd reserviert, Bibliotheksteil fehlt; mit editable-Gesamturteil und Grund."
+        );
+        err |= RegisterCommand<GetUIStateCommand> (
+            elmSabCommands, "0.9.17",
+            "ELM_SAB: Sitzungszustand — modale/modeless Dialoge offen, aktuelles Fenster, Teamwork-Status und angemeldeter Nutzer, Projektname/-pfad."
+        );
+        err |= RegisterCommand<GetDeviationsCommand> (
+            elmSabCommands, "0.9.17",
+            "ELM_SAB: Vergleicht Ist-Masse je Element gegen uebergebene Sollmasse (dims in m oder dimsMm in mm) und meldet die Abweichung je Achse in mm samt Toleranzurteil."
         );
         AddCommandGroup (elmSabCommands);
     }

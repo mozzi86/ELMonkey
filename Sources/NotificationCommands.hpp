@@ -66,6 +66,11 @@ public:
     static void SendQueuedEventsToNotificationClient ();
     static void SendMessageToNotificationClient (Client& client, const GS::ObjectState& os);
     static GSErrCode ElementEventHandlerProc (const API_NotifyElementType *elemType);
+    // ELM_SAB: Das Ereignis-Log installiert die Handler schon beim Start (siehe
+    // EventLogCommands). Damit dieser Weg nicht bei JEDEM Element-Ereignis einen
+    // Sende-Thread aufmacht, obwohl kein Notification-Client registriert ist, fragt
+    // die Weiche vorher hier nach.
+    static bool HasClients () { return !clients.empty (); }
     static GSErrCode ElementReservationChangeHandler (const GS::HashTable<API_Guid, short>& reserved,
                                                       const GS::HashSet<API_Guid>&          released,
                                                       const GS::HashSet<API_Guid>&          deleted);
