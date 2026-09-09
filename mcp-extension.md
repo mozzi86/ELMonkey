@@ -1154,3 +1154,98 @@ dieser Vermerk auf „verifiziert" geändert werden:
    erst mit korrektem Sollmaß (`withinTolerance: true`), dann mit absichtlich
    falschem (`deviatingAxes` muss die richtige Achse nennen).
 9. `ClearEvents`, danach `GetRecentEvents` → `storedCount: 0`.
+## ELM_SAB 0.9.18 — CreateWallOpenings: KI-Symbole → echte Wand-Öffnungen <!-- 2026-09-09 -->
+
+`ELM_SAB.CreateWallOpenings` legt statt eines Durchbruch-**Symbols** eine echte
+Öffnung (Archicad-Öffnungs-Werkzeug, `API_OpeningID`) in der Wirtswand an und
+überträgt Kennzeichnung und Element-ID in einem Zug.
+
+**Warum nicht Tapirs `CreateOpenings`:** das kennt nur
+`basePoint`/`ownerElementId`/`width`/`height` und legt im AC29-Zweig immer eine
+**polygonale** Öffnung — keine Rundöffnung, kein Anker, keine Grenze, keine
+Grundriss-Darstellung. Es reserviert die Wirtswand nicht, meldet
+Teamwork-Konflikte nicht, stempelt nichts, und die Ergebnisliste entsteht
+**innerhalb** des Undo-Lambdas (siehe „Leere executionResults[]" oben).
+
+**Parameter:** `openings[{sourceObjectGuid?, wallGuid, center{x,y}, width,
+height, bottomElevation | topElevation, shape:"rect"|"round", elementId?,
+propertyValues[{propertyGuid, value}]?}]`, dazu global `deleteSource` (Standard
+false), `reserve` (true), `classify` (true), `classificationItemGuid`,
+`kiStampPropertyGuid`, `elementIdPropertyGuid`, `kiStampValue`.
+
+**Antwort:** `results[]` je Eintrag mit `success`, `openingGuid`, `classified`,
+`kiStamped`, `elementIdStamped`, `propertiesSet`, `propertiesFailed`,
+`sourceDeleted`, `sourceKeptReason`, `placement{x,y,centerZ,storyLevel}` bzw.
+`error{code,message}`; dazu `undoScope`, `successCount`, `openingCount`.
+
+**Feldbelegung (verifiziert gegen DevKit 29.3100):**
+
+| Anforderung | Umsetzung |
+|---|---|
+| Basis | `ACAPI::Element::CreateOpeningDefault()` → `OpeningDefault::Modify(...)` → `Place(wallId, inputPoint)` |
+| Owner = Wand | `Place(parentElemId = wallGuid, …)`; Wandtyp wird vorher geprüft |
+| Form | `ShapeType::Rectangular` bzw. `Circular` (round: `width` = Durchmesser, `height` wird ignoriert) |
+| senkrecht zur Wandachse | `Constraint::Aligned` (richtet die Extrusion an der Wirtswand aus) |
+| „durch die Wand" | `LimitType::Infinite` — schneidet alle Schalen einer mehrschichtigen Wand |
+| Grundriss symbolisch | `OpeningFloorPlanDisplayMode::Symbolic` |
+| Maße | `SetLinkedStatus(NotLinked)` **vor** `SetWidth`/`SetHeight`, sonst zieht Archicad die Höhe mit |
+| Höhe | `centerZ = API_StoryInfo.level(wall.header.floorInd) + bottomElevation + height/2`, Anker `APIAnc_MM` |
+| Achsprojektion | Lot auf `wall.begC → wall.endC`, auf das Segment geklemmt |
+| Klassifikation | `ACAPI_Element_AddClassificationItem(openingGuid, itemGuid)` — nur das **Item**, System implizit |
+| KI-Stempel / Element-ID | `ACAPI_Element_GetPropertyValue` → Wert setzen → `ACAPI_Element_SetProperty`, danach **Rücklese** |
+| Teamwork | `ACAPI_Teamwork_ReserveElements` für Wirtswände (und Quellobjekte bei `deleteSource`), Konflikt je Eintrag als `APIERR_NOACCESSRIGHT` |
+
+**Was der Header NICHT hergibt — bewusst nicht geraten:**
+
+* **`SetAnchorAltitude` bleibt ungesetzt.** `OpeningExtrusionParameters.hpp`
+  dokumentiert den Bezugshorizont dieses Feldes nicht. Die Höhe kommt deshalb
+  ausschließlich über `inputPoint.z` bei `Place()` plus Anker `APIAnc_MM`.
+  Beim ersten Live-Test ist genau das zu prüfen: sitzt die Unterkante dort, wo
+  `bottomElevation` sie haben will?
+* **Ebene wird nicht übernommen.** In AC29 hat die `API_Element`-Union **kein**
+  `opening`-Mitglied mehr (`API_OpeningType` existiert in den 29er-Headern nicht),
+  und `ACAPI::ElementBase`/`ElementDefault` bieten keinen Layer-Zugriff. Die
+  Öffnung landet auf der Ebene des Öffnungs-Werkzeugs.
+* **`API_Elem_Head.id` ist aus demselben Grund nicht erreichbar.** Die Element-ID
+  geht nur über die Property (`General_ElementID`).
+* **Properties werden nicht blind vom Quellsymbol kopiert.** Übernommen werden
+  der KI-Stempel und — wenn `elementId` fehlt — die Element-ID. Alles weitere
+  muss der Aufrufer in `propertyValues` benennen; ein Objekt und eine Öffnung
+  haben nicht dieselben Property-Definitionen.
+* **Nur Archicad 29.** `ACAPI::Element::Opening` ist `@since Archicad 29`. Unter
+  AC27/28 meldet der Befehl `APIERR_NOTSUPPORTED` mit Begründung statt geratene
+  Union-Feldnamen für Anker, Grenze und Grundrissdarstellung zu schreiben.
+
+**Weitere Grenzen:**
+
+* **Gekrümmte Wände:** die Projektion nimmt die Sehne `begC→endC`. Bei
+  gebogenen Wänden liegt der Punkt daneben — `Place()` projiziert dann selbst auf
+  die nächstliegende Oberfläche, also auf eine **Schale** statt auf die Achse.
+  `placement{x,y}` in der Antwort zeigt, was tatsächlich benutzt wurde.
+* **Geneigte Wände:** von `Constraint::Aligned` abgedeckt (Öffnung kippt mit),
+  aber am THN nicht live geprüft.
+* **Runde Öffnungen:** `height` wird ignoriert, `width` ist der Durchmesser.
+  Ob Archicad bei `Circular` beide Werte gleich hält, entscheidet
+  `SetLinkedStatus`; hier steht `NotLinked`, `SetHeight` bekommt denselben Wert.
+* **Verschachtelte Undo-Klammer:** `Place()` öffnet laut Header selbst eine
+  Undo-Klammer, innerhalb der äußeren des Befehls. Die äußere hält den ganzen
+  Lauf samt Stempeln in EINEM Undo-Schritt zusammen. Lehnt Archicad die
+  Verschachtelung ab, schaltet `wrapInUndoScope: false` sie ab (dann ein
+  Undo-Eintrag je Öffnung) — ohne Neubau. `undoScope.mode` meldet
+  `undoable` / `perOpening` / `notExecuted`.
+* **Kein Zweitdurchgang ohne Undo-Klammer** (anders als bei
+  `SetObjectParametersForce`): eine Öffnung ohne Undo-Eintrag wäre nicht
+  zurückrollbar. Startet das Lambda nicht, wurde nichts angelegt — `undoScope`
+  sagt es.
+
+**Löschen des Quellsymbols** passiert nur bei `deleteSource: true` **und**
+vorhandenem KI-Stempel am Quellobjekt. Handgezeichnete Durchbrüche (ohne Stempel)
+bleiben unangetastet — harte Vorgabe aus dem THN-SuD-Projekt. Warum ein Symbol
+stehen blieb, steht in `sourceKeptReason`.
+
+**Testplan vor jedem Massenlauf:** EINE Öffnung anlegen (z. B. WD, L 1,20 /
+0,25, UK 2,50 ü. FFB, EG Haus WB), dann prüfen: `undoScope.executed`,
+`results[0].openingGuid`, `placement.centerZ` gegen die erwartete Höhe,
+`kiStamped`/`elementIdStamped`/`classified` alle `true`, und im Modell mit
+Schnitt/3D nachsehen, dass die Öffnung **alle Schalen** durchschneidet. Erst
+danach den Batch — und erst danach `deleteSource: true`.
