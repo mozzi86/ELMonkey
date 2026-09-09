@@ -57,6 +57,7 @@
 #include "CaptureViewCommand.hpp"
 #include "StoryVisibilityCommands.hpp"
 #include "SetObjectParametersForceCommand.hpp"
+#include "CreateWallOpeningsCommand.hpp"
 #include "GetVersionCommandELM.hpp"
 #include "EventLogCommands.hpp"
 #include "InspectionCommands.hpp"
@@ -1045,6 +1046,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<GetDeviationsCommand> (
             elmSabCommands, "0.9.17",
             "ELM_SAB: Vergleicht Ist-Masse je Element gegen uebergebene Sollmasse (dims in m oder dimsMm in mm) und meldet die Abweichung je Achse in mm samt Toleranzurteil."
+        );
+        err |= RegisterCommand<CreateWallOpeningsCommand> (
+            elmSabCommands, "0.9.18",
+            "ELM_SAB: Ersetzt KI-Durchbruch-Symbole durch ECHTE Wand-Oeffnungen (Oeffnungs-Werkzeug) in der Wirtswand - rechteckig oder rund, Hoehe relativ zur OKFF des Wand-Geschosses, Mittelpunkt auf die Wandachse projiziert, Grenze 'durch die Wand', Grundriss symbolisch. Stempelt Klassifikation 'Durchbruch', KI-Stempel (Wert vom Quellsymbol) und Element-ID mit Ruecklese, reserviert die Wirtswand (Teamwork) und loescht das Quellsymbol nur auf Wunsch UND mit KI-Stempel. Braucht Archicad 29."
         );
         AddCommandGroup (elmSabCommands);
     }
