@@ -79,7 +79,7 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 | Befehl | Wofür |
 |---|---|
 | `GetPenOfElements` / `SetPenOfElements` | Stifte lesen und setzen, inklusive der RGB-Overrides, die DWG-Importe direkt ins Element brennen. Weder Tapir noch die offizielle API können das. |
-| `Get2DGeometryOfElements` | Linien, Bögen, Kreise, Polylinien und Schraffur-Polygone auslesen; funktioniert über Datenbankgrenzen hinweg. Antwortfeld heißt `geometryOfElements`. |
+| `Get2DGeometryOfElements` | Linien, Bögen, Kreise, Polylinien und Schraffur-Polygone auslesen; funktioniert über Datenbankgrenzen hinweg. Antwortfeld heißt `geometryOfElements`. Ab 0.9.19 liefern alle übrigen Typen (Tür, Fenster, Objekt, Lampe, Etikett …) per ShapePrims-Fallback `primitives[]` (Zeichenprimitive wie im Grundriss, `source: "shapePrims"`), z. B. den Türaufschlag als `arc`. |
 | `GetTextsOfElements` / `SetTextsOfElements` | Textinhalte von Texten und Etiketten lesen und schreiben. Zeilentrenner ist `\r`, nicht `\n`. |
 | `SetTextSizeOfElements` | Schriftgröße von Text und Etikett, in mm oder als Faktor. |
 | `SetAddParsOfElements` | GDL-Parameter über das AddPars-Memo — für Objekte, Lampen, Etiketten und Zonen. Bei Etiketten zwingend statt Tapirs `SetGDLParametersOfElements`, das dort abstürzt. |
@@ -88,6 +88,9 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 | `GetColumnDetails` / `SetColumnDetails` | Kernmaße von Stützen. |
 | `SetColumnRotation` | Absoluter Drehwinkel von Stützen. Tapirs `RotateElements` meldet hier Erfolg, ändert aber nichts. |
 | `GetStoryVisibilityOfElements` / `SetStoryVisibilityOfElements` | „Auf Geschossen zeigen" von Objekten und Lampen lesen und setzen. Presets (HomeOnly … AllRelevant) oder Rohfelder. Weder Tapir noch die offizielle JSON-API fassen diese Felder an. |
+| `CreateLabels` | Legt assoziative Symbol-Etiketten an. Anders als Tapirs `CreateLabels` bleibt `floorInd` aus der Eingabe erhalten (auch abweichend vom Parent-Geschoss), die Zeigerlinie wird nicht abgeleitet oder gespiegelt, optional `templateLabelId` (libPart, Ebene, AddPars, Zeigerlinie). Rücklese mit `floorIndRespected` und `coordinatesMatch`. Ab 0.9.19. |
+| `GetLabelsOfElements` | Etiketten je Owner-Element mit einem einzigen Durchlauf über alle Etiketten statt einer Abfrage je Element. Nur aktuelle Datenbank (Grundriss). Ab 0.9.19. |
+| `SetLayerOfElements` | Ebene per `layerId` oder `layerName` setzen, im Undo-Scope, mit Teamwork-Reservierung (Standard) und Rücklese je Element. Ab 0.9.19. |
 
 ## Selbst bauen
 

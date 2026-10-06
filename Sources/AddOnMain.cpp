@@ -58,6 +58,8 @@
 #include "StoryVisibilityCommands.hpp"
 #include "SetObjectParametersForceCommand.hpp"
 #include "CreateWallOpeningsCommand.hpp"
+#include "LabelCommandsELM.hpp"
+#include "SetLayerCommand.hpp"
 #include "GetVersionCommandELM.hpp"
 #include "EventLogCommands.hpp"
 #include "InspectionCommands.hpp"
@@ -969,7 +971,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<Get2DGeometryCommand> (
             elmSabCommands, "0.9.0",
-            "ELM_SAB: Liefert 2D-Geometrie von Line/Arc/Circle/PolyLine/Hatch."
+            "ELM_SAB: Liefert 2D-Geometrie von Line/Arc/Circle/PolyLine/Hatch. 0.9.19: alle uebrigen Typen ueber ShapePrims (Zeichenprimitive wie im Grundriss)."
         );
         err |= RegisterCommand<GetTextsCommand> (
             elmSabCommands, "0.9.0",
@@ -1050,6 +1052,18 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<CreateWallOpeningsCommand> (
             elmSabCommands, "0.9.18",
             "ELM_SAB: Ersetzt KI-Durchbruch-Symbole durch ECHTE Wand-Oeffnungen (Oeffnungs-Werkzeug) in der Wirtswand - rechteckig oder rund, Hoehe relativ zur OKFF des Wand-Geschosses, Mittelpunkt auf die Wandachse projiziert, Grenze 'durch die Wand', Grundriss symbolisch. Stempelt Klassifikation 'Durchbruch', KI-Stempel (Wert vom Quellsymbol) und Element-ID mit Ruecklese, reserviert die Wirtswand (Teamwork) und loescht das Quellsymbol nur auf Wunsch UND mit KI-Stempel. Braucht Archicad 29."
+        );
+        err |= RegisterCommand<CreateLabelsELMCommand> (
+            elmSabCommands, "0.9.19",
+            "ELM_SAB: Legt assoziative Symbol-Etiketten an - respektiert floorInd (auch abweichend vom Parent-Geschoss), optional Vorlage-Etikett (libPart/Ebene/AddPars/Zeigerlinie), mit Ruecklese."
+        );
+        err |= RegisterCommand<GetLabelsOfElementsCommand> (
+            elmSabCommands, "0.9.19",
+            "ELM_SAB: Liefert je Owner-Element seine Etiketten mit EINEM Durchlauf ueber alle Etiketten (nur aktuelle Datenbank/Grundriss): labelClass, libPartName, Geschoss, Ebene, Koordinaten."
+        );
+        err |= RegisterCommand<SetLayerOfElementsCommand> (
+            elmSabCommands, "0.9.19",
+            "ELM_SAB: Setzt die Ebene von Elementen (Ebene per layerId oder layerName) im Undo-Scope, mit optionaler Teamwork-Reservierung (Standard true) und Ruecklese je Element."
         );
         AddCommandGroup (elmSabCommands);
     }

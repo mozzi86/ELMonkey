@@ -2,6 +2,12 @@
 // PolyLine (inkl. Bogensegmenten) direkt aus dem Projekt. Schließt die
 // Tapir-Lücke „GetDetailsOfElements: Not yet supported element type" für
 // Linien/Bögen — Grundlage der Konturen→Wände-Pipeline ohne DXF-Export.
+//
+// 0.9.19: Fuer alle uebrigen Elementtypen (Door, Window, Object, Lamp, Label, ...) kein
+// Fehler mehr, sondern ein ShapePrims-Fallback: primitives[] mit den Zeichenprimitiven
+// wie im Grundriss (source: "shapePrims"). Anlass: Tuer-Aufschlag/Anschlagseite ist per
+// Elementfeld nicht pruefbar, wohl aber am Aufschlagbogen. Line/Arc/Circle/PolyLine/Hatch
+// bleiben unveraendert.
 #pragma once
 
 #include "ELMCommandBase.hpp"
