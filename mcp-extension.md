@@ -1353,8 +1353,7 @@ Etiketten), `SetLayerOfElements` auf eine ausgeblendete Ebene
 * **Folge für Aufrufer:** `success:true` heißt jetzt "wirklich weg". Eine
   Rücklese ist für DeleteElements nicht mehr Pflicht, bleibt bei
   Massenlöschungen aber Stichprobe.
-* **Bekannte Verwandte:** Das Quellsymbol-Löschen in `ELM_SAB.CreateWallOpenings`
-  prüft nur den Rückgabewert und ist unverändert. Dort weiter per Rücklese prüfen.
+* **Bekannte Verwandte:** Das Quellsymbol-Löschen in `ELM_SAB.CreateWallOpenings` hatte dieselbe Lücke — in 0.9.21 behoben (siehe unten).
 * **Stand:** gebaut (CI), noch NICHT live verifiziert.
 
 ### Testplan
@@ -1370,3 +1369,35 @@ Etiketten), `SetLayerOfElements` auf eine ausgeblendete Ebene
 5. Gemischter Aufruf (1 löschbar, 1 fremd reserviert) -> `success:false` mit
    "1 von 2". Das löschbare ist weg; Cmd+Z stellt es wieder her.
 6. Nach dem Lauf ist kein Element mehr von uns reserviert.
+
+## ELM_SAB 0.9.21 — CreateWallOpenings prüft Löschung des Quellsymbols <!-- 2026-10-06 -->
+
+* **Anlass:** Dieselbe THN-Falle wie bei 0.9.20: `ACAPI_Element_Delete` meldet
+  NoError, löscht unreservierte Teamwork-Elemente aber still nicht. Das KI-Symbol
+  stünde dann neben der neuen Öffnung (Doppelung).
+* **Änderung:** Nach `ACAPI_Element_Delete` Existenzprüfung per Header.
+  `sourceDeleted:true` nur, wenn das Symbol wirklich weg ist; sonst
+  `sourceKeptReason` "ACAPI_Element_Delete meldete Erfolg, Element existiert
+  weiter (Reservierung?) - Code N". Eine fremd reservierte Quelle (Konflikt bei
+  `reserve:true`) wird nicht gelöscht, eigener Grund "Quellobjekt nicht
+  reservierbar ...". Freigabe nur für noch existierende eigene Reservierungen.
+  Befehlsversion 0.9.21.
+* **Folge für Aufrufer:** `reserve:false` mit `deleteSource:true` lässt im
+  Teamwork das Quellsymbol typischerweise stehen — jetzt sichtbar statt still.
+* **Stand:** gebaut (CI), noch NICHT live verifiziert.
+
+### Testplan
+
+1. `GetAddOnVersion` -> 0.9.21.
+2. THN-Testwand mit KI-Symbol, `deleteSource:true`, Standard `reserve` ->
+   Öffnung angelegt, `sourceDeleted:true`, GetElementEditState des Symbols
+   exists:false.
+3. Dasselbe mit `reserve:false` -> `sourceDeleted:false`, `sourceKeptReason`
+   enthält "existiert weiter (Reservierung?)", Symbol existiert.
+4. Symbol von anderem Nutzer reserviert -> Öffnung entsteht, `sourceKeptReason`
+   "nicht reservierbar", Symbol unverändert.
+5. Nach dem Lauf ist nichts mehr von uns reserviert; Cmd+Z nimmt Öffnung und
+   Löschung in einem Schritt zurück.
+
+Hinweis: Danis handgezeichnete Durchbrüche nie als Testobjekt — nur
+KI-gestempelte Testsymbole.
