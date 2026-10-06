@@ -49,6 +49,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-09-09 | 260909-0tg | GDL-Steuerparameter der SAB-Durchbruch-Symbole (`gs_hole_width`/`gs_hole_depth`/`gs_slab_thickness`/`gs_hole_diameter`; A/B/ZZYZX sind abgeleitet, THN 2110 betroffen/1856 repariert) + Nachtrag sitzungsweites leeres `executionResults` (Neustart-Abhilfe, Verweis auf 0.9.16-Diagnose) — 3 Dateien |
 | 2026-10-06 | 261006-io0 | ELM_SAB 0.9.19: `CreateLabels` (floorInd respektiert, beg/mid/end, templateLabelId), `GetLabelsOfElements` (ein Durchlauf), `SetLayerOfElements`, `Get2DGeometryOfElements` mit ShapePrims-Fallback für Tür/Fenster/Objekt/Etikett; CI 6/6 grün (`e1e886b`), Live-Test nach Bundle-Tausch offen |
 | 2026-10-06 | 261006-j8h | ELM_SAB 0.9.20: `DeleteElements` reserviert in Teamwork selbst (`reserve`, Default true) und prüft Überlebende je GUID → `success:false` statt stillem No-Op; Doku 0.9.19 live verifiziert (THN), Türaufschlag-Kalibrierung + Pipetten-Falle im Türen-Rezept; CI 6/6 grün (`896b982`) |
+| 2026-10-06 | 261006-lod | ELM_SAB 0.9.21: `CreateWallOpenings` meldet `sourceDeleted:true` nur nach Existenz-Rücklese; fremd reservierte Quellen werden nicht gelöscht (eigener Grund), Freigabe nur eigener Überlebender; Doku 0.9.20-Lücke → behoben; CI 6/6 grün (`2ef26c2`) |
 
 ## Performance Metrics
 
