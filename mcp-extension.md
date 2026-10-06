@@ -1252,8 +1252,7 @@ danach den Batch — und erst danach `deleteSource: true`.
 
 ## ELM_SAB 0.9.19 — CreateLabels, GetLabelsOfElements, SetLayerOfElements, Get2DGeometry-Fallback <!-- 2026-10-06 -->
 
-Vier Befehle aus der THN-Session vom 2026-10-06. **Stand: gebaut (CI), NICHT am
-laufenden Archicad verifiziert.**
+Vier Befehle aus der THN-Session vom 2026-10-06. **Stand: live verifiziert 2026-10-06 (THN).**
 
 ### `ELM_SAB.CreateLabels`
 
@@ -1305,27 +1304,69 @@ im Undo-Scope („ELM_SAB SetLayerOfElements"), Teamwork-Konflikte je Element al
 Für alle bisher abgelehnten Typen (Door, Window, Object, Lamp, Label …) kommt
 statt Fehler `primitives[]` mit `source: "shapePrims"` (gleiche Weiche wie
 `CollectCutFillPolygons`: `ACAPI_DrawingPrimitive_ShapePrimsExt` ab AC27).
-Arten: `line` (beg/end, penIndex), `arc` (origin, radius, begAngle, endAngle,
-ratio, angle, whole, penIndex), `poly` (coordinates, subPolyEnds, arcs,
+Arten (Feld `kind`): `line` (beg/end, penIndex), `arc` (origin, radius, begAngle, endAngle,
+ratio, angle, whole, penIndex), `poly` (coordinates, subPolyEnds, arcs [live nicht gesehen],
 closed, insideHatchBorder), `text` (location, content), `point` (coordinate);
 übrige Typen nur gezählt (`skippedPrimitiveCount`). ShapePrims-Fehler →
 echter Fehlercode, „ShapePrims fehlgeschlagen". Bekannt: schwere
 Legacy-Meshes können hängen, daher einzeln abfragen. Die alten Zweige
 (Line/Arc/Circle/PolyLine/Hatch) sind unverändert.
 
-### Testplan — noch NICHT am laufenden Archicad verifiziert
+### Live-Verifikation 2026-10-06 (THN)
 
-1. Tür auf Geschoss −2, Etikett mit `floorInd` −1 anlegen →
-   `floorIndRespected: true`, `floorInd` −1 in der Rücklese.
-2. Gleicher Aufruf mit `templateLabelId` eines vorhandenen Tür-Etiketts →
-   `libPartName`/`layerName` entsprechen der Vorlage, `hasLeaderLine` gleich.
-3. Etikett mit `begCoordinate`/`midCoordinate`/`endCoordinate` → `coordinatesMatch:
-   true`, Zeigerlinie im Plan nicht gespiegelt; ein Cmd+Z nimmt alle Etiketten
-   des Aufrufs zurück.
-4. `GetLabelsOfElements` für 5 Türen → Treffer passen zu den angelegten
-   Etiketten; `scannedLabelCount` plausibel; Laufzeit gegenüber Einzelabfragen.
-5. `Get2DGeometryOfElements` an einer Tür → `primitives` enthält einen `arc`
-   (Aufschlag); `begAngle`/`endAngle` mit der Anschlagseite im Plan vergleichen;
-   Text-`content` und `poly`-Bögen (0-/1-basierte Indizierung) stichprobenartig prüfen.
-6. `SetLayerOfElements` auf eine ausgeblendete Ebene bzw. auf ein Element dort →
-   `APIERR_NOACCESSRIGHT`; auf eine normale Ebene → `layerName` in der Rücklese.
+1. `ELM_SAB.GetAddOnVersion` -> 0.9.19, buildStamp "Oct  6 2026 11:38:34".
+2. `GetLabelsOfElements`: WD_U1_033 -> 2 Stempel (Geschoss -2 und -1),
+   `scannedLabelCount` 2200, 0,1 s. Vorher dauerte es Minuten über Tapir
+   GetElementsByType + GetDetails.
+3. `Get2DGeometryOfElements` an einer Tür: `source:"shapePrims"`, 36 Primitive.
+   Die Art steht im Feld **`kind`, nicht `type`**: `line` (begCoordinate/
+   endCoordinate, penIndex), `poly` (coordinates, subPolyEnds, closed,
+   insideHatchBorder), `arc` (origin, radius, begAngle, endAngle, angle, ratio,
+   whole, penIndex). Anschlag = arc.origin; Bogenenden = origin + r*(cos, sin)
+   (begAngle/endAngle). Beispiel WD_01_003: origin x 73,52 bei Öffnung
+   72,54-73,59 -> Anschlag rechts.
+4. `CreateLabels`: Tür auf Geschoss -2, Etikett mit `floorInd:-1` +
+   `templateLabelId` -> `floorIndRespected:true`, `coordinatesMatch:true`, alle
+   GDL-Parameter identisch zur Vorlage.
+5. `SetLayerOfElements`: per `layerName` hin (A_01_TRAGWAND, Index 342) und
+   zurück (A_013_TUER_BS, Index 1117), Rücklese ok.
+6. **Falle:** Danach `TapirCommand.DeleteElements` ohne erneute Reservierung ->
+   `success:true` ohne Wirkung (GetElementEditState exists:true,
+   GetElementsByType listet es weiter). Nach `ReserveElements` löschte derselbe
+   Aufruf. Siehe 0.9.20.
+
+**Offen (nicht live belegt):** Cmd+Z-Probe für CreateLabels (ein Schritt für alle
+Etiketten), `SetLayerOfElements` auf eine ausgeblendete Ebene
+(`APIERR_NOACCESSRIGHT`), Text-`content` und `poly`-Bögen aus ShapePrims.
+
+## ELM_SAB 0.9.20 — DeleteElements reserviert + prüft Überlebende <!-- 2026-10-06 -->
+
+* **Anlass:** THN-Falle oben und Capmo-Rollout (71 stille Überlebende).
+  `ACAPI_Element_Delete` meldet NoError, löscht unreservierte Teamwork-Elemente
+  aber nicht.
+* **Änderung:** Parameter `reserve` (Standard true), Reservierung im Teamwork
+  vor dem Löschen, Prüfung je GUID per Header, reservierte Überlebende werden
+  wieder freigegeben. Antwort bleibt `ExecutionResult` (Schema erlaubt keine
+  Zusatzfelder, `additionalProperties:false`). Bei Überlebenden `success:false`,
+  Fehlertext mit Anzahl und bis zu 10 GUIDs; Code `APIERR_NOACCESSRIGHT` bei
+  fremder Reservierung, sonst `APIERR_GENERAL` bzw. der Delete-Fehler.
+* **Folge für Aufrufer:** `success:true` heißt jetzt "wirklich weg". Eine
+  Rücklese ist für DeleteElements nicht mehr Pflicht, bleibt bei
+  Massenlöschungen aber Stichprobe.
+* **Bekannte Verwandte:** Das Quellsymbol-Löschen in `ELM_SAB.CreateWallOpenings`
+  prüft nur den Rückgabewert und ist unverändert. Dort weiter per Rücklese prüfen.
+* **Stand:** gebaut (CI), noch NICHT live verifiziert.
+
+### Testplan
+
+1. `GetAddOnVersion` -> 0.9.20.
+2. Element mit ELM_SAB-Befehl reserve+release behandeln (z. B.
+   SetLayerOfElements), dann DeleteElements ohne vorherige Reservierung ->
+   Element wirklich weg (GetElementEditState exists:false), `success:true`.
+3. Dasselbe mit `reserve:false` -> `success:false`, Fehlertext nennt GUID und den
+   Hinweis "reservieren".
+4. Element, das ein anderer Teamwork-Nutzer reserviert hat -> `success:false`,
+   Code NOACCESSRIGHT, Element unverändert.
+5. Gemischter Aufruf (1 löschbar, 1 fremd reserviert) -> `success:false` mit
+   "1 von 2". Das löschbare ist weg; Cmd+Z stellt es wieder her.
+6. Nach dem Lauf ist kein Element mehr von uns reserviert.
