@@ -1249,3 +1249,83 @@ stehen blieb, steht in `sourceKeptReason`.
 `kiStamped`/`elementIdStamped`/`classified` alle `true`, und im Modell mit
 Schnitt/3D nachsehen, dass die Öffnung **alle Schalen** durchschneidet. Erst
 danach den Batch — und erst danach `deleteSource: true`.
+
+## ELM_SAB 0.9.19 — CreateLabels, GetLabelsOfElements, SetLayerOfElements, Get2DGeometry-Fallback <!-- 2026-10-06 -->
+
+Vier Befehle aus der THN-Session vom 2026-10-06. **Stand: gebaut (CI), NICHT am
+laufenden Archicad verifiziert.**
+
+### `ELM_SAB.CreateLabels`
+
+**Anlass:** Tapirs `CreateLabels` überschreibt `floorInd` mit dem Geschoss des
+Parents (`element.header.floorInd = parentElemHead.floorInd`) und spiegelt teils
+die `endCoordinate`. Die ELM-Variante (Klasse `CreateLabelsELMCommand`, wegen
+Linker anders benannt als Tapirs Klasse) nimmt `floorInd` aus der Eingabe.
+
+**Parameter:** `labelsData[{parentElementId{guid}, floorInd?, begCoordinate?,
+midCoordinate?, endCoordinate?, templateLabelId{guid}?}]`.
+
+* `floorInd` fehlt → Geschoss des Parents (nur als Rückfall).
+* `begCoordinate` fehlt → Mitte der Parent-Bounds.
+* Mit `endCoordinate`: `createAtDefaultPosition=false`, `midCoordinate` fehlt →
+  `midC = begC` (gerade Zeigerlinie, nichts abgeleitet). Ohne `endCoordinate`
+  Standardposition.
+* Mit `templateLabelId`: Vorlage muss ein Symbol-Etikett sein (sonst BADPARS);
+  libPart, Ebene, AddPars-Memo, Zeigerlinie, Fonts werden übernommen, die
+  Vorlage selbst nur gelesen. Ohne Vorlage: Werkzeug-Default (Memo des Defaults
+  wird wie bei Tapir mitgegeben); ein Text-Etikett-Default wird abgelehnt.
+
+**Antwort:** `executionResults[]` je Eintrag: `elementId`, `parentElementId`,
+`floorInd`, `begCoordinate`/`midCoordinate`/`endCoordinate`, `libPartName`,
+`layerIndex`, `layerName`, `hasLeaderLine`, Prüffelder `floorIndRespected`
+(Ist == Soll) und `coordinatesMatch` (alle angegebenen Koordinaten ±1 mm);
+dazu `undoScope{lambdaStarted}`. Ergebnisliste entsteht außerhalb des Lambdas.
+
+### `ELM_SAB.GetLabelsOfElements`
+
+**Anlass:** Etikett-Suche je Owner kostete bei 2.200 Etiketten zu viel. Ein
+einziger `GetElemList(API_LabelID)`-Durchlauf, Zuordnung über `label.parent`.
+**Parameter:** `elements[{elementId{guid}}]`. **Antwort:** `labelsOfElements[]`
+in Eingabereihenfolge `{elementId, labels[{guid, labelClass, libPartName?,
+floorInd, layerIndex, layerName, beg/mid/endCoordinate, hasLeaderLine}]}` bzw.
+`{elementId, error}`; `scannedLabelCount`. Nur die **aktuelle Datenbank**.
+
+### `ELM_SAB.SetLayerOfElements`
+
+**Anlass:** Ebenen umsetzen ohne Rücklese. **Parameter:** `elements[...]`,
+`layerId{guid}` oder `layerName`, `reserve` (Standard true). Setzt `header.layer`
+im Undo-Scope („ELM_SAB SetLayerOfElements"), Teamwork-Konflikte je Element als
+`APIERR_NOACCESSRIGHT`, nach dem Lauf Freigabe der erfolgreichen. **Antwort:**
+`executionResults[]` mit `layerIndex`/`layerName` aus der Rücklese,
+`undoScope{lambdaStarted}`.
+
+### `ELM_SAB.Get2DGeometryOfElements` — ShapePrims-Fallback
+
+**Anlass:** Der Türaufschlag (Anschlagseite) ist per Elementfeld nicht prüfbar.
+Für alle bisher abgelehnten Typen (Door, Window, Object, Lamp, Label …) kommt
+statt Fehler `primitives[]` mit `source: "shapePrims"` (gleiche Weiche wie
+`CollectCutFillPolygons`: `ACAPI_DrawingPrimitive_ShapePrimsExt` ab AC27).
+Arten: `line` (beg/end, penIndex), `arc` (origin, radius, begAngle, endAngle,
+ratio, angle, whole, penIndex), `poly` (coordinates, subPolyEnds, arcs,
+closed, insideHatchBorder), `text` (location, content), `point` (coordinate);
+übrige Typen nur gezählt (`skippedPrimitiveCount`). ShapePrims-Fehler →
+echter Fehlercode, „ShapePrims fehlgeschlagen". Bekannt: schwere
+Legacy-Meshes können hängen, daher einzeln abfragen. Die alten Zweige
+(Line/Arc/Circle/PolyLine/Hatch) sind unverändert.
+
+### Testplan — noch NICHT am laufenden Archicad verifiziert
+
+1. Tür auf Geschoss −2, Etikett mit `floorInd` −1 anlegen →
+   `floorIndRespected: true`, `floorInd` −1 in der Rücklese.
+2. Gleicher Aufruf mit `templateLabelId` eines vorhandenen Tür-Etiketts →
+   `libPartName`/`layerName` entsprechen der Vorlage, `hasLeaderLine` gleich.
+3. Etikett mit `begCoordinate`/`midCoordinate`/`endCoordinate` → `coordinatesMatch:
+   true`, Zeigerlinie im Plan nicht gespiegelt; ein Cmd+Z nimmt alle Etiketten
+   des Aufrufs zurück.
+4. `GetLabelsOfElements` für 5 Türen → Treffer passen zu den angelegten
+   Etiketten; `scannedLabelCount` plausibel; Laufzeit gegenüber Einzelabfragen.
+5. `Get2DGeometryOfElements` an einer Tür → `primitives` enthält einen `arc`
+   (Aufschlag); `begAngle`/`endAngle` mit der Anschlagseite im Plan vergleichen;
+   Text-`content` und `poly`-Bögen (0-/1-basierte Indizierung) stichprobenartig prüfen.
+6. `SetLayerOfElements` auf eine ausgeblendete Ebene bzw. auf ein Element dort →
+   `APIERR_NOACCESSRIGHT`; auf eine normale Ebene → `layerName` in der Rücklese.
