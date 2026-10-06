@@ -32,11 +32,21 @@ dabei akzeptiert (SAB-Entscheid).
   User korrigierten Tür (THN: S=+1 → beide Flags true, S=−1 → beide false).
   Erst 1 Tür bauen, User korrigiert im Dialog, Flags per GetDetailsOfElements
   zurücklesen — dann skalieren.
+- **Kalibrierung CreateDoors in gerader Wand (THN, 2026-10-06):** Wand in
+  +x-Richtung, `flipped=True`: `reflected=False, oSide=True` -> Anschlag rechts,
+  Aufschlag +y; `reflected=True, oSide=True` -> Anschlag links. Anderer Kontext
+  als die Kalibrierung vom 2026-07-14 (Türwand-Pattern), deshalb beide stehen
+  lassen und je Projekt/Favorit an EINER Tür neu kalibrieren. Die Anschlagseite
+  prüft man jetzt per `ELM_SAB.Get2DGeometryOfElements` (arc.origin = Anschlag,
+  Feld `kind`) statt per User-Korrektur.
 - `sillHeight` explizit **0** setzen (Favoriten bringen eigene Brüstung mit,
   Bau_Tür z. B. 0,15!).
 
 ## Gotchas
 
+- **Pipetten-Vererbung (2026-10-06):** CreateDoors nach Pipette vererbt
+  Property-Werte der Quelltür (z. B. SAB_Brandschutz, Von Raum). Danach alle
+  UserDefined-Properties der neuen Tür rücklesen und bereinigen.
 - **CreateDoors braucht ein offenes GRUNDRISS-Fenster** — im 3D-Fenster kommt
   „Failed to create door" (Geschoss ist egal, nur der Fenstertyp zählt).
   Kostete uns eine Stunde Fehlersuche quer durch alle anderen Hypothesen.
