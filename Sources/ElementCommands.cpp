@@ -163,7 +163,7 @@ GS::ObjectState GetElementsByTypeCommand::Execute (const GS::ObjectState& parame
     if (parameters.Get ("elementType", elementTypeStr)) {
         if (GetElementTypeFromNonLocalizedName (elementTypeStr) == API_ZombieElemID) {
             return CreateErrorResponse (APIERR_BADPARS,
-                GS::UniString::Printf ("Invalid elementType '%T'.", elementTypeStr.ToPrintf ()));
+                GS::UniString::SPrintf ("Invalid elementType '%T'.", elementTypeStr.ToPrintf ()));
         }
     }
 
@@ -1784,7 +1784,7 @@ GS::ObjectState GetConnectedElementsCommand::Execute (const GS::ObjectState& par
         elemType = GetElementTypeFromNonLocalizedName (elementTypeStr);
         if (elemType == API_ZombieElemID) {
             return CreateErrorResponse (APIERR_BADPARS,
-                GS::UniString::Printf ("Invalid connectedElementType '%T'.", elementTypeStr.ToPrintf ()));
+                GS::UniString::SPrintf ("Invalid connectedElementType '%T'.", elementTypeStr.ToPrintf ()));
         }
     }
 
@@ -2189,7 +2189,7 @@ GS::ObjectState	MoveElementsCommand::Execute (const GS::ObjectState& parameters,
                                                Get3DCoordinateFromObjectState (*moveVector),
                                                copy);
             if (err != NoError) {
-                const GS::UniString errorMsg = GS::UniString::Printf ("Failed to move element with guid %T!", APIGuidToString (elemGuid).ToPrintf ());
+                const GS::UniString errorMsg = GS::UniString::SPrintf ("Failed to move element with guid %T!", APIGuidToString (elemGuid).ToPrintf ());
                 executionResults (CreateFailedExecutionResult (err, errorMsg));
             } else {
                 executionResults (CreateSuccessfulExecutionResult ());
@@ -2350,7 +2350,7 @@ GS::ObjectState RotateElementsCommand::Execute (const GS::ObjectState& parameter
                                                 Get2DCoordinateFromObjectState (*origin),
                                                 copy);
             if (err != NoError) {
-                const GS::UniString errorMsg = GS::UniString::Printf ("Failed to rotate element with guid %T!", APIGuidToString (elemGuid).ToPrintf ());
+                const GS::UniString errorMsg = GS::UniString::SPrintf ("Failed to rotate element with guid %T!", APIGuidToString (elemGuid).ToPrintf ());
                 executionResults (CreateFailedExecutionResult (err, errorMsg));
             } else {
                 executionResults (CreateSuccessfulExecutionResult ());
@@ -2764,6 +2764,10 @@ GS::Optional<GS::UniString> DeleteElementsCommand::GetInputParametersSchema () c
         "properties": {
             "elements": {
                 "$ref": "#/Elements"
+            },
+            "reserve": {
+                "type": "boolean",
+                "description": "Teamwork: Elemente vor dem Loeschen reservieren (Standard true). Ohne Reservierung loescht Archicad still nicht."
             }
         },
         "additionalProperties": false,
@@ -2780,22 +2784,78 @@ GS::Optional<GS::UniString> DeleteElementsCommand::GetResponseSchema () const
     })";
 }
 
+// ELM_SAB 0.9.20 (2026-10-06, THN): ACAPI_Element_Delete meldet NoError, loescht aber unreservierte Teamwork-Elemente still nicht (Etikett nach SetLayerOfElements reserve+release; Capmo-Rollout: 71 stille Ueberlebende). Daher vorab reservieren und danach je GUID auf Ueberlebende pruefen.
 GS::ObjectState DeleteElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
     GS::Array<GS::ObjectState> elements;
     parameters.Get ("elements", elements);
 
+    bool reserve = true;
+    parameters.Get ("reserve", reserve);
+
+    GS::Array<API_Guid> guids = elements.Transform<API_Guid> (GetGuidFromElementsArrayItem);
+
+    GS::HashTable<API_Guid, short> conflicts;
+    const bool teamwork = reserve && ACAPI_Teamwork_HasConnection ();
+    if (teamwork) {
+        GS::Array<API_Guid> toReserve;
+        for (const API_Guid& g : guids) if (g != APINULLGuid) toReserve.Push (g);
+        ACAPI_Teamwork_ReserveElements (toReserve, &conflicts, false);
+    }
+
     GSErrCode err = NoError;
 
     ACAPI_CallUndoableCommand ("DeleteElementsCommand", [&]() {
-        err = ACAPI_Element_Delete (elements.Transform<API_Guid> (GetGuidFromElementsArrayItem));
+        err = ACAPI_Element_Delete (guids);
 
         return err;
     });
 
-    return err == NoError
-        ? CreateSuccessfulExecutionResult ()
-        : CreateFailedExecutionResult (err, "Failed to delete elements.");
+    // Ueberlebende ermitteln (APINULLGuid zaehlt nicht).
+    GS::Array<API_Guid> survivors;
+    for (const API_Guid& g : guids) {
+        if (g == APINULLGuid) continue;
+        API_Elem_Head head = {};
+        if (LoadElementHeaderByGuid (g, head))
+            survivors.Push (g);
+    }
+
+    // Freigabe: nur reservierte Ueberlebende (nicht in conflicts); Geloeschte brauchen keine Freigabe.
+    Int32 conflictSurvivors = 0;
+    GS::Array<API_Guid> toRelease;
+    for (const API_Guid& g : survivors) {
+        if (conflicts.ContainsKey (g)) ++conflictSurvivors;
+        else if (teamwork) toRelease.Push (g);
+    }
+    if (teamwork && !toRelease.IsEmpty ())
+        ACAPI_Teamwork_ReleaseElements (toRelease, false);
+
+    if (survivors.IsEmpty ()) {
+        return err == NoError
+            ? CreateSuccessfulExecutionResult ()
+            : CreateFailedExecutionResult (err, "Failed to delete elements.");
+    }
+
+    GSErrCode code = APIERR_GENERAL;
+    if (conflictSurvivors > 0) code = APIERR_NOACCESSRIGHT;
+    else if (err != NoError)   code = err;
+
+    // Kein Zusatzfeld: Successful-/FailedExecutionResult haben additionalProperties:false.
+    GS::UniString msg = GS::UniString::SPrintf ("%d von %d Elementen nicht geloescht (existieren noch): ",
+                                               (Int32) survivors.GetSize (), (Int32) guids.GetSize ());
+    const UIndex maxShown = 10;
+    for (UIndex i = 0; i < survivors.GetSize () && i < maxShown; ++i) {
+        if (i > 0) msg += ", ";
+        msg += APIGuidToString (survivors[i]);
+    }
+    if (survivors.GetSize () > maxShown)
+        msg += GS::UniString::SPrintf (" (+%d weitere)", (Int32) (survivors.GetSize () - maxShown));
+    if (conflictSurvivors > 0)
+        msg += GS::UniString::SPrintf ("; davon %d von anderem Teamwork-Nutzer reserviert", conflictSurvivors);
+    else if (!teamwork)
+        msg += "; Elemente reservieren und erneut loeschen";
+
+    return CreateFailedExecutionResult (code, msg);
 }
 
 LockElementsCommand::LockElementsCommand () :

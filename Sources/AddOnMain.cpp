@@ -332,7 +332,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<DeleteElementsCommand> (
             elementCommands, "1.2.1",
-            "Deletes elements."
+            "Deletes elements. ELM_SAB 0.9.20: reserviert im Teamwork vorab (reserve, Standard true) und meldet success:false, wenn Elemente danach noch existieren."
         );
         err |= RegisterCommand<LockElementsCommand> (
             elementCommands, "1.5.2",
