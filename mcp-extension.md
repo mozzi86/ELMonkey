@@ -1354,21 +1354,27 @@ Etiketten), `SetLayerOfElements` auf eine ausgeblendete Ebene
   Rücklese ist für DeleteElements nicht mehr Pflicht, bleibt bei
   Massenlöschungen aber Stichprobe.
 * **Bekannte Verwandte:** Das Quellsymbol-Löschen in `ELM_SAB.CreateWallOpenings` hatte dieselbe Lücke — in 0.9.21 behoben (siehe unten).
-* **Stand:** gebaut (CI), noch NICHT live verifiziert.
+* **Stand:** live verifiziert 2026-10-06 (THN, Bundle 0.9.21, buildStamp „Oct  6 2026 13:42:13").
 
 ### Testplan
 
-1. `GetAddOnVersion` -> 0.9.20.
+1. `GetAddOnVersion` -> 0.9.20. ✅ GetAddOnVersion meldete 0.9.21 (enthält 0.9.20).
 2. Element mit ELM_SAB-Befehl reserve+release behandeln (z. B.
    SetLayerOfElements), dann DeleteElements ohne vorherige Reservierung ->
    Element wirklich weg (GetElementEditState exists:false), `success:true`.
+   ✅ Teststempel (CreateLabels + SetLayerOfElements hin/zurück → unreserviert) mit Standard-`reserve` gelöscht, GetLabelsOfElements bestätigt „weg".
 3. Dasselbe mit `reserve:false` -> `success:false`, Fehlertext nennt GUID und den
    Hinweis "reservieren".
+   ✅ `reserve:false` → `{"success":false,"error":{"code":-2130313215,"message":"1 von 1 Elementen nicht geloescht (existieren noch): <GUID>; Elemente reservieren und erneut loeschen"}}`, Element existierte weiter; anschließendes Standard-Delete entfernte es.
 4. Element, das ein anderer Teamwork-Nutzer reserviert hat -> `success:false`,
    Code NOACCESSRIGHT, Element unverändert.
 5. Gemischter Aufruf (1 löschbar, 1 fremd reserviert) -> `success:false` mit
    "1 von 2". Das löschbare ist weg; Cmd+Z stellt es wieder her.
 6. Nach dem Lauf ist kein Element mehr von uns reserviert.
+
+Schritte 4–6: offen (kein zweiter Teamwork-Nutzer im Test; Cmd+Z nicht geprüft).
+
+* **Lehre:** Teamwork: Löschungen, die vor einem Archicad-Neustart nicht gesendet wurden, sind danach wieder da (THN: Teststempel aus dem 0.9.19-Test). Nach API-Tests den User senden lassen.
 
 ## ELM_SAB 0.9.21 — CreateWallOpenings prüft Löschung des Quellsymbols <!-- 2026-10-06 -->
 
@@ -1384,20 +1390,25 @@ Etiketten), `SetLayerOfElements` auf eine ausgeblendete Ebene
   Befehlsversion 0.9.21.
 * **Folge für Aufrufer:** `reserve:false` mit `deleteSource:true` lässt im
   Teamwork das Quellsymbol typischerweise stehen — jetzt sichtbar statt still.
-* **Stand:** gebaut (CI), noch NICHT live verifiziert.
+* **Stand:** live verifiziert 2026-10-06 (THN, Bundle 0.9.21, buildStamp „Oct  6 2026 13:42:13").
 
 ### Testplan
 
-1. `GetAddOnVersion` -> 0.9.21.
+1. `GetAddOnVersion` -> 0.9.21. ✅ 0.9.21.
 2. THN-Testwand mit KI-Symbol, `deleteSource:true`, Standard `reserve` ->
    Öffnung angelegt, `sourceDeleted:true`, GetElementEditState des Symbols
    exists:false.
+   ✅ eigene Testwand (Tapir CreateWalls, 5 m, x 200/y 0 außerhalb des Gebäudes) + Testsymbol (Objekt „Quader", als Durchbrüche›Öffnung klassifiziert, KI-Stempel) → `successCount:1`, `classified/kiStamped/elementIdStamped:true`, `sourceDeleted:true`, GetTypesOfElements des Symbols = 7204 „Element not found". Danach Öffnung + Wand per DeleteElements entfernt (Rücklese: weg).
 3. Dasselbe mit `reserve:false` -> `sourceDeleted:false`, `sourceKeptReason`
    enthält "existiert weiter (Reservierung?)", Symbol existiert.
 4. Symbol von anderem Nutzer reserviert -> Öffnung entsteht, `sourceKeptReason`
    "nicht reservierbar", Symbol unverändert.
 5. Nach dem Lauf ist nichts mehr von uns reserviert; Cmd+Z nimmt Öffnung und
    Löschung in einem Schritt zurück.
+
+Schritte 3–5: offen. Hinweis zu Schritt 3: frisch per API angelegte Elemente gehören dem Anleger — `reserve:false` reproduziert die Falle nur mit einem zuvor freigegebenen Element (vgl. 0.9.20 Schritt 2: SetLayerOfElements hin/zurück).
+
+* **Lehre:** KI-Stempel-Property ist für unklassifizierte Objekte `notAvailable` (6703) → Testsymbol erst klassifizieren (Durchbrüche›Öffnung), dann stempeln.
 
 Hinweis: Danis handgezeichnete Durchbrüche nie als Testobjekt — nur
 KI-gestempelte Testsymbole.
