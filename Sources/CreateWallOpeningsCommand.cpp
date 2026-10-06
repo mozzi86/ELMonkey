@@ -133,6 +133,7 @@ struct OpeningRequest {
     bool          hasElementId = false;
     GS::UniString elementId;
     std::vector<PropSet> propertyValues;
+    bool          sourceConflict = false;   // Quelle war im Teamwork nicht reservierbar
 };
 
 struct OpeningResult {
@@ -529,6 +530,9 @@ void CreateOne (const OpeningRequest&  req,
             ++res.propertiesFailed;
     }
 
+    // ELM_SAB 0.9.21 (2026-10-06, THN): ACAPI_Element_Delete meldet NoError, loescht
+    //     unreservierte Teamwork-Elemente aber still nicht (siehe DeleteElements 0.9.20).
+    //     Daher Existenz per Header pruefen.
     // 10. Quell-Symbol loeschen — nur mit KI-Stempel. Handgezeichnete Durchbruecke
     //     (ohne Stempel) bleiben unangetastet; das ist eine harte Vorgabe aus dem
     //     THN-SuD-Projekt und keine Komfortoption.
@@ -550,12 +554,22 @@ void CreateOne (const OpeningRequest&  req,
         res.sourceKeptReason = "Quellobjekt traegt keinen KI-Stempel (handgezeichnet?) - nicht geloescht";
         return;
     }
+    if (req.sourceConflict) {
+        res.sourceKeptReason = "Quellobjekt nicht reservierbar (anderer Nutzer, ausgeblendete Ebene oder Hotlink) - nicht geloescht";
+        return;
+    }
     GS::Array<API_Guid> toDelete;
     toDelete.Push (req.sourceGuid);
-    if (ACAPI_Element_Delete (toDelete) == NoError)
-        res.sourceDeleted = true;
-    else
-        res.sourceKeptReason = "ACAPI_Element_Delete abgelehnt";
+    const GSErrCode delErr = ACAPI_Element_Delete (toDelete);
+    API_Elem_Head head = {};
+    const bool stillThere = LoadElementHeaderByGuid (req.sourceGuid, head);
+    res.sourceDeleted = !stillThere;
+    if (stillThere) {
+        if (delErr == NoError)
+            res.sourceKeptReason = GS::UniString::SPrintf ("ACAPI_Element_Delete meldete Erfolg, Element existiert weiter (Reservierung?) - Code %d", (Int32) delErr);
+        else
+            res.sourceKeptReason = GS::UniString::SPrintf ("ACAPI_Element_Delete abgelehnt - Code %d", (Int32) delErr);
+    }
 }
 
 #endif // ServerMainVers_2900
@@ -672,6 +686,13 @@ GS::ObjectState CreateWallOpeningsCommand::Execute (const GS::ObjectState& param
         }
     }
 
+    if (deleteSource) {
+        for (size_t i = 0; i < n; ++i) {
+            if (requests[i].sourceGuid != APINULLGuid && conflicts.ContainsKey (requests[i].sourceGuid))
+                requests[i].sourceConflict = true;
+        }
+    }
+
     auto runAll = [&] () {
         for (size_t i = 0; i < n; ++i) {
             if (!results[i].done) {
@@ -701,8 +722,19 @@ GS::ObjectState CreateWallOpeningsCommand::Execute (const GS::ObjectState& param
         runAll ();
     }
 
-    if (reserve && teamwork && !reserved.IsEmpty ())
-        ACAPI_Teamwork_ReleaseElements (reserved, false);
+    if (reserve && teamwork && !reserved.IsEmpty ()) {
+        // Nur eigene, noch existierende Reservierungen freigeben.
+        GS::Array<API_Guid> toRelease;
+        for (const API_Guid& g : reserved) {
+            if (conflicts.ContainsKey (g))
+                continue;
+            API_Elem_Head head = {};
+            if (LoadElementHeaderByGuid (g, head))
+                toRelease.Push (g);
+        }
+        if (!toRelease.IsEmpty ())
+            ACAPI_Teamwork_ReleaseElements (toRelease, false);
+    }
 
     GS::ObjectState response;
     const auto& resultList = response.AddList<GS::ObjectState> ("results");

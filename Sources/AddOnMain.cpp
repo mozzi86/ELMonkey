@@ -1050,8 +1050,8 @@ GSErrCode Initialize (void)
             "ELM_SAB: Vergleicht Ist-Masse je Element gegen uebergebene Sollmasse (dims in m oder dimsMm in mm) und meldet die Abweichung je Achse in mm samt Toleranzurteil."
         );
         err |= RegisterCommand<CreateWallOpeningsCommand> (
-            elmSabCommands, "0.9.18",
-            "ELM_SAB: Ersetzt KI-Durchbruch-Symbole durch ECHTE Wand-Oeffnungen (Oeffnungs-Werkzeug) in der Wirtswand - rechteckig oder rund, Hoehe relativ zur OKFF des Wand-Geschosses, Mittelpunkt auf die Wandachse projiziert, Grenze 'durch die Wand', Grundriss symbolisch. Stempelt Klassifikation 'Durchbruch', KI-Stempel (Wert vom Quellsymbol) und Element-ID mit Ruecklese, reserviert die Wirtswand (Teamwork) und loescht das Quellsymbol nur auf Wunsch UND mit KI-Stempel. Braucht Archicad 29."
+            elmSabCommands, "0.9.21",
+            "ELM_SAB: Ersetzt KI-Durchbruch-Symbole durch ECHTE Wand-Oeffnungen (Oeffnungs-Werkzeug) in der Wirtswand - rechteckig oder rund, Hoehe relativ zur OKFF des Wand-Geschosses, Mittelpunkt auf die Wandachse projiziert, Grenze 'durch die Wand', Grundriss symbolisch. Stempelt Klassifikation 'Durchbruch', KI-Stempel (Wert vom Quellsymbol) und Element-ID mit Ruecklese, reserviert die Wirtswand (Teamwork) und loescht das Quellsymbol nur auf Wunsch UND mit KI-Stempel. Braucht Archicad 29. ELM_SAB 0.9.21: sourceDeleted nur, wenn das Quellsymbol danach wirklich fehlt (Header-Pruefung); nicht reservierbare Quellen werden nicht geloescht."
         );
         err |= RegisterCommand<CreateLabelsELMCommand> (
             elmSabCommands, "0.9.19",
