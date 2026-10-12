@@ -1412,3 +1412,17 @@ Schritte 3–5: offen. Hinweis zu Schritt 3: frisch per API angelegte Elemente g
 
 Hinweis: Danis handgezeichnete Durchbrüche nie als Testobjekt — nur
 KI-gestempelte Testsymbole.
+
+## ELM_SAB 0.9.22 — Wand-Baustoff in GetDetailsOfElements <!-- 2026-10-12 -->
+
+* **Anlass:** THN-Nischenbau 12.10.: geteilte Wände bekamen per CreateWalls den Werkzeug-Standard-Baustoff, weil der Baustoff der Originalwand nicht lesbar war.
+* **Änderung:** `details.buildingMaterialId` (Basic), `details.profileId` (Profile), `details.compositeId` (Composite, wie bisher); die Felder waren im WallDetails-Schema schon vorgesehen, wurden aber nicht befüllt. Rezept: Wert direkt als `buildingMaterialId` bzw. `compositeId` an CreateWalls übergeben.
+* **Stand:** gebaut (CI), noch NICHT live verifiziert.
+
+### Testplan
+
+1. ELM_SAB-Versionsabfrage (GetAddOnVersion des ELM_SAB-Namespace) meldet 0.9.22.
+2. Basic-Wand: GetDetailsOfElements -> `buildingMaterialId` lesen, Namen per `API.GetBuildingMaterialAttributes` prüfen (muss dem Baustoff im Info-Fenster entsprechen).
+3. Composite-Wand liefert `compositeId`, kein `buildingMaterialId`.
+
+(Nur Lesebefehle, kein Schreiben ins Modell.)
