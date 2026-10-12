@@ -558,8 +558,16 @@ GS::ObjectState GetDetailsOfElementsCommand::Execute (const GS::ObjectState& par
                     typeSpecificDetails.Add ("begThickness", elem.wall.thickness);
                     typeSpecificDetails.Add ("endThickness", elem.wall.thickness1);
                 }
-                if (StructureTypeToString (elem.wall.modelElemStructureType) == "Composite") {
-                    typeSpecificDetails.Add ("compositeId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_CompWallID, elem.wall.composite)));
+                // ELM_SAB 0.9.22 (2026-10-12, THN-Nischenbau): Baustoff/Profil der Wand lesbar, damit geteilte Waende ihn per CreateWalls uebernehmen koennen.
+                {
+                    const GS::UniString wallStructureType = StructureTypeToString (elem.wall.modelElemStructureType);
+                    if (wallStructureType == "Basic") {
+                        typeSpecificDetails.Add ("buildingMaterialId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_BuildingMaterialID, elem.wall.buildingMaterial)));
+                    } else if (wallStructureType == "Composite") {
+                        typeSpecificDetails.Add ("compositeId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_CompWallID, elem.wall.composite)));
+                    } else if (wallStructureType == "Profile") {
+                        typeSpecificDetails.Add ("profileId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_ProfileID, elem.wall.profileAttr)));
+                    }
                 }
                 break;
 
