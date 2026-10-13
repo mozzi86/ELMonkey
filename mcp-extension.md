@@ -24,6 +24,9 @@ Claude ──► tapir-archicad-mcp (Python, uv tool "archicad-server")
 - **Stift/Farbe von Elementen ändern** — `elements_set_details_of_elements` kann nur
   Ebene/Geschoss/drawIndex (+ Wand-Geometrie). Kein Pen-Befehl in Tapir, keiner in der
   offiziellen JSON-API. → Genau dafür gibt es `SetPenOfElements` im ELM_SAB_Add-On.
+- **2D-Elemente außer Polylinien anlegen** — Tapir kann nur `CreatePolylines`; Linien, Bögen,
+  Kreise, Splines und Schraffuren fehlen. → Seit ELM_SAB 0.9.26 `ELM_SAB.Create2DElements`
+  (siehe Abschnitt 0.9.26 am Dateiende; noch nicht live verifiziert).
 - **Grafische Überschreibungen anlegen** — nur per Ansicht zuweisen
   (`navigator_set_view_settings`, Feld `graphicOverrideCombination`).
 - `elements_get_details_of_elements` hat in AC29 einen Schema-Bug (pydantic
@@ -1814,3 +1817,90 @@ Macht der Nutzer.
 7. Leerer `outputPath` → schemakonformer Fehler wie in 0.9.23 (kein 4009). ✓ (-2130313112)
 8. Gegenprobe 0.9.24 (gleiches Bundle, getrennt von CaptureView): Testplan „ELM_SAB 0.9.24“, Schritte 2–4. ✓ (→ Abschnitt 0.9.24)
 9. Auswertung nach der Tabelle oben, Ergebnis mit Datum hier eintragen. Danach keine Auswahl oder Hervorhebung zurücklassen. ✓ (Auswertung Zeile 1; Auswahl am Ende 0)
+
+## ELM_SAB 0.9.26 — Create2DElements: 2D-Elemente anlegen <!-- 2026-10-13 -->
+
+**Stand: eingebaut, noch NICHT live verifiziert (Abnahme nach Spec 8 offen).** Alle Werte unten sind Sollwerte, keine Befunde.
+
+* **Anlass:** Flucht- und Rettungswegeplan WiSchu (Frist Do 15.10.2026, Abgabe Fr 16.10.) braucht farbige Füllflächen (Schraffuren). Tapir legt nur Polylinien an (`CreatePolylines`); Linien, Bögen, Kreise, Splines und Schraffuren fehlen ganz. Verbindliche Spec: `.planning/quick/261013-n2y-elm-sab-0-9-26-create2delements/261013-n2y-SPEC.md`.
+* **Umfang:** `ELM_SAB.Create2DElements` ist das Schreib-Gegenstück zu `Get2DGeometryOfElements`. Was der Lesebefehl liefert, geht ohne Umbau zurück. Nur aktive Grundriss-Datenbank (wie `CreateLabels`).
+
+| Typ | `elementType` | Pflichtfelder | Optionale Felder |
+|---|---|---|---|
+| Linie | `Line` | `begCoordinate`, `endCoordinate` | — |
+| Bogen | `Arc` | `origin`, `radius`, `begAngle`, `endAngle` | `ratio` (Ellipse, Standard 1), `angle` (Drehung der Hauptachse, Standard 0), `reflected` |
+| Kreis | `Circle` | `origin`, `radius` | `ratio`, `angle` |
+| Polylinie | `PolyLine` | `coordinates[]` (≥ 2) | `arcs[]`, `closed` (Standard false) |
+| Spline | `Spline` | `coordinates[]` (≥ 2) | `closed` (Standard false), `bezierDirs[]` (sonst `autoSmooth`) |
+| Schraffur | `Hatch` | `coordinates[]` (≥ 3) | `arcs[]` und Schraffurfelder (unten) |
+
+  Nicht in v1: Löcher in Schraffuren, Baustoff-Schraffuren, Pfeilspitzen, Arbeitsblätter/Details/andere Datenbanken.
+
+* **Eingabe — gemeinsame Felder:** `elementType` (Pflicht); `floorInd` (fehlt er, gilt das aktuelle Geschoss aus dem Werkzeug-Default); Ebene per `layerName` (Vorrang, `ACAPI_Attribute_Search`) oder `layerIndex`; `pen` (nicht Hatch, `colorOverridePenIndex` wird 0); Linientyp per `lineTypeName` oder `lineTypeIndex` (nicht Hatch); `drawIndex` 1..7. Alles Nicht-Angegebene kommt aus `ACAPI_Element_GetDefaults`. Für den Rundweg werden die Feldnamen des Lesebefehls als Aliase akzeptiert: `floorIndex` → `floorInd`, `penIndex` → `pen`, `ltypeIndex` → `lineTypeIndex`. Zusatzfelder des Lesebefehls (`success`, `whole`, …) werden ignoriert.
+* **Eingabe — Geometrie:** Meter, Projektnullpunkt, `{x, y}`; Winkel in Radiant. `arcs[]` = `{begIndex, endIndex, arcAngle}` mit 1-basierten Indizes wie im Lesebefehl. PolyLine `closed:true` und Hatch: der Startpunkt wird als Schlusspunkt angehängt, außer er ist schon da (Toleranz 0,1 mm). Spline `bezierDirs[]` = `{lenPrev, lenNext, dirAng}`, genau ein Eintrag je Punkt.
+* **Eingabe — Schraffurfelder:** `fillName` oder `fillIndex` (Typ immer `API_FillHatch`); `foregroundPen`, `backgroundPen` (0 = transparent); `foregroundRGB` / `backgroundRGB` `{red, green, blue}` je 0..1; `contourPen` (0 = keine Kontur); `contourLineTypeName` oder `contourLineTypeIndex`; `showArea` (Standard false).
+* **Ablauf:** (1) Prüfen je Element ohne anzulegen (Typ, Pflichtfelder, Punktzahl, Radius > 0, `ratio` > 0, doppelte Folgepunkte, `arcs`-Indizes, `bezierDirs`-Länge, Ebene/Füllung/Linientyp auflösbar, Geschoss existiert). Fehlerhafte Elemente werden übersprungen, der Rest läuft. (2) Anlegen in EINEM Undo-Schritt „ELM_SAB Create2DElements“, keine Teamwork-Reservierung (neue Elemente gehören dem Anleger). (3) Rücklese je Element nach dem Undo-Schritt.
+* **Ausgabe:** `executionResults[]` in Eingabereihenfolge plus `undoScope: {lambdaStarted}`. Erfolgseintrag: `success`, `elementId {guid}`, `elementType`, `floorIndex`, `layerIndex`, `layerName`, `floorMatches`, `layerMatches`, `coordinatesMatch`, bei Ringen (Hatch, geschlossene PolyLine) `coordinateOrder` (`same` / `shifted` / `reversed`); Line/Arc/Circle/PolyLine `length` (bei Ellipsen zusätzlich `lengthApproximate:true`); Hatch `area`, `perimeter` (aus `ACAPI_Element_GetQuantities`; schlägt die Mengenabfrage fehl, steht dort `quantityError`), `fillIndex`, `fillName`, `hasForegroundRGB`, `hasBackgroundRGB`; Spline `closed`, `autoSmooth`.
+  `success:true` nur, wenn Create NoError UND alle `*Matches` true. Weicht die Rücklese ab, kommt `success:false` MIT `elementId` und allen Ist-Werten plus `error {code, message: "Ruecklese weicht ab: …"}` — das Element existiert, der Aufrufer muss es sehen, um es zu löschen. Prüf-/Create-Fehler: `{success:false, error:{code, message}}`. Fehlt `elements` oder ist es leer: Aufruffehler `{error:{code, message}}` (Schema über `ELMResponseSchemaWithError`, kein 4009).
+* **Fallen (im Code abgefangen, beim Live-Test gezielt prüfen):**
+  1. PolyLine/Hatch-Memo ist **1-basiert**, Größe `nCoords+1`, Schlusspunkt gleich Startpunkt, `pends[1] = nCoords`, `nSubPolys = 1`.
+  2. Spline-Memo ist **0-basiert**, Größe exakt `n`, OHNE Schlusspunkt. Erster == letzter Punkt → Fehler; geschlossen wird per `closed:true`.
+  3. `bezierDirs` genau ein Eintrag je Punkt; fehlt das Feld, setzt der Befehl `autoSmooth:true` und `bezierDirs = nullptr`. Lehnt Archicad das live ab, ist der Rückfall `Geometry::CalcSpline` (DevKit `Element_Basics.cpp`, `Do_CreateSpline`).
+  4. `arcs`-Indizes sind 1-basiert wie im Lesebefehl und werden unverändert übernommen. Tapirs `GetPolyArcs` addiert einen Offset (Tapir-Eingaben sind 0-basiert) — nicht mischen.
+  5. Kreis = `API_CircleID` mit `API_ArcType`-Feldern (`whole = true`, `begAng = 0`, `endAng = 2π`).
+  6. Hatch-RGB-Flags (`APIHatch_HasFgRGBColor`, `APIHatch_HasBkgRGBColor`) werden immer zuerst gelöscht und nur bei Angabe gesetzt — ein RGB-Override aus dem Werkzeug-Default rutscht nicht durch.
+  7. Ringvergleich toleriert zyklische Verschiebung und Umkehr (Archicad darf Polygone normalisieren), gemeldet in `coordinateOrder`. Offene Linienzüge und Splines nur in gleicher Reihenfolge.
+  8. Längen von Ellipsenbögen sind Näherungen (Simpson, 720 Schritte; Vollellipse nach Ramanujan).
+  9. Nur aktive Grundriss-Datenbank.
+
+### Get2DGeometryOfElements: Spline-Zweig (0.9.26)
+
+* Splines fielen bisher in den ShapePrims-Fallback. Jetzt eigener Zweig: `elementType:"Spline"`, `coordinates` (0-basiert gelesen, Punktzahl aus der Handle-Größe, denn `API_SplineType` hat kein `nCoords`), `bezierDirs` (nur wenn ihre Anzahl der Punktzahl entspricht), `closed`, `autoSmooth`, `penIndex`, `ltypeIndex`. Die Ausgabe ist 1:1 Eingabe für `Create2DElements`.
+
+### Worked Example — Linie und geschlossene Polylinie mit Bogensegment
+
+Testebene `Z_KI_Test_2D`, Geschoss 0, außerhalb des Gebäudes (Koordinaten vorher gegen den Gebäudeumriss prüfen).
+
+```bash
+curl -s localhost:<port> -H 'Content-Type: application/json' -d '{
+  "command": "API.ExecuteAddOnCommand",
+  "parameters": {
+    "addOnCommandId": {"commandNamespace": "ELM_SAB", "commandName": "Create2DElements"},
+    "addOnCommandParameters": {"elements": [
+      {"elementType": "Line", "floorInd": 0, "layerName": "Z_KI_Test_2D",
+       "begCoordinate": {"x": -50.0, "y": -50.0}, "endCoordinate": {"x": -48.0, "y": -50.0}},
+      {"elementType": "PolyLine", "floorInd": 0, "layerName": "Z_KI_Test_2D", "closed": true,
+       "coordinates": [{"x": -50.0, "y": -48.0}, {"x": -48.0, "y": -48.0}, {"x": -48.0, "y": -46.0}, {"x": -50.0, "y": -46.0}],
+       "arcs": [{"begIndex": 2, "endIndex": 3, "arcAngle": 1.5707963}]}
+    ]}
+  }
+}'
+```
+
+Erwartete Antwortform (Felder, keine Ist-Werte):
+
+```json
+{"executionResults": [
+  {"success": true, "elementId": {"guid": "…"}, "elementType": "Line", "floorIndex": 0,
+   "layerIndex": "…", "layerName": "Z_KI_Test_2D", "floorMatches": true, "layerMatches": true,
+   "coordinatesMatch": true, "length": "…"},
+  {"success": true, "elementId": {"guid": "…"}, "elementType": "PolyLine", "floorIndex": 0,
+   "layerIndex": "…", "layerName": "Z_KI_Test_2D", "floorMatches": true, "layerMatches": true,
+   "coordinatesMatch": true, "coordinateOrder": "same", "length": "…"}
+ ],
+ "undoScope": {"lambdaStarted": true}}
+```
+
+Die PolyLine bekommt den Schlusspunkt angehängt (5 Punkte im Memo); `arcs` bleibt 1-basiert (Segment Punkt 2 → Punkt 3). Soll-Länge der Linie: 2,0 m.
+
+### Rundweg-Beispiel — Spline
+
+1. `Get2DGeometryOfElements` mit der GUID eines vorhandenen Splines → Eintrag `{"elementType":"Spline", "coordinates":[…], "bezierDirs":[…], "closed":…, "autoSmooth":…, "penIndex":…, "ltypeIndex":…, "layerIndex":…, "floorIndex":…, "success":true}`.
+2. Diesen Eintrag UNVERÄNDERT als Element in `Create2DElements.elements` geben (Aliase `floorIndex`/`penIndex`/`ltypeIndex` greifen, `success` wird ignoriert).
+3. Soll: `coordinatesMatch:true`, gleiche Punktzahl, gleiche Ebene und gleiches Geschoss; danach beide Splines erneut lesen und `bezierDirs` vergleichen.
+
+### Stand
+
+* Eingebaut in 0.9.26: `e7ec585` (Create2DElements, Registrierung, `ELM_SAB_VERSION` 0.9.26) und `d5fa36a` (Spline-Zweig in Get2DGeometryOfElements). Syntaxprüfung gegen DevKit 29.3100 grün, `elm_schema_scan.py` meldet `errorAllowed=True`. Echter AC27/28/29-Build über CI (`ci-status`/`ci-release`) steht aus.
+* **Live-Abnahme nach Spec 8 offen** (Schraffur zuerst: Quadrat 1 × 1 m, Soll `area` 1,00 / `perimeter` 4,00; dann je Typ ein Element, Rundwege, Fehlerfälle, Aufräumen).
+* Einbau nur bei null laufenden Archicad-Instanzen; vorher das eingebaute 0.9.25-Bundle sichern; danach `ELM_SAB.GetAddOnVersion` = 0.9.26 prüfen. Jeder Push überschreibt `ci-status` und das Release.
