@@ -1436,23 +1436,25 @@ KI-gestempelte Testsymbole.
 
 ### Beispiele
 
-(a) Türen auf Geschoss 2, nicht Abbruch, mit T.-Nummer:
+(a) Türen auf Geschoss 2, nicht Abbruch, mit T.-Nummer (live 13.10.: 35 Treffer = Python-Filter):
 
 ```json
 {"where": {"and": [
     {"type": "Door"},
     {"story": {"index": 2}},
     {"not": {"property": "Umbau-Status", "op": "=", "value": "ToBeDemolished"}},
-    {"property": "Element ID", "op": "startsWith", "value": "T.2."}
+    {"property": "ID und Kategorien/Element ID", "op": "startsWith", "value": "T.2."}
   ]},
- "return": ["Element ID", "Umbau-Status", "Ebenenname"]}
+ "return": ["ID und Kategorien/Element ID", "Umbau-Status", "Ebenenname"]}
 ```
 
-(b) Türenabgleich in EINEM Aufruf — alle Türen aller Geschosse mit Werten, Gruppierung je `floorIndex`/`values` danach in Python:
+(b) Türenabgleich in EINEM Aufruf — alle Türen aller Geschosse mit Werten, Gruppierung je `floorIndex`/`values` danach in Python (live 13.10.: 267 Türen, 0 Abweichungen, 230 ms):
 
 ```json
-{"where": {"type": "Door"}, "return": ["Element ID", "Umbau-Status"]}
+{"where": {"type": "Door"}, "return": ["ID und Kategorien/Element ID", "Umbau-Status"]}
 ```
+
+Die Eigenschaft „Element ID" ist im WiSchu zweimal definiert (`Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}). Der bloße Name liefert den Mehrdeutigkeitsfehler, deshalb steht in den Beispielen „Gruppe/Name" (alternativ die GUID). Siehe Fallen.
 
 (c) Nur zählen, Suchbereich wie im 3D-Fenster:
 
@@ -1524,22 +1526,26 @@ Zum Weitergeben an andere Befehle nur `{elementId}` übernehmen.
 
 ### Suchbereich `scope`
 
-| scope | Filter | WiSchu 13.10. (Grundriss vorn) |
-|---|---|---|
-| `projekt` (Vorgabe) | keiner — alle Geschosse, auch ausgeblendete Ebenen | 19.873 |
-| `sichtbar` | OnVisLayer (inkl. 2D) | 19.503 |
-| `wie3D` | OnVisLayer + In3D (ohne 2D) — was „Suchen & aktivieren" im 3D findet | 10.210 |
-| `aktuellesGeschoss` | OnActFloor | 6.547 |
+| scope | Filter | WiSchu 13.10. vormittags (Handoff) | WiSchu 13.10. Gegenprobe (FindElements = Tapir) | `elapsedMs` |
+|---|---|---|---|---|
+| `projekt` (Vorgabe) | keiner — alle Geschosse, auch ausgeblendete Ebenen | 19.873 | 40.107 | 95 |
+| `sichtbar` | OnVisLayer (inkl. 2D) | 19.503 | 39.736 | 110 |
+| `wie3D` | OnVisLayer + In3D (ohne 2D) — was „Suchen & aktivieren" im 3D findet | 10.210 | 10.496 (Tapir nur IsVisibleIn3D: 10.497) | 6.474 |
+| `aktuellesGeschoss` | OnActFloor | 6.547 | 24.731 (Geschoss 0) | 137 |
 
-Die Zahlen ändern sich mit dem Modell → vor einem Vergleich die Referenz mit Tapir `GetAllElements` + gleichen Flags bei Grundriss vorn ziehen.
+**Referenz immer frisch ziehen:**
+* Die absoluten Zahlen sind Momentaufnahmen und haben sich am selben Tag etwa verdoppelt. Ursache ist Ladezustand/Modellinhalt, nicht der Befehl: FindElements und Tapir `GetAllElements` mit gleichen Flags (Grundriss Geschoss 0 vorn) waren in jeder Zeile identisch.
+* Vor jedem Vergleich die Referenz im selben Zustand mit Tapir `GetAllElements` + gleichen Flags bei Grundriss vorn ziehen, nie gegen diese Tabelle prüfen.
+* `wie3D` ist teuer: die In3D-Prüfung je Element dauert 6,5 s gegenüber ~0,1 s für die anderen. Nur einsetzen, wenn das 3D-Kriterium wirklich gebraucht wird.
 
 ### Fallen
 
-* **Aktive Datenbank:** Tapir liest das vordere Fenster, FindElements nie; `startDatabaseType` zeigt, was vorn war.
+* **Aktive Datenbank:** Tapir liest das vordere Fenster, FindElements nie; `startDatabaseType` zeigt, was vorn war (live belegt 13.10.: Layout vorn → Tapir 0 Türen, FindElements 267).
 * **Teamwork:** Tapir-Flag `IsEditable` = nur von MIR reserviert → WiSchu Door + OnActualFloor 84, + IsEditable 0. Für „frei/von mir/von anderen" das Blatt `teamwork` nehmen.
 * Tapir-Flags kennen kein NICHT und kein ODER — hier per `not`/`or`. `IncludeSubElemObjects` ist kein Filter.
-* **Mehrdeutige Eigenschaftsnamen** (WiSchu: „Brüstungshöhe" 4×) → Fehler mit Kandidaten; GUID oder „Gruppe/Name" angeben. „/" steckt auch in Gruppen- und Eigenschaftsnamen („Balken / Träger") — jede „/"-Position wird probiert.
+* **Mehrdeutige Eigenschaftsnamen** (WiSchu: „Brüstungshöhe" 4×, „Element ID" 2×) → Fehler mit Kandidaten („… - GUID oder {group, name} angeben"); GUID oder „Gruppe/Name" angeben. „Element ID" gibt es im WiSchu als `Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}. Für die Element-ID immer `"ID und Kategorien/Element ID"` nehmen (= die von `modell_abgleich.py` gelesene B1B54D45-…). „Gruppe/Name" ist live belegt 13.10. „/" steckt auch in Gruppen- und Eigenschaftsnamen („Balken / Träger") — jede „/"-Position wird probiert.
 * **`select` ersetzt die Auswahl** — danach selbst aufheben (keine Auswahl zurücklassen). Bei 0 Treffern bleibt die Auswahl unverändert.
+* **`select` + Renovierungsfilter:** Was der Renovierungsfilter der aktiven Ansicht ausblendet, ist nicht auswählbar. Beleg WiSchu 13.10.: 267 Türen → `selected` 263, `notSelectedCount` 4 = genau die 4 Abbruch-Türen T.0.001, T.0.004, T.0.039, T.2.045. Die Rücklese meldet das korrekt in `selection.notSelected`. Daher nach `select` immer `selected` gegen `matchCount` prüfen und `notSelected` lesen. Elemente ANDERER Geschosse werden dagegen ausgewählt. (Nicht live getestet: Wer Abbruch-Elemente mit auswählen will, braucht einen Renovierungsfilter, der Abbruch zeigt.)
 * Laufzeit wächst mit teuren Blättern (`property`/`gdl`/`ifc` je Element) → günstige Blätter (`type`, `story`, `layer`) in dasselbe `and`; `elapsedMs` notieren (MCP-Zeitgrenze 600 s).
 
 ### Nicht verfügbar
@@ -1547,38 +1553,62 @@ Die Zahlen ändern sich mit dem Modell → vor einem Vergleich die Referenz mit 
 * `RunCriteriaSet` — gespeicherte Kriterien-Sets aus „Suchen & aktivieren" sind per API nicht erreichbar (DevKit 29.3100 geprüft: nur `ACAPI_Selection_*`, `ACAPI_Element_SearchElementByCoord`, `ACAPI_LibraryPart_Search`).
 * `designOption` nur in Archicad 29; AC27/28 → Fehler „Kriterium designOption in Archicad NN nicht verfügbar".
 
+### Live-Gegenprobe 2026-10-13 (WiSchu)
+
+Umgebung: AC29 Build 5101, Teamwork, EINE Instanz, Port 19723. `ELM_SAB.GetAddOnVersion` → 0.9.23 / Tapir 1.5.4 / buildStamp „Oct 13 2026 10:09:39" (= CI `4e804b3`). Bundle-Tausch nach den Regeln, Backup 0.9.22 in `~/.scratch/elm-bundle-0.9.23/backup_0.9.22`. Das letzte Archicad-Fenster ohne Projekt wurde per `TapirCommand.QuitArchicad` beendet, weil AppleScript-`quit` mit -128 abbrach.
+
+Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_a_2026-10-13.json` (Punkte 1–7) und `teil_b_2026-10-13.json` (select, Layout vorn, CaptureView); Skripte `~/.scratch/elmonkey/tools/gegenprobe_findelements_0923.py` und `gegenprobe_findelements_0923_teil_b.py`.
+
+| Nr | Prüfung | Ergebnis |
+|---|---|---|
+| 1 | Türenabgleich, EIN Aufruf `{"where":{"type":"Door"},"return":["ID und Kategorien/Element ID","Umbau-Status"]}` gegen `modell_abgleich.py` (native `GetElementsByType` + Tapir-Details + Properties) | 267 Türen; je Geschoss −1: 32 / 0: 115 / 1: 84 / 2: 36; je Umbau-Status Existing 242 / New 21 / ToBeDemolished 4. GUID für GUID identisch, 0 Abweichungen, `elapsedMs` 230 (vorher 4 Aufrufe + Python). Treffer liefern `storyName`, `layerName` und `values` als `{value: nonLocalized, display: lokalisiert}` (T.0.004 → `{value:"ToBeDemolished", display:"Abbruch"}`). `returnColumns` löst „ID und Kategorien/Element ID" zu {B1B54D45-C951-42C9-9AF8-898F0BF212AB} auf. |
+| 2 | `scope` gegen Tapir `GetAllElements` mit gleichen Flags (Grundriss Geschoss 0 vorn) | Alle vier exakt gleich: projekt 40.107 (95 ms) · sichtbar 39.736 (110 ms) · wie3D 10.496 (6.474 ms; Tapir nur IsVisibleIn3D = 10.497) · aktuellesGeschoss 24.731 (137 ms, Geschoss 0). Vormittags 19.873 / 19.503 / 10.210 / 6.547 — Zahlen etwa verdoppelt, Ursache Ladezustand/Modellinhalt, nicht der Befehl. Siehe scope-Tabelle. |
+| 3 | Beispiel (a) gegen den Python-Filter | 35 = 35, 196 ms. `criteriaStats`: type 40.107→267, story 267→36, not 36→35 (property darunter 36→1), property 35→35 — zeigt die Kosten-Reihenfolge. |
+| 4 | Aufzählung: `"value":"Abbruch"` (Anzeige) gegen `"ToBeDemolished"` (nonLocalized) | Dieselben 4 Türen = Referenz. |
+| 5 | Fehlerantworten mit Namen | Alle schemakonform beim Client: `error.code` -2130313112 (APIERR_BADPARS), kein 4009. Damit funktioniert `oneOf` auf oberster Ebene → Planer-Risiko aus 261013-fel erledigt. Fünf Fälle: unbekannte Eigenschaft „Umbaustatus" („keine aehnliche Eigenschaft gefunden") · „Brüstungshöhe" mehrdeutig mit 4 Kandidaten (Gruppe/Name {GUID}) · unbekanntes Kriterium „propery" mit Liste der erlaubten · unbekannter Typ „Tuer" mit Liste · unbekanntes Geschoss „99.OG" mit Liste `index:Name`. |
+| 6 | „Element ID" als Eigenschaftsname | Im WiSchu ZWEIMAL definiert: `Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}. Der bloße Name liefert den Mehrdeutigkeitsfehler „… - GUID oder {group, name} angeben". Die Adressierung „Gruppe/Name" ist live belegt. Siehe Fallen. |
+| 7 | Teures Blatt ohne `type`-Filter: `{"property":"Umbau-Status","op":"=","value":"ToBeDemolished"}` | Über 40.107 Elemente 1.626 ms (≈1,6 s), 9 Treffer, `notAvailable` 7. Günstiges `type`-Blatt in dasselbe `and` (vgl. Punkt 1: 230 ms). |
+| 8 | Layout FR_00-06.1 vorn (per `TapirCommand.ChangeWindow` mit `navigatorItemId`) | FindElements `projekt` weiter 40.107, `startDatabaseType` "Layout", `database` "FloorPlan", Türen 267. Tapir `GetElementsByType` Door im selben Zustand = 0. Die Falle „Aktive Datenbank" ist live reproduziert und gelöst. |
+| 9 | `select:true` über alle 267 Türen aller Geschosse (Grundriss Geschoss 0 vorn) | `selected` 263, `notSelectedCount` 4, `extraSelectedCount` 0, Tapir-Auswahl danach 263. Die 4 nicht ausgewählten sind GENAU die 4 Abbruch-Türen T.0.001, T.0.004, T.0.039, T.2.045: Was der Renovierungsfilter der Ansicht ausblendet, ist nicht auswählbar, und die Rücklese meldet das korrekt. Elemente anderer Geschosse werden ausgewählt. Danach Auswahl aufgehoben (0) und Fenster auf Grundriss Geschoss 0 zurückgestellt. |
+
 ### CaptureView: Fehlerantwort schemakonform, Layout-Verhalten
 
 * **Befund (WiSchu 13.10., Layout „FR_00-06.1", `crop` true und false):** `4009 Invalid command response … 'additionalProperties' … '#/error'`, kein PNG. Ursache: das Antwortschema (`additionalProperties:false`, `required:[imagePath, view2D]`) ließ die Fehlerform `{error:{code,message}}` nicht zu — jede Fehlermeldung wurde von Archicad als ungültige Antwort verschluckt.
 * **Änderung 0.9.23:** Antwortschema `oneOf` Erfolg | Fehler; jede Meldung nennt den Fenstertyp und den echten Archicad-Code (Text + `code`-Feld). Layout/MasterLayout: Export wird versucht, sonst „PNG-Export per API nicht möglich (Fehler N) - Zeichnung/Grundriss öffnen oder Layout als PDF publizieren". Keine Typsperre — Grundriss, 3D, Schnitt, Detail … wie bisher. Erfolgsantwort unverändert `{imagePath, view2D}`.
 * **Allgemeine Lehre:** ein ELM-Antwortschema mit `required`/`additionalProperties:false` ohne Fehlerzweig verschluckt JEDE Fehlermeldung (Client sieht nur 4009) → neue Befehle über `ELMResponseSchemaWithError` (ELMCommandBase.hpp) deklarieren, Fehler über `CreateErrorResponseELM` (Umlaut-sicher).
+* **Live 13.10. (WiSchu, 0.9.23), Fehlerform bestanden:** leerer `outputPath` → `{error:{code:-2130313112, message:"CaptureView: outputPath fehlt oder ist leer"}}`, kein 4009. Mit Layout FR_00-06.1 vorn, `crop` true und false → -2130313115 „CaptureView: Layout-Fenster ('Layout'): PNG-Export per API nicht moeglich (Fehler -2130313115) - Zeichnung/Grundriss oeffnen oder Layout als PDF publizieren", kein PNG. Das Ziel des Fixes (kein 4009, echte Ursache sichtbar) ist erreicht.
+* **Offener Punkt: CaptureView-Funktion – Ursache APIERR_BADID untersuchen:** Auch mit Grundriss vorn kommt -2130313115 „CaptureView: Fensterinhalt (Fenstertyp 'FloorPlan') nicht als PNG speicherbar (Fehler -2130313115) - Fenstertyp exportierbar? Pfad beschreibbar?". Probiert wurden zwei Zielpfade (`~/.scratch/…` und `/private/tmp/…`), kein PNG entstand. -2130313115 = **APIERR_BADID** (APIErrorStart + 101, DevKit `APIdefs_ErrorCodes.h` Z. 48). Betroffen ist der Aufruf `ACAPI_ProjectOperation_Save` mit `APIFType_PNGFile` + `API_SavePars_Picture`, für Grundriss UND Layout. Keine Regression: der Save-Code ist seit 0.9.13 unverändert (nur die Meldungen haben sich geändert), und CaptureView hat live NIE ein Bild geliefert. Belege: THN 07.08. („zwei Pfade probiert, Datei entstand nicht"), SuD-Kampagne („scheitert intern, auch mit Archicad im Vordergrund", damals vom 4009 verschluckt) und der Abschnitt „ELM_SAB 0.9.12/0.9.13" („Live-Test am Modell steht aus"; dort nichts geändert). Neu ist nur, dass die Ursache sichtbar ist. Das 3D-Fenster wurde nicht getestet. **Workaround bis dahin:** `screencapture` mit Archicad-Fenster vorn.
 * **Offener Punkt → erledigt in 0.9.24** (Abschnitt „ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle" unten): dieselbe Lücke haben noch — Antwortschema mit `required`, ohne Fehlerzweig, mit `return CreateErrorResponse` auf oberster Ebene:
   `CreateWallOpenings` (CreateWallOpeningsCommand.cpp Z. 584/587 — leere openings, AC27/28-Sperre), `SetLayerOfElements` (SetLayerCommand.cpp Z. 102/105), `SetObjectParametersForce` (SetObjectParametersForceCommand.cpp Z. 326), `SetPenOfElements` (SetPenOfElementsCommand.cpp Z. 244), `SetStoryVisibilityOfElements` (StoryVisibilityCommands.cpp Z. 132/141), `SetTextSizeOfElements` (SetTextSizeCommand.cpp Z. 64). Prüfwerkzeug: `python3 -I ~/.scratch/elmonkey/tools/elm_schema_scan.py <ELM_SAB_Tapir/Sources>` (Kandidat = `errorAllowed=False` und `topLevelErrorReturns>0`).
 
 ### Stand
 
-Gebaut (CI), noch NICHT live verifiziert — der grüne CI-SHA steht im Quick-Task-SUMMARY 261013-fel.
+**Live verifiziert 2026-10-13 (WiSchu, AC29 Build 5101, Teamwork; buildStamp „Oct 13 2026 10:09:39" = CI `4e804b3`)**, der grüne CI-SHA steht im Quick-Task-SUMMARY 261013-fel.
+
+* **Getesteter Umfang** (Belege im Unterabschnitt „### Live-Gegenprobe 2026-10-13 (WiSchu)"): Kriterien `and`, `not`, `type`, `story` (`{index}`, Name im Fehlerfall), `property` (Name, „Gruppe/Name", Operatoren `=`/`startsWith`, Aufzählung Anzeige + nonLocalized); `scope` alle vier; `return`; `countOnly`; `select`; `criteriaStats`; `startDatabaseType`/`database`; Fehlerantworten.
+* **CaptureView:** Fehlerform verifiziert (kein 4009, Fenstertyp + Archicad-Code); der Bildexport scheitert dagegen mit APIERR_BADID (offener Punkt im CaptureView-Unterabschnitt).
+* **Nur gebaut (CI), live noch nicht getestet:** `or`, `layer`, `flags`, `guids`, `inSelection`, `teamwork`, `classification`, `libPart`, `gdl`, `ifc`, `hostedBy`/`hosts`, `inZone`, `bbox`/`near`, `designOption`; die Parameter `databases` und `limit`/`truncated`; Beispiel (c) `countOnly` + `wie3D` nur über die scope-Probe, Beispiele (d) und (e) gar nicht; CaptureView im 3D-Fenster.
 
 ### Testplan Einbau + Gegenprobe
 
 Macht der Orchestrator mit Mudi. Das Bundle enthält ZWEI Änderungen (FindElements neu + CaptureView-Fix) → beide Blöcke getrennt abhaken.
 
 **Einbau**
-1. Bundle-Regeln: 0.9.22-Bundle sichern, Archicad komplett beenden (nie kill), nur EINE Instanz, 0.9.23 einsetzen, starten; `ELM_SAB.GetAddOnVersion` meldet 0.9.23 + Build-Zeitstempel. Nie zwei Dinge gleichzeitig ändern; bei Problemen erst Rückbau auf 0.9.22.
+1. Bundle-Regeln: 0.9.22-Bundle sichern, Archicad komplett beenden (nie kill), nur EINE Instanz, 0.9.23 einsetzen, starten; `ELM_SAB.GetAddOnVersion` meldet 0.9.23 + Build-Zeitstempel. Nie zwei Dinge gleichzeitig ändern; bei Problemen erst Rückbau auf 0.9.22. ✓ (0.9.23 / Tapir 1.5.4 / buildStamp; Backup 0.9.22)
 
 **FindElements**
-2. `scope`-Zahlen mit `countOnly` (ohne `where`) gegen die Tabelle bzw. die Tapir-Referenz.
-3. Dasselbe mit Layout-Fenster vorn: `projekt`-Zahl unverändert, `startDatabaseType` `"Layout"`.
-4. Türenabgleich: EIN FindElements-Aufruf (Beispiel b) gegen `modell_abgleich.py` (`/Users/ap/.scratch/wischu-freising/tools/`, native `GetElementsByType` Door + Properties B1B54D45-C951-42C9-9AF8-898F0BF212AB / 9CF14061-6E9C-45BE-BD8F-D3BCF59D218E): 267 Türen, gleiche Mengen je Geschoss (`floorIndex`) und je Umbau-Status.
-5. Beispiel (a) gegen denselben Python-Filter (floor 2, umbau ≠ ToBeDemolished, id beginnt mit „T.2."); `"value":"Abbruch"` liefert dieselbe Menge wie `"ToBeDemolished"`.
-6. Unbekannte Eigenschaft („Umbaustatus") → Fehler mit Namen; „Brüstungshöhe" → Mehrdeutigkeitsfehler mit 4 Kandidaten.
-7. `select:true` über alle Türen aller Geschosse → `selection`-Rücklese ansehen (werden fremde Geschosse ausgewählt?), danach Auswahl aufheben.
-8. `criteriaStats` plausibel (`type`-Blatt matched 267), `elapsedMs` notieren.
+2. `scope`-Zahlen mit `countOnly` (ohne `where`) gegen die Tabelle bzw. die Tapir-Referenz. ✓ (alle vier = Tapir, s. scope-Tabelle)
+3. Dasselbe mit Layout-Fenster vorn: `projekt`-Zahl unverändert, `startDatabaseType` `"Layout"`. ✓ (40.107, `startDatabaseType` "Layout", Türen 267; Tapir 0)
+4. Türenabgleich: EIN FindElements-Aufruf (Beispiel b) gegen `modell_abgleich.py` (`/Users/ap/.scratch/wischu-freising/tools/`, native `GetElementsByType` Door + Properties B1B54D45-C951-42C9-9AF8-898F0BF212AB / 9CF14061-6E9C-45BE-BD8F-D3BCF59D218E): 267 Türen, gleiche Mengen je Geschoss (`floorIndex`) und je Umbau-Status. ✓ (267, 0 Abweichungen, 230 ms)
+5. Beispiel (a) gegen denselben Python-Filter (floor 2, umbau ≠ ToBeDemolished, id beginnt mit „T.2."); `"value":"Abbruch"` liefert dieselbe Menge wie `"ToBeDemolished"`. ✓ (35 = 35; „Abbruch" = „ToBeDemolished" = 4)
+6. Unbekannte Eigenschaft („Umbaustatus") → Fehler mit Namen; „Brüstungshöhe" → Mehrdeutigkeitsfehler mit 4 Kandidaten. ✓ (plus „Element ID" mehrdeutig, s. Fallen)
+7. `select:true` über alle Türen aller Geschosse → `selection`-Rücklese ansehen (werden fremde Geschosse ausgewählt?), danach Auswahl aufheben. ✓ (263/267, 4 Abbruch-Türen vom Renovierungsfilter ausgeblendet; fremde Geschosse werden ausgewählt; Auswahl aufgehoben)
+8. `criteriaStats` plausibel (`type`-Blatt matched 267), `elapsedMs` notieren. ✓ (type matched 267; elapsedMs 230 / 196 / 1.626)
 
 **CaptureView**
-9. Layout aktiv (z. B. FR_00-06.1), `crop` true und false → klare Fehlermeldung mit Fenstertyp „Layout" und Archicad-Code statt 4009 (oder, falls Archicad den Layout-Export doch kann, ein PNG — dann als „Layout geht" dokumentieren).
-10. Grundriss aktiv → PNG wie bisher, Antwort `{imagePath, view2D:true}`; 3D-Fenster → `view2D:false`.
-11. Leerer `outputPath` → schemakonforme Fehlermeldung (kein 4009).
+9. Layout aktiv (z. B. FR_00-06.1), `crop` true und false → klare Fehlermeldung mit Fenstertyp „Layout" und Archicad-Code statt 4009 (oder, falls Archicad den Layout-Export doch kann, ein PNG — dann als „Layout geht" dokumentieren). ✓ (Layout: schemakonformer Fehler -2130313115, kein PNG → „Layout geht nicht")
+10. Grundriss aktiv → PNG wie bisher, Antwort `{imagePath, view2D:true}`; 3D-Fenster → `view2D:false`. ✗ BADID (Grundriss -2130313115 = APIERR_BADID, kein PNG; 3D-Fenster offen)
+11. Leerer `outputPath` → schemakonforme Fehlermeldung (kein 4009). ✓ (-2130313112 „outputPath fehlt oder ist leer")
 
 ## ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle <!-- 2026-10-13 -->
 
