@@ -1902,5 +1902,22 @@ Die PolyLine bekommt den Schlusspunkt angehängt (5 Punkte im Memo); `arcs` blei
 ### Stand
 
 * Eingebaut in 0.9.26: `e7ec585` (Create2DElements, Registrierung, `ELM_SAB_VERSION` 0.9.26) und `d5fa36a` (Spline-Zweig in Get2DGeometryOfElements). Syntaxprüfung gegen DevKit 29.3100 grün, `elm_schema_scan.py` meldet `errorAllowed=True`. Echter AC27/28/29-Build über CI (`ci-status`/`ci-release`) steht aus.
-* **Live-Abnahme nach Spec 8 offen** (Schraffur zuerst: Quadrat 1 × 1 m, Soll `area` 1,00 / `perimeter` 4,00; dann je Typ ein Element, Rundwege, Fehlerfälle, Aufräumen).
+* CI 6/6 grün (`3f38981`), eingebaut 13.10., `GetAddOnVersion` = 0.9.26 (Build 13.10. 15:03).
+* **Live-Abnahme 13.10. (WiSchu, Port 19723, Ebene `Z_FR_Rettungswege`, Testelemente bei x ≥ 1000 m, danach gelöscht + Bereich leer nachgeprüft):**
+  * Hatch 1 × 1 m mit RGB (WiSchu-Session): `area` 1, `perimeter` 4, alle `*Matches` true, CaptureView zeigt das Quadrat, Löschung rückgelesen.
+  * Line (Länge 5), Arc r 2 / 90° (Länge π), PolyLine geschlossen mit 90°-Bogensegment (Länge 8,2214 = nachgerechnet), Spline autoSmooth, Spline mit `bezierDirs`: alle `success:true`.
+  * Hatch mit Halbkreis-Bogen + RGB: `area` 3,570796 = 2 + π/2, `perimeter` 7,141593 = 4 + π — exakt.
+  * Rundweg echte Projektschraffur (25 Punkte, lochfrei, +1000 m verschoben): Rücklese punktgenau identisch; `area` 10,659830 / `perimeter` 21,169118 = unabhängig per Shoelace gerechnet.
+  * Fehler je Element lesbar, gültige Elemente im selben Aufruf trotzdem angelegt: Hatch 2 Punkte, unbekannte Ebene, Radius 0, `bezierDirs` falsche Länge. Unbekannter `elementType` und fehlendes `elements` fängt schon das Eingabeschema (4002); leere Liste → lesbarer Aufruffehler.
+  * **Befund 1 (→ 0.9.27):** Circle wird richtig angelegt, Archicad speichert ihn aber als `API_ArcID` mit `whole:true` → Rücklese meldete fälschlich „Typ Koordinaten“ / `success:false`.
+  * **Befund 2 (→ 0.9.27):** Rundweg einer Schraffur MIT Loch scheitert mit APIERR_IRREGULARPOLY — `Get2DGeometryOfElements` gab Außenkontur + Loch als eine flache Liste aus (Erkennung: innerer Punkt wiederholt den Startpunkt).
+  * Fallen: Füllungsnamen sind projektabhängig („Vollfüllung“ gibt es im WiSchu nicht, dort „Nur Vordergrund-Stift“ Index 64); `API.GetElementsByType` kennt `Hatch` nicht (4002) → `TapirCommand.GetElementsByType`; eine Testebene anzulegen ist in Teamwork ein Attribut-Eingriff → vorhandene sichtbare Ebene nehmen, weit abseits zeichnen, danach löschen.
 * Einbau nur bei null laufenden Archicad-Instanzen; vorher das eingebaute 0.9.25-Bundle sichern; danach `ELM_SAB.GetAddOnVersion` = 0.9.26 prüfen. Jeder Push überschreibt `ci-status` und das Release.
+* Falle beim Beenden: Nach dem Schließen der Projekte laufen die Archicad-Prozesse ohne Fenster weiter (API meldet „no open project") → leere Instanzen per `NSRunningApplication … terminate` nach PID beenden.
+
+## ELM_SAB 0.9.27 — Create2DElements: Kreis-Rücklese, Löcher erkennen <!-- 2026-10-13 -->
+
+* **Kreis:** Die Rücklese akzeptiert `API_ArcID` mit `whole:true` als Circle (so speichert Archicad Kreise). Vorher `success:false` trotz richtiger Geometrie.
+* **Löcher:** `Create2DElements` lehnt eine Hatch ab, deren innerer Punkt den Startpunkt wiederholt (= Teilpolygon/Loch), mit klarer Meldung statt APIERR_IRREGULARPOLY. Löcher anlegen bleibt außerhalb von v1 — nur die Außenkontur übergeben.
+* **`Get2DGeometryOfElements`:** PolyLine und Hatch liefern zusätzlich `subPolyEnds` (1-basierte Endindizes je Teilpolygon, wie `memo.pends`). Mehr als ein Eintrag = Löcher; Außenkontur = `coordinates[0 .. subPolyEnds[0]-1]`.
+* Noch nicht live verifiziert (CI + Einbau stehen aus).
