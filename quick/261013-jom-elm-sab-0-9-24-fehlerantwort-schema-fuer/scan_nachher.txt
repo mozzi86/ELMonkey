@@ -1,0 +1,29 @@
+CaptureViewCommand                       CaptureViewCommand.hpp           errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=5
+ClearEventsCommand                       EventLogCommands.cpp             required=['clearedCount', 'success'] addProps=True errorAllowed=False topLevelErrorReturns=0
+CreateCurtainWallCommand                 CreateCurtainWallCommand.cpp     required=[] addProps=True errorAllowed=True topLevelErrorReturns=12
+CreateLabelsELMCommand                   LabelCommandsELM.cpp             required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=0
+CreatePolygonWallsCommand                CreatePolygonWallsCommand.cpp    required=['elements'] addProps=True errorAllowed=False topLevelErrorReturns=0
+CreateWallOpeningsCommand                CreateWallOpeningsCommand.cpp    errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=2
+ELMCreateRoofsCommand                    CreateRoofsCommand.cpp           required=['elements'] addProps=True errorAllowed=False topLevelErrorReturns=0
+ELMGetAddOnVersionCommand                GetVersionCommandELM.hpp         required=['version', 'tapirBaseVersion', 'buildStamp'] addProps=False errorAllowed=False topLevelErrorReturns=0
+FindElementsCommand                      FindElementsCommand.cpp          errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=16
+Get2DGeometryCommand                     Get2DGeometryCommand.cpp         required=['geometryOfElements'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetColumnDetailsCommand                  GetColumnDetailsCommand.cpp      required=['columnDetails'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetDeviationsCommand                     InspectionCommands.cpp           required=['deviations'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetElementEditStateCommand               InspectionCommands.cpp           required=['editStates'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetLabelsOfElementsCommand               LabelCommandsELM.cpp             required=['labelsOfElements'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetPenOfElementsCommand                  GetPenOfElementsCommand.cpp      required=['pensOfElements'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetRecentEventsCommand                   EventLogCommands.cpp             required=['events', 'eventCount'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetStoryVisibilityOfElementsCommand      StoryVisibilityCommands.cpp      required=['storyVisibilities'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetTextsCommand                          GetTextsCommand.cpp              required=['textsOfElements'] addProps=True errorAllowed=False topLevelErrorReturns=0
+GetUIStateCommand                        InspectionCommands.cpp           required=['modalDialogOpen', 'modalDialogCount'] addProps=True errorAllowed=False topLevelErrorReturns=0
+SetAddParsCommand                        SetAddParsCommand.cpp            required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=0
+SetColumnDetailsCommand                  SetColumnDetailsCommand.cpp      required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=0
+SetColumnRotationCommand                 SetColumnRotationCommand.cpp     required=['results'] addProps=True errorAllowed=False topLevelErrorReturns=0
+SetLayerOfElementsCommand                SetLayerCommand.cpp              errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=2
+SetObjectParametersForceCommand          SetObjectParametersForceCommand.cpp errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=1
+SetPenOfElementsCommand                  SetPenOfElementsCommand.cpp      errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=1
+SetStoryVisibilityOfElementsCommand      StoryVisibilityCommands.cpp      errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=2
+SetTextSizeCommand                       SetTextSizeCommand.cpp           errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=1
+SetTextsCommand                          SetTextsCommand.cpp              required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=0
+WatchElementsCommand                     EventLogCommands.cpp             required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=0

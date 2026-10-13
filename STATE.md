@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 last_updated: "2026-09-03T00:00:00.000Z"
-last_activity: 2026-10-13 — Quick: ELM_SAB 0.9.23 FindElements + CaptureView-Fehlerantwort (261013-fel)
+last_activity: 2026-10-13 — Quick: ELM_SAB 0.9.24 Fehlerantwort schemakonform für sechs Befehle (261013-jom)
 progress:
   total_phases: 8
   completed_phases: 6
@@ -53,6 +53,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-10-06 | 261006-m19 | Doku: ELM_SAB 0.9.20 + 0.9.21 live verifiziert (THN): DeleteElements Standard/`reserve:false`, CreateWallOpenings `sourceDeleted` mit eigener Testwand; offene Testschritte markiert; Lehren KI-Stempel nur klassifiziert + Teamwork-Löschungen senden — 1 Datei |
 | 2026-10-12 | 261012-on6 | ELM_SAB 0.9.22: `GetDetailsOfElements` liefert Wand-`buildingMaterialId` (Basic) / `profileId` (Profile), Composite wie bisher; noch nicht live verifiziert; CI 6/6 grün (`b1651e8`) |
 | 2026-10-13 | 261013-fel | ELM_SAB 0.9.23: neuer Lesebefehl `FindElements` (and/or/not beliebig tief über 18 Kriterien, immer Grundriss-Datenbank, `scope` projekt/wie3D/sichtbar/aktuellesGeschoss, `return`, `criteriaStats`, `select` mit Rücklese) + `CaptureView`-Fix (Fehlerantwort schemakonform statt 4009, Fenstertyp + Archicad-Code, Layout versucht/abgelehnt); 6 weitere Befehle mit gleichem Schemafehler nur gelistet; `RunCriteriaSet` per API nicht möglich; noch nicht live verifiziert; CI 6/6 grün (`4e804b3`) |
+| 2026-10-13 | 261013-jom | ELM_SAB 0.9.24: Antwortschema von `CreateWallOpenings`, `SetLayerOfElements`, `SetObjectParametersForce`, `SetPenOfElements`, `SetStoryVisibilityOfElements`, `SetTextSizeOfElements` auf `ELMResponseSchemaWithError` (oneOf Erfolg|Fehler, Erfolgsschema byte-gleich), 9 Top-Level-Fehler über `CreateErrorResponseELM` (Code/Text unverändert) → Aufruffehler kommen lesbar statt 4009; Push erst nach Live-Bestätigung des CaptureView-Musters (0.9.23 eingebaut, Gegenprobe bestanden); Scan: 0 Kandidaten; noch nicht live verifiziert; CI 6/6 grün beim ersten Push (`247aa63`, Lauf 38398262095) |
 
 ## Performance Metrics
 
