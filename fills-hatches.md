@@ -8,7 +8,7 @@ im Server. User zeichnet Schraffuren manuell in Archicad; wir arbeiten dann mit 
 weiter. Vollständige Capability-Tabelle: `../reference/mcp-conventions.md` §
 Live-verifizierte Element-Create-Capabilities.
 
-> **Anlegen geht seit ELM_SAB 0.9.26** über `ELM_SAB.Create2DElements` (live verifiziert 13.10. WiSchu; Löcher nicht unterstützt) — siehe [Worked Example — Schraffur anlegen](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements). Die MCP-v29-Aussagen in diesem Recipe bleiben gültig.
+> **Anlegen geht seit ELM_SAB 0.9.26** über `ELM_SAB.Create2DElements` (live verifiziert 13.10. WiSchu; Löcher ab 0.9.28 per `subPolyEnds`) — siehe [Worked Example — Schraffur anlegen](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements). Die MCP-v29-Aussagen in diesem Recipe bleiben gültig.
 
 <!-- 2026-05-21 live-verifiziert AC29 port 19723 (Ohne-Titel-Sandbox) — Tool-Namen via Discovery bestätigt; Hatch-Modifikation via MCP NICHT möglich (set_details typeSpecificDetails=WallSettings-only), siehe Abschnitt Hatch modifizieren -->
 
