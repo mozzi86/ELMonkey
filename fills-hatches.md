@@ -8,6 +8,8 @@ im Server. User zeichnet Schraffuren manuell in Archicad; wir arbeiten dann mit 
 weiter. Vollständige Capability-Tabelle: `../reference/mcp-conventions.md` §
 Live-verifizierte Element-Create-Capabilities.
 
+> **Anlegen geht seit ELM_SAB 0.9.26** über `ELM_SAB.Create2DElements` (eingebaut, noch NICHT live verifiziert) — siehe [Worked Example — Schraffur anlegen](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements). Die MCP-v29-Aussagen in diesem Recipe bleiben gültig.
+
 <!-- 2026-05-21 live-verifiziert AC29 port 19723 (Ohne-Titel-Sandbox) — Tool-Namen via Discovery bestätigt; Hatch-Modifikation via MCP NICHT möglich (set_details typeSpecificDetails=WallSettings-only), siehe Abschnitt Hatch modifizieren -->
 
 ---
@@ -26,8 +28,9 @@ Live-verifizierte Element-Create-Capabilities.
 10. [Worked Example — Hatch löschen](#worked-example--hatch-löschen)
 11. [Worked Example — Hatch klassifizieren](#worked-example--hatch-klassifizieren)
 12. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
-13. [Gotchas](#gotchas)
-14. [Verwandte Recipes](#verwandte-recipes)
+13. [Worked Example — Schraffur anlegen (ELM_SAB 0.9.26 Create2DElements)](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements)
+14. [Gotchas](#gotchas)
+15. [Verwandte Recipes](#verwandte-recipes)
 
 ---
 
@@ -511,6 +514,50 @@ oder Fill-Attribute meint — häufige Verwechslung.
 
 ---
 
+## Worked Example — Schraffur anlegen (ELM_SAB 0.9.26 Create2DElements)
+
+<!-- 2026-10-13 eingebaut in ELM_SAB 0.9.26, noch NICHT live verifiziert — Abnahme nach Spec 8 offen. Werte unten sind Sollwerte, keine Befunde. -->
+
+Nicht über den MCP-Server (der kann keine Schraffuren anlegen), sondern über das ELM_SAB-Add-On per `API.ExecuteAddOnCommand`. Hintergrund und alle Felder: `../reference/mcp-extension.md`, Abschnitt „ELM_SAB 0.9.26“.
+
+> **User sagt:** „Leg eine grüne Füllfläche 1 × 1 m als Test an."
+
+Das ist zugleich der Abnahmefall Spec 8.1. Eigene Testebene `Z_KI_Test_2D` (vorher anlegen), Geschoss 0, außerhalb des Gebäudes (Koordinaten gegen den Gebäudeumriss prüfen).
+
+**Schritt 1 — Anlegen:**
+
+```bash
+curl -s localhost:<port> -H 'Content-Type: application/json' -d '{
+  "command": "API.ExecuteAddOnCommand",
+  "parameters": {
+    "addOnCommandId": {"commandNamespace": "ELM_SAB", "commandName": "Create2DElements"},
+    "addOnCommandParameters": {"elements": [
+      {"elementType": "Hatch", "floorInd": 0, "layerName": "Z_KI_Test_2D",
+       "coordinates": [{"x": -50.0, "y": -50.0}, {"x": -49.0, "y": -50.0}, {"x": -49.0, "y": -49.0}, {"x": -50.0, "y": -49.0}],
+       "fillName": "Vollfüllung",
+       "foregroundRGB": {"red": 0.0, "green": 0.6, "blue": 0.2},
+       "backgroundPen": 0, "contourPen": 0}
+    ]}
+  }
+}'
+```
+
+**Schritt 2 — Rücklese in der Antwort prüfen.** Soll: `success:true`, `area` 1,00, `perimeter` 4,00, `floorMatches`, `layerMatches` und `coordinatesMatch` alle true, `fillName` „Vollfüllung“, `hasForegroundRGB:true`, `hasBackgroundRGB:false`. `success:false` mit `elementId` heißt: Element existiert, weicht aber ab → zeigen und auf Wunsch löschen.
+
+**Schritt 3 — Bildbeleg:** Schraffur einpassen, `ELM_SAB.CaptureView` (neuer Dateiname unter `~/.scratch/…`), Bild ansehen und gegen die Sollwerte prüfen (Lage, Farbe grün, keine Kontur) — nicht nach Optik allein.
+
+**Schritt 4 — Aufräumen:** Testelement löschen, Löschung rücklesen (GUID nicht mehr auffindbar), Teamwork senden lassen, Testebene entfernen. Keine Auswahl oder Hervorhebung zurücklassen.
+
+**Hinweise:**
+
+- Koordinaten mit oder ohne Schlusspunkt — der Befehl hängt ihn nur an, wenn er fehlt; es entsteht kein doppelter Punkt. Doppelte Folgepunkte (≤ 0,1 mm) sind ein Fehler je Element.
+- Ohne `foregroundRGB`/`backgroundRGB` werden die RGB-Flags gelöscht — ein RGB-Override aus dem Werkzeug-Default rutscht nicht durch.
+- Rundweg: die Ausgabe von `ELM_SAB.Get2DGeometryOfElements` einer vorhandenen Schraffur unverändert zurückgeben → Soll: gleiche Fläche. Füllung und Stifte liefert der Lesebefehl nicht mit; sie kommen dann aus dem Werkzeug-Default oder werden ergänzt.
+- Mehrere Schraffuren in einem Aufruf = ein Undo-Schritt; fehlerhafte Elemente (z. B. 2 Punkte, unbekannte Ebene) liefern `{success:false, error}`, die übrigen werden trotzdem angelegt.
+- Nicht in v1: Löcher in Schraffuren, Baustoff-Schraffuren.
+
+---
+
 ## Gotchas
 
 1. **Hatch ≠ Fill.** `elementType: "Hatch"` und `attributeType: "Fill"` sind völlig verschiedene
@@ -523,6 +570,7 @@ oder Fill-Attribute meint — häufige Verwechslung.
    User zeichnet die Schraffur manuell in Archicad; wir holen dann die GUID per
    `elements_get_elements_by_type` (neueste Elemente zuerst oder nach Layer-Filter) und
    arbeiten damit weiter. Vollständige Capability-Tabelle in `../reference/mcp-conventions.md`.
+   Anlegen geht seit ELM_SAB 0.9.26, siehe [Worked Example — Schraffur anlegen](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements).
 
 3. **`backgroundPenIndex: 0` bedeutet transparent.** Pen-Index `0` ist kein gültiger Stift,
    sondern der Spezialwert für „kein Hintergrund" (Hintergrund transparent = durchsichtig).
