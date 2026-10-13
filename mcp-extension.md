@@ -1918,6 +1918,15 @@ Die PolyLine bekommt den Schlusspunkt angehängt (5 Punkte im Memo); `arcs` blei
 ## ELM_SAB 0.9.27 — Create2DElements: Kreis-Rücklese, Löcher erkennen <!-- 2026-10-13 -->
 
 * **Kreis:** Die Rücklese akzeptiert `API_ArcID` mit `whole:true` als Circle (so speichert Archicad Kreise). Vorher `success:false` trotz richtiger Geometrie.
-* **Löcher:** `Create2DElements` lehnt eine Hatch ab, deren innerer Punkt den Startpunkt wiederholt (= Teilpolygon/Loch), mit klarer Meldung statt APIERR_IRREGULARPOLY. Löcher anlegen bleibt außerhalb von v1 — nur die Außenkontur übergeben.
+* **Löcher:** `Create2DElements` lehnt eine Hatch ab, deren innerer Punkt den Startpunkt wiederholt (= Teilpolygon/Loch), mit klarer Meldung statt APIERR_IRREGULARPOLY. Löcher anlegen geht ab 0.9.28 per `subPolyEnds` (siehe dort).
 * **`Get2DGeometryOfElements`:** PolyLine und Hatch liefern zusätzlich `subPolyEnds` (1-basierte Endindizes je Teilpolygon, wie `memo.pends`). Mehr als ein Eintrag = Löcher; Außenkontur = `coordinates[0 .. subPolyEnds[0]-1]`.
 * CI 6/6 grün (`c2a6fb5`), eingebaut 13.10., `GetAddOnVersion` = 0.9.27 (Build 13.10. 16:20). **Live verifiziert (WiSchu):** Circle r 1 → `success:true`, Länge 2π; Schraffur mit Loch (Quelle `63D2A229…`, 29 Punkte) → Element-Fehler „Punkt 22 wiederholt den Startpunkt“; `subPolyEnds` = [22, 29] bzw. [25] bei lochfreier Schraffur; nur Außenkontur übergeben → angelegt, `area` 6,515948 / `perimeter` 14,870535 = Shoelace. Testelemente gelöscht, Löschung rückgelesen.
+
+## ELM_SAB 0.9.28 — Create2DElements: Schraffuren mit Löchern <!-- 2026-10-13 -->
+
+* **Eingabe:** Hatch nimmt optional `subPolyEnds` (1-basierte Endindizes je Teilpolygon) — genau das Feld, das `Get2DGeometryOfElements` seit 0.9.27 ausgibt. `coordinates` ist dann flach: Außenkontur zuerst, danach jedes Loch, **jedes Teilpolygon geschlossen** (Schlusspunkt = Startpunkt). Lesebefehl-Ausgabe einer Loch-Schraffur geht damit 1:1 zurück.
+* **Prüfung je Element:** Enden steigend, letzter Wert = Punktzahl, jedes Teilpolygon geschlossen mit ≥ 3 verschiedenen Punkten, keine Doppelpunkte innerhalb eines Teilpolygons, kein `arcs`-Eintrag über eine Teilpolygon-Grenze. `subPolyEnds` mit mehreren Einträgen bei PolyLine → Fehler. Ohne `subPolyEnds` bleibt die klare Loch-Meldung (jetzt mit Hinweis auf das Feld).
+* **Memo:** `nSubPolys` = Anzahl Teilpolygone, `pends[s]` = Endindex (1-basiert), `pends[0] = 0`.
+* **Rücklese:** Vergleich je Teilpolygon (Außenkontur gegen Außenkontur, Löcher in beliebiger Reihenfolge, jeder Ring verschoben/umgekehrt erlaubt → `coordinateOrder: "normalized"`). Antwort zusätzlich `subPolyEnds` (zurückgelesen) und `holesArea` (`API_HatchQuantity.holesSurf`).
+* Noch nicht live verifiziert (CI + Einbau stehen aus). Testkandidat: WiSchu `63D2A229-6129-EB4D-8522-0E1FDCCCD045` (29 Punkte, `subPolyEnds` [22, 29]).
+
