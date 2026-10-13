@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 last_updated: "2026-09-03T00:00:00.000Z"
-last_activity: 2026-09-07 — Quick: THN-SuD-Kampagne-Lehren in Öffnungs-Rezept + MCP-Conventions aufgenommen (260907-lme)
+last_activity: 2026-10-13 — Quick: ELM_SAB 0.9.23 FindElements + CaptureView-Fehlerantwort (261013-fel)
 progress:
   total_phases: 8
   completed_phases: 6
@@ -52,6 +52,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-10-06 | 261006-lod | ELM_SAB 0.9.21: `CreateWallOpenings` meldet `sourceDeleted:true` nur nach Existenz-Rücklese; fremd reservierte Quellen werden nicht gelöscht (eigener Grund), Freigabe nur eigener Überlebender; Doku 0.9.20-Lücke → behoben; CI 6/6 grün (`2ef26c2`) |
 | 2026-10-06 | 261006-m19 | Doku: ELM_SAB 0.9.20 + 0.9.21 live verifiziert (THN): DeleteElements Standard/`reserve:false`, CreateWallOpenings `sourceDeleted` mit eigener Testwand; offene Testschritte markiert; Lehren KI-Stempel nur klassifiziert + Teamwork-Löschungen senden — 1 Datei |
 | 2026-10-12 | 261012-on6 | ELM_SAB 0.9.22: `GetDetailsOfElements` liefert Wand-`buildingMaterialId` (Basic) / `profileId` (Profile), Composite wie bisher; noch nicht live verifiziert; CI 6/6 grün (`b1651e8`) |
+| 2026-10-13 | 261013-fel | ELM_SAB 0.9.23: neuer Lesebefehl `FindElements` (and/or/not beliebig tief über 18 Kriterien, immer Grundriss-Datenbank, `scope` projekt/wie3D/sichtbar/aktuellesGeschoss, `return`, `criteriaStats`, `select` mit Rücklese) + `CaptureView`-Fix (Fehlerantwort schemakonform statt 4009, Fenstertyp + Archicad-Code, Layout versucht/abgelehnt); 6 weitere Befehle mit gleichem Schemafehler nur gelistet; `RunCriteriaSet` per API nicht möglich; noch nicht live verifiziert; CI 6/6 grün (`4e804b3`) |
 
 ## Performance Metrics
 
