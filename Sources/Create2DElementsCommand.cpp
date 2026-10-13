@@ -530,6 +530,19 @@ void C2DPrepareOne (const GS::ObjectState& item, C2DPrep& p, C2DCaches& caches, 
                 C2DFail (p, APIERR_BADPARS, GS::UniString (isHatch ? "Hatch braucht mindestens 3 Punkte, hat " : "PolyLine braucht mindestens 2 Punkte, hat ") + C2DInt ((Int32) distinct));
                 return;
             }
+            // 0.9.27: Teilpolygone (Loecher) erkennen - ein innerer Punkt wiederholt den Startpunkt.
+            // Get2DGeometryOfElements liefert Aussenkontur + Loecher als eine flache Liste (subPolyEnds),
+            // ACAPI lehnt das als ein Polygon mit APIERR_IRREGULARPOLY ab. v1 kann keine Loecher.
+            if (isHatch) {
+                const size_t lastInner = inputClosed ? input.size () - 1 : input.size ();
+                for (size_t i = 1; i < lastInner; ++i) {
+                    if (C2DNear (input[i], input.front ())) {
+                        C2DFail (p, APIERR_BADPARS, GS::UniString ("Hatch mit Teilpolygonen/Loechern wird nicht unterstuetzt: Punkt ") + C2DInt ((Int32) i + 1)
+                            + GS::UniString (" wiederholt den Startpunkt (Get2DGeometryOfElements: subPolyEnds). Nur die Aussenkontur uebergeben."));
+                        return;
+                    }
+                }
+            }
             // Soll-Liste: bei Hatch immer, bei PolyLine closed:true Schlusspunkt anhaengen - ausser er ist schon da.
             p.wantCoords = input;
             if ((isHatch || closed) && !inputClosed)
@@ -762,7 +775,10 @@ GS::ObjectState C2DReadBack (const C2DPrep& p)
 
     const Int32 istFloor = (Int32) check.header.floorInd;
     const Int32 istLayer = (Int32) check.header.layer.ToInt32_Deprecated ();
-    const bool typeMatches  = check.header.type.typeID == C2DTypeIdOf (p.kind);
+    // 0.9.27: Archicad speichert einen Kreis als API_ArcID mit whole=true (live WiSchu 13.10.).
+    const bool typeMatches  = (p.kind == C2DKind::Circle)
+        ? (check.header.type.typeID == API_CircleID || (check.header.type.typeID == API_ArcID && check.arc.whole))
+        : check.header.type.typeID == C2DTypeIdOf (p.kind);
     const bool floorMatches = istFloor == p.wantFloor;
     const bool layerMatches = istLayer == p.wantLayer;
     bool coordinatesMatch = false;

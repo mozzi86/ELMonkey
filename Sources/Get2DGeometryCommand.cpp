@@ -259,6 +259,11 @@ GS::ObjectState Get2DGeometryCommand::Execute (const GS::ObjectState& parameters
                 }
                 const auto& coords = geo.AddList<GS::ObjectState> ("coordinates");
                 const Int32 n = element.polyLine.poly.nCoords;
+                // 0.9.27: Teilpolygon-Enden (1-basiert, wie memo.pends) - Loecher erkennbar machen.
+                const auto& subEnds = geo.AddList<Int32> ("subPolyEnds");
+                if (memo.pends != nullptr)
+                    for (Int32 s = 1; s <= element.polyLine.poly.nSubPolys; ++s)
+                        subEnds ((*memo.pends)[s]);
                 for (Int32 i = 1; i <= n; ++i)
                     coords (CoordOS ((*memo.coords)[i].x, (*memo.coords)[i].y));
                 const auto& arcs = geo.AddList<GS::ObjectState> ("arcs");
@@ -285,6 +290,11 @@ GS::ObjectState Get2DGeometryCommand::Execute (const GS::ObjectState& parameters
                 }
                 const auto& coords = geo.AddList<GS::ObjectState> ("coordinates");
                 const Int32 n = element.hatch.poly.nCoords;
+                // 0.9.27: Teilpolygon-Enden (1-basiert, wie memo.pends) - Loecher erkennbar machen.
+                const auto& subEnds = geo.AddList<Int32> ("subPolyEnds");
+                if (memo.pends != nullptr)
+                    for (Int32 s = 1; s <= element.hatch.poly.nSubPolys; ++s)
+                        subEnds ((*memo.pends)[s]);
                 for (Int32 i = 1; i <= n; ++i)
                     coords (CoordOS ((*memo.coords)[i].x, (*memo.coords)[i].y));
                 const auto& arcs = geo.AddList<GS::ObjectState> ("arcs");
