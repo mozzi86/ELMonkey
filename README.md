@@ -91,6 +91,7 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 | `CreateLabels` | Legt assoziative Symbol-Etiketten an. Anders als Tapirs `CreateLabels` bleibt `floorInd` aus der Eingabe erhalten (auch abweichend vom Parent-Geschoss), die Zeigerlinie wird nicht abgeleitet oder gespiegelt, optional `templateLabelId` (libPart, Ebene, AddPars, Zeigerlinie). Rücklese mit `floorIndRespected` und `coordinatesMatch`. Ab 0.9.19. |
 | `GetLabelsOfElements` | Etiketten je Owner-Element mit einem einzigen Durchlauf über alle Etiketten statt einer Abfrage je Element. Nur aktuelle Datenbank (Grundriss). Ab 0.9.19. |
 | `SetLayerOfElements` | Ebene per `layerId` oder `layerName` setzen, im Undo-Scope, mit Teamwork-Reservierung (Standard) und Rücklese je Element. Ab 0.9.19. |
+| `FindElements` | Suche wie „Suchen & aktivieren" mit `and`/`or`/`not` über Typ, Geschoss, Ebene, Eigenschaft, Klassifizierung, Bibliotheksteil, GDL, IFC, Flags, Teamwork, Wirt/Öffnung, Zone, Bereich, Auswahl, Design-Option; liest immer die Grundriss-Datenbank (alle Geschosse), nie das aktive Fenster. `scope`, `return`-Eigenschaften, `criteriaStats` je Kriterium, optional `select` mit Rücklese. Nur lesen. Ab 0.9.23. |
 
 ## Selbst bauen
 
