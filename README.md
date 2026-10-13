@@ -93,6 +93,8 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 | `SetLayerOfElements` | Ebene per `layerId` oder `layerName` setzen, im Undo-Scope, mit Teamwork-Reservierung (Standard) und Rücklese je Element. Ab 0.9.19. |
 | `FindElements` | Suche wie „Suchen & aktivieren" mit `and`/`or`/`not` über Typ, Geschoss, Ebene, Eigenschaft, Klassifizierung, Bibliotheksteil, GDL, IFC, Flags, Teamwork, Wirt/Öffnung, Zone, Bereich, Auswahl, Design-Option; liest immer die Grundriss-Datenbank (alle Geschosse), nie das aktive Fenster. `scope`, `return`-Eigenschaften, `criteriaStats` je Kriterium, optional `select` mit Rücklese. Nur lesen. Ab 0.9.23. |
 
+Ab 0.9.24 kommen Aufruffehler (fehlender oder ungültiger Parameter) bei `SetPenOfElements`, `SetTextSizeOfElements`, `SetStoryVisibilityOfElements`, `SetLayerOfElements`, `CreateWallOpenings` und `SetObjectParametersForce` als lesbare Fehlermeldung beim Client an statt als `4009 Invalid command response` (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitt 0.9.24).
+
 ## Selbst bauen
 
 Der Build läuft normalerweise in der CI
