@@ -91,3 +91,61 @@ inline void SetMemoTextContentELM (API_ElementMemo& memo, const GS::UniString& t
     GS::ucscpy (reinterpret_cast<GS::uchar_t*> (*memo.textContent), text.ToUStr ());
 #endif
 }
+
+// ---- ELM_SAB 0.9.23 -------------------------------------------------------------------
+#include <cstdio>   // std::snprintf in WindowTypeNameELM
+
+// Fehlerform {error:{code,message}} muss im Antwortschema erlaubt sein — sonst meldet Archicad
+// dem Client nur 4009 statt der Ursache (CaptureView-Befund WiSchu 2026-10-13). ELMCommandBase
+// liefert keine Schema-Definitionen ($ref auf #/Error nicht aufloesbar) -> Fehlerzweig inline.
+inline GS::UniString ELMResponseSchemaWithError (const GS::UniString& successSchema)
+{
+    return GS::UniString ("{\"oneOf\": [") + successSchema +
+        GS::UniString (", {\"type\": \"object\", \"properties\": {\"error\": {\"type\": \"object\", \"properties\": "
+                       "{\"code\": {\"type\": \"integer\"}, \"message\": {\"type\": \"string\"}}, "
+                       "\"additionalProperties\": false, \"required\": [\"code\", \"message\"]}}, "
+                       "\"additionalProperties\": false, \"required\": [\"error\"]}]}");
+}
+
+// Gleiche Form wie Tapirs CreateErrorResponse, die Meldung geht aber als GS::UniString ins
+// ObjectState (CreateErrorResponse wandelt per ToCStr in CC_Default -> Umlaute in Modell-Namen
+// wie "Bruestungshoehe" kaemen verstuemmelt an).
+inline GS::ObjectState CreateErrorResponseELM (GSErrCode errorCode, const GS::UniString& message)
+{
+    GS::ObjectState error;
+    error.Add ("code", errorCode);
+    error.Add ("message", message);
+    return GS::ObjectState ("error", error);
+}
+
+// Lesbarer Fenstertyp-Name (Kopie der Zuordnung aus InspectionCommands.cpp, dort im anonymen
+// Namespace). Unbekannte Werte als "Other:<Zahl>", damit nichts still verschwindet.
+inline GS::UniString WindowTypeNameELM (API_WindowTypeID type)
+{
+    switch (type) {
+        case APIWind_FloorPlanID:          return "FloorPlan";
+        case APIWind_SectionID:            return "Section";
+        case APIWind_DetailID:             return "Details";
+        case APIWind_3DModelID:            return "3DModel";
+        case APIWind_LayoutID:             return "Layout";
+        case APIWind_DrawingID:            return "Drawing";
+        case APIWind_MyTextID:             return "CustomText";
+        case APIWind_MyDrawID:             return "CustomDraw";
+        case APIWind_MasterLayoutID:       return "MasterLayout";
+        case APIWind_ElevationID:          return "Elevation";
+        case APIWind_InteriorElevationID:  return "InteriorElevation";
+        case APIWind_WorksheetID:          return "Worksheet";
+        case APIWind_ReportID:             return "Report";
+        case APIWind_DocumentFrom3DID:     return "3DDocument";
+        case APIWind_External3DID:         return "External3D";
+        case APIWind_Movie3DID:            return "Movie3D";
+        case APIWind_MovieRenderingID:     return "MovieRendering";
+        case APIWind_RenderingID:          return "Rendering";
+        case APIWind_ModelCompareID:       return "ModelCompare";
+        case APIWind_IESCommonDrawingID:   return "InteractiveSchedule";
+        default:                           break;
+    }
+    char buffer[32] = {};
+    std::snprintf (buffer, sizeof (buffer), "Other:%d", (int) type);
+    return GS::UniString (buffer);
+}

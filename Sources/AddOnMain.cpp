@@ -63,6 +63,7 @@
 #include "GetVersionCommandELM.hpp"
 #include "EventLogCommands.hpp"
 #include "InspectionCommands.hpp"
+#include "FindElementsCommand.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -1064,6 +1065,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<SetLayerOfElementsCommand> (
             elmSabCommands, "0.9.19",
             "ELM_SAB: Setzt die Ebene von Elementen (Ebene per layerId oder layerName) im Undo-Scope, mit optionaler Teamwork-Reservierung (Standard true) und Ruecklese je Element."
+        );
+        err |= RegisterCommand<FindElementsCommand> (
+            elmSabCommands, "0.9.23",
+            "ELM_SAB: Elementsuche wie 'Suchen & aktivieren' - Kriterien (Typ, Geschoss, Ebene, Eigenschaft, Klassifizierung, Bibliotheksteil, GDL, IFC, Filter-Flags, Teamwork, Wirt/Oeffnung, Zone, Bereich/Naehe, GUIDs, Auswahl, Design-Option) beliebig tief mit and/or/not; liest IMMER die Grundriss-Datenbank (alle Geschosse), nie das aktive Fenster. scope projekt/wie3D/sichtbar/aktuellesGeschoss, return-Eigenschaften, countOnly/limit, criteriaStats je Kriterium, optional select mit Ruecklese. Nur lesen."
         );
         AddCommandGroup (elmSabCommands);
     }
