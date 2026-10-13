@@ -1072,8 +1072,8 @@ GSErrCode Initialize (void)
             "ELM_SAB: Elementsuche wie 'Suchen & aktivieren' - Kriterien (Typ, Geschoss, Ebene, Eigenschaft, Klassifizierung, Bibliotheksteil, GDL, IFC, Filter-Flags, Teamwork, Wirt/Oeffnung, Zone, Bereich/Naehe, GUIDs, Auswahl, Design-Option) beliebig tief mit and/or/not; liest IMMER die Grundriss-Datenbank (alle Geschosse), nie das aktive Fenster. scope projekt/wie3D/sichtbar/aktuellesGeschoss, return-Eigenschaften, countOnly/limit, criteriaStats je Kriterium, optional select mit Ruecklese. Nur lesen."
         );
         err |= RegisterCommand<Create2DElementsCommand> (
-            elmSabCommands, "0.9.27",
-            "ELM_SAB: Legt 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch) - Schreib-Gegenstueck zu Get2DGeometryOfElements, dessen Ausgabe 1:1 zurueckgegeben werden kann. Aktive Grundriss-Datenbank, Ebene per layerName/layerIndex, Stift/Linientyp/drawIndex, Schraffur mit Fuellung, Stiften, RGB und Kontur. Fehler je Element, ein Undo-Schritt, Ruecklese je Element (Geschoss, Ebene, Koordinaten; Laenge bzw. Flaeche/Umfang). 0.9.27: Kreis-Ruecklese akzeptiert Arc mit whole (so speichert Archicad Kreise); Hatch mit Teilpolygonen/Loechern wird mit klarer Meldung abgelehnt statt APIERR_IRREGULARPOLY."
+            elmSabCommands, "0.9.28",
+            "ELM_SAB: Legt 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch) - Schreib-Gegenstueck zu Get2DGeometryOfElements, dessen Ausgabe 1:1 zurueckgegeben werden kann. Aktive Grundriss-Datenbank, Ebene per layerName/layerIndex, Stift/Linientyp/drawIndex, Schraffur mit Fuellung, Stiften, RGB und Kontur. Fehler je Element, ein Undo-Schritt, Ruecklese je Element (Geschoss, Ebene, Koordinaten; Laenge bzw. Flaeche/Umfang). 0.9.27: Kreis-Ruecklese akzeptiert Arc mit whole (so speichert Archicad Kreise); Hatch mit Teilpolygonen/Loechern wird mit klarer Meldung abgelehnt statt APIERR_IRREGULARPOLY. 0.9.28: Hatch mit Loechern per subPolyEnds (wie Get2DGeometryOfElements), Ruecklese je Teilpolygon, holesArea."
         );
         AddCommandGroup (elmSabCommands);
     }

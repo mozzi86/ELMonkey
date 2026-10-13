@@ -37,6 +37,7 @@ struct C2DPrep {
     double                 wantRadius = 0.0;
     std::vector<API_Coord> wantCoords;   // PolyLine/Hatch inkl. Schlusspunkt (falls Ring), Spline 0-basiert
     bool                   wantRing = false;
+    std::vector<Int32>     wantEnds;     // 0.9.28: Hatch-Teilpolygon-Enden (1-basiert, flache Liste), leer = ein Polygon
     API_Guid               created = APINULLGuid;
 };
 
@@ -347,6 +348,24 @@ bool C2DCompareCoords (const std::vector<API_Coord>& want, const std::vector<API
 }
 
 // Polygon-Memo (PolyLine/Hatch) 1-basiert auslesen.
+// 0.9.28: Flache Liste in Teilpolygone schneiden (ends 1-basiert, letzter = Gesamtzahl).
+std::vector<std::vector<API_Coord>> C2DSplitByEnds (const std::vector<API_Coord>& pts, const std::vector<Int32>& ends)
+{
+    std::vector<std::vector<API_Coord>> out;
+    Int32 start = 0;
+    for (Int32 e : ends) {
+        if (e <= start || (size_t) e > pts.size ()) return {};
+        out.push_back (std::vector<API_Coord> (pts.begin () + start, pts.begin () + e));
+        start = e;
+    }
+    return out;
+}
+
+// 0.9.28: Teilpolygone vergleichen. Aussenkontur muss Aussenkontur bleiben, Loecher duerfen in
+// beliebiger Reihenfolge zurueckkommen; jeder Ring darf verschoben/umgekehrt sein.
+bool C2DCompareSubPolys (const std::vector<API_Coord>& want, const std::vector<Int32>& wantEnds,
+                         const std::vector<API_Coord>& got, const std::vector<Int32>& gotEnds, GS::UniString& order);
+
 bool C2DReadPolyMemo (const API_ElementMemo& memo, Int32 nCoords, Int32 nArcs, std::vector<API_Coord>& pts, std::vector<C2DArc>& arcs)
 {
     if (memo.coords == nullptr || nCoords <= 0)
@@ -366,6 +385,36 @@ bool C2DReadPolyMemo (const API_ElementMemo& memo, Int32 nCoords, Int32 nArcs, s
             arcs.push_back (arc);
         }
     }
+    return true;
+}
+
+bool C2DCompareSubPolys (const std::vector<API_Coord>& want, const std::vector<Int32>& wantEnds,
+                         const std::vector<API_Coord>& got, const std::vector<Int32>& gotEnds, GS::UniString& order)
+{
+    order = GS::UniString ("same");
+    const auto w = C2DSplitByEnds (want, wantEnds);
+    const auto g = C2DSplitByEnds (got, gotEnds);
+    if (w.empty () || w.size () != g.size ())
+        return false;
+    GS::UniString o;
+    if (!C2DCompareCoords (w[0], g[0], true, o))
+        return false;
+    bool anyChange = (o != GS::UniString ("same"));
+    std::vector<bool> used (g.size (), false);
+    used[0] = true;
+    for (size_t i = 1; i < w.size (); ++i) {
+        bool found = false;
+        for (size_t j = 1; j < g.size () && !found; ++j) {
+            if (used[j]) continue;
+            if (C2DCompareCoords (w[i], g[j], true, o)) {
+                used[j] = true;
+                found = true;
+                if (j != i || o != GS::UniString ("same")) anyChange = true;
+            }
+        }
+        if (!found) return false;
+    }
+    if (anyChange) order = GS::UniString ("normalized");
     return true;
 }
 
@@ -530,26 +579,68 @@ void C2DPrepareOne (const GS::ObjectState& item, C2DPrep& p, C2DCaches& caches, 
                 C2DFail (p, APIERR_BADPARS, GS::UniString (isHatch ? "Hatch braucht mindestens 3 Punkte, hat " : "PolyLine braucht mindestens 2 Punkte, hat ") + C2DInt ((Int32) distinct));
                 return;
             }
-            // 0.9.27: Teilpolygone (Loecher) erkennen - ein innerer Punkt wiederholt den Startpunkt.
-            // Get2DGeometryOfElements liefert Aussenkontur + Loecher als eine flache Liste (subPolyEnds),
-            // ACAPI lehnt das als ein Polygon mit APIERR_IRREGULARPOLY ab. v1 kann keine Loecher.
-            if (isHatch) {
+            // 0.9.28: Teilpolygone (Loecher) per subPolyEnds - so liefert sie Get2DGeometryOfElements.
+            GS::Array<Int32> endsIn;
+            const bool hasEnds = item.Get ("subPolyEnds", endsIn) && endsIn.GetSize () > 0;
+            if (hasEnds && !isHatch && endsIn.GetSize () > 1) {
+                C2DFail (p, APIERR_BADPARS, "subPolyEnds mit mehreren Teilpolygonen geht nur bei Hatch");
+                return;
+            }
+            if (isHatch && hasEnds && endsIn.GetSize () > 1) {
+                Int32 start = 0;
+                for (UIndex e = 0; e < endsIn.GetSize (); ++e) {
+                    const Int32 end = endsIn[e];
+                    if (end <= start || (size_t) end > input.size ()) {
+                        C2DFail (p, APIERR_BADPARS, GS::UniString ("subPolyEnds[") + C2DInt ((Int32) e) + GS::UniString ("] = ") + C2DInt (end)
+                            + GS::UniString (": muss steigen und <= Punktzahl ") + C2DInt ((Int32) input.size ()) + GS::UniString (" sein"));
+                        return;
+                    }
+                    if (end - start < 4 || !C2DNear (input[(size_t) start], input[(size_t) end - 1])) {
+                        C2DFail (p, APIERR_BADPARS, GS::UniString ("Teilpolygon ") + C2DInt ((Int32) e + 1) + GS::UniString (" (Punkte ") + C2DInt (start + 1)
+                            + GS::UniString ("..") + C2DInt (end) + GS::UniString (") muss geschlossen sein und mindestens 3 verschiedene Punkte haben"));
+                        return;
+                    }
+                    p.wantEnds.push_back (end);
+                    start = end;
+                }
+                if ((size_t) start != input.size ()) {
+                    C2DFail (p, APIERR_BADPARS, GS::UniString ("letzter subPolyEnds-Wert (") + C2DInt (start) + GS::UniString (") muss gleich der Punktzahl (")
+                        + C2DInt ((Int32) input.size ()) + GS::UniString (") sein"));
+                    return;
+                }
+                for (size_t a = 0; a < arcs.size (); ++a) {
+                    bool inside = false;
+                    Int32 st = 0;
+                    for (Int32 end : p.wantEnds) {
+                        if (arcs[a].begIndex > st && arcs[a].endIndex <= end) { inside = true; break; }
+                        st = end;
+                    }
+                    if (!inside) {
+                        C2DFail (p, APIERR_BADPARS, GS::UniString ("arcs[") + C2DInt ((Int32) a) + GS::UniString ("] liegt nicht innerhalb eines Teilpolygons"));
+                        return;
+                    }
+                }
+            } else if (isHatch) {
+                // Ohne subPolyEnds: Loch erkennen (innerer Punkt wiederholt den Startpunkt) und klar ablehnen.
                 const size_t lastInner = inputClosed ? input.size () - 1 : input.size ();
                 for (size_t i = 1; i < lastInner; ++i) {
                     if (C2DNear (input[i], input.front ())) {
-                        C2DFail (p, APIERR_BADPARS, GS::UniString ("Hatch mit Teilpolygonen/Loechern wird nicht unterstuetzt: Punkt ") + C2DInt ((Int32) i + 1)
-                            + GS::UniString (" wiederholt den Startpunkt (Get2DGeometryOfElements: subPolyEnds). Nur die Aussenkontur uebergeben."));
+                        C2DFail (p, APIERR_BADPARS, GS::UniString ("Hatch mit Teilpolygonen/Loechern: Punkt ") + C2DInt ((Int32) i + 1)
+                            + GS::UniString (" wiederholt den Startpunkt - subPolyEnds mitgeben (wie Get2DGeometryOfElements) oder nur die Aussenkontur uebergeben."));
                         return;
                     }
                 }
             }
             // Soll-Liste: bei Hatch immer, bei PolyLine closed:true Schlusspunkt anhaengen - ausser er ist schon da.
             p.wantCoords = input;
-            if ((isHatch || closed) && !inputClosed)
+            if ((isHatch || closed) && !inputClosed && p.wantEnds.empty ())
                 p.wantCoords.push_back (input.front ());
             p.wantRing = isHatch || closed || inputClosed;
 
             for (size_t i = 0; i + 1 < p.wantCoords.size (); ++i) {
+                bool boundary = false;
+                for (Int32 end : p.wantEnds) if ((size_t) end == i + 1) { boundary = true; break; }
+                if (boundary) continue;
                 if (C2DNear (p.wantCoords[i], p.wantCoords[i + 1])) {
                     C2DFail (p, APIERR_BADPARS, GS::UniString ("doppelter Punkt an coordinates[") + C2DInt ((Int32) i) + GS::UniString ("]/[") + C2DInt ((Int32) i + 1) + GS::UniString ("] (Abstand <= 0,1 mm)"));
                     return;
@@ -669,18 +760,23 @@ void C2DPrepareOne (const GS::ObjectState& item, C2DPrep& p, C2DCaches& caches, 
         case C2DKind::Hatch: {
             API_Polygon& poly = isHatch ? p.element.hatch.poly : p.element.polyLine.poly;
             const Int32 n = (Int32) p.wantCoords.size ();
+            const Int32 nSub = p.wantEnds.empty () ? 1 : (Int32) p.wantEnds.size ();
             poly.nCoords   = n;
-            poly.nSubPolys = 1;
+            poly.nSubPolys = nSub;
             poly.nArcs     = (Int32) arcs.size ();
 
             // HARTE FALLE: Polygon-Memo 1-basiert, Groesse n+1 (Index 0 bleibt leer), pends[1] = n.
             p.memo.coords = reinterpret_cast<API_Coord**> (BMAllocateHandle ((n + 1) * sizeof (API_Coord), ALLOCATE_CLEAR, 0));
-            p.memo.pends  = reinterpret_cast<Int32**> (BMAllocateHandle (2 * sizeof (Int32), ALLOCATE_CLEAR, 0));
+            p.memo.pends  = reinterpret_cast<Int32**> (BMAllocateHandle ((nSub + 1) * sizeof (Int32), ALLOCATE_CLEAR, 0));
             if (p.memo.coords == nullptr || p.memo.pends == nullptr) { C2DFail (p, APIERR_MEMFULL, "Speicher-Allokation fehlgeschlagen"); return; }
             for (Int32 i = 0; i < n; ++i)
                 (*p.memo.coords)[i + 1] = p.wantCoords[(size_t) i];
             (*p.memo.pends)[0] = 0;
-            (*p.memo.pends)[1] = n;
+            if (p.wantEnds.empty ())
+                (*p.memo.pends)[1] = n;
+            else
+                for (Int32 sIdx = 1; sIdx <= nSub; ++sIdx)
+                    (*p.memo.pends)[sIdx] = p.wantEnds[(size_t) sIdx - 1];
             if (!arcs.empty ()) {
                 // parcs 0-basiert; begIndex/endIndex sind schon 1-basiert (wie der Lesebefehl sie
                 // ausgibt) und werden UNVERAENDERT uebernommen - NICHT Tapirs GetPolyArcs (addiert iStart).
@@ -816,12 +912,23 @@ GS::ObjectState C2DReadBack (const C2DPrep& p)
                 std::vector<C2DArc> arcs;
                 const GSErrCode merr = ACAPI_Element_GetMemo (p.created, &memo, APIMemoMask_Polygon);
                 const bool readOk = merr == NoError && C2DReadPolyMemo (memo, poly.nCoords, poly.nArcs, pts, arcs);
+                std::vector<Int32> gotEnds;
+                if (readOk && memo.pends != nullptr)
+                    for (Int32 sIdx = 1; sIdx <= poly.nSubPolys; ++sIdx)
+                        gotEnds.push_back ((*memo.pends)[sIdx]);
                 ACAPI_DisposeElemMemoHdls (&memo);
                 if (!readOk) {
                     detail = GS::UniString ("Polygon-Memo nicht lesbar");
                     break;
                 }
-                coordinatesMatch = C2DCompareCoords (p.wantCoords, pts, p.wantRing, order);
+                if (!p.wantEnds.empty () || gotEnds.size () > 1) {
+                    std::vector<Int32> wantE = p.wantEnds.empty () ? std::vector<Int32> (1, (Int32) p.wantCoords.size ()) : p.wantEnds;
+                    coordinatesMatch = C2DCompareSubPolys (p.wantCoords, wantE, pts, gotEnds, order);
+                    const auto& endsOut = r.AddList<Int32> ("subPolyEnds");
+                    for (Int32 e : gotEnds) endsOut (e);
+                } else {
+                    coordinatesMatch = C2DCompareCoords (p.wantCoords, pts, p.wantRing, order);
+                }
                 reportOrder = p.wantRing;
                 if (!isHatch) {
                     r.Add ("length", C2DPolyLength (pts, arcs));
@@ -837,10 +944,12 @@ GS::ObjectState C2DReadBack (const C2DPrep& p)
                 ACAPI_ELEMENT_QUANTITY_MASK_CLEAR (mask);
                 ACAPI_ELEMENT_QUANTITY_MASK_SET (mask, hatch, surface);
                 ACAPI_ELEMENT_QUANTITY_MASK_SET (mask, hatch, perimeter);
+                ACAPI_ELEMENT_QUANTITY_MASK_SET (mask, hatch, holesSurf);
                 const GSErrCode qerr = ACAPI_Element_GetQuantities (p.created, &qp, &quantities, &mask);
                 if (qerr == NoError) {
                     r.Add ("area", q.hatch.surface);
                     r.Add ("perimeter", q.hatch.perimeter);
+                    if (!p.wantEnds.empty ()) r.Add ("holesArea", q.hatch.holesSurf);
                 } else {
                     r.Add ("quantityError", (Int32) qerr);     // success haengt NICHT davon ab
                 }
@@ -938,6 +1047,8 @@ GS::Optional<GS::UniString> Create2DElementsCommand::GetInputParametersSchema ()
                         "arcs": { "type": "array", "items": { "type": "object", "properties": {
                                 "begIndex": { "type": "integer" }, "endIndex": { "type": "integer" }, "arcAngle": { "type": "number" } } },
                             "description": "Bogensegmente, Indizes 1-basiert wie im Lesebefehl." },
+                        "subPolyEnds": { "type": "array", "items": { "type": "integer" },
+                            "description": "Hatch: Teilpolygon-Enden 1-basiert (Aussenkontur zuerst, dann Loecher, jedes geschlossen) - wie Get2DGeometryOfElements." },
                         "bezierDirs": { "type": "array", "items": { "type": "object", "properties": {
                                 "lenPrev": { "type": "number" }, "lenNext": { "type": "number" }, "dirAng": { "type": "number" } } },
                             "description": "Spline: genau ein Eintrag je Punkt; fehlt das Feld, gilt autoSmooth." },
