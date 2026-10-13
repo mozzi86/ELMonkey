@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 last_updated: "2026-09-03T00:00:00.000Z"
-last_activity: 2026-10-13 — Quick: ELM_SAB 0.9.25 CaptureView Farbtiefe statt APIERR_BADID (261013-kl1)
+last_activity: 2026-10-13 — Quick: Doku ELM_SAB 0.9.22–0.9.25 live verifiziert (261013-lmd)
 progress:
   total_phases: 8
   completed_phases: 6
@@ -56,6 +56,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-10-13 | 261013-jom | ELM_SAB 0.9.24: Antwortschema von `CreateWallOpenings`, `SetLayerOfElements`, `SetObjectParametersForce`, `SetPenOfElements`, `SetStoryVisibilityOfElements`, `SetTextSizeOfElements` auf `ELMResponseSchemaWithError` (oneOf Erfolg|Fehler, Erfolgsschema byte-gleich), 9 Top-Level-Fehler über `CreateErrorResponseELM` (Code/Text unverändert) → Aufruffehler kommen lesbar statt 4009; Push erst nach Live-Bestätigung des CaptureView-Musters (0.9.23 eingebaut, Gegenprobe bestanden); Scan: 0 Kandidaten; noch nicht live verifiziert; CI 6/6 grün beim ersten Push (`247aa63`, Lauf 38398262095) |
 | 2026-10-13 | 261013-kc2 | Doku: ELM_SAB 0.9.23 live verifiziert (WiSchu): Türenabgleich in EINEM FindElements-Aufruf GUID-genau = modell_abgleich.py (267), scope = Tapir mit gleichen Flags, Layout vorn FindElements 267 / Tapir 0, Fehler mit Namen; Falle „Element ID" doppelt → `ID und Kategorien/Element ID`; Abbruch-Türen (Renovierungsfilter) nicht auswählbar; CaptureView-Fehler jetzt lesbar = APIERR_BADID (Grundriss + Layout, nie funktionsfähig) — 1 Datei (`d84ca99`) |
 | 2026-10-13 | 261013-kl1 | ELM_SAB 0.9.25: `CaptureView` APIERR_BADID-Ursache offline geklärt (DevKit 29.3100): `colorDepth = APIColorDepth_FromSourceImage` (-1) ist nur für die Bildkonvertierung definiert (APIdefs_Goodies.h Z. 280), seit 0.9.12 im Code → CaptureView lieferte nie ein Bild. Fix: Echtfarbtiefe je Plattform (Mac `MiC`, Win `TC24`), bei BADID genau ein Rückfall auf `256C` (DevKit-Beispiel Do_Save_TiffFile), Antwort meldet `colorDepth`; Eingabeschema byte-gleich. 0.9.24-Bundles vorab gesichert (`~/.scratch/elm-bundle-0.9.24/ci_247aa63/`); Bundle enthält 0.9.24 mit (Differenz zu eingebautem 0.9.23: `7c07600` + `50c3d5d`). Noch nicht live verifiziert; CI 6/6 grün beim ersten Push (`86309a4`, Lauf 38402663622), Inhaltsprobe AC29-Mac = 0.9.25 |
+| 2026-10-13 | 261013-lmd | Doku: ELM_SAB 0.9.22–0.9.25 live verifiziert (WiSchu, Bundle 0.9.25 eingebaut): FindElements alle Kriterien GUID-genau gegen unabhängige Referenzen (nur designOption-Namen am WiSchu nicht prüfbar); 0.9.22 Wand-Baustoff 56/56; 0.9.24 Fehlerpfade lesbar (3 Proben vom Eingabeschema abgefangen, Tabelle korrigiert); 0.9.25 CaptureView liefert PNG (MiC) für Grundriss auch verdeckt, Layout, 3D; Korrektur Geschoss 0 → 1. OG; Falle Klassifizierung code statt name — 1 Datei (`35cd3d5`) |
 
 ## Performance Metrics
 
