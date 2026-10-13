@@ -39,7 +39,8 @@ GS::Optional<GS::UniString> SetTextSizeCommand::GetInputParametersSchema () cons
 
 GS::Optional<GS::UniString> SetTextSizeCommand::GetResponseSchema () const
 {
-    return GS::UniString (R"({
+    // ELM_SAB 0.9.24: Erfolgszweig unveraendert; ELMResponseSchemaWithError erlaubt zusaetzlich {error:{code,message}} (sonst 4009 statt Meldung).
+    return ELMResponseSchemaWithError (GS::UniString (R"({
         "type": "object",
         "properties": {
             "executionResults": {
@@ -48,7 +49,7 @@ GS::Optional<GS::UniString> SetTextSizeCommand::GetResponseSchema () const
             }
         },
         "required": ["executionResults"]
-    })");
+    })"));
 }
 
 GS::ObjectState SetTextSizeCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
@@ -61,7 +62,7 @@ GS::ObjectState SetTextSizeCommand::Execute (const GS::ObjectState& parameters, 
     const bool hasSize   = parameters.Get ("sizeMm", sizeMm) && sizeMm > 0.0;
     const bool hasFactor = parameters.Get ("factor", factor) && factor > 0.0;
     if (hasSize == hasFactor) {
-        return CreateErrorResponse (APIERR_BADPARS, "Genau einer von sizeMm oder factor muss angegeben sein (> 0).");
+        return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("Genau einer von sizeMm oder factor muss angegeben sein (> 0)."));
     }
 
     GS::ObjectState response;

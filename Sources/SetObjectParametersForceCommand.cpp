@@ -72,14 +72,15 @@ GS::Optional<GS::UniString> SetObjectParametersForceCommand::GetInputParametersS
 
 GS::Optional<GS::UniString> SetObjectParametersForceCommand::GetResponseSchema () const
 {
-    return GS::UniString (R"({
+    // ELM_SAB 0.9.24: Erfolgszweig unveraendert; ELMResponseSchemaWithError erlaubt zusaetzlich {error:{code,message}} (sonst 4009 statt Meldung).
+    return ELMResponseSchemaWithError (GS::UniString (R"({
         "type": "object",
         "properties": {
             "executionResults": { "type": "array", "items": { "type": "object" } },
             "undoScope": { "type": "object" }
         },
         "required": ["executionResults", "undoScope"]
-    })");
+    })"));
 }
 
 namespace {
@@ -323,7 +324,7 @@ GS::ObjectState SetObjectParametersForceCommand::Execute (const GS::ObjectState&
     GS::Array<GS::ObjectState> elements;
     parameters.Get ("elements", elements);
     if (elements.IsEmpty ())
-        return CreateErrorResponse (APIERR_BADPARS, "elements ist leer.");
+        return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("elements ist leer."));
 
     std::vector<ParChange> globalChanges;
     GS::Array<GS::ObjectState> globalItems;

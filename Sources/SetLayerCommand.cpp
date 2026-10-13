@@ -64,14 +64,15 @@ GS::Optional<GS::UniString> SetLayerOfElementsCommand::GetInputParametersSchema 
 
 GS::Optional<GS::UniString> SetLayerOfElementsCommand::GetResponseSchema () const
 {
-    return GS::UniString (R"({
+    // ELM_SAB 0.9.24: Erfolgszweig unveraendert; ELMResponseSchemaWithError erlaubt zusaetzlich {error:{code,message}} (sonst 4009 statt Meldung).
+    return ELMResponseSchemaWithError (GS::UniString (R"({
         "type": "object",
         "properties": {
             "executionResults": { "type": "array", "items": { "type": "object" } },
             "undoScope": { "type": "object" }
         },
         "required": ["executionResults"]
-    })");
+    })"));
 }
 
 GS::ObjectState SetLayerOfElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl&) const
@@ -99,10 +100,10 @@ GS::ObjectState SetLayerOfElementsCommand::Execute (const GS::ObjectState& param
         head.uniStringNamePtr = &layerName;
         if (ACAPI_Attribute_Search (&head) == NoError) { target = head.index; resolved = true; }
     } else {
-        return CreateErrorResponse (APIERR_BADPARS, "layerId oder layerName erforderlich.");
+        return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("layerId oder layerName erforderlich."));
     }
     if (!resolved)
-        return CreateErrorResponse (APIERR_BADPARS, "Ebene nicht gefunden: " + what);
+        return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("Ebene nicht gefunden: ") + what);
 
     bool reserve = true;
     parameters.Get ("reserve", reserve);

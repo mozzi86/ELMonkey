@@ -111,11 +111,12 @@ GS::Optional<GS::UniString> SetStoryVisibilityOfElementsCommand::GetInputParamet
 
 GS::Optional<GS::UniString> SetStoryVisibilityOfElementsCommand::GetResponseSchema () const
 {
-    return GS::UniString (R"({
+    // ELM_SAB 0.9.24: Erfolgszweig unveraendert; ELMResponseSchemaWithError erlaubt zusaetzlich {error:{code,message}} (sonst 4009 statt Meldung).
+    return ELMResponseSchemaWithError (GS::UniString (R"({
         "type": "object",
         "properties": { "executionResults": { "type": "array", "items": { "type": "object" } } },
         "required": ["executionResults"]
-    })");
+    })"));
 }
 
 GS::ObjectState SetStoryVisibilityOfElementsCommand::Execute (
@@ -129,7 +130,7 @@ GS::ObjectState SetStoryVisibilityOfElementsCommand::Execute (
     const GS::ObjectState* custom = parameters.Get ("custom");
     if (parameters.Get ("visibility", preset)) {
         if (!PresetToSpec (preset, spec))
-            return CreateErrorResponse (APIERR_BADPARS, "Unbekannter visibility-Wert: " + preset);
+            return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("Unbekannter visibility-Wert: ") + preset);
     } else if (custom != nullptr) {
         Int32 ra = 0, rb = 0;
         custom->Get ("showOnHome", spec.showOnHome);
@@ -138,7 +139,7 @@ GS::ObjectState SetStoryVisibilityOfElementsCommand::Execute (
         if (custom->Get ("showRelAbove", ra)) spec.relAbove = (short) ra;
         if (custom->Get ("showRelBelow", rb)) spec.relBelow = (short) rb;
     } else {
-        return CreateErrorResponse (APIERR_BADPARS, "visibility oder custom erforderlich.");
+        return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("visibility oder custom erforderlich."));
     }
 
     bool reserve = true;

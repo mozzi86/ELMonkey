@@ -78,7 +78,8 @@ GS::Optional<GS::UniString> SetPenOfElementsCommand::GetInputParametersSchema ()
 
 GS::Optional<GS::UniString> SetPenOfElementsCommand::GetResponseSchema () const
 {
-    return GS::UniString (R"({
+    // ELM_SAB 0.9.24: Erfolgszweig unveraendert; ELMResponseSchemaWithError erlaubt zusaetzlich {error:{code,message}} (sonst 4009 statt Meldung).
+    return ELMResponseSchemaWithError (GS::UniString (R"({
         "type": "object",
         "properties": {
             "executionResults": {
@@ -93,7 +94,7 @@ GS::Optional<GS::UniString> SetPenOfElementsCommand::GetResponseSchema () const
             }
         },
         "required": ["executionResults"]
-    })");
+    })"));
 }
 
 // ---------------------------------------------------------------------------
@@ -241,7 +242,7 @@ GS::ObjectState SetPenOfElementsCommand::Execute (const GS::ObjectState& paramet
     parameters.Get ("clearBackgroundRGB", req.clearBgRGB);
 
     if (!req.hasContourPen && !req.hasFillFgPen && !req.hasFillBgPen && !req.clearFgRGB && !req.clearBgRGB) {
-        return CreateErrorResponse (APIERR_BADPARS, "Mindestens ein Stift-Parameter oder clearForegroundRGB/clearBackgroundRGB muss gesetzt sein.");
+        return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("Mindestens ein Stift-Parameter oder clearForegroundRGB/clearBackgroundRGB muss gesetzt sein."));
     }
 
     GS::Array<GS::ObjectState> databases;

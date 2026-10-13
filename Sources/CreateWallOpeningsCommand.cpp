@@ -95,7 +95,8 @@ GS::Optional<GS::UniString> CreateWallOpeningsCommand::GetInputParametersSchema 
 
 GS::Optional<GS::UniString> CreateWallOpeningsCommand::GetResponseSchema () const
 {
-    return GS::UniString (R"({
+    // ELM_SAB 0.9.24: Erfolgszweig unveraendert; ELMResponseSchemaWithError erlaubt zusaetzlich {error:{code,message}} (sonst 4009 statt Meldung).
+    return ELMResponseSchemaWithError (GS::UniString (R"({
         "type": "object",
         "properties": {
             "results":      { "type": "array", "items": { "type": "object" } },
@@ -104,7 +105,7 @@ GS::Optional<GS::UniString> CreateWallOpeningsCommand::GetResponseSchema () cons
             "openingCount": { "type": "integer" }
         },
         "required": ["results", "undoScope"]
-    })");
+    })"));
 }
 
 namespace {
@@ -581,14 +582,15 @@ GS::ObjectState CreateWallOpeningsCommand::Execute (const GS::ObjectState& param
     GS::Array<GS::ObjectState> openings;
     parameters.Get ("openings", openings);
     if (openings.IsEmpty ())
-        return CreateErrorResponse (APIERR_BADPARS, "openings ist leer.");
+        return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("openings ist leer."));
 
 #ifndef ServerMainVers_2900
-    return CreateErrorResponse (APIERR_NOTSUPPORTED,
+    return CreateErrorResponseELM (APIERR_NOTSUPPORTED,
+        GS::UniString (
         "CreateWallOpenings braucht die ACAPI::Element::Opening-API und damit Archicad 29. "
         "Unter AC27/28 liegt API_OpeningType noch in der API_Element-Union, die Felder fuer "
         "Anker, Grenze und Grundrissdarstellung sind im vorliegenden DevKit aber nicht "
-        "nachlesbar - deshalb wird hier nichts geraten.");
+        "nachlesbar - deshalb wird hier nichts geraten."));
 #else
 
     bool deleteSource = false;
