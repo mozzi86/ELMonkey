@@ -1552,8 +1552,8 @@ Die Zahlen ändern sich mit dem Modell → vor einem Vergleich die Referenz mit 
 * **Befund (WiSchu 13.10., Layout „FR_00-06.1", `crop` true und false):** `4009 Invalid command response … 'additionalProperties' … '#/error'`, kein PNG. Ursache: das Antwortschema (`additionalProperties:false`, `required:[imagePath, view2D]`) ließ die Fehlerform `{error:{code,message}}` nicht zu — jede Fehlermeldung wurde von Archicad als ungültige Antwort verschluckt.
 * **Änderung 0.9.23:** Antwortschema `oneOf` Erfolg | Fehler; jede Meldung nennt den Fenstertyp und den echten Archicad-Code (Text + `code`-Feld). Layout/MasterLayout: Export wird versucht, sonst „PNG-Export per API nicht möglich (Fehler N) - Zeichnung/Grundriss öffnen oder Layout als PDF publizieren". Keine Typsperre — Grundriss, 3D, Schnitt, Detail … wie bisher. Erfolgsantwort unverändert `{imagePath, view2D}`.
 * **Allgemeine Lehre:** ein ELM-Antwortschema mit `required`/`additionalProperties:false` ohne Fehlerzweig verschluckt JEDE Fehlermeldung (Client sieht nur 4009) → neue Befehle über `ELMResponseSchemaWithError` (ELMCommandBase.hpp) deklarieren, Fehler über `CreateErrorResponseELM` (Umlaut-sicher).
-* **Offener Punkt (nicht gefixt):** dieselbe Lücke haben noch — Antwortschema mit `required`, ohne Fehlerzweig, mit `return CreateErrorResponse` auf oberster Ebene:
-  `CreateWallOpenings` (CreateWallOpeningsCommand.cpp Z. 584/587 — leere openings, AC27/28-Sperre), `SetLayerOfElements` (SetLayerCommand.cpp Z. 102/105), `SetObjectParametersForce` (SetObjectParametersForceCommand.cpp Z. 326), `SetPenOfElements` (SetPenOfElementsCommand.cpp Z. 244), `SetStoryVisibilityOfElements` (StoryVisibilityCommands.cpp Z. 132/141), `SetTextSize` (SetTextSizeCommand.cpp Z. 64). Prüfwerkzeug: `python3 -I ~/.scratch/elmonkey/tools/elm_schema_scan.py <ELM_SAB_Tapir/Sources>` (Kandidat = `errorAllowed=False` und `topLevelErrorReturns>0`).
+* **Offener Punkt → erledigt in 0.9.24** (Abschnitt „ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle" unten): dieselbe Lücke haben noch — Antwortschema mit `required`, ohne Fehlerzweig, mit `return CreateErrorResponse` auf oberster Ebene:
+  `CreateWallOpenings` (CreateWallOpeningsCommand.cpp Z. 584/587 — leere openings, AC27/28-Sperre), `SetLayerOfElements` (SetLayerCommand.cpp Z. 102/105), `SetObjectParametersForce` (SetObjectParametersForceCommand.cpp Z. 326), `SetPenOfElements` (SetPenOfElementsCommand.cpp Z. 244), `SetStoryVisibilityOfElements` (StoryVisibilityCommands.cpp Z. 132/141), `SetTextSizeOfElements` (SetTextSizeCommand.cpp Z. 64). Prüfwerkzeug: `python3 -I ~/.scratch/elmonkey/tools/elm_schema_scan.py <ELM_SAB_Tapir/Sources>` (Kandidat = `errorAllowed=False` und `topLevelErrorReturns>0`).
 
 ### Stand
 
@@ -1579,3 +1579,72 @@ Macht der Orchestrator mit Mudi. Das Bundle enthält ZWEI Änderungen (FindEleme
 9. Layout aktiv (z. B. FR_00-06.1), `crop` true und false → klare Fehlermeldung mit Fenstertyp „Layout" und Archicad-Code statt 4009 (oder, falls Archicad den Layout-Export doch kann, ein PNG — dann als „Layout geht" dokumentieren).
 10. Grundriss aktiv → PNG wie bisher, Antwort `{imagePath, view2D:true}`; 3D-Fenster → `view2D:false`.
 11. Leerer `outputPath` → schemakonforme Fehlermeldung (kein 4009).
+
+## ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle <!-- 2026-10-13 -->
+
+* **Anlass:** offener Punkt aus 0.9.23 (CaptureView-Befund WiSchu 13.10.). Antwortschema mit nicht-leerem `required` ohne Fehlerzweig → jede Top-Level-Fehlerantwort `{error:{code,message}}` kam als `4009 Invalid command response … '#/error'` an statt der Meldung.
+* **Muster (wie CaptureView 0.9.23):** `GetResponseSchema` → `ELMResponseSchemaWithError (<Erfolgsschema>)`, also `oneOf` Erfolg | Fehler mit byte-gleichem Erfolgsschema. Top-Level-Fehler → `CreateErrorResponseELM`; Code und Text sind unverändert und kommen jetzt Umlaut-sicher an (Ebenennamen!).
+
+  ```cpp
+  // vorher
+  return GS::UniString (R"({ ...Erfolgsschema... })");
+  return CreateErrorResponse (APIERR_BADPARS, "elements ist leer.");
+  // nachher
+  return ELMResponseSchemaWithError (GS::UniString (R"({ ...Erfolgsschema UNVERAENDERT... })"));
+  return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("elements ist leer."));
+  ```
+
+* **Unverändert:** Erfolgsantworten, Fehler je Element in `executionResults`/`results`, Registrierungsversionen (Beschreibung um „0.9.24: …" ergänzt). `GetStoryVisibilityOfElements` ist unangetastet, weil es keine Top-Level-Fehler hat (nur `error` je Element).
+* **Bedingung für `oneOf`:** Das Erfolgsschema muss ein nicht-leeres `required` ohne `error` haben (und kein `error` in `properties`), sonst passt eine Fehlerantwort auf beide Zweige und `oneOf` scheitert. Geprüft für alle sechs.
+
+### Betroffene Befehle (Stand 0.9.24)
+
+Zeilen beziehen sich auf `ELM_SAB_Tapir/Sources/`. Alle Fehlerpfade kehren VOR jeder Reservierung, Undo-Klammer und Änderung zurück. `APIERR_BADPARS` = -2130313112, `APIERR_NOTSUPPORTED` = -2130312313 (`APIErrorStart` 0x81060000 + 104 bzw. + 903).
+
+| Befehl (`commandName`) | Datei | Top-Level-Fehler (Code) | Meldung | Probe-Aufruf (`addOnCommandParameters`) |
+|---|---|---|---|---|
+| `CreateWallOpenings` | CreateWallOpeningsCommand.cpp Z. 585 | `APIERR_BADPARS` (-2130313112) | „openings ist leer." | `{"openings":[]}` |
+| `CreateWallOpenings` | CreateWallOpeningsCommand.cpp Z. 588–593 (nur AC27/28) | `APIERR_NOTSUPPORTED` (-2130312313) | „CreateWallOpenings braucht die ACAPI::Element::Opening-API und damit Archicad 29. Unter AC27/28 …" | unter AC27/28 jeder Aufruf; unter AC29 nicht erreichbar |
+| `SetLayerOfElements` | SetLayerCommand.cpp Z. 103 | `APIERR_BADPARS` (-2130313112) | „layerId oder layerName erforderlich." | `{"elements":[]}` |
+| `SetLayerOfElements` | SetLayerCommand.cpp Z. 106 | `APIERR_BADPARS` (-2130313112) | „Ebene nicht gefunden: " + Name | `{"elements":[],"layerName":"ZZ_Prüfebene_gibt_es_nicht"}` |
+| `SetObjectParametersForce` | SetObjectParametersForceCommand.cpp Z. 327 | `APIERR_BADPARS` (-2130313112) | „elements ist leer." | `{"elements":[]}` |
+| `SetPenOfElements` | SetPenOfElementsCommand.cpp Z. 245 | `APIERR_BADPARS` (-2130313112) | „Mindestens ein Stift-Parameter oder clearForegroundRGB/clearBackgroundRGB muss gesetzt sein." | `{"elements":[]}` |
+| `SetStoryVisibilityOfElements` | StoryVisibilityCommands.cpp Z. 133 | `APIERR_BADPARS` (-2130313112) | „Unbekannter visibility-Wert: " + Preset | `{"elements":[],"visibility":"Quatsch"}` |
+| `SetStoryVisibilityOfElements` | StoryVisibilityCommands.cpp Z. 142 | `APIERR_BADPARS` (-2130313112) | „visibility oder custom erforderlich." | `{"elements":[]}` |
+| `SetTextSizeOfElements` | SetTextSizeCommand.cpp Z. 65 | `APIERR_BADPARS` (-2130313112) | „Genau einer von sizeMm oder factor muss angegeben sein (> 0)." | `{"elements":[],"sizeMm":2.5,"factor":1.2}` |
+
+### Scan vorher/nachher
+
+`python3 -I ~/.scratch/elmonkey/tools/elm_schema_scan.py ELM_SAB_Tapir/Sources` — die sechs Zeilen, Stand `92ab02a` (vorher) und nach dem Umbau (nachher):
+
+```
+vorher
+CreateWallOpeningsCommand                CreateWallOpeningsCommand.cpp    required=['results', 'undoScope'] addProps=True errorAllowed=False topLevelErrorReturns=2
+SetLayerOfElementsCommand                SetLayerCommand.cpp              required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=2
+SetObjectParametersForceCommand          SetObjectParametersForceCommand.cpp required=['executionResults', 'undoScope'] addProps=True errorAllowed=False topLevelErrorReturns=1
+SetPenOfElementsCommand                  SetPenOfElementsCommand.cpp      required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=1
+SetStoryVisibilityOfElementsCommand      StoryVisibilityCommands.cpp      required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=2
+SetTextSizeCommand                       SetTextSizeCommand.cpp           required=['executionResults'] addProps=True errorAllowed=False topLevelErrorReturns=1
+
+nachher
+CreateWallOpeningsCommand                CreateWallOpeningsCommand.cpp    errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=2
+SetLayerOfElementsCommand                SetLayerCommand.cpp              errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=2
+SetObjectParametersForceCommand          SetObjectParametersForceCommand.cpp errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=1
+SetPenOfElementsCommand                  SetPenOfElementsCommand.cpp      errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=1
+SetStoryVisibilityOfElementsCommand      StoryVisibilityCommands.cpp      errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=2
+SetTextSizeCommand                       SetTextSizeCommand.cpp           errorAllowed=True (ELMResponseSchemaWithError) topLevelErrorReturns=1
+```
+
+Hinweis: `topLevelErrorReturns` bleibt gleich, weil der Regex des Scans auch `CreateErrorResponseELM` zählt. Nachher gibt es 0 Kandidaten (`errorAllowed=False` mit `topLevelErrorReturns>0`), alle übrigen Zeilen sind unverändert.
+
+### Stand
+
+Gebaut (CI), noch NICHT live verifiziert — CI-SHA im Quick-Task-SUMMARY 261013-jom. Gepusht wurde erst, nachdem die Live-Gegenprobe des CaptureView-Fehlermusters (0.9.23, Testplan 9/11) bestanden war.
+
+### Testplan Live-Gegenprobe
+
+1. Einbau nach den Bundle-Regeln von 0.9.23: vorheriges Bundle sichern, Archicad komplett beenden (nie kill), nur EINE Instanz. `ELM_SAB.GetAddOnVersion` meldet 0.9.24 + Build-Zeitstempel. Bei Problemen erst Rückbau.
+2. Je Befehl die Probe(n) aus der Tabelle über `API.ExecuteAddOnCommand` (`commandNamespace` „ELM_SAB"). Erwartet: die Antwort enthält `error.code` und `error.message` mit genau dem Tabellentext, KEIN 4009. Bei `SetLayerOfElements` mit Ebenenname muss das „ü" unverstümmelt ankommen.
+   Begründete Ausnahme von der Regel „Aktionsbefehle nie mit leeren Parametern aufrufen": Die Elementliste ist leer, und der Fehlerpfad kehrt laut Code VOR jeder Reservierung, Undo-Klammer und Änderung zurück (Zeilen in der Tabelle). Es wird nichts ausgeführt.
+3. Erfolgsweg unverändert: mindestens ein Schreibbefehl mit gültigen Parametern an einem EIGENEN Testelement, z. B. `SetLayerOfElements` hin und zurück wie in 0.9.20 Schritt 2. Erwartet: `executionResults` wie bisher, kein 4009. Nie Danis Elemente, Teamwork danach senden. Nur mit Freigabe des Nutzers (Update-Regel).
+4. Danach ist nichts reserviert, und keine Auswahl oder Hervorhebung bleibt zurück.
