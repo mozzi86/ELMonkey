@@ -1008,7 +1008,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<CaptureViewCommand> (
             elmSabCommands, "0.9.12",
-            "ELM_SAB: Speichert das aktive Fenster (2D oder 3D) als PNG — die visuelle Ruecklese fuer Agenten: Highlight setzen, FitInWindow, CaptureView, Bild lesen. outputPath erforderlich; crop=true beschneidet auf den aktuellen Zoom."
+            "ELM_SAB: Speichert das aktive Fenster (2D oder 3D) als PNG — die visuelle Ruecklese fuer Agenten: Highlight setzen, FitInWindow, CaptureView, Bild lesen. outputPath erforderlich; crop=true beschneidet auf den aktuellen Zoom. 0.9.23: Fehler kommen schemakonform beim Client an (Fenstertyp + Archicad-Code), Layout-Fenster werden versucht und sonst klar abgelehnt."
         );
         err |= RegisterCommand<CreateCurtainWallCommand> (
             elmSabCommands, "0.9.8",

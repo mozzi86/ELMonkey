@@ -11,6 +11,13 @@
 // Kein C++20 (AC27/28 bauen nach C++17). ACAPI_ProjectOperation_Save mit Parametern
 // und ACAPI_Window_GetCurrentWindow existieren ab AC27 nativ (MigrationHelper shimt
 // nur <2700, betrifft uns nicht).
+//
+// ELM_SAB 0.9.23 (2026-10-13, WiSchu Layout FR_00-06.1): Fehlerantworten verletzten das
+// Antwortschema (additionalProperties:false + required imagePath/view2D) -> der Client sah nur
+// 4009, nie die Ursache. Jetzt oneOf Erfolg|Fehler (ELMResponseSchemaWithError), Fenstertyp +
+// echter Archicad-Code im Text. Der Export wird weiter fuer JEDEN Fenstertyp versucht (keine
+// Typsperre); Layout/MasterLayout bekommen bei Fehlschlag einen Hinweis auf Zeichnung/Grundriss
+// bzw. PDF-Publizieren — das DevKit (API_SavePars_Picture) kennt keinen eigenen Layout-Weg.
 #pragma once
 
 #include "ELMCommandBase.hpp"
@@ -49,7 +56,8 @@ public:
 
     virtual GS::Optional<GS::UniString> GetResponseSchema () const override
     {
-        return R"({
+        // Erfolgszweig unveraendert; ELMResponseSchemaWithError erlaubt zusaetzlich {error:{code,message}}.
+        return ELMResponseSchemaWithError (GS::UniString (R"({
     "type": "object",
     "properties": {
         "imagePath": {
@@ -66,14 +74,14 @@ public:
         "imagePath",
         "view2D"
     ]
-})";
+})"));
     }
 
     virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const override
     {
         GS::UniString outputPath;
         if (!parameters.Get ("outputPath", outputPath) || outputPath.IsEmpty ()) {
-            return CreateErrorResponse (APIERR_BADPARS, "outputPath fehlt oder ist leer");
+            return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("CaptureView: outputPath fehlt oder ist leer"));
         }
 
         bool crop = true;
@@ -84,8 +92,10 @@ public:
         API_WindowInfo windowInfo = {};
         GSErrCode err = ACAPI_Window_GetCurrentWindow (&windowInfo);
         if (err != NoError) {
-            return CreateErrorResponse (err, "Aktives Fenster nicht ermittelbar");
+            return CreateErrorResponseELM (err, GS::UniString::Printf ("CaptureView: aktives Fenster nicht ermittelbar (Fehler %d)", (int) err));
         }
+        // Fenstertyp steht ab hier in JEDER Meldung (0.9.23).
+        const GS::UniString windowType = WindowTypeNameELM (windowInfo.typeID);
         const bool is3D = (windowInfo.typeID == APIWind_3DModelID);
 
         IO::Location fileLocation (outputPath);
@@ -102,14 +112,23 @@ public:
 
         err = ACAPI_ProjectOperation_Save (&fsp, &pict);
         if (err != NoError) {
-            return CreateErrorResponse (err, "Fensterinhalt nicht als PNG speicherbar (Fenstertyp exportierbar? Pfad beschreibbar?)");
+            if (windowInfo.typeID == APIWind_LayoutID || windowInfo.typeID == APIWind_MasterLayoutID) {
+                return CreateErrorResponseELM (err, GS::UniString::Printf (
+                    "CaptureView: Layout-Fenster ('%T'): PNG-Export per API nicht moeglich (Fehler %d) - Zeichnung/Grundriss oeffnen oder Layout als PDF publizieren",
+                    windowType.ToPrintf (), (int) err));
+            }
+            return CreateErrorResponseELM (err, GS::UniString::Printf (
+                "CaptureView: Fensterinhalt (Fenstertyp '%T') nicht als PNG speicherbar (Fehler %d) - Fenstertyp exportierbar? Pfad beschreibbar?",
+                windowType.ToPrintf (), (int) err));
         }
 
         // Ruecklese: NoError beweist nichts (mcp-extension.md) — die Datei muss
         // tatsaechlich existieren, bevor wir ihren Pfad als Erfolg melden.
         bool exists = false;
         if (IO::fileSystem.Contains (fileLocation, &exists) != NoError || !exists) {
-            return CreateErrorResponse (APIERR_COMMANDFAILED, "Save meldete Erfolg, aber die PNG-Datei existiert nicht (Ruecklese fehlgeschlagen)");
+            return CreateErrorResponseELM (APIERR_COMMANDFAILED, GS::UniString::Printf (
+                "CaptureView: Save meldete Erfolg (Fenstertyp '%T'), aber die PNG-Datei existiert nicht (Ruecklese)",
+                windowType.ToPrintf ()));
         }
 
         GS::ObjectState response;
