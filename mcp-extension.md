@@ -700,6 +700,7 @@ Aus dem revit-mcp-python-Vergleich (Abwägung: `~/.scratch/elmonkey/pyrevit-verg
   (MigrationHelper shimt nur die parameterlose Variante, betrifft uns nicht).
   Seit 0.9.13 mit Datei-Existenz-Rücklese via `IO::fileSystem.Contains` — NoError vom
   Save allein beweist nichts. **Live-Test am Modell steht aus** (Bundle noch nicht eingebaut).
+  **Korrektur 2026-10-13 (0.9.25):** `APIColorDepth_FromSourceImage` war selbst falsch. Es ist nur für die Bildkonvertierung definiert, beim Fenster-Export gibt es kein Quellbild → Save lieferte APIERR_BADID, CaptureView hat nie ein Bild geliefert. Seit 0.9.25 gilt die Echtfarbtiefe je Plattform (`MiC`/`TC24`) mit Rückfall `256C`, siehe Abschnitt „ELM_SAB 0.9.25“ unten.
 - **Paletten-Rückfrage** (TapirPalette::ExecuteScript): Sicherheitsdialog NUR für
   `UnusedViewCleaner.py` (Nutzer-Auftrag nach Vorfall 2026-08-06; Abbrechen = Default-Button).
   0.9.12 hatte zusätzlich einen generischen Dialog vor jedem Skript — als unbeauftragter
@@ -1577,7 +1578,7 @@ Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_a_2026-10-13.json` (Punkte 1
 * **Änderung 0.9.23:** Antwortschema `oneOf` Erfolg | Fehler; jede Meldung nennt den Fenstertyp und den echten Archicad-Code (Text + `code`-Feld). Layout/MasterLayout: Export wird versucht, sonst „PNG-Export per API nicht möglich (Fehler N) - Zeichnung/Grundriss öffnen oder Layout als PDF publizieren". Keine Typsperre — Grundriss, 3D, Schnitt, Detail … wie bisher. Erfolgsantwort unverändert `{imagePath, view2D}`.
 * **Allgemeine Lehre:** ein ELM-Antwortschema mit `required`/`additionalProperties:false` ohne Fehlerzweig verschluckt JEDE Fehlermeldung (Client sieht nur 4009) → neue Befehle über `ELMResponseSchemaWithError` (ELMCommandBase.hpp) deklarieren, Fehler über `CreateErrorResponseELM` (Umlaut-sicher).
 * **Live 13.10. (WiSchu, 0.9.23), Fehlerform bestanden:** leerer `outputPath` → `{error:{code:-2130313112, message:"CaptureView: outputPath fehlt oder ist leer"}}`, kein 4009. Mit Layout FR_00-06.1 vorn, `crop` true und false → -2130313115 „CaptureView: Layout-Fenster ('Layout'): PNG-Export per API nicht moeglich (Fehler -2130313115) - Zeichnung/Grundriss oeffnen oder Layout als PDF publizieren", kein PNG. Das Ziel des Fixes (kein 4009, echte Ursache sichtbar) ist erreicht.
-* **Offener Punkt: CaptureView-Funktion – Ursache APIERR_BADID untersuchen:** Auch mit Grundriss vorn kommt -2130313115 „CaptureView: Fensterinhalt (Fenstertyp 'FloorPlan') nicht als PNG speicherbar (Fehler -2130313115) - Fenstertyp exportierbar? Pfad beschreibbar?". Probiert wurden zwei Zielpfade (`~/.scratch/…` und `/private/tmp/…`), kein PNG entstand. -2130313115 = **APIERR_BADID** (APIErrorStart + 101, DevKit `APIdefs_ErrorCodes.h` Z. 48). Betroffen ist der Aufruf `ACAPI_ProjectOperation_Save` mit `APIFType_PNGFile` + `API_SavePars_Picture`, für Grundriss UND Layout. Keine Regression: der Save-Code ist seit 0.9.13 unverändert (nur die Meldungen haben sich geändert), und CaptureView hat live NIE ein Bild geliefert. Belege: THN 07.08. („zwei Pfade probiert, Datei entstand nicht"), SuD-Kampagne („scheitert intern, auch mit Archicad im Vordergrund", damals vom 4009 verschluckt) und der Abschnitt „ELM_SAB 0.9.12/0.9.13" („Live-Test am Modell steht aus"; dort nichts geändert). Neu ist nur, dass die Ursache sichtbar ist. Das 3D-Fenster wurde nicht getestet. **Workaround bis dahin:** `screencapture` mit Archicad-Fenster vorn.
+* **Offener Punkt: CaptureView-Funktion – Ursache APIERR_BADID untersuchen:** Auch mit Grundriss vorn kommt -2130313115 „CaptureView: Fensterinhalt (Fenstertyp 'FloorPlan') nicht als PNG speicherbar (Fehler -2130313115) - Fenstertyp exportierbar? Pfad beschreibbar?". Probiert wurden zwei Zielpfade (`~/.scratch/…` und `/private/tmp/…`), kein PNG entstand. -2130313115 = **APIERR_BADID** (APIErrorStart + 101, DevKit `APIdefs_ErrorCodes.h` Z. 48). Betroffen ist der Aufruf `ACAPI_ProjectOperation_Save` mit `APIFType_PNGFile` + `API_SavePars_Picture`, für Grundriss UND Layout. Keine Regression: der Save-Code ist seit 0.9.13 unverändert (nur die Meldungen haben sich geändert), und CaptureView hat live NIE ein Bild geliefert. Belege: THN 07.08. („zwei Pfade probiert, Datei entstand nicht"), SuD-Kampagne („scheitert intern, auch mit Archicad im Vordergrund", damals vom 4009 verschluckt) und der Abschnitt „ELM_SAB 0.9.12/0.9.13" („Live-Test am Modell steht aus"; dort nichts geändert). Neu ist nur, dass die Ursache sichtbar ist. Das 3D-Fenster wurde nicht getestet. **Workaround bis dahin:** `screencapture` mit Archicad-Fenster vorn. **→ Ursache gefunden, Fix in 0.9.25 (nicht live verifiziert):** `APIColorDepth_FromSourceImage` ist beim Fenster-Export keine gültige Farbtiefe; Abschnitt „ELM_SAB 0.9.25 — CaptureView: Farbtiefe statt APIERR_BADID“ unten.
 * **Offener Punkt → erledigt in 0.9.24** (Abschnitt „ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle" unten): dieselbe Lücke haben noch — Antwortschema mit `required`, ohne Fehlerzweig, mit `return CreateErrorResponse` auf oberster Ebene:
   `CreateWallOpenings` (CreateWallOpeningsCommand.cpp Z. 584/587 — leere openings, AC27/28-Sperre), `SetLayerOfElements` (SetLayerCommand.cpp Z. 102/105), `SetObjectParametersForce` (SetObjectParametersForceCommand.cpp Z. 326), `SetPenOfElements` (SetPenOfElementsCommand.cpp Z. 244), `SetStoryVisibilityOfElements` (StoryVisibilityCommands.cpp Z. 132/141), `SetTextSizeOfElements` (SetTextSizeCommand.cpp Z. 64). Prüfwerkzeug: `python3 -I ~/.scratch/elmonkey/tools/elm_schema_scan.py <ELM_SAB_Tapir/Sources>` (Kandidat = `errorAllowed=False` und `topLevelErrorReturns>0`).
 
@@ -1678,3 +1679,52 @@ Gebaut (CI), noch NICHT live verifiziert — CI-SHA im Quick-Task-SUMMARY 261013
    Begründete Ausnahme von der Regel „Aktionsbefehle nie mit leeren Parametern aufrufen": Die Elementliste ist leer, und der Fehlerpfad kehrt laut Code VOR jeder Reservierung, Undo-Klammer und Änderung zurück (Zeilen in der Tabelle). Es wird nichts ausgeführt.
 3. Erfolgsweg unverändert: mindestens ein Schreibbefehl mit gültigen Parametern an einem EIGENEN Testelement, z. B. `SetLayerOfElements` hin und zurück wie in 0.9.20 Schritt 2. Erwartet: `executionResults` wie bisher, kein 4009. Nie Danis Elemente, Teamwork danach senden. Nur mit Freigabe des Nutzers (Update-Regel).
 4. Danach ist nichts reserviert, und keine Auswahl oder Hervorhebung bleibt zurück.
+
+## ELM_SAB 0.9.25 — CaptureView: Farbtiefe statt APIERR_BADID <!-- 2026-10-13 -->
+
+* **Anlass:** offener Punkt aus 0.9.23 (WiSchu 13.10., AC29 Build 5101, 0.9.23 eingebaut): `ACAPI_ProjectOperation_Save (&fsp, &pict)` mit `APIFType_PNGFile`, `colorDepth = APIColorDepth_FromSourceImage`, `view2D = true`, `crop` true/false → -2130313115 = APIERR_BADID für Grundriss (Geschoss 0) UND Layout FR_00-06.1, zwei Zielpfade, keine Datei. CaptureView hat seit 0.9.12 live nie ein Bild geliefert.
+* **Ursache (DevKit 29.3100, nicht live belegt):**
+  1. `APIColorDepth_FromSourceImage = -1` (`APIdefs_Elements.h` Z. 10887) ist nur für die Bildkonvertierung erklärt: `API_MimePicture::outDepth` „means to use the same pixel depth the input image has“ (`APIdefs_Goodies.h` Z. 280). Das DevKit nutzt es nur dort (`DG_Test.cpp` Z. 602/1761). Beim Speichern des Fensterinhalts gibt es kein Quellbild → ungültige ID → APIERR_BADID.
+  2. Das einzige DevKit-Beispiel für `API_SavePars_Picture` ist `Do_Save_TiffFile` (`Examples/Automate_Functions/Src/Automate_Functions.cpp` Z. 96–115), dort ist `colorDepth = APIColorDepth_256C` (Z. 105). Sonst entspricht unser Aufruf dem Beispiel (fsp `{}`, `fsp.file = &IO::Location`, `dithered=false`, `view2D`, `crop`, Überladung `ACAPI_Automate.h` Z. 168).
+  3. `FromSourceImage` steht seit dem ersten Commit `d6fa4f7` (0.9.12) im Code. Das passt zu „nie ein Bild“.
+  4. `API_ColorDepthID` ist plattformgetrennt (`APIdefs_Elements.h` Z. 10893–10905): macOS `4C, 4G, ThC, MiC, MiCP`, Windows `64KC, TC24, TC32`, gemeinsam nur `BW, 16C, 256C, 16G, 256G`. Lokal belegt: `APIColorDepth_TC24` ist im Mac-Build undeklariert → Präprozessor-Zweig ist Pflicht.
+
+  **Restunsicherheit:** Theoretisch könnte auch PNG selbst APIERR_BADID auslösen (im DevKit kommt `APIFType_PNGFile` nur in der Enum vor, `APIdefs_Automate.h` Z. 131, kein Beispiel nutzt es). Deshalb gibt es die Rückfallstufe und die gemeldete Tiefe, damit EIN Live-Test eindeutig ist.
+* **Fix 0.9.25:** Primär gilt die Echtfarbtiefe, auf macOS `APIColorDepth_MiC` („Millions of Colors“), auf Windows `APIColorDepth_TC24` („True Color - 24 bit“), sonst `256C`. `dithered=false`, `view2D`/`crop` wie bisher. `keepSelectionHighlight` bleibt false (bewusst nicht mitgeändert, nur EINE Ursache pro Version).
+
+### Rückfall und Antwortfeld
+
+Liefert der Save APIERR_BADID, folgt genau EIN zweiter Versuch mit `APIColorDepth_256C` (DevKit-belegt). Andere Codes führen zu keinem Rückfall, es laufen höchstens zwei Saves. Die Erfolgsantwort ist `{imagePath, view2D, colorDepth}`, mit `colorDepth` = tatsächlich benutzte Tiefe als String (`"MiC"`, `"TC24"`, `"256C"`). Das Feld ist neu und im Schema optional (`required` weiter `imagePath`, `view2D`, `additionalProperties:false`, Hülle `ELMResponseSchemaWithError`).
+
+Fehlermeldungen nennen den Fenstertyp und die versuchten Tiefen mit Codes, Beispieltext: „CaptureView: Fensterinhalt (Fenstertyp 'FloorPlan') nicht als PNG speicherbar (Farbtiefe MiC: Fehler -2130313115, Rueckfall 256C: Fehler -2130313115) - Fenstertyp exportierbar? Pfad beschreibbar?“. `error.code` ist der Code des letzten Versuchs. Layout/MasterLayout behalten den Hinweis auf Zeichnung/Grundriss bzw. PDF-Publizieren. Die Rücklese (Datei existiert) nennt die Tiefe. Bekannte Schwäche: Die Rücklese prüft nur die Existenz, eine Altdatei am Zielpfad täuscht Erfolg vor.
+
+### Auswertung des Live-Tests
+
+| Antwort | Bedeutung |
+|---|---|
+| `colorDepth` `"MiC"` (Mac) bzw. `"TC24"` (Windows) und PNG-Datei | Ursache bestätigt: `FromSourceImage` war die ungültige Farbtiefe. |
+| `colorDepth` `"256C"` und PNG-Datei | Die Echtfarbtiefe ist auf dieser Plattform ebenfalls ungültig, 256C funktioniert → Primärtiefe in einer eigenen Version korrigieren. |
+| Fehler mit „MiC … -2130313115, Rueckfall 256C … -2130313115“ (beide Versuche BADID) | Die Farbtiefe ist nicht die (alleinige) Ursache. Zwei nächste Kandidaten, jeder in einer EIGENEN späteren Version (nie zusammen): (a) Dateityp TIFF (`APIFType_TIFFFile`) genau wie im DevKit-Beispiel `Do_Save_TiffFile`; (b) die API-Datenbank passt nicht zum vorderen Fenster — CaptureView setzt die Datenbank nie, `ACAPI_Database_GetCurrentDatabase` gegen `ACAPI_Window_GetCurrentWindow` prüfen (Kandidat 1 aus `~/.scratch/elmonkey/handoff_elmonkey_captureview-badid_2026-10-13.md`). |
+| Ein anderer Code als APIERR_BADID | Meldung lesen, es wurde kein Rückfall versucht. |
+
+### Stand
+
+Gebaut (CI), noch NICHT live verifiziert — CI-SHA im Quick-Task-SUMMARY 261013-kl1.
+
+Das Bundle enthält gegenüber dem eingebauten 0.9.23 (CI `4e804b3`) ZWEI ungetestete Änderungen: den 0.9.24-Schemafix für sechs Befehle (`7c07600`, Fehlerantwort schemakonform) und den 0.9.25-CaptureView-Fix (`50c3d5d`). Beim Einbau die Commit-Differenz so benennen und beide Blöcke getrennt abhaken. Der Testplan für 0.9.24 steht im Abschnitt „ELM_SAB 0.9.24“ weiter oben.
+
+Workaround bis zur Live-Bestätigung: `screencapture` mit Archicad-Fenster vorn.
+
+### Testplan Live-Gegenprobe
+
+Macht der Nutzer.
+
+1. Vorbedingung erledigt: 0.9.24-Bundles gesichert (`~/.scratch/elm-bundle-0.9.24/ci_247aa63/`). Einbau nach den Bundle-Regeln: eingebautes 0.9.23 sichern, Archicad komplett beenden (nie kill), nur EINE Instanz, 0.9.25 einsetzen. `ELM_SAB.GetAddOnVersion` meldet 0.9.25 + Build-Zeitstempel. Bei Problemen erst Rückbau auf 0.9.23.
+2. Je Probe ein NEUER Dateiname unter `~/.scratch/…` (vorher prüfen, dass er nicht existiert), weil die Rücklese nur die Existenz prüft.
+3. Grundriss vorn, `crop:true` → PNG und `{imagePath, view2D:true, colorDepth:"MiC"}`. `file <png>` zeigt ein Farbbild (RGB). Inhalt gegen ein `screencapture` desselben Fensters prüfen (gleicher Ausschnitt, gleiche Elemente), nicht nach Optik.
+4. Grundriss vorn, `crop:false` → PNG mit größerem Ausschnitt als in Schritt 3.
+5. 3D-Fenster vorn → PNG, `view2D:false`, `colorDepth` gesetzt.
+6. Layout vorn (z. B. FR_00-06.1) → PNG (dann „Layout geht ab 0.9.25“ dokumentieren) oder Fehler mit Fenstertyp „Layout“, versuchten Tiefen und Codes, kein 4009.
+7. Leerer `outputPath` → schemakonformer Fehler wie in 0.9.23 (kein 4009).
+8. Gegenprobe 0.9.24 (gleiches Bundle, getrennt von CaptureView): Testplan „ELM_SAB 0.9.24“, Schritte 2–4.
+9. Auswertung nach der Tabelle oben, Ergebnis mit Datum hier eintragen. Danach keine Auswahl oder Hervorhebung zurücklassen.
