@@ -700,7 +700,7 @@ Aus dem revit-mcp-python-Vergleich (Abwägung: `~/.scratch/elmonkey/pyrevit-verg
   (MigrationHelper shimt nur die parameterlose Variante, betrifft uns nicht).
   Seit 0.9.13 mit Datei-Existenz-Rücklese via `IO::fileSystem.Contains` — NoError vom
   Save allein beweist nichts. **Live-Test am Modell steht aus** (Bundle noch nicht eingebaut).
-  **Korrektur 2026-10-13 (0.9.25):** `APIColorDepth_FromSourceImage` war selbst falsch. Es ist nur für die Bildkonvertierung definiert, beim Fenster-Export gibt es kein Quellbild → Save lieferte APIERR_BADID, CaptureView hat nie ein Bild geliefert. Seit 0.9.25 gilt die Echtfarbtiefe je Plattform (`MiC`/`TC24`) mit Rückfall `256C`, siehe Abschnitt „ELM_SAB 0.9.25“ unten.
+  **Korrektur 2026-10-13 (0.9.25):** `APIColorDepth_FromSourceImage` war selbst falsch. Es ist nur für die Bildkonvertierung definiert, beim Fenster-Export gibt es kein Quellbild → Save lieferte APIERR_BADID, CaptureView hat nie ein Bild geliefert. Seit 0.9.25 gilt die Echtfarbtiefe je Plattform (`MiC`/`TC24`) mit Rückfall `256C`, siehe Abschnitt „ELM_SAB 0.9.25“ unten. **Live verifiziert erst mit 0.9.25 (WiSchu 13.10.).**
 - **Paletten-Rückfrage** (TapirPalette::ExecuteScript): Sicherheitsdialog NUR für
   `UnusedViewCleaner.py` (Nutzer-Auftrag nach Vorfall 2026-08-06; Abbrechen = Default-Button).
   0.9.12 hatte zusätzlich einen generischen Dialog vor jedem Skript — als unbeauftragter
@@ -1418,15 +1418,22 @@ KI-gestempelte Testsymbole.
 
 * **Anlass:** THN-Nischenbau 12.10.: geteilte Wände bekamen per CreateWalls den Werkzeug-Standard-Baustoff, weil der Baustoff der Originalwand nicht lesbar war.
 * **Änderung:** `details.buildingMaterialId` (Basic), `details.profileId` (Profile), `details.compositeId` (Composite, wie bisher); die Felder waren im WallDetails-Schema schon vorgesehen, wurden aber nicht befüllt. Rezept: Wert direkt als `buildingMaterialId` bzw. `compositeId` an CreateWalls übergeben.
-* **Stand:** gebaut (CI), noch NICHT live verifiziert.
+* **Stand:** **Live verifiziert 2026-10-13 (WiSchu, mit dem 0.9.23-Bundle, das 0.9.22 enthält)** für Basic-Wände; `compositeId`/`profileId` sind am WiSchu nicht prüfbar (keine Composite- oder Profilwände).
 
 ### Testplan
 
-1. ELM_SAB-Versionsabfrage (GetAddOnVersion des ELM_SAB-Namespace) meldet 0.9.22.
-2. Basic-Wand: GetDetailsOfElements -> `buildingMaterialId` lesen, Namen per `API.GetBuildingMaterialAttributes` prüfen (muss dem Baustoff im Info-Fenster entsprechen).
-3. Composite-Wand liefert `compositeId`, kein `buildingMaterialId`.
+1. ELM_SAB-Versionsabfrage (GetAddOnVersion des ELM_SAB-Namespace) meldet 0.9.22. ✓ (über das 0.9.23-Bundle, das 0.9.22 enthält)
+2. Basic-Wand: GetDetailsOfElements -> `buildingMaterialId` lesen, Namen per `API.GetBuildingMaterialAttributes` prüfen (muss dem Baustoff im Info-Fenster entsprechen). ✓ (56/56 gleich, s. Live-Befund)
+3. Composite-Wand liefert `compositeId`, kein `buildingMaterialId`. Nicht prüfbar am WiSchu (keine Composite-Wände).
 
 (Nur Lesebefehle, kein Schreiben ins Modell.)
+
+### Live-Befund 2026-10-13 (WiSchu)
+
+* **Verteilung:** 1.386 Wände, alle Basic (Bauteil 1.350 / Stahlbeton 28 / Aluminium 8).
+* **Methode:** `details.buildingMaterialId` → Name über native `GetBuildingMaterialAttributes`, verglichen mit der Bauteil-Property „Baustoffname“ (514C85CB-…) über native `GetComponentsOfElements` + `GetPropertyValuesOfElementComponents`. **Ergebnis: 56/56 gleich, 0 Abweichungen.** Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_c_0922_baustoff.json`.
+* **Nicht prüfbar am WiSchu:** `compositeId` und `profileId` (keine Composite- und keine Profilwände).
+* **Falle:** „Baustoffname“ ist eine **Komponenten-Property**. Auf Elementebene (`GetPropertyValuesOfElements`) kommt `notAvailable`; lesbar nur über `GetComponentsOfElements` + `GetPropertyValuesOfElementComponents`.
 
 ## ELM_SAB 0.9.23 — FindElements: Suche mit und/oder/nicht <!-- 2026-10-13 -->
 
@@ -1472,11 +1479,15 @@ Die Eigenschaft „Element ID" ist im WiSchu zweimal definiert (`Allgemeine Para
   ]}}
 ```
 
-(e) Beziehung — Türen in Wänden auf Ebenen `A_Wand*`:
+Live belegt 13.10. (WiSchu, Bundle 0.9.25): System „Archicad Klassifizierung“, `code` „Tür / Tor“ mit `includeChildren` ODER `unclassified` → 267 Treffer; `criteriaStats` zeigen den `or`-Kurzschluss (zweiter Zweig prüft 0). In diesem System steht der Text im **Code**, der Name ist leer → immer `code` (oder `item`-GUID) nehmen, nicht `name` (siehe Fallen).
+
+(e) Beziehung — Türen in Wänden auf Ebenen `A_Wand*` (Muster als Platzhalter):
 
 ```json
 {"where": {"and": [{"type": "Door"}, {"hostedBy": {"layer": {"pattern": "A_Wand*"}}}]}}
 ```
+
+Live belegt 13.10. (WiSchu, Bundle 0.9.25) mit den dortigen Ebenennamen: Muster „10 Wand innen*“ 263 = 263 und „10 Wand au*“ 4 = 4 gegen die Referenz (Property Ebenenname der Owner-Wände), GUID-gleich.
 
 ### Parameter
 
@@ -1532,10 +1543,11 @@ Zum Weitergeben an andere Befehle nur `{elementId}` übernehmen.
 | `projekt` (Vorgabe) | keiner — alle Geschosse, auch ausgeblendete Ebenen | 19.873 | 40.107 | 95 |
 | `sichtbar` | OnVisLayer (inkl. 2D) | 19.503 | 39.736 | 110 |
 | `wie3D` | OnVisLayer + In3D (ohne 2D) — was „Suchen & aktivieren" im 3D findet | 10.210 | 10.496 (Tapir nur IsVisibleIn3D: 10.497) | 6.474 |
-| `aktuellesGeschoss` | OnActFloor | 6.547 | 24.731 (Geschoss 0) | 137 |
+| `aktuellesGeschoss` | OnActFloor | 6.547 | 24.731 (1. OG) | 137 |
 
 **Referenz immer frisch ziehen:**
-* Die absoluten Zahlen sind Momentaufnahmen und haben sich am selben Tag etwa verdoppelt. Ursache ist Ladezustand/Modellinhalt, nicht der Befehl: FindElements und Tapir `GetAllElements` mit gleichen Flags (Grundriss Geschoss 0 vorn) waren in jeder Zeile identisch.
+* Die absoluten Zahlen sind Momentaufnahmen und haben sich am selben Tag etwa verdoppelt. Ursache ist Ladezustand/Modellinhalt, nicht der Befehl: FindElements und Tapir `GetAllElements` mit gleichen Flags (Grundriss 1. OG vorn) waren in jeder Zeile identisch.
+* **Nebenbefund 13.10. (späterer Lauf, Beispiele (d)/(e)):** `scopeCount` `projekt` war 41.039 statt 40.107. Das Modell bzw. der Ladezustand ändert sich laufend, das bestätigt die Regel „Referenz immer frisch ziehen“.
 * Vor jedem Vergleich die Referenz im selben Zustand mit Tapir `GetAllElements` + gleichen Flags bei Grundriss vorn ziehen, nie gegen diese Tabelle prüfen.
 * `wie3D` ist teuer: die In3D-Prüfung je Element dauert 6,5 s gegenüber ~0,1 s für die anderen. Nur einsetzen, wenn das 3D-Kriterium wirklich gebraucht wird.
 
@@ -1544,6 +1556,8 @@ Zum Weitergeben an andere Befehle nur `{elementId}` übernehmen.
 * **Aktive Datenbank:** Tapir liest das vordere Fenster, FindElements nie; `startDatabaseType` zeigt, was vorn war (live belegt 13.10.: Layout vorn → Tapir 0 Türen, FindElements 267).
 * **Teamwork:** Tapir-Flag `IsEditable` = nur von MIR reserviert → WiSchu Door + OnActualFloor 84, + IsEditable 0. Für „frei/von mir/von anderen" das Blatt `teamwork` nehmen.
 * Tapir-Flags kennen kein NICHT und kein ODER — hier per `not`/`or`. `IncludeSubElemObjects` ist kein Filter.
+* **Aktuelles Geschoss** über `TapirCommand.GetStories` → `actStory` lesen, nie über `GetUIState.currentWindow.index` (das ist kein Geschoss-Index, live 13.10.: meldete 0 bei 1. OG vorn).
+* **Klassifizierung: `code`, nicht `name`.** In der „Archicad Klassifizierung“ steht der Text im **Code/ID** („Tür / Tor“, „Tür“), der **Name ist leer**. `"name":"Tür / Tor"` liefert „unbekannter Eintrag … ähnlich: Tür / Tor“ (die Vorschlagsliste zeigt Code + Name). Immer `code` oder `item` (GUID) verwenden (live 13.10.).
 * **Mehrdeutige Eigenschaftsnamen** (WiSchu: „Brüstungshöhe" 4×, „Element ID" 2×) → Fehler mit Kandidaten („… - GUID oder {group, name} angeben"); GUID oder „Gruppe/Name" angeben. „Element ID" gibt es im WiSchu als `Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}. Für die Element-ID immer `"ID und Kategorien/Element ID"` nehmen (= die von `modell_abgleich.py` gelesene B1B54D45-…). „Gruppe/Name" ist live belegt 13.10. „/" steckt auch in Gruppen- und Eigenschaftsnamen („Balken / Träger") — jede „/"-Position wird probiert.
 * **`select` ersetzt die Auswahl** — danach selbst aufheben (keine Auswahl zurücklassen). Bei 0 Treffern bleibt die Auswahl unverändert.
 * **`select` + Renovierungsfilter:** Was der Renovierungsfilter der aktiven Ansicht ausblendet, ist nicht auswählbar. Beleg WiSchu 13.10.: 267 Türen → `selected` 263, `notSelectedCount` 4 = genau die 4 Abbruch-Türen T.0.001, T.0.004, T.0.039, T.2.045. Die Rücklese meldet das korrekt in `selection.notSelected`. Daher nach `select` immer `selected` gegen `matchCount` prüfen und `notSelected` lesen. Elemente ANDERER Geschosse werden dagegen ausgewählt. (Nicht live getestet: Wer Abbruch-Elemente mit auswählen will, braucht einen Renovierungsfilter, der Abbruch zeigt.)
@@ -1563,22 +1577,57 @@ Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_a_2026-10-13.json` (Punkte 1
 | Nr | Prüfung | Ergebnis |
 |---|---|---|
 | 1 | Türenabgleich, EIN Aufruf `{"where":{"type":"Door"},"return":["ID und Kategorien/Element ID","Umbau-Status"]}` gegen `modell_abgleich.py` (native `GetElementsByType` + Tapir-Details + Properties) | 267 Türen; je Geschoss −1: 32 / 0: 115 / 1: 84 / 2: 36; je Umbau-Status Existing 242 / New 21 / ToBeDemolished 4. GUID für GUID identisch, 0 Abweichungen, `elapsedMs` 230 (vorher 4 Aufrufe + Python). Treffer liefern `storyName`, `layerName` und `values` als `{value: nonLocalized, display: lokalisiert}` (T.0.004 → `{value:"ToBeDemolished", display:"Abbruch"}`). `returnColumns` löst „ID und Kategorien/Element ID" zu {B1B54D45-C951-42C9-9AF8-898F0BF212AB} auf. |
-| 2 | `scope` gegen Tapir `GetAllElements` mit gleichen Flags (Grundriss Geschoss 0 vorn) | Alle vier exakt gleich: projekt 40.107 (95 ms) · sichtbar 39.736 (110 ms) · wie3D 10.496 (6.474 ms; Tapir nur IsVisibleIn3D = 10.497) · aktuellesGeschoss 24.731 (137 ms, Geschoss 0). Vormittags 19.873 / 19.503 / 10.210 / 6.547 — Zahlen etwa verdoppelt, Ursache Ladezustand/Modellinhalt, nicht der Befehl. Siehe scope-Tabelle. |
+| 2 | `scope` gegen Tapir `GetAllElements` mit gleichen Flags (Grundriss 1. OG vorn) | Alle vier exakt gleich: projekt 40.107 (95 ms) · sichtbar 39.736 (110 ms) · wie3D 10.496 (6.474 ms; Tapir nur IsVisibleIn3D = 10.497) · aktuellesGeschoss 24.731 (137 ms, 1. OG). Vormittags 19.873 / 19.503 / 10.210 / 6.547 — Zahlen etwa verdoppelt, Ursache Ladezustand/Modellinhalt, nicht der Befehl. Siehe scope-Tabelle. |
 | 3 | Beispiel (a) gegen den Python-Filter | 35 = 35, 196 ms. `criteriaStats`: type 40.107→267, story 267→36, not 36→35 (property darunter 36→1), property 35→35 — zeigt die Kosten-Reihenfolge. |
 | 4 | Aufzählung: `"value":"Abbruch"` (Anzeige) gegen `"ToBeDemolished"` (nonLocalized) | Dieselben 4 Türen = Referenz. |
 | 5 | Fehlerantworten mit Namen | Alle schemakonform beim Client: `error.code` -2130313112 (APIERR_BADPARS), kein 4009. Damit funktioniert `oneOf` auf oberster Ebene → Planer-Risiko aus 261013-fel erledigt. Fünf Fälle: unbekannte Eigenschaft „Umbaustatus" („keine aehnliche Eigenschaft gefunden") · „Brüstungshöhe" mehrdeutig mit 4 Kandidaten (Gruppe/Name {GUID}) · unbekanntes Kriterium „propery" mit Liste der erlaubten · unbekannter Typ „Tuer" mit Liste · unbekanntes Geschoss „99.OG" mit Liste `index:Name`. |
 | 6 | „Element ID" als Eigenschaftsname | Im WiSchu ZWEIMAL definiert: `Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}. Der bloße Name liefert den Mehrdeutigkeitsfehler „… - GUID oder {group, name} angeben". Die Adressierung „Gruppe/Name" ist live belegt. Siehe Fallen. |
 | 7 | Teures Blatt ohne `type`-Filter: `{"property":"Umbau-Status","op":"=","value":"ToBeDemolished"}` | Über 40.107 Elemente 1.626 ms (≈1,6 s), 9 Treffer, `notAvailable` 7. Günstiges `type`-Blatt in dasselbe `and` (vgl. Punkt 1: 230 ms). |
 | 8 | Layout FR_00-06.1 vorn (per `TapirCommand.ChangeWindow` mit `navigatorItemId`) | FindElements `projekt` weiter 40.107, `startDatabaseType` "Layout", `database` "FloorPlan", Türen 267. Tapir `GetElementsByType` Door im selben Zustand = 0. Die Falle „Aktive Datenbank" ist live reproduziert und gelöst. |
-| 9 | `select:true` über alle 267 Türen aller Geschosse (Grundriss Geschoss 0 vorn) | `selected` 263, `notSelectedCount` 4, `extraSelectedCount` 0, Tapir-Auswahl danach 263. Die 4 nicht ausgewählten sind GENAU die 4 Abbruch-Türen T.0.001, T.0.004, T.0.039, T.2.045: Was der Renovierungsfilter der Ansicht ausblendet, ist nicht auswählbar, und die Rücklese meldet das korrekt. Elemente anderer Geschosse werden ausgewählt. Danach Auswahl aufgehoben (0) und Fenster auf Grundriss Geschoss 0 zurückgestellt. |
+| 9 | `select:true` über alle 267 Türen aller Geschosse (Grundriss 1. OG vorn) | `selected` 263, `notSelectedCount` 4, `extraSelectedCount` 0, Tapir-Auswahl danach 263. Die 4 nicht ausgewählten sind GENAU die 4 Abbruch-Türen T.0.001, T.0.004, T.0.039, T.2.045: Was der Renovierungsfilter der Ansicht ausblendet, ist nicht auswählbar, und die Rücklese meldet das korrekt. Elemente anderer Geschosse werden ausgewählt. Danach Auswahl aufgehoben (0) und Fenster auf Grundriss 1. OG zurückgestellt. |
+
+**Korrektur 13.10. nachmittags:** Vorn war das 1. OG (`TapirCommand.GetStories` → `actStory` 1), nicht Geschoss-Index 0. Der frühere Wert stammte aus `ELM_SAB.GetUIState.currentWindow.index`, und das ist KEIN Geschoss-Index (meldete 0). Beleg: Door + OnActualFloor = 84 = Türen im 1. OG (Punkt 1).
+
+**Teil C (13.10. nachmittags, 0.9.23-Bundle): alle bisher nur gebauten Kriterien.** Methode: je Kriterium die GUID-Menge von FindElements gegen eine unabhängige Referenz, 0 Abweichungen. Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_c_2026-10-13.json` + `teil_c_ifc.json`; Skript `~/.scratch/elmonkey/tools/gegenprobe_findelements_0923_teil_c.py`.
+
+| Kriterium | Probe | Referenz | Ergebnis |
+|---|---|---|---|
+| or | Door ∪ Zone (WiSchu hat KEINE Window-Elemente) | native GetElementsByType | 464=464 |
+| layer Name | „10 Wand innen A“ | eingebaute Property Ebenenname | 222=222 |
+| layer pattern | „10 *“ | fnmatch auf Ebenenname | 267=267 |
+| layer visible | visible:true | Tapir Door+IsVisibleByLayer | 267=267 |
+| flags | OnActualFloor | Tapir Door+OnActualFloor | 84=84 |
+| guids | 3 Tür-GUIDs + 1 Zonen-GUID mit type Door | – | 3 |
+| inSelection | leer / 5 ausgewählt / not | Tapir ChangeSelection | 0 / 5 / 262 (Auswahl danach leer) |
+| teamwork | frei/vonMir/vonAnderen | ELM_SAB.GetElementEditState lockUserId/isReservedByMe | 267/0/0 |
+| classification | item / code / includeChildren (Eltern „Tür / Tor“) / unclassified | native GetClassificationsOfElements + Baum, System „Archicad Klassifizierung“ (Eintrag „Tür“) | 267/267/267/0 |
+| libPart | Name „Blockrahmentür 1-Fl 27“ / pattern „Blockr*“ | Tapir-Details libPart.name | 230=230 / 239=239 |
+| gdl | A > 1,0 | Tapir GetGDLParametersOfElements | 132=132 |
+| ifc type | IfcDoor | Tapir GetIFCTypeOfElements | 267=267 |
+| ifc attribute | GlobalId = ifcId (3 Stichproben, caseSensitive) + startsWith | Tapir GetIFCIdsOfElements | je 1=1 |
+| ifc property | Pset_DoorCommon FireRating=„Mindestanforderung“ / IsExternal=„False“ / AcousticRating=„SSK 4“ | Tapir GetIFCPropertiesOfElements | 239 / 264 / 267, alle gleich |
+| hostedBy | {type Wall} | Tapir-Details ownerElementType | 267=267 |
+| hosts | Wall hosts {type Door} | Owner-Wände der Türen | 204=204 |
+| inZone | 8 Zonen | native GetElementsRelatedToZones | 10=10 (752 ms) |
+| bbox intersects / inside | Tür-0-Box ±3 m | native Get3DBoundingBoxes (x/y) | 9=9 / 9=9 |
+| near | Punkt Türmitte, 5 m | dito | 10=10 |
+| designOption | {mainModel:true} | WiSchu hat keine Design-Optionen | 267; unbekannter Name → Fehler „unbekannte Design-Option - vorhanden: “ (leer) |
+| databases | Grundriss-DB explizit (GetDatabaseIdFromNavigatorItemId) | – | 267, perDatabase mit scopeCount 40.107 |
+| limit | 10 | – | returnedCount 10, truncated true, matchCount 267 |
+
+Am WiSchu nicht prüfbar ist nur die Auflösung von `designOption` per Name/id/guid, weil das Modell keine Design-Optionen hat.
+
+**Beispiele (d) und (e) (13.10. nachmittags, Bundle 0.9.25, scopeCount `projekt` 41.039, s. Nebenbefund bei der scope-Tabelle):**
+* **(d) `or` + Klassifizierung:** `{"classification":{"system":"Archicad Klassifizierung","code":"Tür / Tor"},"includeChildren":true}` ODER `unclassified` → 267 Treffer. `criteriaStats` zeigen den `or`-Kurzschluss: der zweite Zweig (`unclassified`) prüft 0 Elemente.
+* **(e) `hostedBy` + `layer.pattern`:** `{"and":[{"type":"Door"},{"hostedBy":{"layer":{"pattern":"…"}}}]}` gegen die Referenz (Property Ebenenname der Owner-Wände), GUID für GUID gleich: Muster „10 Wand innen*“ 263 = 263, Muster „10 Wand au*“ 4 = 4 (zusammen die 267 Türen), 224 ms. Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/beispiele_d_e.json` (enthält die Antwort zu „innen“).
 
 ### CaptureView: Fehlerantwort schemakonform, Layout-Verhalten
 
 * **Befund (WiSchu 13.10., Layout „FR_00-06.1", `crop` true und false):** `4009 Invalid command response … 'additionalProperties' … '#/error'`, kein PNG. Ursache: das Antwortschema (`additionalProperties:false`, `required:[imagePath, view2D]`) ließ die Fehlerform `{error:{code,message}}` nicht zu — jede Fehlermeldung wurde von Archicad als ungültige Antwort verschluckt.
 * **Änderung 0.9.23:** Antwortschema `oneOf` Erfolg | Fehler; jede Meldung nennt den Fenstertyp und den echten Archicad-Code (Text + `code`-Feld). Layout/MasterLayout: Export wird versucht, sonst „PNG-Export per API nicht möglich (Fehler N) - Zeichnung/Grundriss öffnen oder Layout als PDF publizieren". Keine Typsperre — Grundriss, 3D, Schnitt, Detail … wie bisher. Erfolgsantwort unverändert `{imagePath, view2D}`.
 * **Allgemeine Lehre:** ein ELM-Antwortschema mit `required`/`additionalProperties:false` ohne Fehlerzweig verschluckt JEDE Fehlermeldung (Client sieht nur 4009) → neue Befehle über `ELMResponseSchemaWithError` (ELMCommandBase.hpp) deklarieren, Fehler über `CreateErrorResponseELM` (Umlaut-sicher).
-* **Live 13.10. (WiSchu, 0.9.23), Fehlerform bestanden:** leerer `outputPath` → `{error:{code:-2130313112, message:"CaptureView: outputPath fehlt oder ist leer"}}`, kein 4009. Mit Layout FR_00-06.1 vorn, `crop` true und false → -2130313115 „CaptureView: Layout-Fenster ('Layout'): PNG-Export per API nicht moeglich (Fehler -2130313115) - Zeichnung/Grundriss oeffnen oder Layout als PDF publizieren", kein PNG. Das Ziel des Fixes (kein 4009, echte Ursache sichtbar) ist erreicht.
-* **Offener Punkt: CaptureView-Funktion – Ursache APIERR_BADID untersuchen:** Auch mit Grundriss vorn kommt -2130313115 „CaptureView: Fensterinhalt (Fenstertyp 'FloorPlan') nicht als PNG speicherbar (Fehler -2130313115) - Fenstertyp exportierbar? Pfad beschreibbar?". Probiert wurden zwei Zielpfade (`~/.scratch/…` und `/private/tmp/…`), kein PNG entstand. -2130313115 = **APIERR_BADID** (APIErrorStart + 101, DevKit `APIdefs_ErrorCodes.h` Z. 48). Betroffen ist der Aufruf `ACAPI_ProjectOperation_Save` mit `APIFType_PNGFile` + `API_SavePars_Picture`, für Grundriss UND Layout. Keine Regression: der Save-Code ist seit 0.9.13 unverändert (nur die Meldungen haben sich geändert), und CaptureView hat live NIE ein Bild geliefert. Belege: THN 07.08. („zwei Pfade probiert, Datei entstand nicht"), SuD-Kampagne („scheitert intern, auch mit Archicad im Vordergrund", damals vom 4009 verschluckt) und der Abschnitt „ELM_SAB 0.9.12/0.9.13" („Live-Test am Modell steht aus"; dort nichts geändert). Neu ist nur, dass die Ursache sichtbar ist. Das 3D-Fenster wurde nicht getestet. **Workaround bis dahin:** `screencapture` mit Archicad-Fenster vorn. **→ Ursache gefunden, Fix in 0.9.25 (nicht live verifiziert):** `APIColorDepth_FromSourceImage` ist beim Fenster-Export keine gültige Farbtiefe; Abschnitt „ELM_SAB 0.9.25 — CaptureView: Farbtiefe statt APIERR_BADID“ unten.
+* **Live 13.10. (WiSchu, 0.9.23), Fehlerform bestanden:** leerer `outputPath` → `{error:{code:-2130313112, message:"CaptureView: outputPath fehlt oder ist leer"}}`, kein 4009. Mit Layout FR_00-06.1 vorn, `crop` true und false → -2130313115 „CaptureView: Layout-Fenster ('Layout'): PNG-Export per API nicht moeglich (Fehler -2130313115) - Zeichnung/Grundriss oeffnen oder Layout als PDF publizieren", kein PNG. Das Ziel des Fixes (kein 4009, echte Ursache sichtbar) ist erreicht. → ab 0.9.25 liefert Layout ein PNG (live 13.10.).
+* **Offener Punkt → erledigt in 0.9.25, live bestätigt 13.10.:** CaptureView-Funktion – Ursache APIERR_BADID. Auch mit Grundriss vorn kommt -2130313115 „CaptureView: Fensterinhalt (Fenstertyp 'FloorPlan') nicht als PNG speicherbar (Fehler -2130313115) - Fenstertyp exportierbar? Pfad beschreibbar?". Probiert wurden zwei Zielpfade (`~/.scratch/…` und `/private/tmp/…`), kein PNG entstand. -2130313115 = **APIERR_BADID** (APIErrorStart + 101, DevKit `APIdefs_ErrorCodes.h` Z. 48). Betroffen ist der Aufruf `ACAPI_ProjectOperation_Save` mit `APIFType_PNGFile` + `API_SavePars_Picture`, für Grundriss UND Layout. Keine Regression: der Save-Code ist seit 0.9.13 unverändert (nur die Meldungen haben sich geändert), und CaptureView hat live NIE ein Bild geliefert. Belege: THN 07.08. („zwei Pfade probiert, Datei entstand nicht"), SuD-Kampagne („scheitert intern, auch mit Archicad im Vordergrund", damals vom 4009 verschluckt) und der Abschnitt „ELM_SAB 0.9.12/0.9.13" („Live-Test am Modell steht aus"; dort nichts geändert). Neu ist nur, dass die Ursache sichtbar ist. Das 3D-Fenster wurde nicht getestet. Workaround `screencapture` war nur bis 0.9.25 nötig. **→ Ursache gefunden, Fix in 0.9.25 (live bestätigt 13.10.: PNG mit `colorDepth` "MiC" für Grundriss, Layout und 3D):** `APIColorDepth_FromSourceImage` ist beim Fenster-Export keine gültige Farbtiefe; Abschnitt „ELM_SAB 0.9.25 — CaptureView: Farbtiefe statt APIERR_BADID“ unten.
 * **Offener Punkt → erledigt in 0.9.24** (Abschnitt „ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle" unten): dieselbe Lücke haben noch — Antwortschema mit `required`, ohne Fehlerzweig, mit `return CreateErrorResponse` auf oberster Ebene:
   `CreateWallOpenings` (CreateWallOpeningsCommand.cpp Z. 584/587 — leere openings, AC27/28-Sperre), `SetLayerOfElements` (SetLayerCommand.cpp Z. 102/105), `SetObjectParametersForce` (SetObjectParametersForceCommand.cpp Z. 326), `SetPenOfElements` (SetPenOfElementsCommand.cpp Z. 244), `SetStoryVisibilityOfElements` (StoryVisibilityCommands.cpp Z. 132/141), `SetTextSizeOfElements` (SetTextSizeCommand.cpp Z. 64). Prüfwerkzeug: `python3 -I ~/.scratch/elmonkey/tools/elm_schema_scan.py <ELM_SAB_Tapir/Sources>` (Kandidat = `errorAllowed=False` und `topLevelErrorReturns>0`).
 
@@ -1586,9 +1635,9 @@ Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_a_2026-10-13.json` (Punkte 1
 
 **Live verifiziert 2026-10-13 (WiSchu, AC29 Build 5101, Teamwork; buildStamp „Oct 13 2026 10:09:39" = CI `4e804b3`)**, der grüne CI-SHA steht im Quick-Task-SUMMARY 261013-fel.
 
-* **Getesteter Umfang** (Belege im Unterabschnitt „### Live-Gegenprobe 2026-10-13 (WiSchu)"): Kriterien `and`, `not`, `type`, `story` (`{index}`, Name im Fehlerfall), `property` (Name, „Gruppe/Name", Operatoren `=`/`startsWith`, Aufzählung Anzeige + nonLocalized); `scope` alle vier; `return`; `countOnly`; `select`; `criteriaStats`; `startDatabaseType`/`database`; Fehlerantworten.
-* **CaptureView:** Fehlerform verifiziert (kein 4009, Fenstertyp + Archicad-Code); der Bildexport scheitert dagegen mit APIERR_BADID (offener Punkt im CaptureView-Unterabschnitt).
-* **Nur gebaut (CI), live noch nicht getestet:** `or`, `layer`, `flags`, `guids`, `inSelection`, `teamwork`, `classification`, `libPart`, `gdl`, `ifc`, `hostedBy`/`hosts`, `inZone`, `bbox`/`near`, `designOption`; die Parameter `databases` und `limit`/`truncated`; Beispiel (c) `countOnly` + `wie3D` nur über die scope-Probe, Beispiele (d) und (e) gar nicht; CaptureView im 3D-Fenster.
+* **Getesteter Umfang** (Belege im Unterabschnitt „### Live-Gegenprobe 2026-10-13 (WiSchu)"): Kriterien `and`, `not`, `type`, `story` (`{index}`, Name im Fehlerfall), `property` (Name, „Gruppe/Name", Operatoren `=`/`startsWith`, Aufzählung Anzeige + nonLocalized); `scope` alle vier; `return`; `countOnly`; `select`; `criteriaStats`; `startDatabaseType`/`database`; Fehlerantworten. Zusätzlich Teil C (13.10. nachmittags, Unterabschnitt „Live-Gegenprobe 2026-10-13 (WiSchu)“ oben): `or`, `layer` (Name/pattern/visible), `flags`, `guids`, `inSelection`, `teamwork`, `classification` (item/code/includeChildren/unclassified), `libPart`, `gdl`, `ifc` (type/attribute/property), `hostedBy`/`hosts`, `inZone`, `bbox`/`near`, `designOption` `{mainModel:true}` + Fehler bei unbekanntem Namen, die Parameter `databases` und `limit`/`truncated`, außerdem Beispiel (c) über die scope-Probe mit `countOnly` und die Beispiele (d) und (e) (Bundle 0.9.25).
+* **CaptureView:** Fehlerform verifiziert. Der Bildexport scheiterte in 0.9.23 mit APIERR_BADID → behoben in 0.9.25, live bestätigt 13.10. (Grundriss, Layout, 3D).
+* **Am WiSchu nicht prüfbar:** `designOption` per Name/id/guid (keine Design-Optionen im Modell). Die Beispiele (d) und (e) sind live belegt (Teil C im Unterabschnitt „Live-Gegenprobe 2026-10-13 (WiSchu)“, Bundle 0.9.25); ihre Bausteine (`or`, `classification` mit `includeChildren`/`unclassified`, `hostedBy`, `layer.pattern`) zusätzlich einzeln in der Teil-C-Tabelle.
 
 ### Testplan Einbau + Gegenprobe
 
@@ -1607,8 +1656,8 @@ Macht der Orchestrator mit Mudi. Das Bundle enthält ZWEI Änderungen (FindEleme
 8. `criteriaStats` plausibel (`type`-Blatt matched 267), `elapsedMs` notieren. ✓ (type matched 267; elapsedMs 230 / 196 / 1.626)
 
 **CaptureView**
-9. Layout aktiv (z. B. FR_00-06.1), `crop` true und false → klare Fehlermeldung mit Fenstertyp „Layout" und Archicad-Code statt 4009 (oder, falls Archicad den Layout-Export doch kann, ein PNG — dann als „Layout geht" dokumentieren). ✓ (Layout: schemakonformer Fehler -2130313115, kein PNG → „Layout geht nicht")
-10. Grundriss aktiv → PNG wie bisher, Antwort `{imagePath, view2D:true}`; 3D-Fenster → `view2D:false`. ✗ BADID (Grundriss -2130313115 = APIERR_BADID, kein PNG; 3D-Fenster offen)
+9. Layout aktiv (z. B. FR_00-06.1), `crop` true und false → klare Fehlermeldung mit Fenstertyp „Layout" und Archicad-Code statt 4009 (oder, falls Archicad den Layout-Export doch kann, ein PNG — dann als „Layout geht" dokumentieren). ✓ (Layout: schemakonformer Fehler -2130313115, kein PNG → „Layout geht nicht"); ab 0.9.25 liefert Layout ein PNG (Abschnitt 0.9.25)
+10. Grundriss aktiv → PNG wie bisher, Antwort `{imagePath, view2D:true}`; 3D-Fenster → `view2D:false`. ✗ BADID (Grundriss -2130313115 = APIERR_BADID, kein PNG; 3D-Fenster offen) → ✓ ab 0.9.25 (live 13.10.: Grundriss PNG 832×690 bzw. 4000×3317, 3D PNG `view2D:false`, `colorDepth` "MiC")
 11. Leerer `outputPath` → schemakonforme Fehlermeldung (kein 4009). ✓ (-2130313112 „outputPath fehlt oder ist leer")
 
 ## ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle <!-- 2026-10-13 -->
@@ -1632,17 +1681,19 @@ Macht der Orchestrator mit Mudi. Das Bundle enthält ZWEI Änderungen (FindEleme
 
 Zeilen beziehen sich auf `ELM_SAB_Tapir/Sources/`. Alle Fehlerpfade kehren VOR jeder Reservierung, Undo-Klammer und Änderung zurück. `APIERR_BADPARS` = -2130313112, `APIERR_NOTSUPPORTED` = -2130312313 (`APIErrorStart` 0x81060000 + 104 bzw. + 903).
 
-| Befehl (`commandName`) | Datei | Top-Level-Fehler (Code) | Meldung | Probe-Aufruf (`addOnCommandParameters`) |
-|---|---|---|---|---|
-| `CreateWallOpenings` | CreateWallOpeningsCommand.cpp Z. 585 | `APIERR_BADPARS` (-2130313112) | „openings ist leer." | `{"openings":[]}` |
-| `CreateWallOpenings` | CreateWallOpeningsCommand.cpp Z. 588–593 (nur AC27/28) | `APIERR_NOTSUPPORTED` (-2130312313) | „CreateWallOpenings braucht die ACAPI::Element::Opening-API und damit Archicad 29. Unter AC27/28 …" | unter AC27/28 jeder Aufruf; unter AC29 nicht erreichbar |
-| `SetLayerOfElements` | SetLayerCommand.cpp Z. 103 | `APIERR_BADPARS` (-2130313112) | „layerId oder layerName erforderlich." | `{"elements":[]}` |
-| `SetLayerOfElements` | SetLayerCommand.cpp Z. 106 | `APIERR_BADPARS` (-2130313112) | „Ebene nicht gefunden: " + Name | `{"elements":[],"layerName":"ZZ_Prüfebene_gibt_es_nicht"}` |
-| `SetObjectParametersForce` | SetObjectParametersForceCommand.cpp Z. 327 | `APIERR_BADPARS` (-2130313112) | „elements ist leer." | `{"elements":[]}` |
-| `SetPenOfElements` | SetPenOfElementsCommand.cpp Z. 245 | `APIERR_BADPARS` (-2130313112) | „Mindestens ein Stift-Parameter oder clearForegroundRGB/clearBackgroundRGB muss gesetzt sein." | `{"elements":[]}` |
-| `SetStoryVisibilityOfElements` | StoryVisibilityCommands.cpp Z. 133 | `APIERR_BADPARS` (-2130313112) | „Unbekannter visibility-Wert: " + Preset | `{"elements":[],"visibility":"Quatsch"}` |
-| `SetStoryVisibilityOfElements` | StoryVisibilityCommands.cpp Z. 142 | `APIERR_BADPARS` (-2130313112) | „visibility oder custom erforderlich." | `{"elements":[]}` |
-| `SetTextSizeOfElements` | SetTextSizeCommand.cpp Z. 65 | `APIERR_BADPARS` (-2130313112) | „Genau einer von sizeMm oder factor muss angegeben sein (> 0)." | `{"elements":[],"sizeMm":2.5,"factor":1.2}` |
+| Befehl (`commandName`) | Datei | Top-Level-Fehler (Code) | Meldung | Probe-Aufruf (`addOnCommandParameters`) | Live 13.10. (Bundle 0.9.25) |
+|---|---|---|---|---|---|
+| `CreateWallOpenings` | CreateWallOpeningsCommand.cpp Z. 585 | `APIERR_BADPARS` (-2130313112) | „openings ist leer." | `{"openings":[]}` | vom Eingabeschema abgefangen (4002, minItems '#/openings') |
+| `CreateWallOpenings` | CreateWallOpeningsCommand.cpp Z. 588–593 (nur AC27/28) | `APIERR_NOTSUPPORTED` (-2130312313) | „CreateWallOpenings braucht die ACAPI::Element::Opening-API und damit Archicad 29. Unter AC27/28 …" | unter AC27/28 jeder Aufruf; unter AC29 nicht erreichbar | unter AC29 nicht erreichbar, nicht geprüft |
+| `SetLayerOfElements` | SetLayerCommand.cpp Z. 103 | `APIERR_BADPARS` (-2130313112) | „layerId oder layerName erforderlich." | `{"elements":[]}` | ✓ exakter Text |
+| `SetLayerOfElements` | SetLayerCommand.cpp Z. 106 | `APIERR_BADPARS` (-2130313112) | „Ebene nicht gefunden: " + Name | `{"elements":[],"layerName":"ZZ_Prüfebene_gibt_es_nicht"}` | ✓ exakter Text, „ü“ unverstümmelt |
+| `SetObjectParametersForce` | SetObjectParametersForceCommand.cpp Z. 327 | `APIERR_BADPARS` (-2130313112) | „elements ist leer." | `{"elements":[]}` | vom Eingabeschema abgefangen (4002, minItems '#/elements') |
+| `SetPenOfElements` | SetPenOfElementsCommand.cpp Z. 245 | `APIERR_BADPARS` (-2130313112) | „Mindestens ein Stift-Parameter oder clearForegroundRGB/clearBackgroundRGB muss gesetzt sein." | `{"elements":[]}` | ✓ exakter Text |
+| `SetStoryVisibilityOfElements` | StoryVisibilityCommands.cpp Z. 133 | `APIERR_BADPARS` (-2130313112) | „Unbekannter visibility-Wert: " + Preset | `{"elements":[],"visibility":"Quatsch"}` | vom Eingabeschema abgefangen (4002, enum '#/visibility') |
+| `SetStoryVisibilityOfElements` | StoryVisibilityCommands.cpp Z. 142 | `APIERR_BADPARS` (-2130313112) | „visibility oder custom erforderlich." | `{"elements":[]}` | ✓ exakter Text |
+| `SetTextSizeOfElements` | SetTextSizeCommand.cpp Z. 65 | `APIERR_BADPARS` (-2130313112) | „Genau einer von sizeMm oder factor muss angegeben sein (> 0)." | `{"elements":[],"sizeMm":2.5,"factor":1.2}` | ✓ exakter Text |
+
+Drei Proben erreichen den C++-Pfad von außen nicht, weil das Eingabeschema sie vorher mit 4002 und klarer Meldung abweist. Die C++-Pfade bleiben Absicherung, das ist kein Fehler des Fixes. Ergebnis: 5/8 erreichbare Proben mit exaktem Tabellentext, kein 4009.
 
 ### Scan vorher/nachher
 
@@ -1670,26 +1721,39 @@ Hinweis: `topLevelErrorReturns` bleibt gleich, weil der Regex des Scans auch `Cr
 
 ### Stand
 
-Gebaut (CI), noch NICHT live verifiziert — CI-SHA im Quick-Task-SUMMARY 261013-jom. Gepusht wurde erst, nachdem die Live-Gegenprobe des CaptureView-Fehlermusters (0.9.23, Testplan 9/11) bestanden war.
+**Live verifiziert 2026-10-13 (WiSchu, AC29 Build 5101, Teamwork; Bundle 0.9.25, buildStamp „Oct 13 2026 13:11:29“ = CI `86309a4`)** — CI-SHA im Quick-Task-SUMMARY 261013-jom. Gepusht wurde erst, nachdem die Live-Gegenprobe des CaptureView-Fehlermusters (0.9.23, Testplan 9/11) bestanden war.
+
+### Live-Gegenprobe 2026-10-13 (WiSchu)
+
+Das 0.9.25-Bundle enthält 0.9.24; getestet wurde also mit 0.9.25.
+
+* **(a) Fehlerpfade:** Die Proben aus der Tabelle lieferten den exakten Tabellentext, schemakonform (kein 4009): `SetLayerOfElements` in beiden Fällen (das „ü“ in „Ebene nicht gefunden: ZZ_Prüfebene_gibt_es_nicht“ kam unverstümmelt an), `SetPenOfElements`, `SetStoryVisibilityOfElements` „visibility oder custom erforderlich.“, `SetTextSizeOfElements` → 5/8 (s. Tabelle). Die drei übrigen Proben (`CreateWallOpenings`, `SetObjectParametersForce`, `SetStoryVisibilityOfElements` mit `visibility:"Quatsch"`) wies das Eingabeschema vorher mit 4002 ab (`minItems '#/openings'`, `minItems '#/elements'`, `enum '#/visibility'`). Der AC27/28-Pfad von `CreateWallOpenings` ist unter AC29 nicht erreichbar.
+* **(b) Erfolgsform ohne Modelländerung:** Alle sechs Befehle bekamen eine nicht existierende GUID (`reserve:false` wo vorhanden). Jeder antwortete regulär mit einem Fehler je Element (`executionResults` bzw. `results`), KEIN 4009 → `oneOf` lässt die Erfolgsform durch. Beispiele der Elementfehler: `SetLayerOfElements` „Aenderung nicht wirksam (Element nicht lesbar oder Ruecklese weicht ab)“, `SetObjectParametersForce` „Element nicht lesbar“, `SetPenOfElements` „Element konnte nicht geändert werden (in keiner der Datenbanken)“, `SetStoryVisibilityOfElements` „Aenderung nicht wirksam (Ruecklese fehlgeschlagen)“, `SetTextSizeOfElements` „Element nicht gefunden“; `CreateWallOpenings` (Probe ohne `height`) „height muss > 0 sein (ausser shape=round)“ je Öffnung in `results`.
+* **(c) Rohdaten und Skript:** `~/.scratch/elmonkey/gegenprobe_0923/gegenprobe_0925_2026-10-13.json` (Schlüssel `D_0924`), `~/.scratch/elmonkey/tools/gegenprobe_elm_sab_0925.py`.
+* **Schritt 3 des Testplans (echter Schreibvorgang an eigenem Testelement) bewusst NICHT ausgeführt:** Es wurde nichts ins Teamwork-Modell des Nutzers geschrieben. Ersatz ist die Probe mit nicht existierender GUID (b). Der Schreibweg selbst ist gegenüber 0.9.20/0.9.21 unverändert (dort live verifiziert), 0.9.24 hat nur Schema und Fehlerfunktion geändert; das Erfolgsschema ist byte-gleich.
+
+**Fallen:**
+* Leere Pflichtlisten und ungültige Enum-Werte fängt bereits das Eingabeschema mit 4002 ab, die Meldung nennt den JSON-Pfad. Diese Fehlerpfade des Add-ons lassen sich deshalb von außen nicht auslösen.
+* Die Probe mit nicht existierender GUID startet bei `SetLayerOfElements`, `SetObjectParametersForce` und `CreateWallOpenings` die Undo-Klammer → leerer Undo-Schritt im Verlauf, keine Änderung.
 
 ### Testplan Live-Gegenprobe
 
-1. Einbau nach den Bundle-Regeln von 0.9.23: vorheriges Bundle sichern, Archicad komplett beenden (nie kill), nur EINE Instanz. `ELM_SAB.GetAddOnVersion` meldet 0.9.24 + Build-Zeitstempel. Bei Problemen erst Rückbau.
-2. Je Befehl die Probe(n) aus der Tabelle über `API.ExecuteAddOnCommand` (`commandNamespace` „ELM_SAB"). Erwartet: die Antwort enthält `error.code` und `error.message` mit genau dem Tabellentext, KEIN 4009. Bei `SetLayerOfElements` mit Ebenenname muss das „ü" unverstümmelt ankommen.
+1. Einbau nach den Bundle-Regeln von 0.9.23: vorheriges Bundle sichern, Archicad komplett beenden (nie kill), nur EINE Instanz. `ELM_SAB.GetAddOnVersion` meldet 0.9.24 + Build-Zeitstempel. Bei Problemen erst Rückbau. ✓ (GetAddOnVersion 0.9.25; das Bundle enthält 0.9.24)
+2. Je Befehl die Probe(n) aus der Tabelle über `API.ExecuteAddOnCommand` (`commandNamespace` „ELM_SAB"). Erwartet: die Antwort enthält `error.code` und `error.message` mit genau dem Tabellentext, KEIN 4009. Bei `SetLayerOfElements` mit Ebenenname muss das „ü" unverstümmelt ankommen. ✓ (5/8 exakter Text, 3 vom Eingabeschema abgefangen, s. Tabelle)
    Begründete Ausnahme von der Regel „Aktionsbefehle nie mit leeren Parametern aufrufen": Die Elementliste ist leer, und der Fehlerpfad kehrt laut Code VOR jeder Reservierung, Undo-Klammer und Änderung zurück (Zeilen in der Tabelle). Es wird nichts ausgeführt.
-3. Erfolgsweg unverändert: mindestens ein Schreibbefehl mit gültigen Parametern an einem EIGENEN Testelement, z. B. `SetLayerOfElements` hin und zurück wie in 0.9.20 Schritt 2. Erwartet: `executionResults` wie bisher, kein 4009. Nie Danis Elemente, Teamwork danach senden. Nur mit Freigabe des Nutzers (Update-Regel).
-4. Danach ist nichts reserviert, und keine Auswahl oder Hervorhebung bleibt zurück.
+3. Erfolgsweg unverändert: mindestens ein Schreibbefehl mit gültigen Parametern an einem EIGENEN Testelement, z. B. `SetLayerOfElements` hin und zurück wie in 0.9.20 Schritt 2. Erwartet: `executionResults` wie bisher, kein 4009. Nie Danis Elemente, Teamwork danach senden. Nur mit Freigabe des Nutzers (Update-Regel). Ersetzt durch die Probe mit nicht existierender GUID (Erfolgsform belegt, ohne Modelländerung). Ein Schreibvorgang an einem eigenen Testelement wurde nicht ausgeführt; das Erfolgsschema ist byte-gleich.
+4. Danach ist nichts reserviert, und keine Auswahl oder Hervorhebung bleibt zurück. ✓ (Auswahl am Ende 0 laut Rücklese; nichts geändert)
 
 ## ELM_SAB 0.9.25 — CaptureView: Farbtiefe statt APIERR_BADID <!-- 2026-10-13 -->
 
-* **Anlass:** offener Punkt aus 0.9.23 (WiSchu 13.10., AC29 Build 5101, 0.9.23 eingebaut): `ACAPI_ProjectOperation_Save (&fsp, &pict)` mit `APIFType_PNGFile`, `colorDepth = APIColorDepth_FromSourceImage`, `view2D = true`, `crop` true/false → -2130313115 = APIERR_BADID für Grundriss (Geschoss 0) UND Layout FR_00-06.1, zwei Zielpfade, keine Datei. CaptureView hat seit 0.9.12 live nie ein Bild geliefert.
-* **Ursache (DevKit 29.3100, nicht live belegt):**
+* **Anlass:** offener Punkt aus 0.9.23 (WiSchu 13.10., AC29 Build 5101, 0.9.23 eingebaut): `ACAPI_ProjectOperation_Save (&fsp, &pict)` mit `APIFType_PNGFile`, `colorDepth = APIColorDepth_FromSourceImage`, `view2D = true`, `crop` true/false → -2130313115 = APIERR_BADID für Grundriss (1. OG) UND Layout FR_00-06.1, zwei Zielpfade, keine Datei. CaptureView hat seit 0.9.12 live nie ein Bild geliefert.
+* **Ursache (DevKit 29.3100; live bestätigt 13.10.):**
   1. `APIColorDepth_FromSourceImage = -1` (`APIdefs_Elements.h` Z. 10887) ist nur für die Bildkonvertierung erklärt: `API_MimePicture::outDepth` „means to use the same pixel depth the input image has“ (`APIdefs_Goodies.h` Z. 280). Das DevKit nutzt es nur dort (`DG_Test.cpp` Z. 602/1761). Beim Speichern des Fensterinhalts gibt es kein Quellbild → ungültige ID → APIERR_BADID.
   2. Das einzige DevKit-Beispiel für `API_SavePars_Picture` ist `Do_Save_TiffFile` (`Examples/Automate_Functions/Src/Automate_Functions.cpp` Z. 96–115), dort ist `colorDepth = APIColorDepth_256C` (Z. 105). Sonst entspricht unser Aufruf dem Beispiel (fsp `{}`, `fsp.file = &IO::Location`, `dithered=false`, `view2D`, `crop`, Überladung `ACAPI_Automate.h` Z. 168).
   3. `FromSourceImage` steht seit dem ersten Commit `d6fa4f7` (0.9.12) im Code. Das passt zu „nie ein Bild“.
   4. `API_ColorDepthID` ist plattformgetrennt (`APIdefs_Elements.h` Z. 10893–10905): macOS `4C, 4G, ThC, MiC, MiCP`, Windows `64KC, TC24, TC32`, gemeinsam nur `BW, 16C, 256C, 16G, 256G`. Lokal belegt: `APIColorDepth_TC24` ist im Mac-Build undeklariert → Präprozessor-Zweig ist Pflicht.
 
-  **Restunsicherheit:** Theoretisch könnte auch PNG selbst APIERR_BADID auslösen (im DevKit kommt `APIFType_PNGFile` nur in der Enum vor, `APIdefs_Automate.h` Z. 131, kein Beispiel nutzt es). Deshalb gibt es die Rückfallstufe und die gemeldete Tiefe, damit EIN Live-Test eindeutig ist.
+  **Restunsicherheit:** Theoretisch könnte auch PNG selbst APIERR_BADID auslösen (im DevKit kommt `APIFType_PNGFile` nur in der Enum vor, `APIdefs_Automate.h` Z. 131, kein Beispiel nutzt es). Deshalb gibt es die Rückfallstufe und die gemeldete Tiefe, damit EIN Live-Test eindeutig ist. → ausgeräumt am 13.10.: MiC lieferte bei jeder Probe ein PNG, kein Rückfall.
 * **Fix 0.9.25:** Primär gilt die Echtfarbtiefe, auf macOS `APIColorDepth_MiC` („Millions of Colors“), auf Windows `APIColorDepth_TC24` („True Color - 24 bit“), sonst `256C`. `dithered=false`, `view2D`/`crop` wie bisher. `keepSelectionHighlight` bleibt false (bewusst nicht mitgeändert, nur EINE Ursache pro Version).
 
 ### Rückfall und Antwortfeld
@@ -1702,29 +1766,51 @@ Fehlermeldungen nennen den Fenstertyp und die versuchten Tiefen mit Codes, Beisp
 
 | Antwort | Bedeutung |
 |---|---|
-| `colorDepth` `"MiC"` (Mac) bzw. `"TC24"` (Windows) und PNG-Datei | Ursache bestätigt: `FromSourceImage` war die ungültige Farbtiefe. |
+| `colorDepth` `"MiC"` (Mac) bzw. `"TC24"` (Windows) und PNG-Datei | Ursache bestätigt: `FromSourceImage` war die ungültige Farbtiefe. ← Ergebnis 13.10. (WiSchu) |
 | `colorDepth` `"256C"` und PNG-Datei | Die Echtfarbtiefe ist auf dieser Plattform ebenfalls ungültig, 256C funktioniert → Primärtiefe in einer eigenen Version korrigieren. |
 | Fehler mit „MiC … -2130313115, Rueckfall 256C … -2130313115“ (beide Versuche BADID) | Die Farbtiefe ist nicht die (alleinige) Ursache. Zwei nächste Kandidaten, jeder in einer EIGENEN späteren Version (nie zusammen): (a) Dateityp TIFF (`APIFType_TIFFFile`) genau wie im DevKit-Beispiel `Do_Save_TiffFile`; (b) die API-Datenbank passt nicht zum vorderen Fenster — CaptureView setzt die Datenbank nie, `ACAPI_Database_GetCurrentDatabase` gegen `ACAPI_Window_GetCurrentWindow` prüfen (Kandidat 1 aus `~/.scratch/elmonkey/handoff_elmonkey_captureview-badid_2026-10-13.md`). |
 | Ein anderer Code als APIERR_BADID | Meldung lesen, es wurde kein Rückfall versucht. |
 
 ### Stand
 
-Gebaut (CI), noch NICHT live verifiziert — CI-SHA im Quick-Task-SUMMARY 261013-kl1.
+**Live verifiziert 2026-10-13 (WiSchu, AC29 Build 5101, Teamwork; GetAddOnVersion 0.9.25 / Tapir 1.5.4, buildStamp „Oct 13 2026 13:11:29“ = CI `86309a4`; Backup 0.9.23 in `~/.scratch/elm-bundle-0.9.25/backup_0.9.23`)** — CI-SHA im Quick-Task-SUMMARY 261013-kl1.
 
-Das Bundle enthält gegenüber dem eingebauten 0.9.23 (CI `4e804b3`) ZWEI ungetestete Änderungen: den 0.9.24-Schemafix für sechs Befehle (`7c07600`, Fehlerantwort schemakonform) und den 0.9.25-CaptureView-Fix (`50c3d5d`). Beim Einbau die Commit-Differenz so benennen und beide Blöcke getrennt abhaken. Der Testplan für 0.9.24 steht im Abschnitt „ELM_SAB 0.9.24“ weiter oben.
+Das Bundle enthielt gegenüber dem vorher eingebauten 0.9.23 (CI `4e804b3`) ZWEI Änderungen: den 0.9.24-Schemafix für sechs Befehle (`7c07600`, Fehlerantwort schemakonform) und den 0.9.25-CaptureView-Fix (`50c3d5d`). Beide Änderungen des Bundles wurden getrennt abgehakt (0.9.24 im Abschnitt „ELM_SAB 0.9.24“ weiter oben).
 
-Workaround bis zur Live-Bestätigung: `screencapture` mit Archicad-Fenster vorn.
+Workaround `screencapture` ist nicht mehr nötig.
+
+### Live-Gegenprobe 2026-10-13 (WiSchu)
+
+Jede Probe lieferte ein PNG mit `colorDepth:"MiC"`, ein Rückfall auf `256C` war nie nötig.
+
+| Fenster | crop | Ergebnis |
+|---|---|---|
+| Grundriss 1. OG, Archicad verdeckt (Claude vorn, per System Events `unix id` belegt) | true | PNG 832×690 RGBA |
+| Grundriss, Archicad vorn | true / false | 832×690 / 4000×3317 |
+| Layout FR_00-06.1 | true / false | 832×690 / 4000×3317 → **Layout geht ab 0.9.25** |
+| 3D | true | PNG, `view2D:false` |
+| leerer `outputPath` | – | -2130313112 „CaptureView: outputPath fehlt oder ist leer“ |
+
+* **Bildinhalt gesichtet:** im Grundriss der Türstempel T.1.029, das Layout „Flucht- und Rettungswege“ farbig.
+* **These widerlegt:** Die These „CaptureView scheitert an verdeckten Grundriss-Fenstern“ (aus einer anderen Session) ist **widerlegt** (Grundriss bei verdecktem Archicad → PNG). Ursache war allein die Farbtiefe `FromSourceImage`.
+* **Rohdaten:** `gegenprobe_0925_2026-10-13.json` (Schlüssel `E_0925`) und `cap_0925_*.png` in `~/.scratch/elmonkey/gegenprobe_0923/`; Skript `~/.scratch/elmonkey/tools/gegenprobe_elm_sab_0925.py`.
+
+### Fallen beim Live-Test
+
+1. **Mehrere Archicad-Instanzen:** Es liefen zwei (WiSchu Port 19723, ein zweites Projekt Port 19724). Für „Archicad vorn“ muss bei mehreren Instanzen der richtige Prozess per `System Events … unix id` nach vorn geholt werden; `tell application "Archicad 29" to activate` ist mehrdeutig.
+2. **Modaler Dialog:** Zwischen Versions-Rücklese und Test öffnete der Nutzer „Teamwork-Projekt öffnen/beitreten“ → alle Aufrufe 4001, nichts wurde ausgeführt. Vor Testläufen `GetUIState.modalDialogOpen` unmittelbar davor prüfen.
+3. **Archicad beenden:** Ohne offenes Projekt lehnte `TapirCommand.QuitArchicad` einmal mit 4001 „no open project“ ab (vormittags ging es). `osascript`-quit meldete -128, Archicad beendete sich trotzdem nach ca. 6 s → nach -128 erst ein paar Sekunden mit `pgrep` pollen, dann entscheiden.
 
 ### Testplan Live-Gegenprobe
 
 Macht der Nutzer.
 
-1. Vorbedingung erledigt: 0.9.24-Bundles gesichert (`~/.scratch/elm-bundle-0.9.24/ci_247aa63/`). Einbau nach den Bundle-Regeln: eingebautes 0.9.23 sichern, Archicad komplett beenden (nie kill), nur EINE Instanz, 0.9.25 einsetzen. `ELM_SAB.GetAddOnVersion` meldet 0.9.25 + Build-Zeitstempel. Bei Problemen erst Rückbau auf 0.9.23.
-2. Je Probe ein NEUER Dateiname unter `~/.scratch/…` (vorher prüfen, dass er nicht existiert), weil die Rücklese nur die Existenz prüft.
-3. Grundriss vorn, `crop:true` → PNG und `{imagePath, view2D:true, colorDepth:"MiC"}`. `file <png>` zeigt ein Farbbild (RGB). Inhalt gegen ein `screencapture` desselben Fensters prüfen (gleicher Ausschnitt, gleiche Elemente), nicht nach Optik.
-4. Grundriss vorn, `crop:false` → PNG mit größerem Ausschnitt als in Schritt 3.
-5. 3D-Fenster vorn → PNG, `view2D:false`, `colorDepth` gesetzt.
-6. Layout vorn (z. B. FR_00-06.1) → PNG (dann „Layout geht ab 0.9.25“ dokumentieren) oder Fehler mit Fenstertyp „Layout“, versuchten Tiefen und Codes, kein 4009.
-7. Leerer `outputPath` → schemakonformer Fehler wie in 0.9.23 (kein 4009).
-8. Gegenprobe 0.9.24 (gleiches Bundle, getrennt von CaptureView): Testplan „ELM_SAB 0.9.24“, Schritte 2–4.
-9. Auswertung nach der Tabelle oben, Ergebnis mit Datum hier eintragen. Danach keine Auswahl oder Hervorhebung zurücklassen.
+1. Vorbedingung erledigt: 0.9.24-Bundles gesichert (`~/.scratch/elm-bundle-0.9.24/ci_247aa63/`). Einbau nach den Bundle-Regeln: eingebautes 0.9.23 sichern, Archicad komplett beenden (nie kill), nur EINE Instanz, 0.9.25 einsetzen. `ELM_SAB.GetAddOnVersion` meldet 0.9.25 + Build-Zeitstempel. Bei Problemen erst Rückbau auf 0.9.23. ✓ (Abweichung: zwei Instanzen offen, s. Fallen beim Live-Test)
+2. Je Probe ein NEUER Dateiname unter `~/.scratch/…` (vorher prüfen, dass er nicht existiert), weil die Rücklese nur die Existenz prüft. ✓
+3. Grundriss vorn, `crop:true` → PNG und `{imagePath, view2D:true, colorDepth:"MiC"}`. `file <png>` zeigt ein Farbbild (RGB). Inhalt gegen ein `screencapture` desselben Fensters prüfen (gleicher Ausschnitt, gleiche Elemente), nicht nach Optik. ✓ (832×690 RGBA, "MiC"; Inhalt gesichtet, Türstempel T.1.029; kein screencapture-Vergleich)
+4. Grundriss vorn, `crop:false` → PNG mit größerem Ausschnitt als in Schritt 3. ✓ (4000×3317)
+5. 3D-Fenster vorn → PNG, `view2D:false`, `colorDepth` gesetzt. ✓ (`view2D:false`)
+6. Layout vorn (z. B. FR_00-06.1) → PNG (dann „Layout geht ab 0.9.25“ dokumentieren) oder Fehler mit Fenstertyp „Layout“, versuchten Tiefen und Codes, kein 4009. ✓ „Layout geht ab 0.9.25“
+7. Leerer `outputPath` → schemakonformer Fehler wie in 0.9.23 (kein 4009). ✓ (-2130313112)
+8. Gegenprobe 0.9.24 (gleiches Bundle, getrennt von CaptureView): Testplan „ELM_SAB 0.9.24“, Schritte 2–4. ✓ (→ Abschnitt 0.9.24)
+9. Auswertung nach der Tabelle oben, Ergebnis mit Datum hier eintragen. Danach keine Auswahl oder Hervorhebung zurücklassen. ✓ (Auswertung Zeile 1; Auswahl am Ende 0)
