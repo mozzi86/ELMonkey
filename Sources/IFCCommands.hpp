@@ -41,3 +41,13 @@ public:
     virtual GS::Optional<GS::UniString> GetResponseSchema () const override;
     virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
 };
+
+// ELM_SAB 0.9.23 (FindElements, ifc-Blatt): IFC-Typ, -Eigenschaften und -Attribute als Text, versionsneutral.
+struct ELMIFCText {
+    GS::UniString propertySetName;   // leer bei Attributen
+    GS::UniString name;
+    GS::UniString value;
+    bool          hasValue = true;
+};
+GSErrCode ELMGetIFCData (const API_Elem_Head& head, bool wantProperties, bool wantAttributes,
+                         GS::UniString& ifcType, GS::Array<ELMIFCText>& properties, GS::Array<ELMIFCText>& attributes);

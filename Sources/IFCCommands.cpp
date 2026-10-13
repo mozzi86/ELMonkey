@@ -549,6 +549,111 @@ static GS::UniString GetPropertyValueString (const API_IFCProperty& property)
 }
 #endif
 
+// ---- ELM_SAB 0.9.23 (FindElements) -------------------------------------------------------
+// IFC-Typ, -Eigenschaften und -Attribute eines Elements als Text fuer das ifc-Blatt von
+// FindElements. Nutzt die statischen GetPropertyValueString-Varianten oben (AC27 / AC28+),
+// bestehende Befehle bleiben unveraendert. Fehler des Accessors kommen als GSErrCode zurueck.
+GSErrCode ELMGetIFCData (const API_Elem_Head& head, bool wantProperties, bool wantAttributes,
+                         GS::UniString& ifcType, GS::Array<ELMIFCText>& properties, GS::Array<ELMIFCText>& attributes)
+{
+    ifcType.Clear ();
+    properties.Clear ();
+    attributes.Clear ();
+
+#ifdef ServerMainVers_2800
+    auto accessor = IFCAPI::GetObjectAccessor ();
+    auto objectID = accessor.CreateElementObjectID (head);
+    if (objectID.IsErr ()) {
+        return objectID.UnwrapErr ().kind;
+    }
+    auto unWrappedObjectID = objectID.Unwrap ();
+    auto typeResult = accessor.GetIFCType (unWrappedObjectID);
+    if (typeResult.IsOk ()) {
+        ifcType = typeResult.Unwrap ();
+    }
+    if (!wantProperties && !wantAttributes) {
+        return NoError;
+    }
+    IFCAPI::PropertyAccessor propertyAccessor = IFCAPI::PropertyAccessor (unWrappedObjectID);
+    if (wantProperties) {
+        auto previewProperties = propertyAccessor.GetPreviewProperties ();
+        if (!previewProperties.IsErr ()) {
+            for (const auto& property : previewProperties.Unwrap ()) {
+                ELMIFCText text;
+                text.propertySetName = property.GetPropertySetName ();
+                text.name = property.GetName ();
+                text.value = GetPropertyValueString (property);
+                properties.Push (text);
+            }
+        }
+        auto localProperties = propertyAccessor.GetLocalProperties ();
+        if (!localProperties.IsErr ()) {
+            for (const auto& property : localProperties.Unwrap ()) {
+                ELMIFCText text;
+                text.propertySetName = property.GetPropertySetName ();
+                text.name = property.GetName ();
+                text.value = GetPropertyValueString (property);
+                properties.Push (text);
+            }
+        }
+    }
+    if (wantAttributes) {
+        auto ifcAttributes = propertyAccessor.GetAttributes ();
+        if (ifcAttributes.IsErr ()) {
+            return ifcAttributes.UnwrapErr ().kind;
+        }
+        for (const auto& attribute : ifcAttributes.Unwrap ()) {
+            ELMIFCText text;
+            text.name = attribute.GetName ();
+            const auto attributeValue = attribute.GetValue ();
+            text.hasValue = attributeValue.has_value ();
+            if (text.hasValue) {
+                text.value = *attributeValue;
+            }
+            attributes.Push (text);
+        }
+    }
+    return NoError;
+#else
+    GS::UniString typeObjectIFCType;
+    GSErrCode err = ACAPI_Element_GetIFCType (head.guid, &ifcType, &typeObjectIFCType);
+    if (err != NoError) {
+        return err;
+    }
+    if (wantProperties) {
+        GS::Array<API_IFCProperty> ifcProperties;
+        err = ACAPI_Element_GetIFCProperties (head.guid, false, &ifcProperties);
+        if (err != NoError) {
+            return err;
+        }
+        for (const API_IFCProperty& property : ifcProperties) {
+            ELMIFCText text;
+            text.propertySetName = property.head.propertySetName;
+            text.name = property.head.propertyName;
+            text.value = GetPropertyValueString (property);
+            properties.Push (text);
+        }
+    }
+    if (wantAttributes) {
+        GS::Array<API_IFCAttribute> ifcAttributes;
+        err = ACAPI_Element_GetIFCAttributes (head.guid, false, &ifcAttributes);
+        if (err != NoError) {
+            return err;
+        }
+        for (const API_IFCAttribute& attribute : ifcAttributes) {
+            ELMIFCText text;
+            text.name = attribute.attributeName;
+            text.hasValue = attribute.hasValue;
+            if (text.hasValue) {
+                text.value = attribute.attributeValue;
+            }
+            attributes.Push (text);
+        }
+    }
+    return NoError;
+#endif
+}
+
 GS::ObjectState GetIFCPropertiesOfElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
     GS::Array<GS::ObjectState> elements;
