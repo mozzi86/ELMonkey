@@ -95,6 +95,8 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 
 Ab 0.9.24 kommen Aufruffehler (fehlender oder ungültiger Parameter) bei `SetPenOfElements`, `SetTextSizeOfElements`, `SetStoryVisibilityOfElements`, `SetLayerOfElements`, `CreateWallOpenings` und `SetObjectParametersForce` als lesbare Fehlermeldung beim Client an statt als `4009 Invalid command response` (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitt 0.9.24).
 
+Ab 0.9.25 speichert `CaptureView` das PNG mit Echtfarbtiefe (macOS `MiC`, Windows `TC24`) statt `FromSourceImage`, der wahrscheinlichen Ursache des APIERR_BADID. Liefert Archicad trotzdem APIERR_BADID, folgt ein Rückfall auf `256C`. Die Antwort meldet die benutzte Tiefe in `colorDepth`. Noch nicht live verifiziert (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitt 0.9.25).
+
 ## Selbst bauen
 
 Der Build läuft normalerweise in der CI
