@@ -8,7 +8,7 @@ im Server. User zeichnet Schraffuren manuell in Archicad; wir arbeiten dann mit 
 weiter. Vollständige Capability-Tabelle: `../reference/mcp-conventions.md` §
 Live-verifizierte Element-Create-Capabilities.
 
-> **Anlegen geht seit ELM_SAB 0.9.26** über `ELM_SAB.Create2DElements` (eingebaut, noch NICHT live verifiziert) — siehe [Worked Example — Schraffur anlegen](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements). Die MCP-v29-Aussagen in diesem Recipe bleiben gültig.
+> **Anlegen geht seit ELM_SAB 0.9.26** über `ELM_SAB.Create2DElements` (live verifiziert 13.10. WiSchu; Löcher nicht unterstützt) — siehe [Worked Example — Schraffur anlegen](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements). Die MCP-v29-Aussagen in diesem Recipe bleiben gültig.
 
 <!-- 2026-05-21 live-verifiziert AC29 port 19723 (Ohne-Titel-Sandbox) — Tool-Namen via Discovery bestätigt; Hatch-Modifikation via MCP NICHT möglich (set_details typeSpecificDetails=WallSettings-only), siehe Abschnitt Hatch modifizieren -->
 
@@ -516,7 +516,7 @@ oder Fill-Attribute meint — häufige Verwechslung.
 
 ## Worked Example — Schraffur anlegen (ELM_SAB 0.9.26 Create2DElements)
 
-<!-- 2026-10-13 eingebaut in ELM_SAB 0.9.26, noch NICHT live verifiziert — Abnahme nach Spec 8 offen. Werte unten sind Sollwerte, keine Befunde. -->
+<!-- 2026-10-13 ELM_SAB 0.9.26 live verifiziert (WiSchu): 1 × 1 m → area 1 / perimeter 4, alle Matches true. Füllungsnamen sind projektabhängig — „Vollfüllung“ gibt es nicht überall (WiSchu: „Nur Vordergrund-Stift“). Schraffuren mit Loch: nur Außenkontur übergeben (0.9.27 meldet sonst klar, 0.9.26 APIERR_IRREGULARPOLY). -->
 
 Nicht über den MCP-Server (der kann keine Schraffuren anlegen), sondern über das ELM_SAB-Add-On per `API.ExecuteAddOnCommand`. Hintergrund und alle Felder: `../reference/mcp-extension.md`, Abschnitt „ELM_SAB 0.9.26“.
 
