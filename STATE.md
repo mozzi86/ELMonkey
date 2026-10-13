@@ -72,6 +72,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | — | — | — | — |
+| 2026-10-13 | 261013-q27 | ELM_SAB 0.9.27 nach Live-Abnahme 0.9.26 (WiSchu: 6 Typen ok, Fläche/Umfang exakt, Rundweg punktgenau, Fehler je Element lesbar): Circle-Rücklese akzeptiert Arc+whole; Hatch mit Loch → klare Meldung statt APIERR_IRREGULARPOLY; Get2DGeometryOfElements liefert subPolyEnds. Noch nicht eingebaut |
 
 **Recent Trend:**
 
