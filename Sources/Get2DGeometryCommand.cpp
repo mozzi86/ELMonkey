@@ -300,6 +300,43 @@ GS::ObjectState Get2DGeometryCommand::Execute (const GS::ObjectState& parameters
                 ACAPI_DisposeElemMemoHdls (&memo);
                 break;
             }
+            case API_SplineID: {
+                // 0.9.26: eigener Zweig statt ShapePrims - Ausgabe ist Eingabe fuer Create2DElements.
+                geo.Add ("elementType", "Spline");
+                geo.Add ("ltypeIndex", (Int32) element.spline.ltypeInd.ToInt32_Deprecated ());
+                geo.Add ("penIndex", (Int32) element.spline.linePen.penIndex);
+                geo.Add ("closed", element.spline.closed);
+                geo.Add ("autoSmooth", element.spline.autoSmooth);
+                API_ElementMemo memo = {};
+                err = ACAPI_Element_GetMemo (element.header.guid, &memo, APIMemoMask_Polygon);
+                if (err != NoError || memo.coords == nullptr) {
+                    ACAPI_DisposeElemMemoHdls (&memo);
+                    geometryOfElements (CreateFailedExecutionResult (err, "Spline-Memo nicht lesbar"));
+                    continue;
+                }
+                // API_SplineType hat KEIN nCoords: Punktzahl aus der Handle-Groesse.
+                // HARTE FALLE: Spline-coords sind 0-BASIERT ("the coordinate with index 0 is also used").
+                const GSSize n = BMhGetSize (reinterpret_cast<GSHandle> (memo.coords)) / (GSSize) sizeof (API_Coord);
+                const auto& coords = geo.AddList<GS::ObjectState> ("coordinates");
+                for (GSSize i = 0; i < n; ++i)
+                    coords (CoordOS ((*memo.coords)[i].x, (*memo.coords)[i].y));
+                if (memo.bezierDirs != nullptr) {
+                    const GSSize nDirs = BMhGetSize (reinterpret_cast<GSHandle> (memo.bezierDirs)) / (GSSize) sizeof (API_SplineDir);
+                    // Nur bei passender Laenge ausgeben - sonst scheitert der Rundweg an der Laengenpruefung.
+                    if (nDirs == n) {
+                        const auto& dirs = geo.AddList<GS::ObjectState> ("bezierDirs");
+                        for (GSSize i = 0; i < nDirs; ++i) {
+                            GS::ObjectState d;
+                            d.Add ("lenPrev", (*memo.bezierDirs)[i].lenPrev);
+                            d.Add ("lenNext", (*memo.bezierDirs)[i].lenNext);
+                            d.Add ("dirAng", (*memo.bezierDirs)[i].dirAng);
+                            dirs (d);
+                        }
+                    }
+                }
+                ACAPI_DisposeElemMemoHdls (&memo);
+                break;
+            }
             default: {
                 // 0.9.19: ShapePrims-Fallback (Zeichenprimitive wie im Grundriss).
                 ElmGeoPrimCtx ctx;

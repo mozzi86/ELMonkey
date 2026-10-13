@@ -8,6 +8,8 @@
 // wie im Grundriss (source: "shapePrims"). Anlass: Tuer-Aufschlag/Anschlagseite ist per
 // Elementfeld nicht pruefbar, wohl aber am Aufschlagbogen. Line/Arc/Circle/PolyLine/Hatch
 // bleiben unveraendert.
+//
+// 0.9.26: Spline ueber eigenen Zweig (coordinates 0-basiert, bezierDirs, closed, autoSmooth) statt ShapePrims
 #pragma once
 
 #include "ELMCommandBase.hpp"

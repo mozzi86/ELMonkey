@@ -973,7 +973,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<Get2DGeometryCommand> (
             elmSabCommands, "0.9.0",
-            "ELM_SAB: Liefert 2D-Geometrie von Line/Arc/Circle/PolyLine/Hatch. 0.9.19: alle uebrigen Typen ueber ShapePrims (Zeichenprimitive wie im Grundriss)."
+            "ELM_SAB: Liefert 2D-Geometrie von Line/Arc/Circle/PolyLine/Spline/Hatch. 0.9.19: alle uebrigen Typen ueber ShapePrims (Zeichenprimitive wie im Grundriss). 0.9.26: Spline (coordinates, bezierDirs, closed, autoSmooth) - Ausgabe ist Eingabe fuer Create2DElements."
         );
         err |= RegisterCommand<GetTextsCommand> (
             elmSabCommands, "0.9.0",
