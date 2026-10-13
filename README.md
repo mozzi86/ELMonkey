@@ -79,7 +79,8 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 | Befehl | Wofür |
 |---|---|
 | `GetPenOfElements` / `SetPenOfElements` | Stifte lesen und setzen, inklusive der RGB-Overrides, die DWG-Importe direkt ins Element brennen. Weder Tapir noch die offizielle API können das. |
-| `Get2DGeometryOfElements` | Linien, Bögen, Kreise, Polylinien und Schraffur-Polygone auslesen; funktioniert über Datenbankgrenzen hinweg. Antwortfeld heißt `geometryOfElements`. Ab 0.9.19 liefern alle übrigen Typen (Tür, Fenster, Objekt, Lampe, Etikett …) per ShapePrims-Fallback `primitives[]` (Zeichenprimitive wie im Grundriss, `source: "shapePrims"`), z. B. den Türaufschlag als `arc`. |
+| `Get2DGeometryOfElements` | Linien, Bögen, Kreise, Polylinien und Schraffur-Polygone auslesen; funktioniert über Datenbankgrenzen hinweg. Antwortfeld heißt `geometryOfElements`. Ab 0.9.19 liefern alle übrigen Typen (Tür, Fenster, Objekt, Lampe, Etikett …) per ShapePrims-Fallback `primitives[]` (Zeichenprimitive wie im Grundriss, `source: "shapePrims"`), z. B. den Türaufschlag als `arc`. Ab 0.9.26 auch Splines (`coordinates` 0-basiert, `bezierDirs`, `closed`, `autoSmooth`). |
+| `Create2DElements` | Legt Linie, Bogen, Kreis, Polylinie, Spline und Schraffur in der aktiven Grundriss-Datenbank an. Die Ausgabe von `Get2DGeometryOfElements` kann 1:1 zurückgegeben werden. Fehler je Element (gültige Elemente im selben Aufruf werden trotzdem angelegt), ein Undo-Schritt, Rücklese je Element (Geschoss, Ebene, Koordinaten, Länge bzw. Fläche/Umfang). Schraffur-RGB-Flags werden ohne Angabe gelöscht, damit kein Werkzeug-Override durchrutscht. Ab 0.9.26, noch nicht live verifiziert. |
 | `GetTextsOfElements` / `SetTextsOfElements` | Textinhalte von Texten und Etiketten lesen und schreiben. Zeilentrenner ist `\r`, nicht `\n`. |
 | `SetTextSizeOfElements` | Schriftgröße von Text und Etikett, in mm oder als Faktor. |
 | `SetAddParsOfElements` | GDL-Parameter über das AddPars-Memo — für Objekte, Lampen, Etiketten und Zonen. Bei Etiketten zwingend statt Tapirs `SetGDLParametersOfElements`, das dort abstürzt. |
@@ -96,6 +97,8 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 Ab 0.9.24 kommen Aufruffehler (fehlender oder ungültiger Parameter) bei `SetPenOfElements`, `SetTextSizeOfElements`, `SetStoryVisibilityOfElements`, `SetLayerOfElements`, `CreateWallOpenings` und `SetObjectParametersForce` als lesbare Fehlermeldung beim Client an statt als `4009 Invalid command response` (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitt 0.9.24).
 
 Ab 0.9.25 speichert `CaptureView` das PNG mit Echtfarbtiefe (macOS `MiC`, Windows `TC24`) statt `FromSourceImage`, der wahrscheinlichen Ursache des APIERR_BADID. Liefert Archicad trotzdem APIERR_BADID, folgt ein Rückfall auf `256C`. Die Antwort meldet die benutzte Tiefe in `colorDepth`. Noch nicht live verifiziert (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitt 0.9.25).
+
+Ab 0.9.26 legt `Create2DElements` 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch), als Schreib-Gegenstück zu `Get2DGeometryOfElements`, der dafür einen eigenen Spline-Zweig bekommt. Anlass sind die farbigen Füllflächen im Flucht- und Rettungswegeplan WiSchu, denn Tapir kann nur Polylinien anlegen. Eingebaut, aber noch NICHT live verifiziert (Abnahme nach Spec 8 offen; Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitt 0.9.26).
 
 ## Selbst bauen
 
