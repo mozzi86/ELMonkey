@@ -1426,3 +1426,156 @@ KI-gestempelte Testsymbole.
 3. Composite-Wand liefert `compositeId`, kein `buildingMaterialId`.
 
 (Nur Lesebefehle, kein Schreiben ins Modell.)
+
+## ELM_SAB 0.9.23 — FindElements: Suche mit und/oder/nicht <!-- 2026-10-13 -->
+
+* **Anlass:** WiSchu-Türenabgleich 13.10. — Tapir `GetElementsByType`/`GetAllElements` lesen die Datenbank des AKTIVEN Fensters: mit einem Layout vorn kamen 0 Türen statt 267. „Türen mit T.-Nummer, nicht Abbruch, je Geschoss" brauchte 4 Aufrufe + Python. Vorbild ist „Suchen & aktivieren": Kriterien beliebig tief mit und/oder/nicht, EIN Aufruf.
+* **Das Bundle 0.9.23 enthält ZWEI Änderungen:** `FindElements` (neu) und den `CaptureView`-Fix (Unterabschnitt unten). Beide getrennt testen.
+* **Aufruf:** über `API.ExecuteAddOnCommand` mit `addOnCommandId` `{"commandNamespace":"ELM_SAB","commandName":"FindElements"}` (Regel (1) im Abschnitt „Antwortfelder + Namespaces: was wo liegt").
+* **Grundsätze:** ausgewertet wird IMMER die Grundriss-Datenbank (alle Geschosse), nie das aktive Fenster; `startDatabaseType` meldet, was beim Aufruf vorn war. Nur lesen (keine Modelländerung, keine Undo-Klammer); `select:true` ändert nur die Auswahl. Kein stiller Nullbefund: unbekannte Schlüssel, Kriterien, Operatoren, Eigenschaften, Klassifizierungen, Ebenen, Geschosse, Design-Optionen = Fehler mit Pfad und Namen (`where.and[2].not.property: ...`); `criteriaStats` zeigt je Knoten, wo Treffer verloren gehen.
+
+### Beispiele
+
+(a) Türen auf Geschoss 2, nicht Abbruch, mit T.-Nummer:
+
+```json
+{"where": {"and": [
+    {"type": "Door"},
+    {"story": {"index": 2}},
+    {"not": {"property": "Umbau-Status", "op": "=", "value": "ToBeDemolished"}},
+    {"property": "Element ID", "op": "startsWith", "value": "T.2."}
+  ]},
+ "return": ["Element ID", "Umbau-Status", "Ebenenname"]}
+```
+
+(b) Türenabgleich in EINEM Aufruf — alle Türen aller Geschosse mit Werten, Gruppierung je `floorIndex`/`values` danach in Python:
+
+```json
+{"where": {"type": "Door"}, "return": ["Element ID", "Umbau-Status"]}
+```
+
+(c) Nur zählen, Suchbereich wie im 3D-Fenster:
+
+```json
+{"scope": "wie3D", "countOnly": true}
+```
+
+(d) `or` + Klassifizierung (Eintrag samt Unterpositionen ODER im System unklassifiziert):
+
+```json
+{"where": {"or": [
+    {"classification": {"system": "…", "code": "…"}, "includeChildren": true},
+    {"classification": {"system": "…"}, "unclassified": true}
+  ]}}
+```
+
+(e) Beziehung — Türen in Wänden auf Ebenen `A_Wand*`:
+
+```json
+{"where": {"and": [{"type": "Door"}, {"hostedBy": {"layer": {"pattern": "A_Wand*"}}}]}}
+```
+
+### Parameter
+
+`where` (Kriterienbaum; fehlt er, ist jedes Element des Suchbereichs ein Treffer) · `scope` · `return` · `countOnly` · `limit` (Vorgabe 20000, 1…200000; `matchCount` zählt immer alle) · `select` · `databases` (optional `[{databaseId:{guid}}]` statt Grundriss; Elemente der jeweiligen Datenbank so, wie `GetElemList` sie liefert; nicht zusammen mit `select`). Unbekannte Parameter = Fehler.
+
+### Blatt-Referenz
+
+Knoten = Objekt mit GENAU einem Kriteriums-Schlüssel (+ erlaubte Geschwister). Leeres Objekt, zwei Kriterien in einem Knoten oder unbekannter Schlüssel = Fehler mit Pfad und Liste.
+
+| Schlüssel | Form | Geschwister | Kosten |
+|---|---|---|---|
+| `and` / `or` | nicht-leeres Array von Knoten | – | max(Kinder) |
+| `not` | Knoten | – | Kind |
+| `type` | `"Door"` oder `["Door","Window"]` (Tapir-Typnamen, Groß/Klein zählt — der Fehler schlägt die richtige Schreibung vor) | – | 0 |
+| `story` | Zahl (Index) · `"EG"` (Name) · `{index}` · `{indices:[…]}` · `{name}` · `{names:[…]}` · `{from, to}` (inkl.) | – | 0 |
+| `layer` | `"Name"` (exakt) · Objekt mit beliebig vielen von `{name, names, pattern, visible, locked, inCombination}` (UND); `inCombination` = Ebene ist in dieser Ebenen-Kombination sichtbar; `pattern` ohne Treffer = Eintrag in `warnings` | – | 0 |
+| `flags` | `"IsVisibleIn3D"` oder Liste der 12 Tapir-Flags (UND); `IncludeSubElemObjects` = Fehler | – | 1 |
+| `guids` | Liste aus `"GUID"` · `{guid}` · `{elementId:{guid}}` | – | 0 |
+| `inSelection` | `true`/`false` (Auswahl beim Aufruf, im Ausgangsfenster gelesen) | – | 0 |
+| `teamwork` | `"frei"`/`"vonMir"`/`"vonAnderen"` (auch `free`/`mine`/`others`); kein Teamwork-Projekt = Fehler | – | 0 |
+| `property` | `"Name"` · `"Gruppe/Name"` · `"GUID"` · `{guid}` · `{group, name}` | `op`, `value`, `caseSensitive` | 3 |
+| `classification` | `{system, code \| name \| item(GUID), includeChildren, unclassified, version}` | `includeChildren`, `unclassified` | 2 |
+| `libPart` | `"Name"` (exakt, ohne Groß/Klein) · `{name}` · `{pattern}` | – | 2 |
+| `gdl` | `"paramName"` | `op`, `value`, `caseSensitive` | 3 |
+| `ifc` | `{type: "IfcDoor" \| [...]}` · `{pset?, property}` · `{attribute}` | `op`, `value`, `caseSensitive` (nicht bei `type`) | 3 |
+| `hostedBy` / `hosts` / `inZone` | Knoten (Unterbaum) | – | max(2, Kind) |
+| `bbox` | `{min:{x,y[,z]}, max:{x,y[,z]}, mode: "intersects"\|"inside"}` | – | 2 |
+| `near` | `{point:{x,y[,z]}, radius}` (m, Abstand Punkt↔Bounding-Box) | – | 2 |
+| `designOption` | `"Name"` · `{name \| id \| guid, set?}` · `{mainModel:true}` (nur AC29) | – | 2 |
+
+**Operatoren (`op`):** `=`/`==`, `≠`/`!=`, `contains`, `startsWith`, `endsWith`, `regex` (ECMAScript, beim Parsen kompiliert), `<`, `≤`/`<=`, `>`, `≥`/`>=`, `between` (`value:[a,b]`, inklusive), `in` (`value:[…]`), `hasValue`, `isEmpty`. Ohne `op`: mit `value` gilt `=`, ohne `value` gilt `hasValue`. Unbekannter Operator, fehlender oder falsch getypter `value` = Fehler. Bei `property` prüft der Parser den Definitionstyp: Zahl-Operatoren nur für Zahlen, Text-Operatoren für Text/Aufzählung, Wahrheitswerte nur `=`/`!=`/`hasValue`/`isEmpty`.
+
+**Semantik:**
+* Günstige Blätter laufen zuerst (Kosten-Sortierung, bei Gleichstand Reihenfolge des Aufrufs); `and` bricht bei leerer Menge ab, `or` prüft jedes weitere Kind nur auf die noch offenen Elemente.
+* Wert nicht verfügbar (Eigenschaft gilt für den Typ nicht, kein Bibliotheksteil, kein Wirt …) → Blatt false, Zähler `notAvailable`. **`not` über ein Wert-Blatt schließt deshalb Elemente OHNE die Eigenschaft ein** — mit `type` im selben `and` kombinieren.
+* Undefiniert/leer: `=` false, `!=` true, `isEmpty` true, `hasValue` false.
+* Aufzählungen passen auf `nonLocalizedValue` ODER den Anzeige-String (`"ToBeDemolished"` und `"Abbruch"` liefern dieselbe Menge); Mehrfachauswahl/Listen: irgendein Eintrag passt, `!=` = keiner gleich.
+* Text ohne Groß/Klein (Vorgabe), `caseSensitive:true` schaltet um. Zahlen in API-Einheiten (Länge m, Fläche m², Volumen m³), Gleichheit mit Toleranz 1e-6; GDL-Winkel wie GDL (Grad); Property-Winkel in API-Einheit (Gegenprobe).
+* Eigenschaften werden je Element GEBÜNDELT gelesen (ein Aufruf mit allen im Baum + `return` benötigten Eigenschaften, gecacht); GDL-Memo einmal je Element für alle `gdl`-Blätter.
+* `hostedBy`: Wirt von Tür/Fenster/Dachfenster (owner) und Öffnung (Rückwärtskarte Wand/Decke/Dach/Schale/Balken/Stütze); `hosts`: nur diese Wirt-Typen (Türen, Fenster, Dachfenster, Öffnungen). Andere Typen = `notAvailable`.
+* `inZone`: alle Zonen (unabhängig vom `scope`) → Unterbaum → Elemente der passenden Zonen (Raumbeziehung inkl. Wand-/Balken-/Fassadenteile).
+* `ifc`: Elemente ohne IFC-Daten = `notAvailable` + Eintrag in `warnings` (erster Fehlercode); nur „IFC-Modul nicht installiert" bricht ab. `typeMismatch` zählt Werte, die nicht typgerecht vergleichbar waren (z. B. Zahl-Operator auf Text-Parameter).
+
+### Antwortfelder
+
+`database` (`"FloorPlan"` bzw. `"databases"`), `startDatabaseType`, `scope`, `scopeCount`, `matchCount`, `returnedCount`, `truncated`, `elements[{elementId, type, floorIndex, storyName, layerName, values}]` (fehlt bei `countOnly`), `returnColumns[{requested, propertyId, group, name}]`, `criteriaStats[{path, criterion, checked, matched, evaluated, notAvailable?, typeMismatch?}]` (alle Knoten in Pre-Order), `selection{requested, changed, selected, notSelectedCount, notSelected[≤500], extraSelectedCount, selectErr?}`, `warnings`, `perDatabase` (nur mit `databases`), `elapsedMs`. `values[]` in `return`-Reihenfolge: `{value, display}` (Aufzählung: `value` = nonLocalizedValue) bzw. `{status:"notAvailable"}` / `{status:"undefined", display}`.
+Zum Weitergeben an andere Befehle nur `{elementId}` übernehmen.
+
+### Suchbereich `scope`
+
+| scope | Filter | WiSchu 13.10. (Grundriss vorn) |
+|---|---|---|
+| `projekt` (Vorgabe) | keiner — alle Geschosse, auch ausgeblendete Ebenen | 19.873 |
+| `sichtbar` | OnVisLayer (inkl. 2D) | 19.503 |
+| `wie3D` | OnVisLayer + In3D (ohne 2D) — was „Suchen & aktivieren" im 3D findet | 10.210 |
+| `aktuellesGeschoss` | OnActFloor | 6.547 |
+
+Die Zahlen ändern sich mit dem Modell → vor einem Vergleich die Referenz mit Tapir `GetAllElements` + gleichen Flags bei Grundriss vorn ziehen.
+
+### Fallen
+
+* **Aktive Datenbank:** Tapir liest das vordere Fenster, FindElements nie; `startDatabaseType` zeigt, was vorn war.
+* **Teamwork:** Tapir-Flag `IsEditable` = nur von MIR reserviert → WiSchu Door + OnActualFloor 84, + IsEditable 0. Für „frei/von mir/von anderen" das Blatt `teamwork` nehmen.
+* Tapir-Flags kennen kein NICHT und kein ODER — hier per `not`/`or`. `IncludeSubElemObjects` ist kein Filter.
+* **Mehrdeutige Eigenschaftsnamen** (WiSchu: „Brüstungshöhe" 4×) → Fehler mit Kandidaten; GUID oder „Gruppe/Name" angeben. „/" steckt auch in Gruppen- und Eigenschaftsnamen („Balken / Träger") — jede „/"-Position wird probiert.
+* **`select` ersetzt die Auswahl** — danach selbst aufheben (keine Auswahl zurücklassen). Bei 0 Treffern bleibt die Auswahl unverändert.
+* Laufzeit wächst mit teuren Blättern (`property`/`gdl`/`ifc` je Element) → günstige Blätter (`type`, `story`, `layer`) in dasselbe `and`; `elapsedMs` notieren (MCP-Zeitgrenze 600 s).
+
+### Nicht verfügbar
+
+* `RunCriteriaSet` — gespeicherte Kriterien-Sets aus „Suchen & aktivieren" sind per API nicht erreichbar (DevKit 29.3100 geprüft: nur `ACAPI_Selection_*`, `ACAPI_Element_SearchElementByCoord`, `ACAPI_LibraryPart_Search`).
+* `designOption` nur in Archicad 29; AC27/28 → Fehler „Kriterium designOption in Archicad NN nicht verfügbar".
+
+### CaptureView: Fehlerantwort schemakonform, Layout-Verhalten
+
+* **Befund (WiSchu 13.10., Layout „FR_00-06.1", `crop` true und false):** `4009 Invalid command response … 'additionalProperties' … '#/error'`, kein PNG. Ursache: das Antwortschema (`additionalProperties:false`, `required:[imagePath, view2D]`) ließ die Fehlerform `{error:{code,message}}` nicht zu — jede Fehlermeldung wurde von Archicad als ungültige Antwort verschluckt.
+* **Änderung 0.9.23:** Antwortschema `oneOf` Erfolg | Fehler; jede Meldung nennt den Fenstertyp und den echten Archicad-Code (Text + `code`-Feld). Layout/MasterLayout: Export wird versucht, sonst „PNG-Export per API nicht möglich (Fehler N) - Zeichnung/Grundriss öffnen oder Layout als PDF publizieren". Keine Typsperre — Grundriss, 3D, Schnitt, Detail … wie bisher. Erfolgsantwort unverändert `{imagePath, view2D}`.
+* **Allgemeine Lehre:** ein ELM-Antwortschema mit `required`/`additionalProperties:false` ohne Fehlerzweig verschluckt JEDE Fehlermeldung (Client sieht nur 4009) → neue Befehle über `ELMResponseSchemaWithError` (ELMCommandBase.hpp) deklarieren, Fehler über `CreateErrorResponseELM` (Umlaut-sicher).
+* **Offener Punkt (nicht gefixt):** dieselbe Lücke haben noch — Antwortschema mit `required`, ohne Fehlerzweig, mit `return CreateErrorResponse` auf oberster Ebene:
+  `CreateWallOpenings` (CreateWallOpeningsCommand.cpp Z. 584/587 — leere openings, AC27/28-Sperre), `SetLayerOfElements` (SetLayerCommand.cpp Z. 102/105), `SetObjectParametersForce` (SetObjectParametersForceCommand.cpp Z. 326), `SetPenOfElements` (SetPenOfElementsCommand.cpp Z. 244), `SetStoryVisibilityOfElements` (StoryVisibilityCommands.cpp Z. 132/141), `SetTextSize` (SetTextSizeCommand.cpp Z. 64). Prüfwerkzeug: `python3 -I ~/.scratch/elmonkey/tools/elm_schema_scan.py <ELM_SAB_Tapir/Sources>` (Kandidat = `errorAllowed=False` und `topLevelErrorReturns>0`).
+
+### Stand
+
+Gebaut (CI), noch NICHT live verifiziert — der grüne CI-SHA steht im Quick-Task-SUMMARY 261013-fel.
+
+### Testplan Einbau + Gegenprobe
+
+Macht der Orchestrator mit Mudi. Das Bundle enthält ZWEI Änderungen (FindElements neu + CaptureView-Fix) → beide Blöcke getrennt abhaken.
+
+**Einbau**
+1. Bundle-Regeln: 0.9.22-Bundle sichern, Archicad komplett beenden (nie kill), nur EINE Instanz, 0.9.23 einsetzen, starten; `ELM_SAB.GetAddOnVersion` meldet 0.9.23 + Build-Zeitstempel. Nie zwei Dinge gleichzeitig ändern; bei Problemen erst Rückbau auf 0.9.22.
+
+**FindElements**
+2. `scope`-Zahlen mit `countOnly` (ohne `where`) gegen die Tabelle bzw. die Tapir-Referenz.
+3. Dasselbe mit Layout-Fenster vorn: `projekt`-Zahl unverändert, `startDatabaseType` `"Layout"`.
+4. Türenabgleich: EIN FindElements-Aufruf (Beispiel b) gegen `modell_abgleich.py` (`/Users/ap/.scratch/wischu-freising/tools/`, native `GetElementsByType` Door + Properties B1B54D45-C951-42C9-9AF8-898F0BF212AB / 9CF14061-6E9C-45BE-BD8F-D3BCF59D218E): 267 Türen, gleiche Mengen je Geschoss (`floorIndex`) und je Umbau-Status.
+5. Beispiel (a) gegen denselben Python-Filter (floor 2, umbau ≠ ToBeDemolished, id beginnt mit „T.2."); `"value":"Abbruch"` liefert dieselbe Menge wie `"ToBeDemolished"`.
+6. Unbekannte Eigenschaft („Umbaustatus") → Fehler mit Namen; „Brüstungshöhe" → Mehrdeutigkeitsfehler mit 4 Kandidaten.
+7. `select:true` über alle Türen aller Geschosse → `selection`-Rücklese ansehen (werden fremde Geschosse ausgewählt?), danach Auswahl aufheben.
+8. `criteriaStats` plausibel (`type`-Blatt matched 267), `elapsedMs` notieren.
+
+**CaptureView**
+9. Layout aktiv (z. B. FR_00-06.1), `crop` true und false → klare Fehlermeldung mit Fenstertyp „Layout" und Archicad-Code statt 4009 (oder, falls Archicad den Layout-Export doch kann, ein PNG — dann als „Layout geht" dokumentieren).
+10. Grundriss aktiv → PNG wie bisher, Antwort `{imagePath, view2D:true}`; 3D-Fenster → `view2D:false`.
+11. Leerer `outputPath` → schemakonforme Fehlermeldung (kein 4009).
