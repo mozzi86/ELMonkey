@@ -71,13 +71,14 @@ template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
 {
     GS::Owner<CommandType> command = GS::NewOwned<CommandType> ();
-    group.commands.push_back (CommandInfo (
+    CommandInfo info (
         command->GetName (),
         description,
         version,
         command->GetInputParametersSchema (),
-        command->GetResponseSchema ())
-    );
+        command->GetResponseSchema ());
+    info.nameSpace = GS::UniString (command->GetNamespace ().ToCStr ());   // ELMonkey 0.9.30
+    group.commands.push_back (info);
 
     GSErrCode err = ACAPI_AddOnAddOnCommunication_InstallAddOnCommandHandler (command.Pass ());
     if (err != NoError) {
@@ -117,11 +118,17 @@ static GSErrCode MenuCommandHandler (const API_MenuParams* menuParams)
                 case ID_ADDON_MENU_UPDATE:
                     {
                         if (!VersionChecker::IsUsingLatestVersion ()) {
-                            TapirPalette::Instance ().UpdateAddOn ();
+                            // ELMonkey 0.9.30: kein Selbst-Update (wuerde Archicad-Add-On im laufenden
+                            // Betrieb tauschen) - Hinweis mit Download-Adresse, Installation per Installer.
+                            DGAlert (DG_INFORMATION,
+                                GS::UniString ("ELMonkey-Update verfuegbar"),
+                                GS::UniString ("Installiert: ") + GS::UniString (ELM_SAB_VERSION) + GS::UniString ("  -  Neu: ") + VersionChecker::LatestVersion (),
+                                GS::UniString ("Archicad beenden und den ELMonkey-Installer ausfuehren (Releases: github.com/mozzi86/-archicad). Direktdownload: ") + VersionChecker::LatestVersionDownloadUrl (),
+                                GS::UniString ("OK"));
                         } else {
                             DGAlert (DG_INFORMATION,
                                 RSGetIndString (ID_AUTOUPDATE_STRINGS, ID_AUTOUPDATE_LATESTVERSION_ALERT_TITLE, ACAPI_GetOwnResModule ()),
-                                GS::UniString::Printf (RSGetIndString (ID_AUTOUPDATE_STRINGS, ID_AUTOUPDATE_LATESTVERSION_ALERT_TEXT, ACAPI_GetOwnResModule ()), ADDON_VERSION),
+                                GS::UniString::Printf (RSGetIndString (ID_AUTOUPDATE_STRINGS, ID_AUTOUPDATE_LATESTVERSION_ALERT_TEXT, ACAPI_GetOwnResModule ()), ELM_SAB_VERSION),
                                 GS::EmptyUniString,
                                 RSGetIndString (ID_AUTOUPDATE_STRINGS, ID_AUTOUPDATE_LATESTVERSION_ALERT_BUTTON, ACAPI_GetOwnResModule ()));
                         }
@@ -1095,6 +1102,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<GetInteriorElevationsELMCommand> (
             elmSabCommands, "0.9.29",
             "ELM_SAB: Listet Innenansichten mit vertikalem Bereich (gemeinsam und je Segment)."
+        );
+        err |= RegisterCommand<ListCommandsELMCommand> (
+            elmSabCommands, "0.9.30",
+            "ELM_SAB: Listet alle registrierten Befehle (TapirCommand und ELM_SAB) mit Gruppe, Version, Beschreibung und Eingabeschema - Katalog fuer den ELMonkey-MCP-Server."
         );
         err |= RegisterCommand<SetInteriorElevationVerticalRangeELMCommand> (
             elmSabCommands, "0.9.29",

@@ -37,12 +37,13 @@
 /* [  8] */ "OK"
 }
 
-'GDLG' ID_ABOUT_DIALOG Modal     40   40  200  262  "ELMonkey SAB" {
-/* [  1] */ Button                     10  229  180   23    LargePlain "OK"
+'GDLG' ID_ABOUT_DIALOG Modal     40   40  200  292  "ELMonkey SAB" {
+/* [  1] */ Button                     10  259  180   23    LargePlain "OK"
 /* [  2] */ Icon                       36   10  128  128    ID_TAPIR_LOGO
 /* [  3] */ CenterText                 10  148  180   23    LargeBold vCenter "ELMonkey SAB"
 /* [  4] */ CenterText                 10  171  180   23    LargePlain vCenter "ELM_SAB %T · Tapir %T · Port %T"
 /* [  5] */ CenterText                 10  196  180   23    SmallPlain vCenter "Special thanks to the Tapir creators (ENZYME-APD, MIT)"
+/* [  6] */ Button                     10  229  180   23    LargePlain "Nach Updates suchen"
 }
 
 'DLGH' ID_ABOUT_DIALOG Tapir_About_Dialog {

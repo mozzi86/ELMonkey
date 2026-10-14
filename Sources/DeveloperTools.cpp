@@ -142,3 +142,42 @@ GS::ObjectState GenerateDocumentationCommand::Execute (const GS::ObjectState& pa
     }
     return CreateSuccessfulExecutionResult ();
 }
+
+// ---- ELMonkey 0.9.30: ListCommands -------------------------------------------------------
+
+GS::Optional<GS::UniString> ListCommandsELMCommand::GetInputParametersSchema () const
+{
+    return R"({
+        "type": "object",
+        "properties": {
+            "withSchemas": { "type": "boolean", "description": "Eingabeschema je Befehl mitliefern (Standard true)." }
+        },
+        "additionalProperties": false
+    })";
+}
+
+GS::ObjectState ListCommandsELMCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+    bool withSchemas = true;
+    parameters.Get ("withSchemas", withSchemas);
+
+    GS::ObjectState response;
+    const auto& list = response.AddList<GS::ObjectState> ("commands");
+    Int32 count = 0;
+    for (const CommandGroup& group : gCommandGroups) {
+        for (const CommandInfo& command : group.commands) {
+            GS::ObjectState c;
+            c.Add ("namespace", command.nameSpace.IsEmpty () ? GS::UniString ("TapirCommand") : command.nameSpace);
+            c.Add ("name", command.name);
+            c.Add ("group", group.name);
+            c.Add ("version", command.version);
+            c.Add ("description", command.description);
+            if (withSchemas && command.inputScheme.HasValue ())
+                c.Add ("inputSchema", command.inputScheme.Get ());
+            list (c);
+            ++count;
+        }
+    }
+    response.Add ("count", count);
+    return response;
+}
