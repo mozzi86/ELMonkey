@@ -1,110 +1,96 @@
-# Initial-Setup — MCP-Server + Tapir installieren
+# Initial-Setup — ELMonkey + MCP-Server installieren
 
-Einmalige Installation, damit Claude mit Archicad sprechen kann. Ohne diese drei Bausteine läuft **kein einziges Rezept** dieses Skills. Zielgruppe: Kollege richtet den Skill auf einem neuen Rechner ein.
+<!-- 2026-10-14: umgestellt auf ELMonkey (Tapir ist eingebaut) + eigenen MCP-Server elmonkey-mcp.
+     Vanilla-Tapir und tapir-archicad-mcp werden NICHT mehr installiert. Live-Stand siehe Fußzeile. -->
 
-<!-- live-verifiziert 2026-07-10: macOS, Archicad 29, Tapir 1.5.3, tapir-archicad-mcp 0.3.2 (multiconn_archicad 0.5.1) -->
+Einmalige Einrichtung für einen neuen Rechner oder Kollegen. Drei Bausteine:
 
-## Inhaltsverzeichnis
-
-1. [Die drei Bausteine](#die-drei-bausteine)
-2. [Schritt 1 — Tapir-Add-On in Archicad installieren](#schritt-1--tapir-add-on-in-archicad-installieren)
-3. [Schritt 2 — MCP-Server installieren (uv)](#schritt-2--mcp-server-installieren-uv)
-4. [Schritt 3 — MCP-Server bei Claude registrieren](#schritt-3--mcp-server-bei-claude-registrieren)
-5. [Schritt 4 — Smoke-Test](#schritt-4--smoke-test)
-6. [Troubleshooting](#troubleshooting)
-
-## Die drei Bausteine
-
-| Baustein | Was es ist | Woher |
+| Baustein | Was | Woher |
 |---|---|---|
-| **Archicad JSON-API** | HTTP-Schnittstelle, die Archicad selbst mitbringt. Lauscht pro Instanz auf `localhost:19723`, jede weitere Instanz bekommt den nächsten Port (19724, …). | Eingebaut, nichts zu installieren. |
-| **Tapir-Add-On** | Archicad-Add-On, das die JSON-API um die `TapirCommand`-Familie erweitert (GetProjectInfo, CreateWalls, Klassifizierung, …). Ohne Tapir kann die JSON-API fast nichts Praktisches. | [github.com/ENZYME-APD/tapir-archicad-automation](https://github.com/ENZYME-APD/tapir-archicad-automation) → Releases |
-| **MCP-Server `tapir-archicad-mcp`** | Python-Brücke zwischen Claude (MCP-Protokoll) und der JSON-API. Stellt `mcp__archicad__*`-Tools bereit (Discovery, call_tool, Instanz-Liste). | PyPI, Installation via `uv` |
+| **ELMonkey-Add-On** | Archicad-Add-On mit **Tapir vollständig eingebaut** (Namensraum `TapirCommand`) plus den SAB-Befehlen (`ELM_SAB`). Ein separates Tapir-Add-On ist **nicht nötig und stört** (zwei Add-Ons mit demselben Namensraum). | Release `elm-sab-tapir-latest` auf github.com/mozzi86/-archicad — per Installer |
+| **MCP-Server `elmonkey-mcp`** | Brücke Claude ↔ Archicad. Stellt `mcp__archicad__*` bereit (gleiche drei Werkzeugnamen wie früher). Kennt alle ELMonkey-Befehle live aus `ELM_SAB.ListCommands`, sucht auch deutsch. | Dieses Repo, `mcp/elmonkey-mcp`, Installation per `uv` |
+| **Claude-Registrierung** | Server unter dem Namen `archicad` eintragen. | `claude mcp add` bzw. Desktop-Config |
 
-Reihenfolge ist egal — funktionieren tut es erst, wenn alle drei stehen **und** Archicad mit geladenem Tapir läuft.
+## Schritt 1 — ELMonkey installieren (Installer)
 
-## Schritt 1 — Tapir-Add-On in Archicad installieren
+1. **Archicad komplett beenden** (Mac: ⌘Q; Windows: alle Archicad-Fenster schließen).
+2. Release-Seite öffnen: <https://github.com/mozzi86/-archicad/releases/tag/elm-sab-tapir-latest>
+3. **Mac:** `ELMonkey-Installer-Mac.command` laden und doppelklicken. Meldet macOS „kann nicht geöffnet werden": Rechtsklick → Öffnen. Alternativ im Terminal:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/mozzi86/-archicad/main/installer/ELMonkey-Installer-Mac.command | bash
+   ```
+   **Windows:** `ELMonkey-Installer-Windows.cmd` laden und doppelklicken (fragt nach Administratorrechten).
+4. Der Installer findet alle Archicad 27/28/29, lädt je das passende Bundle, **sichert vorhandene ELMonkey- und Tapir-Add-Ons** nach `~/ELM_SAB_Backups/<Zeitstempel>/` (Windows: `%USERPROFILE%\ELM_SAB_Backups\…`) und entfernt die Quarantäne.
+5. Archicad starten → Menü **ELMonkey SAB → Über**: zeigt `ELM_SAB <Version> · Tapir 1.5.4 · Port …`.
 
-1. Release-Seite öffnen: `https://github.com/ENZYME-APD/tapir-archicad-automation/releases/latest` — Assets gibt es für **AC25 bis AC29**, je Mac (`.zip` mit `.bundle`) und Windows (`.apx`). <!-- 2026-07-10, Release 1.5.3 -->
-2. Passende Datei zur Archicad-Version laden, z. B. `TapirAddOn_AC29_Mac.zip`.
-3. **macOS:** ZIP entpacken, das `TapirAddOn_AC29_Mac.bundle` in den Add-Ons-Ordner legen:
-   `/Applications/GRAPHISOFT/Archicad 29/Add-Ons/` <!-- live-verifiziert 2026-07-10 -->
-   **Windows:** `.apx` nach `C:\Program Files\GRAPHISOFT\Archicad 29\Add-Ons\` legen.
-4. Falls macOS das Bundle blockiert („kann nicht überprüft werden"): Quarantäne-Flag entfernen: `xattr -dr com.apple.quarantine "/Applications/GRAPHISOFT/Archicad 29/Add-Ons/TapirAddOn_AC29_Mac.bundle"` <!-- verifiziert 2026-07-14 --> (mehrfach bei ELM_SAB-Bundle-Tausch angewandt)
-5. Archicad starten → **Optionen → Add-On-Manager**: Tapir muss in der Liste stehen und geladen sein. Bei Bedarf über „Add-On suchen" manuell auf das Bundle zeigen.
+**Updates später:** im selben Dialog **„Nach Updates suchen"** → „Jetzt aktualisieren" tauscht das Add-On der laufenden Archicad-Version aus (altes wird gesichert), wirksam nach dem nächsten Neustart. Oder den Installer erneut ausführen.
 
 ## Schritt 2 — MCP-Server installieren (uv)
 
-Voraussetzung: [`uv`](https://docs.astral.sh/uv/) (Python-Tool-Manager). Falls nicht vorhanden:
+Voraussetzung [`uv`](https://docs.astral.sh/uv/). Falls nicht vorhanden:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Dann den Server als isoliertes Tool installieren:
+Server installieren:
 
 ```bash
-uv tool install tapir-archicad-mcp
+uv tool install "git+https://github.com/mozzi86/-archicad#subdirectory=mcp/elmonkey-mcp"
 ```
 
-Das legt das Binary **`~/.local/bin/archicad-server`** an. <!-- live-verifiziert 2026-07-10, v0.3.2 --> Prüfen:
+Das legt **`~/.local/bin/elmonkey-mcp`** an. Updates: `uv tool upgrade elmonkey-mcp`.
+Wer vorher `tapir-archicad-mcp` hatte: `uv tool uninstall tapir-archicad-mcp` (der neue Server ersetzt ihn; Werkzeugnamen bleiben gleich).
+
+## Schritt 3 — Bei Claude registrieren
+
+**Claude Code:**
 
 ```bash
-ls ~/.local/bin/archicad-server
+claude mcp remove archicad --scope user
+claude mcp add --scope user archicad -- ~/.local/bin/elmonkey-mcp
 ```
 
-Updates später: `uv tool upgrade tapir-archicad-mcp`.
-
-## Schritt 3 — MCP-Server bei Claude registrieren
-
-**Claude Code (Terminal/Desktop):**
-
-```bash
-claude mcp add --scope user archicad -- ~/.local/bin/archicad-server
-```
-
-**Claude Desktop (App):** in `~/Library/Application Support/Claude/claude_desktop_config.json` (Win: `%APPDATA%\Claude\claude_desktop_config.json`) ergänzen: <!-- live-verifiziert 2026-07-10 -->
+**Claude Desktop:** `~/Library/Application Support/Claude/claude_desktop_config.json` (Windows: `%APPDATA%\Claude\claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
-    "archicad": { "command": "/Users/DEIN-USER/.local/bin/archicad-server" }
+    "archicad": { "command": "/Users/DEIN-USER/.local/bin/elmonkey-mcp" }
   }
 }
 ```
 
-Danach Claude neu starten. Es müssen die Tools `mcp__archicad__discovery_list_active_archicads`, `mcp__archicad__archicad_discover_tools` und `mcp__archicad__archicad_call_tool` auftauchen.
+Windows: `"command": "C:\\Users\\DEIN-USER\\.local\\bin\\elmonkey-mcp.exe"`. Danach Claude neu starten.
+Es müssen `mcp__archicad__discovery_list_active_archicads`, `mcp__archicad__archicad_discover_tools` und `mcp__archicad__archicad_call_tool` erscheinen.
 
 ## Schritt 4 — Smoke-Test
 
-Archicad öffnen (beliebiges Projekt), dann in dieser Reihenfolge testen — so isoliert man sofort, welcher Baustein fehlt:
+Archicad mit einem Projekt öffnen, dann:
 
 1. **JSON-API lebt?**
    ```bash
-   curl -s -m 5 localhost:19723 -H 'Content-Type: application/json' \
-     -d '{"command":"API.IsAlive"}'
+   curl -s -m 5 localhost:19723 -H 'Content-Type: application/json' -d '{"command":"API.IsAlive"}'
    ```
-   Erwartung: `{"succeeded":true,...}`. Scheitert das → Archicad läuft nicht, oder die Instanz sitzt auf einem anderen Port (19724, 19725, … durchprobieren — Ports sind volatil, siehe [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md)).
-
-2. **Tapir geladen?**
+   Erwartung `{"succeeded":true,…}`. Sonst Port 19724, 19725 … probieren (Ports wechseln bei jedem Start).
+2. **ELMonkey geladen?**
    ```bash
    curl -s -m 5 localhost:19723 -H 'Content-Type: application/json' \
-     -d '{"command":"API.ExecuteAddOnCommand","parameters":{"addOnCommandId":{"commandNamespace":"TapirCommand","commandName":"GetProjectInfo"},"addOnCommandParameters":{}}}'
+     -d '{"command":"API.ExecuteAddOnCommand","parameters":{"addOnCommandId":{"commandNamespace":"ELM_SAB","commandName":"GetAddOnVersion"},"addOnCommandParameters":{}}}'
    ```
-   Erwartung: Projektname im Ergebnis. Fehler wie „add-on command not found" → Schritt 1 prüfen (Add-On-Manager).
-
-3. **MCP-Brücke steht?** In Claude: `mcp__archicad__discovery_list_active_archicads` aufrufen → muss die laufende Instanz mit Port und Projektname listen.
-
-Alle drei grün → Setup fertig, ab hier gelten die normalen Rezepte inkl. Warm-up ([`../reference/workflow-context.md`](../reference/workflow-context.md)).
+   Erwartung: `version` (ELMonkey) und `tapirBaseVersion`.
+3. **MCP-Brücke?** In Claude `mcp__archicad__discovery_list_active_archicads` → Port, Projekt, `elmonkeyVersion`. Dann `archicad_discover_tools` mit „Schraffur anlegen" → `ELM_SAB.Create2DElements` oben.
 
 ## Troubleshooting
 
 | Symptom | Ursache | Fix |
 |---|---|---|
-| `curl` auf 19723 verweigert Verbindung | Archicad läuft nicht / anderer Port | Archicad starten; Ports 19723–19730 durchprobieren; **nie** Port ≠ Datei-Zuordnung aus alter Session annehmen |
-| `API.IsAlive` ok, Tapir-Kommando schlägt fehl | Add-On nicht geladen | Add-On-Manager prüfen, Archicad-Version ↔ Bundle-Version muss passen (AC29-Bundle lädt nicht in AC28) |
-| `archicad-server: command not found` | `~/.local/bin` nicht im PATH | Vollen Pfad in der Registrierung verwenden (so wie oben) |
-| MCP-Tools tauchen in Claude nicht auf | Registrierung greift nicht | Claude komplett neu starten; `claude mcp list` prüfen |
-| `Port not active` aus MCP-Tool | Instanz geschlossen/gewechselt | `discovery_list_active_archicads` neu aufrufen, nie alte Ports weiterverwenden |
+| Archicad meldet „Einige Add-Ons konnten nicht geladen werden" | altes Tapir- oder Backup-Bundle im Add-Ons-Ordner | Installer erneut ausführen (räumt Tapir/ELMonkey-Altbestände weg); nie `.bak`-Bundles im Add-Ons-Ordner lassen |
+| Tapir-Befehle doppelt / seltsames Verhalten | Vanilla-Tapir UND ELMonkey geladen | Tapir-Bundle entfernen (macht der Installer) |
+| `archicad_discover_tools` liefert nur `API.*` mit Hinweis | ELMonkey < 0.9.30 (kein `ListCommands`) | ELMonkey aktualisieren; `archicad_call_tool` mit `Namensraum.Befehl` geht trotzdem |
+| „Mehrere Archicad-Instanzen offen" | kein `port` angegeben | `discovery_list_active_archicads` → `port` mitgeben |
+| `curl` auf 19723 verweigert | Archicad läuft nicht / anderer Port / modaler Dialog offen | Ports 19723–19744 durchprobieren; offenen Dialog schließen |
+| Windows: Installer startet nicht | Ausführungsrichtlinie / Download blockiert | `.cmd` verwenden (setzt `-ExecutionPolicy Bypass`), Datei-Eigenschaften → „Zulassen" |
 
-Versions-Stand der Verifikation: Archicad 29 (Mac ARM), Tapir-Add-On aus Release 1.5.3, `tapir-archicad-mcp` 0.3.2, `multiconn_archicad` 0.5.1. <!-- 2026-07-10 -->
+Stand: ELMonkey 0.9.30 (Installer, Update-Knopf, `ListCommands`), `elmonkey-mcp` 0.1.0. <!-- 2026-10-14 -->
+Live verifiziert: Mac-Installer gegen Test-Ordner (Tapir + altes ELMonkey gesichert, AC28/29 installiert, Quarantäne weg); MCP-Server per stdio-Client (3 Werkzeuge, Fehlertexte). Windows-Installer und Selbst-Update unter Windows: **noch nicht live geprüft**.
