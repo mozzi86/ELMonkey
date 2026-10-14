@@ -75,6 +75,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-10-13 | 261013-q27 | ELM_SAB 0.9.27 nach Live-Abnahme 0.9.26 (WiSchu: 6 Typen ok, Fläche/Umfang exakt, Rundweg punktgenau, Fehler je Element lesbar): Circle-Rücklese akzeptiert Arc+whole; Hatch mit Loch → klare Meldung statt APIERR_IRREGULARPOLY; Get2DGeometryOfElements liefert subPolyEnds. Noch nicht eingebaut |
 | 2026-10-13 | 261013-q27 (Live) | ELM_SAB 0.9.27 eingebaut + live verifiziert (WiSchu): Circle success:true, Loch-Schraffur klar abgelehnt, subPolyEnds [22,29]/[25], Außenkontur angelegt (Fläche = Shoelace); Testelemente gelöscht |
 | 2026-10-13 | 261013-q28 | ELM_SAB 0.9.28: Create2DElements legt Schraffuren mit Löchern an (subPolyEnds wie Lesebefehl, Prüfung + Rücklese je Teilpolygon, holesArea). Noch nicht eingebaut |
+| 2026-10-14 | 261013-q28 (Live) | ELM_SAB 0.9.28 eingebaut + live verifiziert (WiSchu): Loch-Schraffur Rundweg netto 6,2426 / Loch 0,2734 = Shoelace, Quadrat mit Loch 12/4/24, Fehlerfälle lesbar; Testelemente gelöscht |
 
 **Recent Trend:**
 
