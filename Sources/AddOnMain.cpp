@@ -65,6 +65,7 @@
 #include "EventLogCommands.hpp"
 #include "InspectionCommands.hpp"
 #include "FindElementsCommand.hpp"
+#include "SectionDimensionCommandsELM.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -1074,6 +1075,30 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<Create2DElementsCommand> (
             elmSabCommands, "0.9.28",
             "ELM_SAB: Legt 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch) - Schreib-Gegenstueck zu Get2DGeometryOfElements, dessen Ausgabe 1:1 zurueckgegeben werden kann. Aktive Grundriss-Datenbank, Ebene per layerName/layerIndex, Stift/Linientyp/drawIndex, Schraffur mit Fuellung, Stiften, RGB und Kontur. Fehler je Element, ein Undo-Schritt, Ruecklese je Element (Geschoss, Ebene, Koordinaten; Laenge bzw. Flaeche/Umfang). 0.9.27: Kreis-Ruecklese akzeptiert Arc mit whole (so speichert Archicad Kreise); Hatch mit Teilpolygonen/Loechern wird mit klarer Meldung abgelehnt statt APIERR_IRREGULARPOLY. 0.9.28: Hatch mit Loechern per subPolyEnds (wie Get2DGeometryOfElements), Ruecklese je Teilpolygon, holesArea."
+        );
+        err |= RegisterCommand<GetSectionElementsELMCommand> (
+            elmSabCommands, "0.9.29",
+            "ELM_SAB: Listet die rohen Schnittelemente (SectElem) je Schnitt-/Ansichts-Datenbank mit Eltern-Bauteil, Typ, Ebene und Ausdehnung."
+        );
+        err |= RegisterCommand<GetDimensionDetailsELMCommand> (
+            elmSabCommands, "0.9.29",
+            "ELM_SAB: Liest Rohdaten linearer Massketten (Bezug je Messpunkt inkl. node_*, Text-Override, Einstellungen); optional in fremder Datenbank."
+        );
+        err |= RegisterCommand<CreateDimensionsLikeTemplateELMCommand> (
+            elmSabCommands, "0.9.29",
+            "ELM_SAB: Legt lineare Massketten mit allen Einstellungen einer Vorlage-Masskette an; Messpunkte assoziativ oder statisch, optional mit eigenem Text; mit Ruecklese."
+        );
+        err |= RegisterCommand<SetDimensionAppearanceELMCommand> (
+            elmSabCommands, "0.9.29",
+            "ELM_SAB: Aendert bestehende lineare Massketten an Ort und Stelle: Schriftgroesse aller Masstexte und Hilfslinienwert je Messpunkt; mit Ruecklese."
+        );
+        err |= RegisterCommand<GetInteriorElevationsELMCommand> (
+            elmSabCommands, "0.9.29",
+            "ELM_SAB: Listet Innenansichten mit vertikalem Bereich (gemeinsam und je Segment)."
+        );
+        err |= RegisterCommand<SetInteriorElevationVerticalRangeELMCommand> (
+            elmSabCommands, "0.9.29",
+            "ELM_SAB: Setzt den vertikalen Bereich (Begrenzt, Ober-/Untergrenze) von Innenansichten; mit Ruecklese."
         );
         AddCommandGroup (elmSabCommands);
     }
