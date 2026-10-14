@@ -37,7 +37,12 @@ def call(port: int, namespace: str, name: str, params: dict | None = None, timeo
         "addOnCommandParameters": params or {}}, timeout)
     if not r.get("succeeded"):
         raise ArchicadError(_err(r))
-    return r.get("result", {}).get("addOnCommandResponse", {})
+    resp = r.get("result", {}).get("addOnCommandResponse", {})
+    # Add-On-Befehle melden Aufruffehler als {"error": {code, message}} innerhalb einer "erfolgreichen" Antwort.
+    if isinstance(resp, dict) and set(resp.keys()) == {"error"} and isinstance(resp["error"], dict):
+        e = resp["error"]
+        raise ArchicadError(f"{namespace}.{name} meldet Fehler {e.get('code')}: {e.get('message')}")
+    return resp
 
 
 def _err(r: dict) -> str:
