@@ -77,6 +77,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-10-13 | 261013-q28 | ELM_SAB 0.9.28: Create2DElements legt Schraffuren mit Löchern an (subPolyEnds wie Lesebefehl, Prüfung + Rücklese je Teilpolygon, holesArea). Noch nicht eingebaut |
 | 2026-10-14 | 261013-q28 (Live) | ELM_SAB 0.9.28 eingebaut + live verifiziert (WiSchu): Loch-Schraffur Rundweg netto 6,2426 / Loch 0,2734 = Shoelace, Quadrat mit Loch 12/4/24, Fehlerfälle lesbar; Testelemente gelöscht |
 | 2026-10-14 | 261014-sp9 | ELM_SAB 0.9.29: Bemaßung in Ansichten + Innenansicht-Höhenbereich (6 Befehle, Beitrag S., Branch elm-0.9.12-ansichtsbemassung auf main 0.9.28 gesetzt und umnummeriert); Doku-Korrektur -2130312912 = APIERR_HIDDENLAY |
+| 2026-10-14 | 261014-i30 | ELMonkey 0.9.30 ohne Vanilla-Tapir: Update-Prüfung gegen eigenes Release + Knopf im Über-Dialog (Selbst-Update), ELM_SAB.ListCommands, Installer Mac/Windows, CI-Release nur von main, eigener MCP-Server mcp/elmonkey-mcp, Einrichtung neu. Noch nicht eingebaut |
 
 **Recent Trend:**
 
