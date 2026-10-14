@@ -1930,3 +1930,42 @@ Die PolyLine bekommt den Schlusspunkt angehängt (5 Punkte im Memo); `arcs` blei
 * **Rücklese:** Vergleich je Teilpolygon (Außenkontur gegen Außenkontur, Löcher in beliebiger Reihenfolge, jeder Ring verschoben/umgekehrt erlaubt → `coordinateOrder: "normalized"`). Antwort zusätzlich `subPolyEnds` (zurückgelesen) und `holesArea` (`API_HatchQuantity.holesSurf`).
 * CI ok (`af01be3`), eingebaut 14.10., `GetAddOnVersion` = 0.9.28. **Live verifiziert (WiSchu):** Rundweg `63D2A229…` mit `subPolyEnds` [22, 29] → `success`, `area` 6,242592 (netto = Außen − Loch, Shoelace), `holesArea` 0,273356, `coordinateOrder` same; Quadrat 4 × 4 mit Loch 2 × 2 + RGB → `area` 12, `holesArea` 4, `perimeter` 24 (inkl. Lochrand); Fehler lesbar: offenes Teilpolygon, Bogen über Grenze, Enden nicht steigend (meldet das erste Teilpolygon als nicht geschlossen). `area` ist also **netto**. Testelemente gelöscht, Löschung rückgelesen.
 
+## Bemaßung in Ansichten — ELMonkey 0.9.29 (bei S. als 0.9.12–0.9.14) <!-- 2026-10-14 -->
+
+Live entstanden beim Fliesenspiegel Futurelab EG (34 Innenansichten, ~300 Maßketten).
+Ausgangslage: Tapir 1.5.4 ersetzt in **jeder** Liste (`GetElementsByType`, `GetAllElements`,
+Selektion) ein Schnittelement (`API_SectElemID`) durch sein Modell-Bauteil. Assoziative
+Maße in Schnitt/Ansicht/Innenansicht hängen aber am Schnittelement. Ohne dessen GUID ist
+keine Maßkette möglich. `GetSectionElements` gibt es erst in Upstream-Tapir ≥ 1.7.
+
+| Befehl (Namespace `ELM_SAB`) | ab | Zweck |
+|---|---|---|
+| `GetSectionElementsELM {databases?, withBounds?}` | 0.9.29 | rohe SectElem-GUIDs je Datenbank + `parentId`, `parentType`, `layerIndex`, `bounds` (Ansichtskoordinaten; `1e35` = in dieser Ansicht nicht gezeichnet) |
+| `GetDimensionDetailsELM {elements, databaseId?}` | 0.9.29 | Rohdaten linearer Ketten: je Messpunkt `elementType/elementId/line/special/inIndex/nodeType/nodeStatus/nodeId`, `loc`, `dimVal`, `witnessVal/Form`, Note inkl. **Custom-Text** und Größe; dazu `refC`, `direction`, `defNote`, Ebene |
+| `CreateDimensionsLikeTemplateELM {templateDimensionId, templateDatabaseId?, targetDatabaseId?, dimensionsData}` | 0.9.29 | Kette mit **allen** Einstellungen einer Vorlage-Kette anlegen (Ebene, Stifte, Schrift, Marker, Textlage). Punkte assoziativ (`elementId`+Knotendaten) oder statisch (`coordinate`), je Punkt `witnessVal/Form`, `customText` (z. B. „OK FFB"). Antwort mit `witnessCount/associatedCount` |
+| `SetDimensionAppearanceELM {dimensions:[{elementId, noteSize?, witnessValues?, witnessCoordinates?}], databaseId?}` | 0.9.29 | bestehende Kette **an Ort** ändern: Schriftgröße aller Maßtexte, Hilfslinienwert je Punkt, Koordinate **statischer** Punkte. Verweigert Ketten mit 2101-Bezug (siehe `mcp-conventions.md`) |
+| `GetInteriorElevationsELM {}` | 0.9.29 | alle Innenansichten (Grundriss-Elemente) mit vertikalem Bereich, gemeinsam und **je Segment** (`vertRange`, `vertMin`, `vertMax`, `databaseElemSetId`) |
+| `SetInteriorElevationVerticalRangeELM {interiorElevations:[{elementId, vertMax, vertMin?}]}` | 0.9.29 | vertikalen Bereich setzen (Begrenzt). Untergrenze bleibt, wenn nicht angegeben. Mit Rücklese |
+
+- **Ansicht ↔ Innenansicht-Element zuordnen:** `databaseElemSetId` eines Segments == Tapir-Datenbank-ID aus `GetDatabaseIdFromNavigatorItemId`. Die Begrenzung sitzt **je Segment** (`memo.intElevSegments`), der „gemeinsame" Segmentwert war `Infinite 0/0` und ist nicht maßgeblich.
+- **Ansichts-Datenbank erst gefüllt, wenn das Fenster einmal offen war:** Vorher liefern Maßketten `dimensionValue 0`. Immer erst `ChangeWindow`, dann lesen.
+- **Knotentypen** in Ansichten (aus Rohdaten gelernt): `2100` Polygonknoten von Decke/Tür/Waschtisch (Tür: `nodeId 8`, `nodeStatus 3` = Oberkante links, `5` = Oberkante rechts; Bodenfliese: `nodeId 1`, `nodeStatus 16`); `1100` Objekt-Hotspot; `2101` Fassadenprofil. Kopierte 2100/1100-Bezüge funktionieren in neuen Ketten, **2101 nicht**.
+
+### Lokal bauen, wenn kein GitHub-Push möglich ist <!-- 2026-10-14 -->
+
+Auf dem SAB-Mac fehlen Xcode, cmake und ein GitHub-Login. Gebaut wurde trotzdem lokal, nur für arm64:
+
+```bash
+pip3 install --user cmake            # liefert ~/Library/Python/3.9/bin/cmake
+# DevKit 29.3000 (MAC) entpacken, Quellen in ein Scratch-Verzeichnis kopieren und dort in
+# Tools/CMakeCommon.cmake Zeile 9 auf  set (CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
+# setzen (das Original-"PARENT_SCOPE CACHE" bricht mit Unix Makefiles)
+cmake -B build29 -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DAC_VERSION=29 -DAC_API_DEVKIT_DIR=<devkit>/Support <src>
+cmake --build build29 -j 8
+codesign --force --deep -s - build29/RelWithDebInfo/ELM_SAB_AC29_Mac.bundle
+```
+
+Vorher Syntaxprüfung ohne Build: `clang++ -fsyntax-only -std=c++20 -Dmacintosh=1 -DACExtension -I Support/Inc -I Support/Modules/*/ …`.
+Installieren: altes Bundle nach `~/ELM_SAB_Backups/` sichern, neues nach `Add-Ons/`, Archicad
+neu starten, `ELM_SAB.GetAddOnVersion` prüfen (`buildStamp`). Das lokale Bundle ist **nur
+arm64** — für Intel-Macs, Windows, AC27/28 braucht es weiter die CI (Push nötig).

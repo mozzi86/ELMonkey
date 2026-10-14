@@ -32,8 +32,12 @@ Stand 2026-07-30, AC29 / Tapir 1.5.3.
 | **Sichern unter / .tpl schreiben** | kein API-Endpoint | 2026-07-30 |
 | **Teamwork Freigeben / Senden & Empfangen** | kein API-Endpoint | 2026-07-30 |
 | Arbeitsumgebung, Tastaturkürzel, Palettenlayout | kein API-Endpoint | — |
+| **Ebene einblenden**, wenn ein Ziel-Element auf einer ausgeblendeten Ebene liegt | API ändert nichts auf ausgeblendeten Ebenen (`HIDDENLAY`); Ebenen-Sichtbarkeit nicht still per API umstellen. Klickpfad: Dokumentation → Ebenen → Ebeneneinstellungen (⌘L) → Auge an → OK, ~20 s | 2026-10-14 |
 
 ## Was fälschlich für UI-only gehalten wurde
+
+- **Vertikaler Bereich von Innenansichten** (Ober-/Untergrenze) — seit ELMonkey 0.9.29 per `SetInteriorElevationVerticalRangeELM`. <!-- 2026-10-14 -->
+- **Maßketten in Schnitt/Ansicht/Innenansicht anlegen und ändern** — seit ELMonkey 0.9.29 (Schnittelemente lesen, Ketten nach Vorlage, Schriftgröße/Hilfslinien an Ort). <!-- 2026-10-14 -->
 
 Diese Liste ist genauso wichtig — sie verhindert, dass wir Arbeit unnötig an den Nutzer
 zurückgeben:

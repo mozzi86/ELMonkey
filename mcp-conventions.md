@@ -402,3 +402,16 @@ starten** — der Zustand ist klebrig und hält bis dahin.
 Nachdokumentation: Der Add-on-Umbau 0.9.16 wurde ausnahmsweise auf
 Nutzer-Auftrag direkt committet (Commit 83d06a2) und wird hier nachträglich
 dokumentiert.
+
+## Fallen beim Ändern von Maßketten und 2D in Ansichten <!-- 2026-10-14 -->
+
+Alle live erlebt (Fliesenspiegel Futurelab, Teamwork, AC29, ELMonkey 0.9.29, bei S. als 0.9.12–0.9.14 gebaut):
+
+1. **`MoveElements` meldet in Teamwork „success", ändert aber nichts**, solange das Element nicht reserviert ist — gleiches Muster wie bei Delete/SetDetails. Neue, eigene Elemente bewegen sich, Bestand nicht. Immer `ReserveElements` → kurz warten (1–1,5 s) → Schreiben → Rücklese der Position.
+2. **`DeleteElements` scheitert in Ansichten mit `BADID` (-2130313115)**, wenn im selben Ablauf vorher Befehle mit Datenbankwechsel liefen (alles mit `databases`/`databaseId`). `ChangeWindow` auf **dieselbe** Ansicht hilft nicht. Abhilfe: auf eine **andere** Ansicht und zurück wechseln, je 1 s warten, reservieren, löschen. Am zuverlässigsten: Löschen als eigener Aufräumdurchgang, Ansicht für Ansicht. Rücklese über `GetElementsByType` **mit** `databases` (ein Read ohne Datenbank kann im falschen Kontext „weg" melden, obwohl das Element noch da ist).
+3. **Maßketten mit Bezug auf Fassadenprofile (`node_typ 2101`) verschwinden still**, sobald man ihr Memo zurückschreibt (`ACAPI_Element_Change`) — und neu angelegte Ketten mit kopierten 2101-Bezügen schrumpfen sofort auf 2 Punkte. Betrifft z. B. Fliesen, die als Fassade modelliert sind. Solche Punkte **statisch** (Koordinate) übernehmen; `SetDimensionAppearanceELM` verweigert solche Ketten seit 0.9.29.
+4. **Neu angelegte assoziative Ketten können direkt danach verschwinden** (Archicad verwirft ungültige Bezüge beim Regenerieren). Nach jedem Anlegen die Kette per Datenbank-Read zurücklesen; fehlt sie, statisch neu anlegen.
+5. **Ausgeblendete Ebene = keine Änderung per API** (`APIERR_HIDDENLAY`, -2130312912 mit Offset 304). Betraf die Innenansichts-Marker auf „98 Innenansicht Marker". Der Nutzer muss die Ebene kurz einblenden (UI-Schritt, siehe `ui-aufgaben.md`). **Achtung:** Derselbe Code -2130312912 wird in `mcp-extension.md` („Silent-No-Op-Ursache #3: Gruppen") Gruppen zugeschrieben. Laut DevKit (`APIErrorStart + 304`) heißt er aber `APIERR_HIDDENLAY` — bei diesem Code **zuerst die Ebenensichtbarkeit prüfen**, dann Gruppen.
+6. **Maßketten tragen keine Eigenschaften** — `SetPropertyValuesOfElements` antwortet „Element not supported". Der KI-Stempel ist dort nicht möglich; stattdessen GUIDs protokollieren.
+7. **Tapir-Listen ohne `databases` laufen im aktiven Fenster.** Steht eine Innenansicht offen, liefert die Suche nach Zonen/Decken/Fassaden **0** — kein Befund, sondern falscher Kontext. Vorher `ChangeWindow {windowType:"FloorPlan", storyIndex}`.
+8. **Ersetzen statt Ändern nur mit Prüfung:** neue Kette nach Vorlage anlegen → Punkte, Werte, Custom-Texte, Lage vergleichen → erst dann alte löschen. Bei horizontalen Ketten verschiebt Archicad `refC` entlang der Linie; nur die Querlage vergleichen.
