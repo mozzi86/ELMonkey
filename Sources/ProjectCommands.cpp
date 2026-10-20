@@ -1,5 +1,6 @@
 #include "ProjectCommands.hpp"
 #include "MigrationHelper.hpp"
+#include "ElmProjectSave.hpp"
 
 GetProjectInfoCommand::GetProjectInfoCommand () :
     CommandBase (CommonSchema::NotUsed)
@@ -856,9 +857,11 @@ GS::Optional<GS::UniString> SaveProjectCommand::GetResponseSchema () const
 
 GS::ObjectState SaveProjectCommand::Execute (const GS::ObjectState& /*parameters*/, GS::ProcessControl& /*processControl*/) const
 {
-    GSErrCode err = ACAPI_ProjectOperation_Save ();
+    // ELMonkey 0.9.34: mit Dateiangabe sichern (parameterlos lieferte live APIERR_READONLY) und den
+    // echten Archicad-Code melden statt pauschal APIERR_COMMANDFAILED.
+    GSErrCode err = SaveProjectInPlaceELM ();
     if (err != NoError) {
-        return CreateFailedExecutionResult (APIERR_COMMANDFAILED, "Failed to save the project.");
+        return CreateFailedExecutionResult (err, GS::UniString ("Failed to save the project (") + SaveErrorNameELM (err) + GS::UniString (")."));
     }
     return CreateSuccessfulExecutionResult ();
 }

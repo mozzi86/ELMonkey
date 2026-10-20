@@ -1,5 +1,6 @@
 #include "ModelEditCommandsELM.hpp"
 #include "ElmPreflight.hpp"
+#include "ElmProjectSave.hpp"
 #include "MigrationHelper.hpp"
 #include "CommandBase.hpp"
 
@@ -514,9 +515,10 @@ GS::ObjectState SaveProjectCopyELMCommand::Execute (const GS::ObjectState& param
     if (!ExistsELM (targetDir))
         return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("[NO_FOLDER] Zielordner existiert nicht."));
 
-    GSErrCode err = ACAPI_ProjectOperation_Save ();
+    // 0.9.34: mit Dateiangabe sichern - die parameterlose Form lieferte live APIERR_READONLY.
+    GSErrCode err = SaveProjectInPlaceELM ();
     if (err != NoError)
-        return CreateErrorResponseELM (err, GS::UniString ("Sichern des Originals fehlgeschlagen - keine Kopie angelegt."));
+        return CreateErrorResponseELM (err, GS::UniString ("[SAVE_FAILED] Sichern des Originals fehlgeschlagen (") + SaveErrorNameELM (err) + GS::UniString (") - keine Kopie angelegt."));
 
     if (ExistsELM (target) && overwrite)
         IO::fileSystem.Delete (target);
