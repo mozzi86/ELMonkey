@@ -873,12 +873,13 @@ GS::Optional<GS::UniString> BuildSlabMemoFromGeometry (
     memo.coords    = reinterpret_cast<API_Coord**>    (ensureHandle (reinterpret_cast<GSHandle> (memo.coords),    (nCoords + 1) * sizeof (API_Coord)));
     memo.vertexIDs = reinterpret_cast<UInt32**>       (ensureHandle (reinterpret_cast<GSHandle> (memo.vertexIDs), (nCoords + 1) * sizeof (UInt32)));
     memo.edgeTrims = reinterpret_cast<API_EdgeTrim**> (ensureHandle (reinterpret_cast<GSHandle> (memo.edgeTrims), (nCoords + 1) * sizeof (API_EdgeTrim)));
-    if (memo.sideMaterials == nullptr) {
-        anyHandleNew = true;
-        memo.sideMaterials = reinterpret_cast<API_OverriddenAttribute*> (BMAllocatePtr ((nCoords + 1) * sizeof (API_OverriddenAttribute), ALLOCATE_CLEAR, 0));
-    } else {
-        memo.sideMaterials = reinterpret_cast<API_OverriddenAttribute*> (BMReallocPtr (reinterpret_cast<GSPtr> (memo.sideMaterials), (nCoords + 1) * sizeof (API_OverriddenAttribute), REALLOC_CLEAR, 0));
-    }
+    // sideMaterials NIE vergroessern oder freigeben: Bei Standards aus einem Favoriten ist der Zeiger
+    // kein BM-Block -> "Fatal memory error in BMReallocPtr" (live 20.10., 0.9.31-Test mit Favorit
+    // "Bodenabdeckung"). AddPolyToMemo beschreibt jeden Eintrag neu, also immer frisch anlegen. Der
+    // alte Block bleibt bewusst liegen (Herkunft unbekannt; wenige Bytes je Decke), der neue wird mit
+    // dem Memo von ACAPI_DisposeElemMemoHdls freigegeben.
+    memo.sideMaterials = reinterpret_cast<API_OverriddenAttribute*> (BMAllocatePtr ((nCoords + 1) * sizeof (API_OverriddenAttribute), ALLOCATE_CLEAR, 0));
+    anyHandleNew = true;
     memo.pends = reinterpret_cast<Int32**> (ensureHandle (reinterpret_cast<GSHandle> (memo.pends), (nSubPolys + 1) * sizeof (Int32)));
     if (nArcs > 0) {
         memo.parcs = reinterpret_cast<API_PolyArc**> (ensureHandle (reinterpret_cast<GSHandle> (memo.parcs), nArcs * sizeof (API_PolyArc)));
