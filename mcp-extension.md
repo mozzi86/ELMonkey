@@ -1990,3 +1990,28 @@ Quelle: Wunschliste Michi 20.10. (Basis 0.9.18). Grundsatz: Gründe kommen als `
 * Fallen: `API.GetElementsByType` kennt `PolyLine` nicht (4002) → `TapirCommand.GetElementsByType`. B1 (Lampen) nicht prüfbar — die Standardbibliothek des leeren Projekts enthält keine Lampen-Bibliotheksteile; `TapirCommand.CreateLamps` existiert.
 * Noch offen aus der Wunschliste: B1–B8, C1–C4 (C5 löst `elmonkey-mcp`).
 
+
+## ELM_SAB 0.9.33 — Wunschliste Michi B2/B3/B6/B7/B8, Sparren-Fix <!-- 2026-10-20 -->
+
+* **B2** `ELM_SAB.ChangePropertyDefinitions {propertyDefinitions:[{propertyId, name?, description?, addEnumValues?:[{displayValue, nonLocalizedValue?}], availability?:{set|add|remove:[{guid}]}}]}` — Eigenschafts-Definition ändern **ohne GUID-Wechsel** (bisher nur Löschen + Neu, GDL-Referenzen brachen). Vorhandene Auswahlwerte behalten ihre ID, doppelte Anzeigewerte werden übersprungen. Rücklese.
+* **B3** `ELM_SAB.SetStructureOfElements {elements:[{elementId, structureType: basic|composite|profile, buildingMaterialName|-Index, compositeName|-Index, profileName|-Index}], reserve?}` — Aufbau BESTEHENDER Wände, Decken, Dächer, Schalen, Stützen, Unterzüge (bei Stütze/Unterzug alle Segmente). Vorprüfung, Teamwork-Reservierung, Rücklese (`[NO_EFFECT]` bei Abweichung).
+* **B6** `TapirCommand.ApplyFavoritesToElementDefaults`: Dach-/Schalen-Favoriten scheiterten mit `APIERR_BADINDEX` (-2130313114) → bei Dach, Schale oder BADINDEX zweiter Versuch ohne Memo (`ACAPI_Element_ChangeDefaults (&elem, nullptr, &mask)`).
+* **B7** `ELM_SAB.SaveProjectCopy {targetPath, overwrite?}` — erst sichern, dann Datei kopieren; das offene Projekt bleibt das Original. Lehnt `[TEAMWORK]`, `[UNTITLED]`, `[ORIGINAL]` (Ziel = Original), `[EXISTS]`, `[NO_FOLDER]` ab. **Live 20.10.: Sichern scheiterte mit `APIERR_READONLY` → Fix in 0.9.34.** `format: tpl` aus der Wunschliste ist nicht umgesetzt.
+* **B8** `TapirCommand.ChangeSelectionOfElements`: ein Sammelaufruf statt einzeln + Rücklese (große Auswahlen hängen die Oberfläche nicht mehr minutenlang).
+* **Sparren-Fix** `TapirCommand.CreateBeams`/`ModifyBeams`: `slantAngle` wirkte nur zusammen mit `isSlanted` — Tapir setzte das Flag nicht, Archicad ignorierte den Winkel still. Jetzt `isSlanted = |slantAngle| > 1e-9` mit Maske.
+* AC27/28: nur `IO::fileSystem.Contains (loc, &bool)` (die 1-Parameter-Form gibt es erst ab AC29) → Helfer `ExistsELM`.
+* **Live verifiziert 20.10.** (Demo `training session.pln`): Sparren-Fix (Testsparren 8/20, 35°, 4,5 m: Hub 3,315 m, Oberkante auf den Millimeter), B3 (33/33 Unterzüge Holz basic; 2 Dächer composite „Oberdach ohne Sparren 8,5 cm“, Rücklese Dicke 0,085). B7 schlug fehl (siehe oben). B2, B6, B8 offen.
+
+## ELM_SAB 0.9.34 — Modify2DElements (B4/B5), Speichern, CreateRoofs-Aufbau <!-- 2026-10-20 -->
+
+* **B4/B5** `ELM_SAB.Modify2DElements {elements:[{elementId, …}], reserve?}` — bestehende Line/Arc/Circle/PolyLine/Spline/Hatch ändern, **GUID bleibt**. Nur angegebene Felder; Feldnamen wie `Create2DElements`.
+  * alle: `layerName`/`layerIndex`, `drawIndex` (1..7); optional `elementType` als Kontrolle
+  * Linien-Typen: `pen`, `lineTypeName`/`lineTypeIndex`, **`removeArrows: true`** (AC29 `startArrowData/endArrowData.arrowVisibility`, AC27/28 `arrowData.begArrow/endArrow`)
+  * Geometrie: Line `begCoordinate`/`endCoordinate` (einzeln), Arc/Circle `origin`, `radius`, `begAngle`, `endAngle`, `ratio`, `angle`, `reflected`; PolyLine/Hatch/Spline nur als Ganzes über `coordinates` (+ `arcs`, `subPolyEnds`, `closed`, `bezierDirs`)
+  * Hatch: `fillName`/`fillIndex` (stellt auf Füll-Schraffur um), `foregroundPen`, `backgroundPen`, `contourPen`, `contourLineTypeName`/`-Index`, `foregroundRGB`/`backgroundRGB`, `clearForegroundRGB`/`clearBackgroundRGB`, **`fillAngleDeg`** (Ausrichtung „gedreht“ + Drehmatrix wie DevKit `Do_Hatch_Edit`), `showArea`
+  * Felder, die nicht zum Typ passen, werden abgelehnt (z. B. `pen` an Hatch, `fillName` an Line); Geschosswechsel nicht (neu anlegen); doppelte GUIDs in einer Liste abgelehnt; ohne änderbares Feld `[NO_CHANGE]`
+  * Ablauf: Vorprüfung (`ElmPreflight`) → ein Undo-Schritt `ACAPI_Element_Change` → Rücklese je Element: Geometrie/Geschoss/Ebene wie Create (ohne neue Geometrie gilt die Ist-Geometrie als Soll), dazu jedes geänderte Attribut; Antwort `changed` + Ist-Werte, Abweichung `[NO_EFFECT]`
+* **Speichern:** `ACAPI_ProjectOperation_Save ()` ohne Parameter lieferte live `APIERR_READONLY` (lokale .pln, eigene .lck, Cmd+S speichert) — auch `TapirCommand.SaveProject`. Neuer Helfer `SaveProjectInPlaceELM` (`ElmProjectSave.hpp`): `API_FileSavePars` mit `APIFType_PlanFile` + Originalpfad (wie `CaptureView`); Teamwork/unbenannt weiter parameterlos. Gilt für `SaveProjectCopy` (`[SAVE_FAILED]` mit Code-Name) und `SaveProject` (echter Code statt `APIERR_COMMANDFAILED`).
+* **`ELM_SAB.CreateRoofs`:** neu `compositeName`, `buildingMaterialName`, `layerName`. `thickness` bei Mehrschicht-Werkzeugstandard stellt auf Basis-Aufbau um und meldet `structureNote` (vorher still wirkungslos: 34,5 statt 10 cm); `compositeName` + `thickness` zusammen wird abgelehnt. Antwort je Dach `structureType`, `compositeName`/`buildingMaterialName`, `thickness`, bei Vorgabe `thicknessMatches`.
+* `Create2DElements` intern: Pfad-Geometrie-Prüfung, Memo-Aufbau und Rücklese als gemeinsame Helfer (`C2DParsePathGeometry`, `C2DBuildPolyMemo`, `C2DBuildSplineMemo`, `C2DReadBackFill`), Verhalten unverändert.
+* Syntax geprüft gegen DevKit 29.3100 (C++20) und 28.3001 (C++17, AC27/28-Zweig der Pfeilspitzen).
