@@ -856,33 +856,39 @@ GS::Optional<GS::UniString> BuildSlabMemoFromGeometry (
     const Int32 nCoords    = element.slab.poly.nCoords;
     const Int32 nSubPolys  = element.slab.poly.nSubPolys;
     const Int32 nArcs      = element.slab.poly.nArcs;
-    const bool  coordsWereNull = (memo.coords == nullptr);
-
-    if (coordsWereNull) {
-        memo.coords        = reinterpret_cast<API_Coord**>             (BMAllocateHandle ((nCoords + 1) * sizeof (API_Coord),               ALLOCATE_CLEAR, 0));
-        memo.vertexIDs     = reinterpret_cast<UInt32**>                (BMAllocateHandle ((nCoords + 1) * sizeof (API_Coord),               ALLOCATE_CLEAR, 0));
-        memo.edgeTrims     = reinterpret_cast<API_EdgeTrim**>          (BMAllocateHandle ((nCoords + 1) * sizeof (API_EdgeTrim),            ALLOCATE_CLEAR, 0));
-        memo.sideMaterials = reinterpret_cast<API_OverriddenAttribute*>(BMAllocatePtr    ((nCoords + 1) * sizeof (API_OverriddenAttribute), ALLOCATE_CLEAR, 0));
-    } else if (oldPoly.nCoords != nCoords) {
-        memo.coords        = reinterpret_cast<API_Coord**>             (BMReallocHandle (reinterpret_cast<GSHandle> (memo.coords),        (nCoords + 1) * sizeof (API_Coord),               REALLOC_CLEAR, 0));
-        memo.vertexIDs     = reinterpret_cast<UInt32**>                (BMReallocHandle (reinterpret_cast<GSHandle> (memo.vertexIDs),     (nCoords + 1) * sizeof (API_Coord),               REALLOC_CLEAR, 0));
-        memo.edgeTrims     = reinterpret_cast<API_EdgeTrim**>          (BMReallocHandle (reinterpret_cast<GSHandle> (memo.edgeTrims),     (nCoords + 1) * sizeof (API_EdgeTrim),            REALLOC_CLEAR, 0));
-        memo.sideMaterials = reinterpret_cast<API_OverriddenAttribute*>(BMReallocPtr    (reinterpret_cast<GSPtr> (memo.sideMaterials), (nCoords + 1) * sizeof (API_OverriddenAttribute), REALLOC_CLEAR, 0));
-    }
-    if (memo.pends == nullptr) {
-        memo.pends = reinterpret_cast<Int32**> (BMAllocateHandle ((nSubPolys + 1) * sizeof (Int32), ALLOCATE_CLEAR, 0));
-    } else if (oldPoly.nSubPolys != nSubPolys) {
-        memo.pends = reinterpret_cast<Int32**> (BMReallocHandle (reinterpret_cast<GSHandle> (memo.pends), (nSubPolys + 1) * sizeof (Int32), REALLOC_CLEAR, 0));
-    }
-    if (nArcs > 0) {
-        if (memo.parcs == nullptr) {
-            memo.parcs = reinterpret_cast<API_PolyArc**> (BMAllocateHandle (nArcs * sizeof (API_PolyArc), ALLOCATE_CLEAR, 0));
-        } else if (oldPoly.nArcs != nArcs) {
-            memo.parcs = reinterpret_cast<API_PolyArc**> (BMReallocHandle (reinterpret_cast<GSHandle> (memo.parcs), nArcs * sizeof (API_PolyArc), REALLOC_CLEAR, 0));
+    // ELMonkey 0.9.31: JEDE Liste einzeln pruefen (Absturz 15.10. bei Maxl, BE-Plan 135054):
+    // Eine Decke aus einem Favoriten (ApplyFavoritesToElementDefaults) liefert memo.coords, aber
+    // vertexIDs/edgeTrims/sideMaterials koennen fehlen. Der alte Code pruefte nur coords und lief
+    // dann mit BMReallocHandle auf einen Null-Handle -> FATAL. Ausserdem wird dasselbe memo in
+    // CreateElementsCommandBase fuer mehrere Decken wiederverwendet, also immer auf die Sollgroesse
+    // bringen (Realloc auf gleiche Groesse ist harmlos). Muster wie bei Dach/Gelaende.
+    bool anyHandleNew = false;
+    auto ensureHandle = [&anyHandleNew] (GSHandle h, GSSize size) -> GSHandle {
+        if (h == nullptr) {
+            anyHandleNew = true;
+            return BMAllocateHandle (size, ALLOCATE_CLEAR, 0);
         }
+        return BMReallocHandle (h, size, REALLOC_CLEAR, 0);
+    };
+    memo.coords    = reinterpret_cast<API_Coord**>    (ensureHandle (reinterpret_cast<GSHandle> (memo.coords),    (nCoords + 1) * sizeof (API_Coord)));
+    memo.vertexIDs = reinterpret_cast<UInt32**>       (ensureHandle (reinterpret_cast<GSHandle> (memo.vertexIDs), (nCoords + 1) * sizeof (UInt32)));
+    memo.edgeTrims = reinterpret_cast<API_EdgeTrim**> (ensureHandle (reinterpret_cast<GSHandle> (memo.edgeTrims), (nCoords + 1) * sizeof (API_EdgeTrim)));
+    if (memo.sideMaterials == nullptr) {
+        anyHandleNew = true;
+        memo.sideMaterials = reinterpret_cast<API_OverriddenAttribute*> (BMAllocatePtr ((nCoords + 1) * sizeof (API_OverriddenAttribute), ALLOCATE_CLEAR, 0));
+    } else {
+        memo.sideMaterials = reinterpret_cast<API_OverriddenAttribute*> (BMReallocPtr (reinterpret_cast<GSPtr> (memo.sideMaterials), (nCoords + 1) * sizeof (API_OverriddenAttribute), REALLOC_CLEAR, 0));
+    }
+    memo.pends = reinterpret_cast<Int32**> (ensureHandle (reinterpret_cast<GSHandle> (memo.pends), (nSubPolys + 1) * sizeof (Int32)));
+    if (nArcs > 0) {
+        memo.parcs = reinterpret_cast<API_PolyArc**> (ensureHandle (reinterpret_cast<GSHandle> (memo.parcs), nArcs * sizeof (API_PolyArc)));
+    }
+    if (memo.coords == nullptr || memo.vertexIDs == nullptr || memo.edgeTrims == nullptr || memo.sideMaterials == nullptr ||
+        memo.pends == nullptr || (nArcs > 0 && memo.parcs == nullptr)) {
+        return GS::UniString ("Speicher fuer das Deckenpolygon konnte nicht angelegt werden.");
     }
     const bool needToProcessVertexIDs =
-        coordsWereNull ||
+        anyHandleNew ||
         oldPoly.nCoords != element.slab.poly.nCoords ||
         oldPoly.nSubPolys != element.slab.poly.nSubPolys;
 
