@@ -100,6 +100,8 @@ Ab 0.9.25 speichert `CaptureView` das PNG mit Echtfarbtiefe (macOS `MiC`, Window
 
 Ab 0.9.26 legt `Create2DElements` 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch), als Schreib-Gegenstück zu `Get2DGeometryOfElements`, der dafür einen eigenen Spline-Zweig bekommt. Anlass sind die farbigen Füllflächen im Flucht- und Rettungswegeplan WiSchu, denn Tapir kann nur Polylinien anlegen. Live verifiziert am 13.10. (WiSchu): alle sechs Typen, Fläche/Umfang exakt, Fehler je Element lesbar. Ab 0.9.27 (live verifiziert) meldet die Rücklese Kreise korrekt (Archicad speichert sie als Bogen mit `whole`), `Get2DGeometryOfElements` liefert `subPolyEnds`; ab 0.9.28 (live verifiziert) legt `Create2DElements` damit auch Schraffuren mit Löchern an (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitte 0.9.26/0.9.27).
 
+Ab 0.9.31 stürzt `CreateSlabs` nach Favoriten-Standards nicht mehr ab, und GDL-Parameter lassen sich auch bei Türen und Fenstern setzen (Öffnungsmaße springen mit). Ab 0.9.32 prüfen schreibende Befehle vorab und melden Gründe als `[CODE]` (ausgeblendete/gesperrte Ebene, gesperrt, Hotlink, fremd reserviert, falsches Fenster, Undo-Klammer, keine Wirkung); alle Tapir-Erstellbefehle nehmen `layerName`; neu sind `GetLayers`, `SetLayerAttributes`, `GetSlabLevels`; Objekte/Lampen kennen `zReference` absolut oder geschossbezogen. Live verifiziert (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitte 0.9.31/0.9.32).
+
 ## Selbst bauen
 
 Der Build läuft normalerweise in der CI
