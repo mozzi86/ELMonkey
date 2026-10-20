@@ -67,6 +67,7 @@
 #include "FindElementsCommand.hpp"
 #include "SectionDimensionCommandsELM.hpp"
 #include "LayerLevelCommandsELM.hpp"
+#include "ModelEditCommandsELM.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -1103,6 +1104,18 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<GetInteriorElevationsELMCommand> (
             elmSabCommands, "0.9.29",
             "ELM_SAB: Listet Innenansichten mit vertikalem Bereich (gemeinsam und je Segment)."
+        );
+        err |= RegisterCommand<ChangePropertyDefinitionsELMCommand> (
+            elmSabCommands, "0.9.33",
+            "ELM_SAB: Aendert Eigenschafts-Definitionen OHNE GUID-Wechsel: Auswahlwerte anhaengen, Verfuegbarkeit (set/add/remove), Name, Beschreibung - mit Ruecklese."
+        );
+        err |= RegisterCommand<SetStructureOfElementsELMCommand> (
+            elmSabCommands, "0.9.33",
+            "ELM_SAB: Setzt den Aufbau BESTEHENDER Bauteile (basic/composite/profile mit Baustoff/Mehrschicht/Profil per Name oder Index) fuer Wand, Decke, Dach, Schale, Stuetze, Unterzug - mit Vorpruefung, Teamwork-Reservierung und Ruecklese."
+        );
+        err |= RegisterCommand<SaveProjectCopyELMCommand> (
+            elmSabCommands, "0.9.33",
+            "ELM_SAB: Sicherungskopie eines lokalen Projekts (Sichern + Datei kopieren); das offene Projekt bleibt das Original. Teamwork/unbenannt werden abgelehnt."
         );
         err |= RegisterCommand<GetLayersELMCommand> (
             elmSabCommands, "0.9.32",
