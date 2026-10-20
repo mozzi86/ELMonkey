@@ -11,6 +11,13 @@
 
 namespace {
 
+// AC27/28 kennen nur Contains (loc, bool*) - die 1-Parameter-Form gibt es erst ab AC29.
+bool ExistsELM (const IO::Location& loc)
+{
+    bool result = false;
+    return IO::fileSystem.Contains (loc, &result) == NoError && result;
+}
+
 GS::ObjectState ErrOS (GSErrCode code, const GS::UniString& message)
 {
     GS::ObjectState e;
@@ -500,21 +507,21 @@ GS::ObjectState SaveProjectCopyELMCommand::Execute (const GS::ObjectState& param
     source.ToPath (&sourcePath);
     if (sourcePath == targetPath)
         return CreateErrorResponseELM (APIERR_REFUSEDPAR, GS::UniString ("[ORIGINAL] targetPath ist die Originaldatei - verweigert."));
-    if (IO::fileSystem.Contains (target) && !overwrite)
+    if (ExistsELM (target) && !overwrite)
         return CreateErrorResponseELM (APIERR_REFUSEDPAR, GS::UniString ("[EXISTS] Zieldatei existiert bereits (overwrite:true zum Ersetzen)."));
     IO::Location targetDir = target;
     targetDir.DeleteLastLocalName ();
-    if (!IO::fileSystem.Contains (targetDir))
+    if (!ExistsELM (targetDir))
         return CreateErrorResponseELM (APIERR_BADPARS, GS::UniString ("[NO_FOLDER] Zielordner existiert nicht."));
 
     GSErrCode err = ACAPI_ProjectOperation_Save ();
     if (err != NoError)
         return CreateErrorResponseELM (err, GS::UniString ("Sichern des Originals fehlgeschlagen - keine Kopie angelegt."));
 
-    if (IO::fileSystem.Contains (target) && overwrite)
+    if (ExistsELM (target) && overwrite)
         IO::fileSystem.Delete (target);
     err = IO::fileSystem.Copy (source, target);
-    if (err != NoError || !IO::fileSystem.Contains (target))
+    if (err != NoError || !ExistsELM (target))
         return CreateErrorResponseELM (err != NoError ? err : APIERR_GENERAL, GS::UniString ("Kopieren fehlgeschlagen."));
 
     GS::ObjectState response;
