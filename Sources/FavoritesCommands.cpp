@@ -1,4 +1,5 @@
 #include "FavoritesCommands.hpp"
+#include <cstring>
 #include "MigrationHelper.hpp"
 #include "NativeImage.hpp"
 #include "MemoryOChannel32.hpp"
@@ -262,7 +263,29 @@ GS::ObjectState ApplyFavoritesToElementDefaultsCommand::Execute (const GS::Objec
             if (err != NoError) {
                 const API_ElemTypeID favType = GetElemTypeId (favorite.element.header);
                 if (favType == API_RoofID || favType == API_ShellID || err == APIERR_BADINDEX) {
-                    const GSErrCode retryErr = ACAPI_Element_ChangeDefaults (&favorite.element, nullptr, &mask);
+                    GSErrCode retryErr = ACAPI_Element_ChangeDefaults (&favorite.element, nullptr, &mask);
+                    // ELMonkey 0.9.35: live 20.10. (Bürovorlage, Favorit "Unterdach+Dämmung 21,5cm") auch
+                    // ohne Memo APIERR_BADINDEX. Weitere Versuche: (3) Geschoss des Favoriten nicht
+                    // uebernehmen - er kann aus einer Datei mit mehr Geschossen stammen; (4) zusaetzlich die
+                    // Geometrie (Dach: Klasse + Union u; Schale: Union u, Basisebene, Kontur, Loecher).
+                    if (retryErr != NoError) {
+                        API_Element maskNoStory = mask;
+                        std::memset (&maskNoStory.header.floorInd, 0, sizeof (maskNoStory.header.floorInd));
+                        retryErr = ACAPI_Element_ChangeDefaults (&favorite.element, nullptr, &maskNoStory);
+                        if (retryErr != NoError) {
+                            API_Element maskNoGeometry = maskNoStory;
+                            if (favType == API_RoofID) {
+                                std::memset (&maskNoGeometry.roof.roofClass, 0, sizeof (maskNoGeometry.roof.roofClass));
+                                std::memset (&maskNoGeometry.roof.u, 0, sizeof (maskNoGeometry.roof.u));
+                            } else if (favType == API_ShellID) {
+                                std::memset (&maskNoGeometry.shell.u, 0, sizeof (maskNoGeometry.shell.u));
+                                std::memset (&maskNoGeometry.shell.basePlane, 0, sizeof (maskNoGeometry.shell.basePlane));
+                                std::memset (&maskNoGeometry.shell.hasContour, 0, sizeof (maskNoGeometry.shell.hasContour));
+                                std::memset (&maskNoGeometry.shell.numHoles, 0, sizeof (maskNoGeometry.shell.numHoles));
+                            }
+                            retryErr = ACAPI_Element_ChangeDefaults (&favorite.element, nullptr, &maskNoGeometry);
+                        }
+                    }
                     if (retryErr == NoError) {
                         err = NoError;
                         appliedWithoutMemo = true;

@@ -1118,8 +1118,8 @@ GSErrCode Initialize (void)
             "ELM_SAB: Sicherungskopie eines lokalen Projekts (Sichern + Datei kopieren); das offene Projekt bleibt das Original. Teamwork/unbenannt werden abgelehnt. 0.9.34: sichert mit Dateiangabe (parameterlos lieferte APIERR_READONLY)."
         );
         err |= RegisterCommand<Modify2DElementsCommand> (
-            elmSabCommands, "0.9.34",
-            "ELM_SAB: Aendert bestehende 2D-Elemente (Line, Arc, Circle, PolyLine, Spline, Hatch), GUID bleibt: Ebene, drawIndex, Stift, Linientyp, Pfeilspitzen aus, Geometrie; Schraffur mit Fuellung, Vorder-/Hinter-/Konturstift, RGB setzen/loeschen, Konturlinientyp, Winkel, Polygon mit Loechern. Nur angegebene Felder, ein Undo-Schritt, Teamwork-Reservierung, Ruecklese je Element."
+            elmSabCommands, "0.9.35",
+            "ELM_SAB: Aendert bestehende 2D-Elemente (Line, Arc, Circle, PolyLine, Spline, Hatch), GUID bleibt: Ebene, Stift, Linientyp, Pfeilspitzen aus, Geometrie; Schraffur mit Fuellung, Vorder-/Hinter-/Konturstift, RGB setzen/loeschen, Konturlinientyp, Winkel, Polygon mit Loechern. Nur angegebene Felder, ein Undo-Schritt, Teamwork-Reservierung, Ruecklese je Element. 0.9.35: Polygon-Ersatz pflegt die Vertex-IDs (vorher APIERR_BADPOLY), Antwort polygonVariant; drawIndex und Stift+RGB im selben Feld werden klar abgelehnt."
         );
         err |= RegisterCommand<GetLayersELMCommand> (
             elmSabCommands, "0.9.32",

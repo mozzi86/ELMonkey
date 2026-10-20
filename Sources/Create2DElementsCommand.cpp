@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <cmath>
+#include <cstring>
 #include <cstdio>
 
 // ELM_SAB 0.9.26 — Create2DElements. Aufbau nach Spec 261013-n2y Abschnitte 2-5 und 7:
@@ -1081,8 +1082,8 @@ struct C2DMod {
     API_Element                mask = {};
     UInt64                     memoMask = 0;
     std::vector<GS::UniString> changed;
-    bool         hasDrawIndex = false, hasPen = false, hasLtype = false, arrowsOff = false;
-    Int32        drawIndex = 0, ltype = 0;
+    bool         hasPen = false, hasLtype = false, arrowsOff = false;
+    Int32        ltype = 0;
     short        pen = 0;
     bool         hasFill = false, hasFgPen = false, hasBgPen = false, hasContPen = false, hasShowArea = false, showArea = false;
     Int32        fill = 0;
@@ -1091,6 +1092,10 @@ struct C2DMod {
     API_RGBColor fgRGB = {}, bgRGB = {};
     bool         hasFillAngle = false;
     double       fillAngle = 0.0;          // Radiant
+    // 0.9.35 Polygon-Ersatz (PolyLine/Hatch): bisherige Hoechst-IDs + benutzter Weg fuer die Antwort
+    bool          polyChange = false;
+    UInt32        maxVertexId = 0, maxEdgeId = 0, maxContourId = 0;
+    GS::UniString polyVariant;
 };
 
 C2DKind C2DKindOfElement (const API_Element& e)
@@ -1241,6 +1246,75 @@ void C2DMaskLinePenAndType (C2DMod& m, bool pen, bool ltype)
     }
 }
 
+// ---- 0.9.35: Polygon-IDs. DevKit API_Polygon: jede Koordinate hat eine vertexID, der Schlusspunkt
+// eines Rings traegt die ID seines Startpunkts, Zelle 0 = groesste ID, und beim Aendern darf die
+// groesste ID nicht sinken. Ein frisches Memo ohne IDs lehnte ACAPI_Element_Change mit APIERR_BADPOLY ab.
+
+UInt32 C2DMaxId (UInt32** h)
+{
+    if (h == nullptr)
+        return 0;
+    const GSSize n = BMhGetSize (reinterpret_cast<GSHandle> (h)) / (GSSize) sizeof (UInt32);
+    UInt32 mx = 0;
+    for (GSSize i = 0; i < n; ++i)
+        if ((*h)[i] > mx) mx = (*h)[i];
+    return mx;
+}
+
+// IDs je Koordinate (Vertex- bzw. Kanten-IDs) fortlaufend ab base+1 vergeben.
+UInt32** C2DMakeCoordIds (const C2DPrep& p, UInt32 base)
+{
+    const Int32 n = (Int32) p.wantCoords.size ();
+    UInt32** h = reinterpret_cast<UInt32**> (BMAllocateHandle ((n + 1) * (GSSize) sizeof (UInt32), ALLOCATE_CLEAR, 0));
+    if (h == nullptr)
+        return nullptr;
+    const std::vector<Int32> ends = p.wantEnds.empty () ? std::vector<Int32> (1, n) : p.wantEnds;
+    UInt32 next = base;
+    Int32 start = 1;
+    for (Int32 end : ends) {
+        for (Int32 i = start; i <= end; ++i) {
+            const bool closesRing = (i == end && i > start && C2DNear (p.wantCoords[(size_t) (end - 1)], p.wantCoords[(size_t) (start - 1)]));
+            (*h)[i] = closesRing ? (*h)[start] : ++next;
+        }
+        start = end + 1;
+    }
+    (*h)[0] = next;
+    return h;
+}
+
+// Kontur-IDs je Teilpolygon ab base+1.
+UInt32** C2DMakeContourIds (const C2DPrep& p, UInt32 base)
+{
+    const Int32 nSub = p.wantEnds.empty () ? 1 : (Int32) p.wantEnds.size ();
+    UInt32** h = reinterpret_cast<UInt32**> (BMAllocateHandle ((nSub + 1) * (GSSize) sizeof (UInt32), ALLOCATE_CLEAR, 0));
+    if (h == nullptr)
+        return nullptr;
+    for (Int32 sIdx = 1; sIdx <= nSub; ++sIdx)
+        (*h)[sIdx] = base + (UInt32) sIdx;
+    (*h)[0] = base + (UInt32) nSub;
+    return h;
+}
+
+template <typename T>
+T** C2DCloneHandle (T** src)
+{
+    if (src == nullptr)
+        return nullptr;
+    const GSSize size = BMhGetSize (reinterpret_cast<GSHandle> (src));
+    T** h = reinterpret_cast<T**> (BMAllocateHandle (size, ALLOCATE_CLEAR, 0));
+    if (h != nullptr && size > 0)
+        std::memcpy (*h, *src, (size_t) size);
+    return h;
+}
+
+void C2DKillIdHandle (UInt32**& h)
+{
+    if (h != nullptr) {
+        BMKillHandle (reinterpret_cast<GSHandle*> (&h));
+        h = nullptr;
+    }
+}
+
 // Ohne neue coordinates gilt die Ist-Geometrie als Soll - die Ruecklese bestaetigt dann "unveraendert".
 bool C2DLoadCurrentPath (C2DPrep& p)
 {
@@ -1330,12 +1404,11 @@ void C2DPrepareModify (const GS::ObjectState& item, C2DMod& m, C2DCaches& caches
     }
     p.wantLayer = (Int32) p.element.header.layer.ToInt32_Deprecated ();
 
-    m.hasDrawIndex = item.Get ("drawIndex", m.drawIndex);
-    if (m.hasDrawIndex) {
-        if (m.drawIndex < 1 || m.drawIndex > 7) { C2DFail (p, APIERR_BADPARS, GS::UniString ("drawIndex ausserhalb 1..7: ") + C2DInt (m.drawIndex)); return; }
-        p.element.header.drwIndex = (char) m.drawIndex;
-        ACAPI_ELEMENT_MASK_SET (m.mask, API_Elem_Head, drwIndex);
-        m.changed.push_back ("drawIndex");
+    // 0.9.35: Archicad ignoriert drwIndex bei ACAPI_Element_Change (live 20.10.: 3 gesetzt, 9 blieb) -
+    // beim Anlegen wirkt es. Klar ablehnen statt still nichts zu tun.
+    if (item.Contains ("drawIndex")) {
+        C2DFail (p, APIERR_BADPARS, "drawIndex laesst sich beim Aendern nicht setzen (Archicad ignoriert es) - per Create2DElements neu anlegen");
+        return;
     }
 
     // -- Linienattribute (alles ausser Hatch)
@@ -1376,6 +1449,10 @@ void C2DPrepareModify (const GS::ObjectState& item, C2DMod& m, C2DCaches& caches
         item.Get ("clearForegroundRGB", m.clearFgRGB);
         item.Get ("clearBackgroundRGB", m.clearBgRGB);
         if ((m.hasFgRGB && m.clearFgRGB) || (m.hasBgRGB && m.clearBgRGB)) { C2DFail (p, APIERR_BADPARS, "RGB setzen und loeschen im selben Eintrag widerspricht sich"); return; }
+        // 0.9.35: Mit RGB-Vordergrund setzt Archicad den Vordergrundstift selbst auf 1 (live 20.10.,
+        // auch beim Anlegen) - Stift UND RGB im selben Feld waere nie erreichbar.
+        if (m.hasFgPen && m.hasFgRGB) { C2DFail (p, APIERR_BADPARS, "foregroundPen und foregroundRGB schliessen sich aus - mit RGB setzt Archicad den Vordergrundstift auf 1"); return; }
+        if (m.hasBgPen && m.hasBgRGB) { C2DFail (p, APIERR_BADPARS, "backgroundPen und backgroundRGB schliessen sich aus"); return; }
         m.hasShowArea = item.Get ("showArea", m.showArea);
         if (item.Contains ("fillAngleDeg")) {
             double deg = 0.0;
@@ -1575,7 +1652,18 @@ void C2DPrepareModify (const GS::ObjectState& item, C2DMod& m, C2DCaches& caches
                 ACAPI_ELEMENT_MASK_SET (m.mask, API_SplineType, autoSmooth);
             } else {
                 API_Polygon& poly = isHatch ? p.element.hatch.poly : p.element.polyLine.poly;
+                // 0.9.35: bisherige Hoechst-IDs lesen; die neuen IDs liegen darueber (DevKit-Regel).
+                API_ElementMemo cur = {};
+                if (ACAPI_Element_GetMemo (p.created, &cur, APIMemoMask_Polygon) == NoError) {
+                    m.maxVertexId  = C2DMaxId (cur.vertexIDs);
+                    m.maxEdgeId    = C2DMaxId (cur.edgeIDs);
+                    m.maxContourId = C2DMaxId (cur.contourIDs);
+                }
+                ACAPI_DisposeElemMemoHdls (&cur);
                 if (!C2DBuildPolyMemo (p, poly, g.arcs)) return;
+                p.memo.vertexIDs = C2DMakeCoordIds (p, m.maxVertexId);
+                if (p.memo.vertexIDs == nullptr) { C2DFail (p, APIERR_MEMFULL, "Speicher-Allokation fehlgeschlagen"); return; }
+                m.polyChange = true;
                 if (isHatch) {
                     ACAPI_ELEMENT_MASK_SET (m.mask, API_HatchType, poly.nCoords);
                     ACAPI_ELEMENT_MASK_SET (m.mask, API_HatchType, poly.nSubPolys);
@@ -1599,6 +1687,51 @@ void C2DPrepareModify (const GS::ObjectState& item, C2DMod& m, C2DCaches& caches
         C2DFail (p, APIERR_BADPARS, "[NO_CHANGE] keine aenderbaren Felder angegeben");
 }
 
+// 0.9.35: Aendern; beim Polygon-Ersatz bis zu vier Wege, weil Archicad nur APIERR_BADPOLY meldet.
+// A neues Memo mit vertexIDs; B wie Tapir ModifySlabs (vorhandenes Memo, coords/pends/parcs/vertexIDs
+// ersetzt, Kanten-/Kontur-IDs bleiben); C neues Memo plus Kanten- und Kontur-IDs; D wie C ohne Maske
+// auf den Polygon-Zaehlern (DevKit Do_Hatch_Edit aendert nCoords ohne Maske). Die Antwort nennt den Weg.
+GSErrCode C2DChangeElement (C2DMod& m)
+{
+    C2DPrep& p = m.p;
+    GSErrCode err = ACAPI_Element_Change (&p.element, &m.mask, m.memoMask != 0 ? &p.memo : nullptr, m.memoMask, true);
+    if (!m.polyChange)
+        return err;
+    if (err == NoError) { m.polyVariant = "A"; return err; }
+    if (err != APIERR_BADPOLY) return err;
+
+    API_ElementMemo cur = {};
+    if (ACAPI_Element_GetMemo (p.created, &cur, APIMemoMask_Polygon) == NoError) {
+        if (cur.coords != nullptr)    BMKillHandle (reinterpret_cast<GSHandle*> (&cur.coords));
+        if (cur.pends != nullptr)     BMKillHandle (reinterpret_cast<GSHandle*> (&cur.pends));
+        if (cur.parcs != nullptr)     BMKillHandle (reinterpret_cast<GSHandle*> (&cur.parcs));
+        C2DKillIdHandle (cur.vertexIDs);
+        cur.coords    = C2DCloneHandle (p.memo.coords);
+        cur.pends     = C2DCloneHandle (p.memo.pends);
+        cur.parcs     = C2DCloneHandle (p.memo.parcs);
+        cur.vertexIDs = C2DCloneHandle (p.memo.vertexIDs);
+        err = ACAPI_Element_Change (&p.element, &m.mask, &cur, APIMemoMask_Polygon, true);
+    }
+    ACAPI_DisposeElemMemoHdls (&cur);
+    if (err == NoError) { m.polyVariant = "B"; return err; }
+    if (err != APIERR_BADPOLY) return err;
+
+    C2DKillIdHandle (p.memo.edgeIDs);
+    C2DKillIdHandle (p.memo.contourIDs);
+    p.memo.edgeIDs    = C2DMakeCoordIds (p, m.maxEdgeId);
+    p.memo.contourIDs = C2DMakeContourIds (p, m.maxContourId);
+    err = ACAPI_Element_Change (&p.element, &m.mask, &p.memo, APIMemoMask_Polygon, true);
+    if (err == NoError) { m.polyVariant = "C"; return err; }
+    if (err != APIERR_BADPOLY) return err;
+
+    API_Element maskNoCounts = m.mask;
+    API_Polygon& pm = (p.kind == C2DKind::Hatch) ? maskNoCounts.hatch.poly : maskNoCounts.polyLine.poly;
+    std::memset (&pm, 0, sizeof (pm));
+    err = ACAPI_Element_Change (&p.element, &maskNoCounts, &p.memo, APIMemoMask_Polygon, true);
+    if (err == NoError) m.polyVariant = "D";
+    return err;
+}
+
 GS::ObjectState C2DModReadBack (C2DMod& m)
 {
     const C2DPrep& p = m.p;
@@ -1618,11 +1751,6 @@ GS::ObjectState C2DModReadBack (C2DMod& m)
 
     GS::UniString what;
     bool ok = C2DReadBackFill (p, check, r, what);
-
-    if (m.hasDrawIndex) {
-        r.Add ("drawIndex", (Int32) check.header.drwIndex);
-        if ((Int32) check.header.drwIndex != m.drawIndex) { ok = false; what += GS::UniString (" drawIndex"); }
-    }
 
     if (p.kind != C2DKind::Hatch) {
         const API_ExtendedPenType* lp = C2DLinePenOf (check, p.kind);
@@ -1658,9 +1786,11 @@ GS::ObjectState C2DModReadBack (C2DMod& m)
         if (m.hasShowArea && h.showArea != m.showArea)                        { ok = false; what += GS::UniString (" showArea"); }
         if (m.clearFgRGB && hasFg)                                            { ok = false; what += GS::UniString (" Vordergrund-RGB (nicht geloescht)"); }
         if (m.clearBgRGB && hasBg)                                            { ok = false; what += GS::UniString (" Hintergrund-RGB (nicht geloescht)"); }
-        if (m.hasFgRGB && (!hasFg || std::fabs (h.foregroundRGB.f_red - m.fgRGB.f_red) > 1e-3 || std::fabs (h.foregroundRGB.f_green - m.fgRGB.f_green) > 1e-3 || std::fabs (h.foregroundRGB.f_blue - m.fgRGB.f_blue) > 1e-3))
+        // Archicad speichert RGB in 8 Bit (0,3 -> 76/255 = 0,298) - Toleranz eine Stufe.
+        const double rgbTol = 1.0 / 255.0 + 1e-6;
+        if (m.hasFgRGB && (!hasFg || std::fabs (h.foregroundRGB.f_red - m.fgRGB.f_red) > rgbTol || std::fabs (h.foregroundRGB.f_green - m.fgRGB.f_green) > rgbTol || std::fabs (h.foregroundRGB.f_blue - m.fgRGB.f_blue) > rgbTol))
             { ok = false; what += GS::UniString (" Vordergrund-RGB"); }
-        if (m.hasBgRGB && (!hasBg || std::fabs (h.backgroundRGB.f_red - m.bgRGB.f_red) > 1e-3 || std::fabs (h.backgroundRGB.f_green - m.bgRGB.f_green) > 1e-3 || std::fabs (h.backgroundRGB.f_blue - m.bgRGB.f_blue) > 1e-3))
+        if (m.hasBgRGB && (!hasBg || std::fabs (h.backgroundRGB.f_red - m.bgRGB.f_red) > rgbTol || std::fabs (h.backgroundRGB.f_green - m.bgRGB.f_green) > rgbTol || std::fabs (h.backgroundRGB.f_blue - m.bgRGB.f_blue) > rgbTol))
             { ok = false; what += GS::UniString (" Hintergrund-RGB"); }
         if (m.hasFillAngle) {
             const double d = std::remainder (angIst - m.fillAngle, 2.0 * C2D_PI);
@@ -1668,6 +1798,8 @@ GS::ObjectState C2DModReadBack (C2DMod& m)
         }
     }
 
+    if (m.polyChange)
+        r.Add ("polygonVariant", m.polyVariant);
     const auto& changedOut = r.AddList<GS::UniString> ("changed");
     for (const GS::UniString& c : m.changed)
         changedOut (c);
@@ -1826,7 +1958,6 @@ GS::Optional<GS::UniString> Modify2DElementsCommand::GetInputParametersSchema ()
                         "elementType": { "type": "string", "enum": ["Line", "Arc", "Circle", "PolyLine", "Spline", "Hatch"], "description": "Optional als Kontrolle - weicht der Ist-Typ ab, wird abgelehnt." },
                         "layerName": { "type": "string", "description": "Neue Ebene per Name (Vorrang vor layerIndex)." },
                         "layerIndex": { "type": "integer", "description": "Neue Ebene per Attributindex." },
-                        "drawIndex": { "type": "integer", "description": "Anzeigereihenfolge 1..7." },
                         "pen": { "type": "integer", "description": "Linienstift (nicht Hatch). Alias penIndex." },
                         "penIndex": { "type": "integer", "description": "Alias fuer pen." },
                         "lineTypeName": { "type": "string", "description": "Linientyp per Name (nicht Hatch)." },
@@ -1854,7 +1985,7 @@ GS::Optional<GS::UniString> Modify2DElementsCommand::GetInputParametersSchema ()
                             "description": "Nur mit coordinates (Spline): ein Eintrag je Punkt; fehlt das Feld, gilt autoSmooth." },
                         "fillName": { "type": "string", "description": "Hatch: Fuellung per Name (Vorrang vor fillIndex); stellt auf Fuell-Schraffur um." },
                         "fillIndex": { "type": "integer", "description": "Hatch: Fuellung per Index." },
-                        "foregroundPen": { "type": "integer", "description": "Hatch: Vordergrundstift (1..255)." },
+                        "foregroundPen": { "type": "integer", "description": "Hatch: Vordergrundstift (1..255). Nicht zusammen mit foregroundRGB (mit RGB setzt Archicad den Stift auf 1)." },
                         "backgroundPen": { "type": "integer", "description": "Hatch: Hintergrundstift (0 = transparent)." },
                         "contourPen": { "type": "integer", "description": "Hatch: Konturstift (0 = keine Kontur)." },
                         "contourLineTypeName": { "type": "string", "description": "Hatch: Konturlinientyp per Name." },
@@ -1920,7 +2051,7 @@ GS::ObjectState Modify2DElementsCommand::Execute (const GS::ObjectState& paramet
         for (size_t i = 0; i < mods.size (); ++i) {
             C2DMod& m = *mods[i];
             if (m.p.err != NoError) continue;
-            changeErr[i] = ACAPI_Element_Change (&m.p.element, &m.mask, m.memoMask != 0 ? &m.p.memo : nullptr, m.memoMask, true);
+            changeErr[i] = C2DChangeElement (m);
         }
         return NoError;
     });
