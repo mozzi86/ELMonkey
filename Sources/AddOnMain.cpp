@@ -990,8 +990,8 @@ GSErrCode Initialize (void)
             "ELM_SAB: Liest Inhalt, Groesse und Position von Texten und Text-Labels."
         );
         err |= RegisterCommand<ELMCreateRoofsCommand> (
-            elmSabCommands, "0.9.0",
-            "ELM_SAB: Erstellt ebene Daecher (PlaneRoof) mit Pivotlinie und Neigung."
+            elmSabCommands, "0.9.34",
+            "ELM_SAB: Erstellt ebene Daecher (PlaneRoof) mit Pivotlinie und Neigung. 0.9.34: Aufbau per compositeName oder buildingMaterialName, layerName; thickness bei Mehrschicht-Werkzeugstandard stellt auf Basis-Aufbau um (structureNote) statt still zu wirken; Ruecklese structureType + thickness."
         );
         err |= RegisterCommand<SetTextSizeCommand> (
             elmSabCommands, "0.9.0",
@@ -1114,8 +1114,12 @@ GSErrCode Initialize (void)
             "ELM_SAB: Setzt den Aufbau BESTEHENDER Bauteile (basic/composite/profile mit Baustoff/Mehrschicht/Profil per Name oder Index) fuer Wand, Decke, Dach, Schale, Stuetze, Unterzug - mit Vorpruefung, Teamwork-Reservierung und Ruecklese."
         );
         err |= RegisterCommand<SaveProjectCopyELMCommand> (
-            elmSabCommands, "0.9.33",
-            "ELM_SAB: Sicherungskopie eines lokalen Projekts (Sichern + Datei kopieren); das offene Projekt bleibt das Original. Teamwork/unbenannt werden abgelehnt."
+            elmSabCommands, "0.9.34",
+            "ELM_SAB: Sicherungskopie eines lokalen Projekts (Sichern + Datei kopieren); das offene Projekt bleibt das Original. Teamwork/unbenannt werden abgelehnt. 0.9.34: sichert mit Dateiangabe (parameterlos lieferte APIERR_READONLY)."
+        );
+        err |= RegisterCommand<Modify2DElementsCommand> (
+            elmSabCommands, "0.9.34",
+            "ELM_SAB: Aendert bestehende 2D-Elemente (Line, Arc, Circle, PolyLine, Spline, Hatch), GUID bleibt: Ebene, drawIndex, Stift, Linientyp, Pfeilspitzen aus, Geometrie; Schraffur mit Fuellung, Vorder-/Hinter-/Konturstift, RGB setzen/loeschen, Konturlinientyp, Winkel, Polygon mit Loechern. Nur angegebene Felder, ein Undo-Schritt, Teamwork-Reservierung, Ruecklese je Element."
         );
         err |= RegisterCommand<GetLayersELMCommand> (
             elmSabCommands, "0.9.32",

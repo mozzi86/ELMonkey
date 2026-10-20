@@ -16,3 +16,15 @@ public:
     virtual GS::Optional<GS::UniString> GetResponseSchema () const override;
     virtual GS::ObjectState Execute (const GS::ObjectState&, GS::ProcessControl&) const override;
 };
+
+// ELM_SAB 0.9.34 — Modify2DElements (Wunschliste Michi B4/B5): bestehende 2D-Elemente aendern, GUID
+// bleibt. Schraffur: Fuellung, Stifte, RGB, Konturlinientyp, Winkel, Polygon mit Loechern. Linie,
+// Bogen, Kreis, Polylinie, Spline: Stift, Linientyp, Pfeilspitzen aus, Geometrie. Dazu Ebene und
+// Anzeigereihenfolge. Ruecklese je Element wie Create2DElements plus jedes geaenderte Attribut.
+class Modify2DElementsCommand : public ELMCommandBase {
+public:
+    virtual GS::String GetName () const override { return "Modify2DElements"; }
+    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
+    virtual GS::Optional<GS::UniString> GetResponseSchema () const override;
+    virtual GS::ObjectState Execute (const GS::ObjectState&, GS::ProcessControl&) const override;
+};
