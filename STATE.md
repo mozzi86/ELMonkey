@@ -80,6 +80,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-10-14 | 261014-i30 | ELMonkey 0.9.30 ohne Vanilla-Tapir: Update-Prüfung gegen eigenes Release + Knopf im Über-Dialog (Selbst-Update), ELM_SAB.ListCommands, Installer Mac/Windows, CI-Release nur von main, eigener MCP-Server mcp/elmonkey-mcp, Einrichtung neu. Noch nicht eingebaut |
 | 2026-10-20 | 261020-s31/rk1/z32 (Live) | ELMonkey 0.9.31 + 0.9.32 live verifiziert (leeres Projekt): Decken-Absturz Maxl behoben (2. Ursache sideMaterials), Türen/Fenster GDL (Roman) ok, Wunschliste Michi A1–A6 ok (16 Prüfungen); Testelemente gelöscht |
 | 2026-10-20 | 261020-m35 | ELMonkey 0.9.34/0.9.35: Modify2DElements (B4/B5), SaveProjectCopy/SaveProject mit Dateiangabe, CreateRoofs-Aufbau, Polygon-IDs; live 8/8 + 40/41 (offen B6 Vorlagen-Dach-Favoriten); README zweisprachig mit Demo-Bildern |
+| 2026-10-20 | 261020-t17 | ELMonkey 0.10.0: Tapir 1.7.2 per Drei-Wege-Merge + Archicad 30 (CI AC27–30), Tapir-Fixes statt eigener (#452/#508/#681), ELMonkey-Extras behalten; Live-Test ausstehend |
 
 **Recent Trend:**
 
