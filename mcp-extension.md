@@ -1969,3 +1969,24 @@ Vorher Syntaxprüfung ohne Build: `clang++ -fsyntax-only -std=c++20 -Dmacintosh=
 Installieren: altes Bundle nach `~/ELM_SAB_Backups/` sichern, neues nach `Add-Ons/`, Archicad
 neu starten, `ELM_SAB.GetAddOnVersion` prüfen (`buildStamp`). Das lokale Bundle ist **nur
 arm64** — für Intel-Macs, Windows, AC27/28 braucht es weiter die CI (Push nötig).
+
+## ELM_SAB 0.9.31 — Decken-Absturz mit Favoriten-Standards, GDL-Parameter für Türen/Fenster <!-- 2026-10-20 -->
+
+* **CreateSlabs-Absturz** (Meldung Maxl 15.10., BE-Plan 135054): nach `ApplyFavoritesToElementDefaults` (Favorit „Bodenabdeckung") stürzte `CreateSlabs` mit mehreren Decken FATAL ab. Zwei Ursachen in `BuildSlabMemoFromGeometry`: (1) nur `memo.coords` wurde auf null geprüft, die übrigen Listen nicht; (2) **`memo.sideMaterials` aus Favoriten-Standards ist kein vergrößerbarer BM-Block** → „Fatal memory error in BMReallocPtr" (eigener Live-Test 20.10., Bericht `Archicad-20261020(14-25-42)-[37204]-1-FATAL.rpt`). Fix: jede Liste einzeln anlegen/auf Sollgröße bringen; `sideMaterials` immer frisch per `BMAllocatePtr`, alter Zeiger unangetastet.
+* **GDL-Parameter für Türen/Fenster** (Beitrag Roman, aus dessen Bundle nachgebaut — Quellcode lag in einem gelöschten Claude-Scratchpad): `ELM_SAB.SetObjectParametersForce` und `TapirCommand.SetGDLParametersOfElements` akzeptieren Door/Window; A/B werden zusätzlich in `openingBase.width/height` gespiegelt (Element-Offsets 176/184, wie `object.xRatio/yRatio`). Binärvergleich: Typprüfung und Schreibstellen identisch zu Romans Build.
+* **Live verifiziert 20.10.** (leeres Projekt, 0.9.32-Bundle): Favorit „Bodenabdeckung" + 3 Decken (5/15/8 Punkte) in einem Aufruf → kein Absturz, 6/16/9 Polygonpunkte, Dicke 0,02, Bezug Unterkante. Tür 0,885×2,01 → `SetObjectParametersForce` A/B → 1,01×2,135 (Details und GDL); Fenster 1,26×1,51 → `SetGDLParametersOfElements` → 1,76×1,26.
+
+## ELM_SAB 0.9.32 — Zuverlässigkeit (Wunschliste Michi A1–A6) <!-- 2026-10-20 -->
+
+Quelle: Wunschliste Michi 20.10. (Basis 0.9.18). Grundsatz: Gründe kommen als `[CODE]` am Anfang der Fehlermeldung, damit die Tapir-Antwortschemas gültig bleiben.
+
+* **A1 Vorprüfung** (`ElmPreflight.hpp`): `NOT_FOUND`, `LAYER_HIDDEN`, `LAYER_LOCKED`, `LAYER_NOT_FOUND`, `ELEMENT_LOCKED`, `HOTLINK`, `RESERVED_BY_OTHER`, `WRONG_WINDOW_TYPE`, `UNDO_SCOPE_FAILED`, `NO_EFFECT`. Eingebaut in `MoveElements` (zusätzlich Wirkungsprüfung über die 3D-Box), `RotateElements`, `SetDetailsOfElements`, `DeleteElements` (blockierte werden übersprungen und mit Grund und Anzahl gemeldet) und alle Tapir-Erstellbefehle (Zielebene; Modellelemente zusätzlich Fenstertyp).
+* **A4/A6 Ebenen:** alle 9 Tapir-Erstellbefehle (Columns, Slabs, Zones, Polylines, Objects, Lamps, Meshes, Labels, Texts) nehmen `layerName` (Vorrang) oder `layerIndex`; die Antwort meldet je Element `layerIndex`, `layerName`, `floorIndex`. `ELM_SAB.GetLayers {nameContains?}` liefert den echten Attribut-Index.
+* **A5** `ELM_SAB.SetLayerAttributes {layers:[{layerName|layerIndex, hidden?, locked?, wireframe?}]}` mit Rücklese.
+* **A2** `CreateObjects`/`CreateLamps`: `zReference: "absolute"` (Standard, wie bisher) oder `"story"` + `floorIndex`; Antwort `zAbsolute` und `zStoryRelative`.
+* **A3** `ELM_SAB.GetSlabLevels {elements}` → `topZ`/`bottomZ` absolut (3D-Box), geschossbezogen, `referencePlane`, `referenceZ`, `thickness`.
+* Windows AC27/28: MSVC behandelt Warnungen als Fehler — Flag-Typ in `SetLayerAttributes` per `decltype` vom Archicad-Feld (AC27/28 `short`).
+* **Live verifiziert 20.10.** (leeres Projekt, Testebene `ZZ_KI_Test_0932`): GetLayers findet die Ebene mit echtem Index; Polylinie und Text per `layerName` auf genau dieser Ebene; Stuhl mit `zReference:"story"`, OG, z 2,70 → `zAbsolute` 5,70, 3D-Box-UK 5,70 (Michis Abnahme A2); ohne zReference → EG 2,70; unbekannte Ebene → `[LAYER_NOT_FOUND]`; Ebene ausgeblendet → Delete `[LAYER_HIDDEN]` und Element bleibt (Michis Abnahme A1), Move und Create ebenfalls abgelehnt; gesperrt → Move `[LAYER_LOCKED]`; entsperrt → Move ok. `GetSlabLevels` an den 3 Decken: UK 0,00 / OK 0,02. Testelemente gelöscht, 0 von 10 übrig.
+* Fallen: `API.GetElementsByType` kennt `PolyLine` nicht (4002) → `TapirCommand.GetElementsByType`. B1 (Lampen) nicht prüfbar — die Standardbibliothek des leeren Projekts enthält keine Lampen-Bibliotheksteile; `TapirCommand.CreateLamps` existiert.
+* Noch offen aus der Wunschliste: B1–B8, C1–C4 (C5 löst `elmonkey-mcp`).
+
