@@ -1,4 +1,5 @@
 #include "ElementCreationCommands.hpp"
+#include "ElmPreflight.hpp"
 #include "ExtendedElementCommands.hpp"
 #include "ObjectState.hpp"
 #include "MigrationHelper.hpp"
@@ -19,11 +20,26 @@ GS::String CreateElementsCommandBase::GetName () const
 
 GS::Optional<GS::UniString> CreateElementsCommandBase::GetResponseSchema () const
 {
+    // ELMonkey 0.9.32: je Element Ruecklese (Ebene, Geschoss, bei Objekten/Lampen Hoehe absolut und
+    // geschossbezogen) oder ein Fehler mit [CODE] in der Meldung.
     return R"({
         "type": "object",
         "properties": {
             "elements": {
-                "$ref": "#/Elements"
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "elementId": { "$ref": "#/ElementId" },
+                        "error": { "$ref": "#/Error" },
+                        "layerIndex": { "type": "integer" },
+                        "layerName": { "type": "string" },
+                        "floorIndex": { "type": "integer" },
+                        "zAbsolute": { "type": "number" },
+                        "zStoryRelative": { "type": "number" }
+                    },
+                    "additionalProperties": false
+                }
             }
         },
         "additionalProperties": false,
@@ -65,10 +81,68 @@ GS::ObjectState	CreateElementsCommandBase::Execute (const GS::ObjectState& param
         bool setAutoTextFlag = false;
         ACAPI_AutoText_ChangeAutoTextFlag (&setAutoTextFlag);
 
+        const API_AttributeIndex defaultLayer = element.header.layer;
+        const bool isLibPartElem = (elemTypeID == API_ObjectID || elemTypeID == API_LampID);
+        const bool isModelElem = isLibPartElem || elemTypeID == API_ColumnID || elemTypeID == API_SlabID ||
+                                 elemTypeID == API_ZoneID || elemTypeID == API_MeshID;
+        const GS::UniString windowReason = isModelElem ? ModelWindowBlockReasonELM () : GS::UniString ();
+
         for (const GS::ObjectState& data : dataArray) {
+            // Jede Erstellung startet mit der Werkzeug-Ebene (das element wird wiederverwendet).
+            element.header.layer = defaultLayer;
             auto os = SetTypeSpecificParameters (element, memo, stories, data);
             if (os.HasValue ()) {
                 elements (*os);
+                continue;
+            }
+
+            // ELMonkey 0.9.32 (A1): falsches Fenster -> nichts anlegen statt still falsch.
+            if (!windowReason.IsEmpty ()) {
+                elements (CreateErrorResponse (ReasonToErrCodeELM (windowReason), windowReason));
+                continue;
+            }
+
+            // ELMonkey 0.9.32 (A4/A6): Ebene per Name oder echtem Index fuer ALLE Erstellbefehle.
+            GS::UniString layerName;
+            Int32 layerIndexIn = 0;
+            if (data.Get ("layerName", layerName) && !layerName.IsEmpty ()) {
+                API_AttributeIndex li;
+                if (!ResolveLayerByNameELM (layerName, li)) {
+                    elements (CreateErrorResponse (APIERR_BADNAME, GS::UniString ("[LAYER_NOT_FOUND] Ebene '") + layerName + GS::UniString ("' gibt es nicht")));
+                    continue;
+                }
+                element.header.layer = li;
+            } else if (data.Get ("layerIndex", layerIndexIn) && layerIndexIn > 0) {
+                element.header.layer = ACAPI_CreateAttributeIndex (layerIndexIn);
+            }
+
+            // ELMonkey 0.9.32 (A2): Hoehenbezug fuer Objekte/Lampen explizit. Standard bleibt
+            // "absolute" (coordinates.z = absolute Hoehe, Geschoss wird daraus gewaehlt).
+            if (isLibPartElem) {
+                GS::UniString zReference;
+                if (data.Get ("zReference", zReference) && zReference == "story") {
+                    Int32 floorIndex = 0;
+                    GS::ObjectState coords;
+                    if (!data.Get ("floorIndex", floorIndex) || !data.Get ("coordinates", coords)) {
+                        elements (CreateErrorResponse (APIERR_BADPARS, "zReference 'story' braucht floorIndex und coordinates (z = Hoehe ueber dem Geschoss)"));
+                        continue;
+                    }
+                    if (stories.find ((short) floorIndex) == stories.end ()) {
+                        elements (CreateErrorResponse (APIERR_BADINDEX, GS::UniString ("Geschoss ") + GS::ValueToUniString (floorIndex) + GS::UniString (" gibt es nicht")));
+                        continue;
+                    }
+                    element.header.floorInd = (short) floorIndex;
+                    element.object.level = Get3DCoordinateFromObjectState (coords).z;
+                } else if (!zReference.IsEmpty () && zReference != "absolute") {
+                    elements (CreateErrorResponse (APIERR_BADPARS, "zReference muss 'absolute' oder 'story' sein"));
+                    continue;
+                }
+            }
+
+            // ELMonkey 0.9.32 (A1): ausgeblendete/gesperrte Zielebene -> Fehler statt stiller Erfolg.
+            const GS::UniString layerReason = LayerBlockReasonELM (element.header.layer);
+            if (!layerReason.IsEmpty ()) {
+                elements (CreateErrorResponse (ReasonToErrCodeELM (layerReason), layerReason));
                 continue;
             }
 
@@ -83,7 +157,20 @@ GS::ObjectState	CreateElementsCommandBase::Execute (const GS::ObjectState& param
             notification.elemHead = element.header;
             AddElementNotificationClientCommand::ElementEventHandlerProc (&notification);
 
-            elements (CreateElementIdObjectState (element.header.guid));
+            // Ruecklese: was liegt wirklich im Modell?
+            GS::ObjectState created = CreateElementIdObjectState (element.header.guid);
+            API_Element check = {};
+            check.header.guid = element.header.guid;
+            if (ACAPI_Element_Get (&check) == NoError) {
+                created.Add ("layerIndex", (Int32) check.header.layer.ToInt32_Deprecated ());
+                created.Add ("layerName", GetLayerStateELM (check.header.layer).name);
+                created.Add ("floorIndex", (Int32) check.header.floorInd);
+                if (isLibPartElem) {
+                    created.Add ("zStoryRelative", check.object.level);
+                    created.Add ("zAbsolute", GetZPos (check.header.floorInd, check.object.level, stories));
+                }
+            }
+            elements (created);
         }
 
         ACAPI_AutoText_ChangeAutoTextFlag (&savedAutoTextFlag);
@@ -117,23 +204,23 @@ GS::Optional<GS::UniString> CreateColumnsCommand::GetInputParametersSchema () co
                     "properties": {
                         "coordinates": {
                             "type": "object",
-                            "description" : "3D coordinate.",
-                            "properties" : {
+                            "description": "3D coordinate.",
+                            "properties": {
                                 "x": {
                                     "type": "number",
-                                    "description" : "X value of the coordinate."
+                                    "description": "X value of the coordinate."
                                 },
-                                "y" : {
+                                "y": {
                                     "type": "number",
-                                    "description" : "Y value of the coordinate."
+                                    "description": "Y value of the coordinate."
                                 },
-                                "z" : {
+                                "z": {
                                     "type": "number",
-                                    "description" : "Z value of the coordinate."
+                                    "description": "Z value of the coordinate."
                                 }
                             },
                             "additionalProperties": false,
-                            "required" : [
+                            "required": [
                                 "x",
                                 "y",
                                 "z"
@@ -161,11 +248,29 @@ GS::Optional<GS::UniString> CreateColumnsCommand::GetInputParametersSchema () co
                         "coreAnchor": {
                             "type": "string",
                             "description": "Optional anchor point of the column core on a 3x3 grid.",
-                            "enum": ["TopLeft", "TopCenter", "TopRight", "MiddleLeft", "Center", "MiddleRight", "BottomLeft", "BottomCenter", "BottomRight"]
+                            "enum": [
+                                "TopLeft",
+                                "TopCenter",
+                                "TopRight",
+                                "MiddleLeft",
+                                "Center",
+                                "MiddleRight",
+                                "BottomLeft",
+                                "BottomCenter",
+                                "BottomRight"
+                            ]
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per Name (echter Attribut-Index wird aufgeloest). Vorrang vor layerIndex."
+                        },
+                        "layerIndex": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per echtem Attribut-Index (nicht Listenposition)."
                         }
                     },
                     "additionalProperties": false,
-                    "required" : [
+                    "required": [
                         "coordinates"
                     ]
                 }
@@ -227,61 +332,74 @@ CreateSlabsCommand::CreateSlabsCommand () :
 GS::Optional<GS::UniString> CreateSlabsCommand::GetInputParametersSchema () const
 {
     return R"({
-    "type": "object",
-    "properties": {
-        "slabsData": {
-            "type": "array",
-            "description": "Array of data to create Slabs.",
-            "items": {
-                "type": "object",
-                "description" : "The parameters of the new Slab.",
-                "properties" : {
-                    "level": {
-                        "type": "number",
-                        "description" : "The Z coordinate value of the reference line of the slab."	
-                    },
-                    "thickness": {
-                        "type": "number",
-                        "description": "Optional slab thickness.",
-                        "exclusiveMinimum": 0.0
-                    },
-                    "referencePlaneLocation": {
-                        "type": "string",
-                        "description": "Optional location of the slab reference plane. For a basic (homogeneous) slab only 'Top' or 'Bottom' are valid.",
-                        "enum": ["Top", "CoreTop", "CoreBottom", "Bottom"]
-                    },
-                    "polygonCoordinates": { 
-                        "type": "array",
-                        "description": "The 2D coordinates of the edge of the slab.",
-                        "items": {
-                            "$ref": "#/Coordinate2D"
+        "type": "object",
+        "properties": {
+            "slabsData": {
+                "type": "array",
+                "description": "Array of data to create Slabs.",
+                "items": {
+                    "type": "object",
+                    "description": "The parameters of the new Slab.",
+                    "properties": {
+                        "level": {
+                            "type": "number",
+                            "description": "The Z coordinate value of the reference line of the slab."
                         },
-                        "minItems": 3
-                    },
-                    "polygonArcs": {
-                        "type": "array",
-                        "description": "Polygon outline arcs of the slab.",
-                        "items": {
-                            "$ref": "#/PolyArc"
+                        "thickness": {
+                            "type": "number",
+                            "description": "Optional slab thickness.",
+                            "exclusiveMinimum": 0.0
+                        },
+                        "referencePlaneLocation": {
+                            "type": "string",
+                            "description": "Optional location of the slab reference plane. For a basic (homogeneous) slab only 'Top' or 'Bottom' are valid.",
+                            "enum": [
+                                "Top",
+                                "CoreTop",
+                                "CoreBottom",
+                                "Bottom"
+                            ]
+                        },
+                        "polygonCoordinates": {
+                            "type": "array",
+                            "description": "The 2D coordinates of the edge of the slab.",
+                            "items": {
+                                "$ref": "#/Coordinate2D"
+                            },
+                            "minItems": 3
+                        },
+                        "polygonArcs": {
+                            "type": "array",
+                            "description": "Polygon outline arcs of the slab.",
+                            "items": {
+                                "$ref": "#/PolyArc"
+                            }
+                        },
+                        "holes": {
+                            "$ref": "#/Holes2D"
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per Name (echter Attribut-Index wird aufgeloest). Vorrang vor layerIndex."
+                        },
+                        "layerIndex": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per echtem Attribut-Index (nicht Listenposition)."
                         }
                     },
-                    "holes" : {
-                        "$ref": "#/Holes2D"
-                    }    
-                },
-                "additionalProperties": false,
-                "required" : [
-                    "level",
-                    "polygonCoordinates"
-                ]
+                    "additionalProperties": false,
+                    "required": [
+                        "level",
+                        "polygonCoordinates"
+                    ]
+                }
             }
-        }
-    },
-    "additionalProperties": false,
-    "required": [
-        "slabsData"
-    ]
-})";
+        },
+        "additionalProperties": false,
+        "required": [
+            "slabsData"
+        ]
+    })";
 }
 
 GS::Array<API_PolyArc> GetPolyArcs (const GS::Array<GS::ObjectState>& arcs, Int32 iStart)
@@ -395,60 +513,68 @@ CreateZonesCommand::CreateZonesCommand () :
 GS::Optional<GS::UniString> CreateZonesCommand::GetInputParametersSchema () const
 {
     return R"({
-    "type": "object",
-    "properties": {
-        "zonesData": {
-            "type": "array",
-            "description": "Array of data to create Zones.",
-            "items": {
-                "type": "object",
-                "description" : "The parameters of the new Zone.",
-                "properties" : {
-                    "floorIndex": {
-                        "type": "number"
+        "type": "object",
+        "properties": {
+            "zonesData": {
+                "type": "array",
+                "description": "Array of data to create Zones.",
+                "items": {
+                    "type": "object",
+                    "description": "The parameters of the new Zone.",
+                    "properties": {
+                        "floorIndex": {
+                            "type": "number"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "Name of the zone."
+                        },
+                        "numberStr": {
+                            "type": "string",
+                            "description": "Zone number."
+                        },
+                        "categoryAttributeId": {
+                            "$ref": "#/AttributeId",
+                            "description": "The identifier of the zone category attribute."
+                        },
+                        "stampPosition": {
+                            "$ref": "#/Coordinate2D",
+                            "description": "Position of the origin of the zone stamp."
+                        },
+                        "stampAngle": {
+                            "type": "number",
+                            "description": "Optional zone stamp rotation angle in radians."
+                        },
+                        "fixedStampAngle": {
+                            "type": "boolean",
+                            "description": "If true, the zone stamp angle remains fixed when the element is rotated."
+                        },
+                        "geometry": {
+                            "$ref": "#/ZoneCreationGeometry"
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per Name (echter Attribut-Index wird aufgeloest). Vorrang vor layerIndex."
+                        },
+                        "layerIndex": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per echtem Attribut-Index (nicht Listenposition)."
+                        }
                     },
-                    "name": {
-                        "type": "string",
-                        "description" : "Name of the zone."
-                    },
-                    "numberStr": {
-                        "type": "string",
-                        "description" : "Zone number."	
-                    },
-                    "categoryAttributeId": {
-                        "$ref": "#/AttributeId",
-                        "description" : "The identifier of the zone category attribute."	
-                    },
-                    "stampPosition": {
-                        "$ref": "#/Coordinate2D",
-                        "description" : "Position of the origin of the zone stamp."
-                    },
-                    "stampAngle": {
-                        "type": "number",
-                        "description" : "Optional zone stamp rotation angle in radians."
-                    },
-                    "fixedStampAngle": {
-                        "type": "boolean",
-                        "description" : "If true, the zone stamp angle remains fixed when the element is rotated."
-                    },
-                    "geometry": {
-                        "$ref": "#/ZoneCreationGeometry"
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "name",
-                    "numberStr",
-                    "geometry"
-                ]
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "numberStr",
+                        "geometry"
+                    ]
+                }
             }
-        }
-    },
-    "additionalProperties": false,
-    "required": [
-        "zonesData"
-    ]
-})";
+        },
+        "additionalProperties": false,
+        "required": [
+            "zonesData"
+        ]
+    })";
 }
 
 GS::Optional<GS::ObjectState> CreateZonesCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& /*stories*/, const GS::ObjectState& parameters) const
@@ -561,63 +687,67 @@ CreatePolylinesCommand::CreatePolylinesCommand () :
 GS::Optional<GS::UniString> CreatePolylinesCommand::GetInputParametersSchema () const
 {
     return R"({
-    "type": "object",
-    "properties": {
-        "polylinesData": {
-            "type": "array",
-            "description": "Array of data to create Polylines.",
-            "items": {
-                "type": "object",
-                "description" : "The parameters of the new Polyline.",
-                "properties" : {
-                    "floorInd": {
-                        "type": "number",
-                        "description" : "The identifier of the floor. Optional parameter, by default the current floor is used."	
-                    },
-                    "layerIndex": {
-                        "type": "integer",
-                        "description" : "Layer attribute index to place the polyline on. Optional parameter, by default the current layer is used."
-                    },
-                    "linePenIndex": {
-                        "type": "integer",
-                        "description" : "Pen index of the polyline contour. Optional parameter, by default the current pen is used."
-                    },
-                    "lineTypeIndex": {
-                        "type": "integer",
-                        "description" : "Line type attribute index of the polyline contour. Optional parameter, by default the current line type is used."
-                    },
-                    "penWeightMm": {
-                        "type": "number",
-                        "description" : "Optional pen weight override in mm."
-                    },
-                    "coordinates": { 
-                        "type": "array",
-                        "description": "The 2D coordinates of the polyline.",
-                        "items": {
-                            "$ref": "#/Coordinate2D"
+        "type": "object",
+        "properties": {
+            "polylinesData": {
+                "type": "array",
+                "description": "Array of data to create Polylines.",
+                "items": {
+                    "type": "object",
+                    "description": "The parameters of the new Polyline.",
+                    "properties": {
+                        "floorInd": {
+                            "type": "number",
+                            "description": "The identifier of the floor. Optional parameter, by default the current floor is used."
                         },
-                        "minItems": 2
-                    },
-                    "arcs": { 
-                        "type": "array",
-                        "description": "The arcs of the polyline.",
-                        "items": {
-                            "$ref": "#/PolyArc"
+                        "layerIndex": {
+                            "type": "integer",
+                            "description": "Layer attribute index to place the polyline on. Optional parameter, by default the current layer is used."
+                        },
+                        "linePenIndex": {
+                            "type": "integer",
+                            "description": "Pen index of the polyline contour. Optional parameter, by default the current pen is used."
+                        },
+                        "lineTypeIndex": {
+                            "type": "integer",
+                            "description": "Line type attribute index of the polyline contour. Optional parameter, by default the current line type is used."
+                        },
+                        "penWeightMm": {
+                            "type": "number",
+                            "description": "Optional pen weight override in mm."
+                        },
+                        "coordinates": {
+                            "type": "array",
+                            "description": "The 2D coordinates of the polyline.",
+                            "items": {
+                                "$ref": "#/Coordinate2D"
+                            },
+                            "minItems": 2
+                        },
+                        "arcs": {
+                            "type": "array",
+                            "description": "The arcs of the polyline.",
+                            "items": {
+                                "$ref": "#/PolyArc"
+                            }
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per Name (echter Attribut-Index wird aufgeloest). Vorrang vor layerIndex."
                         }
-                    }
-                },
-                "additionalProperties": false,
-                "required" : [
-                    "coordinates"
-                ]
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "coordinates"
+                    ]
+                }
             }
-        }
-    },
-    "additionalProperties": false,
-    "required": [
-        "polylinesData"
-    ]
-})";
+        },
+        "additionalProperties": false,
+        "required": [
+            "polylinesData"
+        ]
+    })";
 }
 
 static void AddPolyToMemo (const GS::Array<GS::ObjectState>& coordinates,
@@ -713,6 +843,23 @@ static GS::UniString BuildLibraryPartBasedSchema (const char* arrayFieldName,
                         },
                         "dimensions": {
                             "$ref": "#/Dimensions3D"
+                        },
+                        "zReference": {
+                            "type": "string",
+                            "enum": ["absolute", "story"],
+                            "description": "ELMonkey 0.9.32: Bedeutung von coordinates.z. 'absolute' (Standard) = absolute Hoehe, Geschoss wird daraus gewaehlt. 'story' = Hoehe ueber dem Geschoss floorIndex."
+                        },
+                        "floorIndex": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.9.32: Geschoss bei zReference 'story'."
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per Name. Vorrang vor layerIndex."
+                        },
+                        "layerIndex": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per echtem Attribut-Index."
                         }
                     },
                     "additionalProperties": false,
@@ -904,102 +1051,114 @@ CreateMeshesCommand::CreateMeshesCommand () :
 GS::Optional<GS::UniString> CreateMeshesCommand::GetInputParametersSchema () const
 {
     return R"({
-    "type": "object",
-    "properties": {
-        "meshesData": {
-            "type": "array",
-            "description": "Array of data to create Meshes.",
-            "items": {
-                "type": "object",
-                "description" : "The parameters of the new Mesh.",
-                "properties" : {
-                    "floorIndex": {
-                        "type": "integer"
-                    },
-                    "level": {
-                        "type": "number",
-                        "description": "The Z reference level of coordinates."
-                    },
-                    "skirtType": {
-                        "$ref": "#/MeshSkirtType"
-                    },
-                    "skirtLevel": {
-                        "type": "number",
-                        "description": "The height of the skirt."
-                    },
-                    "ridges": {
-                        "type": "string",
-                        "description": "How ridges between mesh facets are displayed in 3D: 'AllSharp' shows all ridges, 'AllSmooth' hides them, 'UserDefined' shows only ridges along user-defined level lines (the drawing-set look for contour-line topography).",
-                        "enum": ["AllSharp", "AllSmooth", "UserDefined"]
-                    },
-                    "showLines": {
-                        "type": "boolean",
-                        "description": "Whether to show secondary mesh lines (level lines other than the user-defined ones) on plan."
-                    },
-                    "contourPen": {
-                        "type": "integer",
-                        "description": "Optional pen attribute index for the mesh's contour line."
-                    },
-                    "levelPen": {
-                        "type": "integer",
-                        "description": "Optional pen attribute index for the mesh's level lines."
-                    },
-                    "lineTypeIndex": {
-                        "type": "integer",
-                        "description": "Optional line type attribute index for the mesh's contour."
-                    },
-                    "polygonCoordinates": {
-                        "type": "array",
-                        "description": "The 3D coordinates of the outline polygon of the mesh.",
-                        "items": {
-                            "$ref": "#/Coordinate3D"
+        "type": "object",
+        "properties": {
+            "meshesData": {
+                "type": "array",
+                "description": "Array of data to create Meshes.",
+                "items": {
+                    "type": "object",
+                    "description": "The parameters of the new Mesh.",
+                    "properties": {
+                        "floorIndex": {
+                            "type": "integer"
                         },
-                        "minItems": 3
-                    },
-                    "polygonArcs": {
-                        "type": "array",
-                        "description": "Polygon outline arcs of the mesh.",
-                        "items": {
-                            "$ref": "#/PolyArc"
-                        }
-                    },
-                    "holes" : {
-                        "$ref": "#/Holes3D"
-                    },
-                    "sublines": {
-                        "type": "array",
-                        "description": "The leveling sublines inside the polygon of the mesh.",
-                        "items": {
-                            "type": "object",
-                            "properties" : {
-                                "coordinates": { 
-                                    "type": "array",
-                                    "description": "The 3D coordinates of the leveling subline of the mesh.",
-                                    "items": {
-                                        "$ref": "#/Coordinate3D"
-                                    }
-                                }
-                            },
-                            "additionalProperties": false,
-                            "required": [
-                                "coordinates"
+                        "level": {
+                            "type": "number",
+                            "description": "The Z reference level of coordinates."
+                        },
+                        "skirtType": {
+                            "$ref": "#/MeshSkirtType"
+                        },
+                        "skirtLevel": {
+                            "type": "number",
+                            "description": "The height of the skirt."
+                        },
+                        "ridges": {
+                            "type": "string",
+                            "description": "How ridges between mesh facets are displayed in 3D: 'AllSharp' shows all ridges, 'AllSmooth' hides them, 'UserDefined' shows only ridges along user-defined level lines (the drawing-set look for contour-line topography).",
+                            "enum": [
+                                "AllSharp",
+                                "AllSmooth",
+                                "UserDefined"
                             ]
                         },
-                        "minItems": 1
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "polygonCoordinates"
-                ]
+                        "showLines": {
+                            "type": "boolean",
+                            "description": "Whether to show secondary mesh lines (level lines other than the user-defined ones) on plan."
+                        },
+                        "contourPen": {
+                            "type": "integer",
+                            "description": "Optional pen attribute index for the mesh's contour line."
+                        },
+                        "levelPen": {
+                            "type": "integer",
+                            "description": "Optional pen attribute index for the mesh's level lines."
+                        },
+                        "lineTypeIndex": {
+                            "type": "integer",
+                            "description": "Optional line type attribute index for the mesh's contour."
+                        },
+                        "polygonCoordinates": {
+                            "type": "array",
+                            "description": "The 3D coordinates of the outline polygon of the mesh.",
+                            "items": {
+                                "$ref": "#/Coordinate3D"
+                            },
+                            "minItems": 3
+                        },
+                        "polygonArcs": {
+                            "type": "array",
+                            "description": "Polygon outline arcs of the mesh.",
+                            "items": {
+                                "$ref": "#/PolyArc"
+                            }
+                        },
+                        "holes": {
+                            "$ref": "#/Holes3D"
+                        },
+                        "sublines": {
+                            "type": "array",
+                            "description": "The leveling sublines inside the polygon of the mesh.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "coordinates": {
+                                        "type": "array",
+                                        "description": "The 3D coordinates of the leveling subline of the mesh.",
+                                        "items": {
+                                            "$ref": "#/Coordinate3D"
+                                        }
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "required": [
+                                    "coordinates"
+                                ]
+                            },
+                            "minItems": 1
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per Name (echter Attribut-Index wird aufgeloest). Vorrang vor layerIndex."
+                        },
+                        "layerIndex": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per echtem Attribut-Index (nicht Listenposition)."
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "polygonCoordinates"
+                    ]
+                }
             }
-        }
-    },
-    "additionalProperties": false,
-    "required": [
-        "meshesData"
-    ]
-})";
+        },
+        "additionalProperties": false,
+        "required": [
+            "meshesData"
+        ]
+    })";
 }
 
 GS::Optional<GS::ObjectState> CreateMeshesCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& /*stories*/, const GS::ObjectState& parameters) const
@@ -1075,52 +1234,58 @@ CreateLabelsCommand::CreateLabelsCommand () :
 GS::Optional<GS::UniString> CreateLabelsCommand::GetInputParametersSchema () const
 {
     return R"({
-    "type": "object",
-    "properties": {
-        "labelsData": {
-            "type": "array",
-            "description": "Array of data to create Labels.",
-            "items": {
-                "type": "object",
-                "description": "The parameters of the new Label.",
-                "properties": {
-                    "parentElementId": {
-                        "$ref": "#/ElementId",
-                        "description" : "The parent element if the label is an associative label."	
+        "type": "object",
+        "properties": {
+            "labelsData": {
+                "type": "array",
+                "description": "Array of data to create Labels.",
+                "items": {
+                    "type": "object",
+                    "description": "The parameters of the new Label.",
+                    "properties": {
+                        "parentElementId": {
+                            "$ref": "#/ElementId",
+                            "description": "The parent element if the label is an associative label."
+                        },
+                        "text": {
+                            "type": "string",
+                            "description": "The text content if the label is a text label."
+                        },
+                        "begCoordinate": {
+                            "$ref": "#/Coordinate2D",
+                            "description": "The begin coordinate of leader line. Optional parameter, but either begCoordinate or parentElementId must be provided."
+                        },
+                        "midCoordinate": {
+                            "$ref": "#/Coordinate2D",
+                            "description": "The mid coordinate of leader line. Optional parameter."
+                        },
+                        "endCoordinate": {
+                            "$ref": "#/Coordinate2D",
+                            "description": "The end coordinate of leader line. Optional parameter."
+                        },
+                        "floorInd": {
+                            "type": "number",
+                            "description": "The identifier of the floor. Optional parameter, by default the current floor or the floor of the parent element is used."
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per Name (echter Attribut-Index wird aufgeloest). Vorrang vor layerIndex."
+                        },
+                        "layerIndex": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per echtem Attribut-Index (nicht Listenposition)."
+                        }
                     },
-                    "text": { 
-                        "type": "string",
-                        "description": "The text content if the label is a text label."
-                    },
-                    "begCoordinate": {
-                        "$ref": "#/Coordinate2D",
-                        "description": "The begin coordinate of leader line. Optional parameter, but either begCoordinate or parentElementId must be provided."
-                    },
-                    "midCoordinate": {
-                        "$ref": "#/Coordinate2D",
-                        "description": "The mid coordinate of leader line. Optional parameter."
-                    },
-                    "endCoordinate": {
-                        "$ref": "#/Coordinate2D",
-                        "description": "The end coordinate of leader line. Optional parameter."
-                    },
-
-                    "floorInd": {
-                        "type": "number",
-                        "description" : "The identifier of the floor. Optional parameter, by default the current floor or the floor of the parent element is used."	
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                ]
+                    "additionalProperties": false,
+                    "required": []
+                }
             }
-        }
-    },
-    "additionalProperties": false,
-    "required": [
-        "labelsData"
-    ]
-})";
+        },
+        "additionalProperties": false,
+        "required": [
+            "labelsData"
+        ]
+    })";
 }
 
 static GSErrCode SetParagraph (API_ParagraphType** paragraph, UInt32 parNum, Int32 from, Int32 range, Int32 numOfTabs, Int32 numOfRuns,
@@ -1287,58 +1452,71 @@ CreateTextsCommand::CreateTextsCommand () :
 GS::Optional<GS::UniString> CreateTextsCommand::GetInputParametersSchema () const
 {
     return R"({
-    "type": "object",
-    "properties": {
-        "textsData": {
-            "type": "array",
-            "description": "Array of data to create Texts.",
-            "items": {
-                "type": "object",
-                "description": "The parameters of the new Text element.",
-                "properties": {
-                    "coordinate": {
-                        "$ref": "#/Coordinate3D",
-                        "description": "The placement position of the text. The z value is used to determine the floor when floorIndex is omitted."
+        "type": "object",
+        "properties": {
+            "textsData": {
+                "type": "array",
+                "description": "Array of data to create Texts.",
+                "items": {
+                    "type": "object",
+                    "description": "The parameters of the new Text element.",
+                    "properties": {
+                        "coordinate": {
+                            "$ref": "#/Coordinate3D",
+                            "description": "The placement position of the text. The z value is used to determine the floor when floorIndex is omitted."
+                        },
+                        "text": {
+                            "type": "string",
+                            "description": "The text content. Newlines create multiple lines."
+                        },
+                        "height": {
+                            "type": "number",
+                            "description": "The character height in millimeters. Optional; defaults to the Text tool default."
+                        },
+                        "pen": {
+                            "type": "integer",
+                            "description": "Optional pen attribute index."
+                        },
+                        "angle": {
+                            "type": "number",
+                            "description": "Optional rotation angle in radians."
+                        },
+                        "justification": {
+                            "type": "string",
+                            "description": "Optional text justification.",
+                            "enum": [
+                                "Left",
+                                "Center",
+                                "Right",
+                                "Full"
+                            ]
+                        },
+                        "floorIndex": {
+                            "type": "integer",
+                            "description": "Optional floor index. If omitted, derived from the coordinate's z value."
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per Name (echter Attribut-Index wird aufgeloest). Vorrang vor layerIndex."
+                        },
+                        "layerIndex": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.9.32: Ziel-Ebene per echtem Attribut-Index (nicht Listenposition)."
+                        }
                     },
-                    "text": {
-                        "type": "string",
-                        "description": "The text content. Newlines create multiple lines."
-                    },
-                    "height": {
-                        "type": "number",
-                        "description": "The character height in millimeters. Optional; defaults to the Text tool default."
-                    },
-                    "pen": {
-                        "type": "integer",
-                        "description": "Optional pen attribute index."
-                    },
-                    "angle": {
-                        "type": "number",
-                        "description": "Optional rotation angle in radians."
-                    },
-                    "justification": {
-                        "type": "string",
-                        "description": "Optional text justification.",
-                        "enum": ["Left", "Center", "Right", "Full"]
-                    },
-                    "floorIndex": {
-                        "type": "integer",
-                        "description": "Optional floor index. If omitted, derived from the coordinate's z value."
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "coordinate",
-                    "text"
-                ]
+                    "additionalProperties": false,
+                    "required": [
+                        "coordinate",
+                        "text"
+                    ]
+                }
             }
-        }
-    },
-    "additionalProperties": false,
-    "required": [
-        "textsData"
-    ]
-})";
+        },
+        "additionalProperties": false,
+        "required": [
+            "textsData"
+        ]
+    })";
 }
 
 GS::Optional<GS::ObjectState> CreateTextsCommand::SetTypeSpecificParameters (API_Element& element, API_ElementMemo& memo, const Stories& stories, const GS::ObjectState& parameters) const

@@ -66,6 +66,7 @@
 #include "InspectionCommands.hpp"
 #include "FindElementsCommand.hpp"
 #include "SectionDimensionCommandsELM.hpp"
+#include "LayerLevelCommandsELM.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -1102,6 +1103,18 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<GetInteriorElevationsELMCommand> (
             elmSabCommands, "0.9.29",
             "ELM_SAB: Listet Innenansichten mit vertikalem Bereich (gemeinsam und je Segment)."
+        );
+        err |= RegisterCommand<GetLayersELMCommand> (
+            elmSabCommands, "0.9.32",
+            "ELM_SAB: Listet alle Ebenen mit ECHTEM Attribut-Index (nicht Listenposition), Name, ausgeblendet, gesperrt, Drahtmodell, Xref; optional nameContains."
+        );
+        err |= RegisterCommand<SetLayerAttributesELMCommand> (
+            elmSabCommands, "0.9.32",
+            "ELM_SAB: Blendet Ebenen ein/aus, sperrt/entsperrt sie, setzt Drahtmodell - per layerName oder layerIndex, mit Ruecklese je Ebene."
+        );
+        err |= RegisterCommand<GetSlabLevelsELMCommand> (
+            elmSabCommands, "0.9.32",
+            "ELM_SAB: Ober- und Unterkante von Decken ABSOLUT (topZ/bottomZ aus dem 3D-Begrenzungsquader) und geschossbezogen, dazu Bezugsflaeche, Dicke, Geschoss."
         );
         err |= RegisterCommand<ListCommandsELMCommand> (
             elmSabCommands, "0.9.30",

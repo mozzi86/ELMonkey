@@ -1,4 +1,6 @@
 #include "ElementCommands.hpp"
+#include "ElmPreflight.hpp"
+#include <cmath>
 #include "MigrationHelper.hpp"
 #include "GSUnID.hpp"
 #include "Plane.hpp"
@@ -1132,7 +1134,12 @@ GS::ObjectState SetDetailsOfElementsCommand::Execute (const GS::ObjectState& par
     parameters.Get ("elementsWithDetails", elementsWithDetails);
 
     GS::ObjectState response;
-    const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
+    const auto& executionResultsAdder = response.AddList<GS::ObjectState> ("executionResults");
+    // ELMonkey 0.9.32 (A1): Ergebnisse zaehlen - startet die Undo-Klammer nicht, kommt sonst eine leere Liste als Erfolg.
+    UIndex resultCount = 0;
+    auto executionResults = [&] (const GS::ObjectState& r) { executionResultsAdder (r); ++resultCount; };
+    const short myUserIdELM = MyTeamworkUserIdELM ();
+    std::map<Int32, GS::UniString> layerCacheELM;
 
     // Pre-scan: identify openings (Door/Window/Skylight) that need host manipulation:
     //   - target > 7  : elevate via host (step up, step back)
@@ -1177,6 +1184,13 @@ GS::ObjectState SetDetailsOfElementsCommand::Execute (const GS::ObjectState& par
 
             API_Element elem = {};
             elem.header.guid = GetGuidFromObjectState (*elementId);
+            {   // ELMonkey 0.9.32 (A1): Vorpruefung
+                const GS::UniString reason = PreflightElementELM (elem.header.guid, myUserIdELM, layerCacheELM);
+                if (!reason.IsEmpty ()) {
+                    executionResults (CreateFailedExecutionResult (ReasonToErrCodeELM (reason), reason));
+                    continue;
+                }
+            }
             GSErrCode err = ACAPI_Element_Get (&elem);
 
             if (err != NoError) {
@@ -1384,6 +1398,10 @@ GS::ObjectState SetDetailsOfElementsCommand::Execute (const GS::ObjectState& par
 
         return NoError;
     });
+
+    while (resultCount < sortedElements.GetSize ()) {
+        executionResults (CreateFailedExecutionResult (APIERR_GENERAL, "[UNDO_SCOPE_FAILED] Die Undo-Klammer wurde nicht ausgefuehrt - nichts geaendert. Archicad-Zustand pruefen (Dialog offen?), ggf. Archicad neu starten."));
+    }
 
     return response;
 }
@@ -2172,7 +2190,12 @@ GS::ObjectState	MoveElementsCommand::Execute (const GS::ObjectState& parameters,
     parameters.Get ("elementsWithMoveVectors", elementsWithMoveVectors);
 
     GS::ObjectState response;
-    const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
+    const auto& executionResultsAdder = response.AddList<GS::ObjectState> ("executionResults");
+    // ELMonkey 0.9.32 (A1): Ergebnisse zaehlen - startet die Undo-Klammer nicht, kommt sonst eine leere Liste als Erfolg.
+    UIndex resultCount = 0;
+    auto executionResults = [&] (const GS::ObjectState& r) { executionResultsAdder (r); ++resultCount; };
+    const short myUserIdELM = MyTeamworkUserIdELM ();
+    std::map<Int32, GS::UniString> layerCacheELM;
 
     ACAPI_CallUndoableCommand ("Move Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithMoveVector : elementsWithMoveVectors) {
@@ -2189,14 +2212,37 @@ GS::ObjectState	MoveElementsCommand::Execute (const GS::ObjectState& parameters,
             }
 
             const API_Guid elemGuid = GetGuidFromObjectState (*elementId);
+            {   // ELMonkey 0.9.32 (A1): Vorpruefung
+                const GS::UniString reason = PreflightElementELM (elemGuid, myUserIdELM, layerCacheELM);
+                if (!reason.IsEmpty ()) {
+                    executionResults (CreateFailedExecutionResult (ReasonToErrCodeELM (reason), reason));
+                    continue;
+                }
+            }
 
             bool copy = false;
             elementWithMoveVector.Get ("copy", copy);
 
-            const GSErrCode err = MoveElement (elemGuid,
-                                               Get3DCoordinateFromObjectState (*moveVector),
-                                               copy);
-            if (err != NoError) {
+            const API_Coord3D mv = Get3DCoordinateFromObjectState (*moveVector);
+            API_Elem_Head bHead = {};
+            bHead.guid = elemGuid;
+            API_Box3D before = {};
+            const bool haveBefore = !copy && ACAPI_Element_CalcBounds (&bHead, &before) == NoError;
+
+            const GSErrCode err = MoveElement (elemGuid, mv, copy);
+            // ELMonkey 0.9.32 (A1): Hat sich das Element wirklich bewegt? (Teamwork ohne Reservierung
+            // meldet sonst Erfolg und aendert nichts.)
+            bool noEffect = false;
+            if (err == NoError && haveBefore && (std::fabs (mv.x) + std::fabs (mv.y) + std::fabs (mv.z)) > 1e-6) {
+                API_Box3D after = {};
+                if (ACAPI_Element_CalcBounds (&bHead, &after) == NoError) {
+                    noEffect = std::fabs (after.xMin - before.xMin) < 1e-6 && std::fabs (after.yMin - before.yMin) < 1e-6 &&
+                               std::fabs (after.zMin - before.zMin) < 1e-6;
+                }
+            }
+            if (noEffect) {
+                executionResults (CreateFailedExecutionResult (APIERR_GENERAL, "[NO_EFFECT] Element hat sich nicht bewegt (Teamwork: reservieren bzw. vorher empfangen)"));
+            } else if (err != NoError) {
                 const GS::UniString errorMsg = GS::UniString::SPrintf ("Failed to move element with guid %T!", APIGuidToString (elemGuid).ToPrintf ());
                 executionResults (CreateFailedExecutionResult (err, errorMsg));
             } else {
@@ -2206,6 +2252,10 @@ GS::ObjectState	MoveElementsCommand::Execute (const GS::ObjectState& parameters,
 
         return NoError;
     });
+
+    while (resultCount < elementsWithMoveVectors.GetSize ()) {
+        executionResults (CreateFailedExecutionResult (APIERR_GENERAL, "[UNDO_SCOPE_FAILED] Die Undo-Klammer wurde nicht ausgefuehrt - nichts geaendert. Archicad-Zustand pruefen (Dialog offen?), ggf. Archicad neu starten."));
+    }
 
     return response;
 }
@@ -2323,7 +2373,12 @@ GS::ObjectState RotateElementsCommand::Execute (const GS::ObjectState& parameter
     parameters.Get ("elementsWithRotations", elementsWithRotations);
 
     GS::ObjectState response;
-    const auto& executionResults = response.AddList<GS::ObjectState> ("executionResults");
+    const auto& executionResultsAdder = response.AddList<GS::ObjectState> ("executionResults");
+    // ELMonkey 0.9.32 (A1): Ergebnisse zaehlen - startet die Undo-Klammer nicht, kommt sonst eine leere Liste als Erfolg.
+    UIndex resultCount = 0;
+    auto executionResults = [&] (const GS::ObjectState& r) { executionResultsAdder (r); ++resultCount; };
+    const short myUserIdELM = MyTeamworkUserIdELM ();
+    std::map<Int32, GS::UniString> layerCacheELM;
 
     ACAPI_CallUndoableCommand ("Rotate Elements", [&]() -> GSErrCode {
         for (const GS::ObjectState& elementWithRotation : elementsWithRotations) {
@@ -2348,6 +2403,13 @@ GS::ObjectState RotateElementsCommand::Execute (const GS::ObjectState& parameter
             }
 
             const API_Guid elemGuid = GetGuidFromObjectState (*elementId);
+            {   // ELMonkey 0.9.32 (A1): Vorpruefung
+                const GS::UniString reason = PreflightElementELM (elemGuid, myUserIdELM, layerCacheELM);
+                if (!reason.IsEmpty ()) {
+                    executionResults (CreateFailedExecutionResult (ReasonToErrCodeELM (reason), reason));
+                    continue;
+                }
+            }
 
             bool copy = false;
             elementWithRotation.Get ("copy", copy);
@@ -2367,6 +2429,10 @@ GS::ObjectState RotateElementsCommand::Execute (const GS::ObjectState& parameter
 
         return NoError;
     });
+
+    while (resultCount < elementsWithRotations.GetSize ()) {
+        executionResults (CreateFailedExecutionResult (APIERR_GENERAL, "[UNDO_SCOPE_FAILED] Die Undo-Klammer wurde nicht ausgefuehrt - nichts geaendert. Archicad-Zustand pruefen (Dialog offen?), ggf. Archicad neu starten."));
+    }
 
     return response;
 }
@@ -2801,7 +2867,23 @@ GS::ObjectState DeleteElementsCommand::Execute (const GS::ObjectState& parameter
     bool reserve = true;
     parameters.Get ("reserve", reserve);
 
-    GS::Array<API_Guid> guids = elements.Transform<API_Guid> (GetGuidFromElementsArrayItem);
+    GS::Array<API_Guid> guidsIn = elements.Transform<API_Guid> (GetGuidFromElementsArrayItem);
+
+    // ELMonkey 0.9.32 (A1): Elemente auf ausgeblendeter/gesperrter Ebene, gesperrte, Hotlink- oder
+    // fremd reservierte Elemente gar nicht erst versuchen - und das im Ergebnis benennen.
+    const short myUserIdELM = MyTeamworkUserIdELM ();
+    std::map<Int32, GS::UniString> layerCacheELM;
+    std::map<GS::UniString, Int32> blockedReasons;   // Grund -> Anzahl
+    GS::Array<API_Guid> guids;
+    for (const API_Guid& g : guidsIn) {
+        if (g == APINULLGuid) { guids.Push (g); continue; }
+        const GS::UniString reason = PreflightElementELM (g, myUserIdELM, layerCacheELM);
+        // Reservierung durch andere wird unten (reserve) ohnehin als Konflikt behandelt.
+        if (!reason.IsEmpty () && !reason.BeginsWith ("[RESERVED_BY_OTHER]")) { ++blockedReasons[reason]; continue; }
+        guids.Push (g);
+    }
+    Int32 blockedCount = 0;
+    for (const auto& kv : blockedReasons) blockedCount += kv.second;
 
     GS::HashTable<API_Guid, short> conflicts;
     const bool teamwork = reserve && ACAPI_Teamwork_HasConnection ();
@@ -2838,10 +2920,20 @@ GS::ObjectState DeleteElementsCommand::Execute (const GS::ObjectState& parameter
     if (teamwork && !toRelease.IsEmpty ())
         ACAPI_Teamwork_ReleaseElements (toRelease, false);
 
-    if (survivors.IsEmpty ()) {
+    if (survivors.IsEmpty () && blockedCount == 0) {
         return err == NoError
             ? CreateSuccessfulExecutionResult ()
             : CreateFailedExecutionResult (err, "Failed to delete elements.");
+    }
+    if (survivors.IsEmpty ()) {
+        GS::UniString msg = GS::UniString::SPrintf ("%d von %d Elementen NICHT geloescht (Vorpruefung): ", blockedCount, (Int32) guidsIn.GetSize ());
+        bool first = true;
+        for (const auto& kv : blockedReasons) {
+            if (!first) msg += "; ";
+            msg += kv.first + GS::UniString::SPrintf (" (%dx)", kv.second);
+            first = false;
+        }
+        return CreateFailedExecutionResult (ReasonToErrCodeELM (blockedReasons.begin ()->first), msg);
     }
 
     GSErrCode code = APIERR_GENERAL;
@@ -2862,6 +2954,15 @@ GS::ObjectState DeleteElementsCommand::Execute (const GS::ObjectState& parameter
         msg += GS::UniString::SPrintf ("; davon %d von anderem Teamwork-Nutzer reserviert", conflictSurvivors);
     else if (!teamwork)
         msg += "; Elemente reservieren und erneut loeschen";
+    if (blockedCount > 0) {
+        msg += GS::UniString::SPrintf ("; zusaetzlich %d per Vorpruefung uebersprungen: ", blockedCount);
+        bool first = true;
+        for (const auto& kv : blockedReasons) {
+            if (!first) msg += "; ";
+            msg += kv.first + GS::UniString::SPrintf (" (%dx)", kv.second);
+            first = false;
+        }
+    }
 
     return CreateFailedExecutionResult (code, msg);
 }
