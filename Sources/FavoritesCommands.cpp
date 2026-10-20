@@ -255,11 +255,26 @@ GS::ObjectState ApplyFavoritesToElementDefaultsCommand::Execute (const GS::Objec
             }
 
             err = ACAPI_Element_ChangeDefaults (&favorite.element, favorite.memo.GetPtr (), &mask);
+            // ELMonkey 0.9.33 (Wunschliste B6): Dach/Schale lehnten mit APIERR_BADINDEX ab - die
+            // Polygon-Memos des Favoriten (Pivot-/Konturpolygon, Kantentypen) passen nicht zum
+            // Standard-Element. Einstellungen ohne Memo uebernehmen (Geometrie zeichnet man ohnehin neu).
+            bool appliedWithoutMemo = false;
+            if (err != NoError) {
+                const API_ElemTypeID favType = GetElemTypeId (favorite.element.header);
+                if (favType == API_RoofID || favType == API_ShellID || err == APIERR_BADINDEX) {
+                    const GSErrCode retryErr = ACAPI_Element_ChangeDefaults (&favorite.element, nullptr, &mask);
+                    if (retryErr == NoError) {
+                        err = NoError;
+                        appliedWithoutMemo = true;
+                    }
+                }
+            }
             ACAPI_DisposeElemMemoHdls (&favorite.memo.Get ());
             if (err != NoError) {
                 executionResults (CreateFailedExecutionResult (err, "Failed to set element defaults"));
                 continue;
             }
+            (void) appliedWithoutMemo;
 
             for (const GS::Pair<API_Guid, API_Guid>& pair : *favorite.classifications) {
                 TAPIR_Element_AddClassificationItemDefault (favorite.element.header, pair.second);

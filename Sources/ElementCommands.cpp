@@ -1505,6 +1505,9 @@ GS::Optional<GS::UniString> ChangeSelectionOfElementsCommand::GetResponseSchema 
 
 GS::ObjectState ChangeSelectionOfElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
+    // ELMonkey 0.9.33 (Wunschliste B8): EIN Sammelaufruf statt ACAPI_Selection_Select je Element.
+    // Einzelaufrufe loesten je Element eine Auswahl-Aktualisierung aus -> bei >500 Elementen
+    // minutenlanger UI-Haenger. Danach EINE Ruecklese der Auswahl und Ergebnis je Element wie bisher.
     GS::Array<GS::ObjectState> addElementsToSelection;
     parameters.Get ("addElementsToSelection", addElementsToSelection);
     GS::Array<GS::ObjectState> removeElementsFromSelection;
@@ -1514,34 +1517,44 @@ GS::ObjectState ChangeSelectionOfElementsCommand::Execute (const GS::ObjectState
     const auto& executionResultsOfAddToSelection = response.AddList<GS::ObjectState> ("executionResultsOfAddToSelection");
     const auto& executionResultsOfRemoveFromSelection = response.AddList<GS::ObjectState> ("executionResultsOfRemoveFromSelection");
 
-    for (const GS::ObjectState& element : addElementsToSelection) {
-        const GS::ObjectState* elementId = element.Get ("elementId");
-        if (elementId == nullptr) {
-            executionResultsOfAddToSelection (CreateFailedExecutionResult (APIERR_BADPARS, "elementId is missing"));
-            continue;
+    auto collect = [] (const GS::Array<GS::ObjectState>& items, GS::Array<API_Neig>& neigs, GS::Array<API_Guid>& guids) {
+        for (const GS::ObjectState& element : items) {
+            const GS::ObjectState* elementId = element.Get ("elementId");
+            const API_Guid g = (elementId != nullptr) ? GetGuidFromObjectState (*elementId) : APINULLGuid;
+            guids.Push (g);
+            if (g != APINULLGuid) neigs.Push (API_Neig (g));
         }
+    };
+    GS::Array<API_Neig> addNeigs, removeNeigs;
+    GS::Array<API_Guid> addGuids, removeGuids;
+    collect (addElementsToSelection, addNeigs, addGuids);
+    collect (removeElementsFromSelection, removeNeigs, removeGuids);
 
-        const GSErrCode err = ACAPI_Selection_Select ({ API_Neig (GetGuidFromObjectState (*elementId)) }, true);
-        if (err != NoError) {
-            executionResultsOfAddToSelection (CreateFailedExecutionResult (err, "Failed to add to selection"));
-        } else {
-            executionResultsOfAddToSelection (CreateSuccessfulExecutionResult ());
+    GSErrCode removeErr = NoError, addErr = NoError;
+    if (!removeNeigs.IsEmpty ()) removeErr = ACAPI_Selection_Select (removeNeigs, false);
+    if (!addNeigs.IsEmpty ())    addErr    = ACAPI_Selection_Select (addNeigs, true);
+
+    // Eine Ruecklese der aktuellen Auswahl.
+    GS::HashSet<API_Guid> selected;
+    {
+        API_SelectionInfo selectionInfo = {};
+        GS::Array<API_Neig> selNeigs;
+        if (ACAPI_Selection_Get (&selectionInfo, &selNeigs, false) == NoError) {
+            for (const API_Neig& n : selNeigs) selected.Add (n.guid);
         }
+        BMKillHandle ((GSHandle*) &selectionInfo.marquee.coords);
     }
 
-    for (const GS::ObjectState& element : removeElementsFromSelection) {
-        const GS::ObjectState* elementId = element.Get ("elementId");
-        if (elementId == nullptr) {
-            executionResultsOfRemoveFromSelection (CreateFailedExecutionResult (APIERR_BADPARS, "elementId is missing"));
-            continue;
-        }
-
-        const GSErrCode err = ACAPI_Selection_Select ({ API_Neig (GetGuidFromObjectState (*elementId)) }, false);
-        if (err != NoError) {
-            executionResultsOfRemoveFromSelection (CreateFailedExecutionResult (err, "Failed to remove from selection"));
-        } else {
-            executionResultsOfRemoveFromSelection (CreateSuccessfulExecutionResult ());
-        }
+    for (const API_Guid& g : addGuids) {
+        if (g == APINULLGuid)               executionResultsOfAddToSelection (CreateFailedExecutionResult (APIERR_BADPARS, "elementId is missing"));
+        else if (selected.Contains (g))     executionResultsOfAddToSelection (CreateSuccessfulExecutionResult ());
+        else if (addErr != NoError)         executionResultsOfAddToSelection (CreateFailedExecutionResult (addErr, "Failed to add to selection"));
+        else                                executionResultsOfAddToSelection (CreateFailedExecutionResult (APIERR_GENERAL, "[NO_EFFECT] Element ist nicht ausgewaehlt (nicht im aktiven Fenster sichtbar, Ebene ausgeblendet oder Renovierungsfilter?)"));
+    }
+    for (const API_Guid& g : removeGuids) {
+        if (g == APINULLGuid)               executionResultsOfRemoveFromSelection (CreateFailedExecutionResult (APIERR_BADPARS, "elementId is missing"));
+        else if (!selected.Contains (g))    executionResultsOfRemoveFromSelection (CreateSuccessfulExecutionResult ());
+        else                                executionResultsOfRemoveFromSelection (CreateFailedExecutionResult (removeErr != NoError ? removeErr : APIERR_GENERAL, "Failed to remove from selection"));
     }
 
     return response;
