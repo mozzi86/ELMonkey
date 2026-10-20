@@ -20,8 +20,8 @@ Einmalige Einrichtung für einen neuen Rechner oder Kollegen. Drei Bausteine:
    curl -fsSL https://raw.githubusercontent.com/mozzi86/-archicad/main/installer/ELMonkey-Installer-Mac.command | bash
    ```
    **Windows:** `ELMonkey-Installer-Windows.cmd` laden und doppelklicken (fragt nach Administratorrechten).
-4. Der Installer findet alle Archicad 27/28/29, lädt je das passende Bundle, **sichert vorhandene ELMonkey- und Tapir-Add-Ons** nach `~/ELM_SAB_Backups/<Zeitstempel>/` (Windows: `%USERPROFILE%\ELM_SAB_Backups\…`) und entfernt die Quarantäne.
-5. Archicad starten → Menü **ELMonkey SAB → Über**: zeigt `ELM_SAB <Version> · Tapir 1.5.4 · Port …`.
+4. Der Installer findet alle Archicad 27/28/29/30, lädt je das passende Bundle, **sichert vorhandene ELMonkey- und Tapir-Add-Ons** nach `~/ELM_SAB_Backups/<Zeitstempel>/` (Windows: `%USERPROFILE%\ELM_SAB_Backups\…`) und entfernt die Quarantäne.
+5. Archicad starten → Menü **ELMonkey SAB → Über**: zeigt `ELM_SAB <Version> · Tapir <Version> · Port …` (ab ELMonkey 0.10.0: Tapir 1.7.2).
 
 **Updates später:** im selben Dialog **„Nach Updates suchen"** → „Jetzt aktualisieren" tauscht das Add-On der laufenden Archicad-Version aus (altes wird gesichert), wirksam nach dem nächsten Neustart. Oder den Installer erneut ausführen.
 
