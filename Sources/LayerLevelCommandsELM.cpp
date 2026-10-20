@@ -135,10 +135,12 @@ GS::ObjectState SetLayerAttributesELMCommand::Execute (const GS::ObjectState& pa
         const bool hasHidden = item.Get ("hidden", wantHidden);
         const bool hasLocked = item.Get ("locked", wantLocked);
         const bool hasWire   = item.Get ("wireframe", wantWire);
-        GSFlags flags = attr.header.flags;
-        if (hasHidden) flags = wantHidden ? (flags | APILay_Hidden) : (flags & ~APILay_Hidden);
-        if (hasLocked) flags = wantLocked ? (flags | APILay_Locked) : (flags & ~APILay_Locked);
-        if (hasWire)   flags = wantWire   ? (flags | APILay_ForceToWire) : (flags & ~APILay_ForceToWire);
+        // Typ vom Archicad-Feld nehmen: AC27/28 short, AC29 GSFlags (MSVC: Warnung = Fehler).
+        using FlagT = decltype (attr.header.flags);
+        FlagT flags = attr.header.flags;
+        if (hasHidden) flags = static_cast<FlagT> (wantHidden ? (flags | APILay_Hidden)      : (flags & ~APILay_Hidden));
+        if (hasLocked) flags = static_cast<FlagT> (wantLocked ? (flags | APILay_Locked)      : (flags & ~APILay_Locked));
+        if (hasWire)   flags = static_cast<FlagT> (wantWire   ? (flags | APILay_ForceToWire) : (flags & ~APILay_ForceToWire));
 
         if (flags != attr.header.flags) {
             attr.header.flags = flags;
