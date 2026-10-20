@@ -20,7 +20,7 @@ Skripte: `~/.scratch/elmonkey/demo/` (`elmonkey_demo.py`, `demo_teil2.py`, `demo
 ## 2. Reihenfolge
 
 1. **Ebenen** anlegen (`TapirCommand.CreateLayers`) und **per Name** verwenden — alle Erstellbefehle nehmen ab 0.9.32 `layerName`. `ELM_SAB.GetLayers` liefert den echten Index.
-2. **Werkzeug-Standard aus Favorit** (`ApplyFavoritesToElementDefaults`), dann erstellen. Decken: `CreateSlabs` mit `level` = Oberkante (bei Bezug „Top“). Kontrolle: `ELM_SAB.GetSlabLevels` (OK/UK absolut).
+2. **Werkzeug-Standard aus Favorit** (`ApplyFavoritesToElementDefaults`), dann erstellen. **Falle (bis 0.9.35 offen):** Dach- und Schalen-Favoriten der Bürovorlage scheitern mit `APIERR_BADINDEX` (Decken-/Wand-Favoriten gehen) → Dach-Aufbau direkt per `CreateRoofs compositeName`, oder einmal ein Dach anlegen und daraus `CreateFavoritesFromElements` (eigener Favorit funktioniert). Decken: `CreateSlabs` mit `level` = Oberkante (bei Bezug „Top“). Kontrolle: `ELM_SAB.GetSlabLevels` (OK/UK absolut).
 3. **Wände** (`CreateWalls`, Achse mittig), **Türen/Fenster** mit `favoriteName` (`CreateDoors`/`CreateWindows`, `centerOffset` ab Wandanfang).
 4. **Räume** automatisch: `CreateZones` mit `geometry.referencePosition` (wie Zauberstab, braucht geschlossene Wände).
 5. **Dach als Konstruktion**, nicht als Hülle — siehe Abschnitt 3.
