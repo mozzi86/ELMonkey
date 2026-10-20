@@ -1,6 +1,35 @@
 #include "CreateRoofsCommand.hpp"
+#include "ElmPreflight.hpp"
 
 #include <cmath>
+
+namespace {
+
+bool FindAttrByNameRoofELM (API_AttrTypeID type, const GS::UniString& name, API_AttributeIndex& out)
+{
+    GS::UniString n (name);
+    API_Attr_Head head = {};
+    head.typeID = type;
+    head.uniStringNamePtr = &n;
+    if (ACAPI_Attribute_Search (&head) != NoError)
+        return false;
+    out = head.index;
+    return true;
+}
+
+GS::UniString AttrNameRoofELM (API_AttrTypeID type, const API_AttributeIndex& idx)
+{
+    API_Attribute attr = {};
+    GS::UniString name;
+    attr.header.typeID = type;
+    attr.header.index = idx;
+    attr.header.uniStringNamePtr = &name;
+    if (ACAPI_Attribute_Get (&attr) != NoError)
+        return GS::UniString ();
+    return name;
+}
+
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -57,7 +86,19 @@ GS::Optional<GS::UniString> ELMCreateRoofsCommand::GetInputParametersSchema () c
                         },
                         "thickness": {
                             "type": "number",
-                            "description": "Dachdicke in Metern. Optional, Default: Werkzeug-Voreinstellung."
+                            "description": "Dachdicke in Metern (Basis-Aufbau). Steht das Werkzeug auf Mehrschicht, wird auf Basis-Aufbau umgestellt (structureNote in der Antwort). Nicht zusammen mit compositeName."
+                        },
+                        "buildingMaterialName": {
+                            "type": "string",
+                            "description": "Basis-Baustoff per Name; setzt den Basis-Aufbau. Optional."
+                        },
+                        "compositeName": {
+                            "type": "string",
+                            "description": "Mehrschicht-Aufbau per Name; die Dicke kommt aus dem Aufbau. Nicht zusammen mit thickness/buildingMaterialName."
+                        },
+                        "layerName": {
+                            "type": "string",
+                            "description": "Ziel-Ebene per Name (Vorrang vor layerIndex). Optional."
                         },
                         "layerIndex": {
                             "type": "integer",
@@ -173,13 +214,65 @@ GS::ObjectState ELMCreateRoofsCommand::Execute (const GS::ObjectState& parameter
 
             element.roof.shellBase.level = zCoordinate - storyLevel;
 
+            // 0.9.34: Aufbau. Bei Mehrschicht-Werkzeugstandard ignorierte Archicad thickness still
+            // (Demo 20.10.: 34,5 statt 10 cm, Create meldete Erfolg) - jetzt umstellen und melden.
+            GS::UniString compositeName, materialName, structureNote;
+            const bool hasComposite = roofData.Get ("compositeName", compositeName) && !compositeName.IsEmpty ();
+            const bool hasMaterial  = roofData.Get ("buildingMaterialName", materialName) && !materialName.IsEmpty ();
             double thickness = 0.0;
-            if (roofData.Get ("thickness", thickness) && thickness > 0.0)
+            const bool hasThickness = roofData.Get ("thickness", thickness) && thickness > 0.0;
+            if (hasComposite && (hasThickness || hasMaterial)) {
+                elements (CreateFailedExecutionResult (APIERR_BADPARS, "compositeName schliesst thickness und buildingMaterialName aus - die Dicke kommt aus dem Mehrschicht-Aufbau"));
+                ACAPI_DisposeElemMemoHdls (&memo);
+                continue;
+            }
+            if (hasComposite) {
+                API_AttributeIndex idx;
+                if (!FindAttrByNameRoofELM (API_CompWallID, compositeName, idx)) {
+                    elements (CreateFailedExecutionResult (APIERR_BADNAME, GS::UniString ("[ATTRIBUTE_NOT_FOUND] Mehrschicht-Aufbau '") + compositeName + GS::UniString ("' gibt es nicht")));
+                    ACAPI_DisposeElemMemoHdls (&memo);
+                    continue;
+                }
+                element.roof.shellBase.modelElemStructureType = API_CompositeStructure;
+                element.roof.shellBase.composite = idx;
+            }
+            if (hasMaterial) {
+                API_AttributeIndex idx;
+                if (!FindAttrByNameRoofELM (API_BuildingMaterialID, materialName, idx)) {
+                    elements (CreateFailedExecutionResult (APIERR_BADNAME, GS::UniString ("[ATTRIBUTE_NOT_FOUND] Baustoff '") + materialName + GS::UniString ("' gibt es nicht")));
+                    ACAPI_DisposeElemMemoHdls (&memo);
+                    continue;
+                }
+                element.roof.shellBase.modelElemStructureType = API_BasicStructure;
+                element.roof.shellBase.buildingMaterial = idx;
+            }
+            if (hasThickness) {
+                if (element.roof.shellBase.modelElemStructureType != API_BasicStructure) {
+                    if (AttrNameRoofELM (API_BuildingMaterialID, element.roof.shellBase.buildingMaterial).IsEmpty ()) {
+                        elements (CreateFailedExecutionResult (APIERR_BADPARS, "[NO_MATERIAL] Werkzeug-Standard ist Mehrschicht ohne gueltigen Basis-Baustoff - buildingMaterialName mitgeben oder compositeName statt thickness"));
+                        ACAPI_DisposeElemMemoHdls (&memo);
+                        continue;
+                    }
+                    structureNote = GS::UniString ("Werkzeug-Standard war Mehrschicht '") + AttrNameRoofELM (API_CompWallID, element.roof.shellBase.composite)
+                        + GS::UniString ("' - auf Basis-Aufbau umgestellt, damit thickness wirkt");
+                    element.roof.shellBase.modelElemStructureType = API_BasicStructure;
+                }
                 element.roof.shellBase.thickness = thickness;
+            }
 
+            GS::UniString layerName;
             Int32 layerIndex = 0;
-            if (roofData.Get ("layerIndex", layerIndex))
+            if (roofData.Get ("layerName", layerName) && !layerName.IsEmpty ()) {
+                API_AttributeIndex li;
+                if (!ResolveLayerByNameELM (layerName, li)) {
+                    elements (CreateFailedExecutionResult (APIERR_BADNAME, GS::UniString ("[LAYER_NOT_FOUND] Ebene '") + layerName + GS::UniString ("' gibt es nicht")));
+                    ACAPI_DisposeElemMemoHdls (&memo);
+                    continue;
+                }
+                element.header.layer = li;
+            } else if (roofData.Get ("layerIndex", layerIndex)) {
                 element.header.layer = ACAPI_CreateAttributeIndex (layerIndex);
+            }
 
             element.roof.u.planeRoof.baseLine.c1 = c1;
             element.roof.u.planeRoof.baseLine.c2 = c2;
@@ -224,6 +317,34 @@ GS::ObjectState ELMCreateRoofsCommand::Execute (const GS::ObjectState& parameter
 
             GS::ObjectState ok;
             ok.Add ("elementId", CreateGuidObjectStateELM (element.header.guid));
+            // 0.9.34: Ruecklese Aufbau + Dicke.
+            API_Element check = {};
+            check.header.guid = element.header.guid;
+            if (ACAPI_Element_Get (&check) == NoError) {
+                const API_ShellBaseType& sb = check.roof.shellBase;
+                double gotThickness = sb.thickness;
+                if (sb.modelElemStructureType == API_CompositeStructure) {
+                    ok.Add ("structureType", GS::UniString ("composite"));
+                    ok.Add ("compositeName", AttrNameRoofELM (API_CompWallID, sb.composite));
+                    API_Attribute comp = {};
+                    comp.header.typeID = API_CompWallID;
+                    comp.header.index = sb.composite;
+                    if (ACAPI_Attribute_Get (&comp) == NoError)
+                        gotThickness = comp.compWall.totalThick;
+                } else {
+                    ok.Add ("structureType", GS::UniString (sb.modelElemStructureType == API_BasicStructure ? "basic" : "profile"));
+                    ok.Add ("buildingMaterialName", AttrNameRoofELM (API_BuildingMaterialID, sb.buildingMaterial));
+                }
+                ok.Add ("thickness", gotThickness);
+                if (hasThickness) {
+                    const bool matches = std::fabs (gotThickness - thickness) <= 1e-4;
+                    ok.Add ("thicknessMatches", matches);
+                    if (!matches)
+                        ok.Add ("warning", GS::UniString ("[NO_EFFECT] Dicke laut Ruecklese weicht von thickness ab"));
+                }
+            }
+            if (!structureNote.IsEmpty ())
+                ok.Add ("structureNote", structureNote);
             elements (ok);
         }
         return NoError;
