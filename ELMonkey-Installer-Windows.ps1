@@ -1,4 +1,4 @@
-# ELMonkey-Installer fuer Windows (Archicad 27/28/29).
+# ELMonkey-Installer fuer Windows (Archicad 27/28/29/30).
 # - laedt das passende ELMonkey-Add-On (.apx) aus dem Release github.com/mozzi86/-archicad (elm-sab-tapir-latest)
 # - sichert vorhandene ELMonkey- UND Vanilla-Tapir-Add-Ons nach %USERPROFILE%\ELM_SAB_Backups\<Zeitstempel>\
 #   (ELMonkey enthaelt Tapir vollstaendig; zwei Add-Ons mit demselben TapirCommand-Namensraum stoeren sich)
@@ -35,7 +35,7 @@ try { $ver = (Invoke-WebRequest -UseBasicParsing -Uri "$Rel/elmonkey-version.txt
 if ($ver) { Write-Host "Aktuelle ELMonkey-Version im Release: $ver" } else { Write-Host "Hinweis: Versionsdatei im Release nicht gefunden - installiere den aktuellen Stand." }
 
 $found = 0; $installed = 0
-foreach ($v in 27, 28, 29) {
+foreach ($v in 27, 28, 29, 30) {
     if ($OnlyAc -ne 0 -and $v -ne $OnlyAc) { continue }
     $dir = Join-Path $AcRoot "GRAPHISOFT\Archicad $v"
     $addons = Join-Path $dir "Add-Ons"
@@ -68,7 +68,7 @@ foreach ($v in 27, 28, 29) {
 
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
 Write-Host ""
-if ($found -eq 0) { Fail "Kein Archicad 27/28/29 unter $AcRoot\GRAPHISOFT gefunden." }
+if ($found -eq 0) { Fail "Kein Archicad 27/28/29/30 unter $AcRoot\GRAPHISOFT gefunden." }
 Write-Host "Fertig: ELMonkey $ver fuer $installed von $found Archicad-Version(en) installiert."
 if ((-not $DryRun) -and (Test-Path $Backup)) { Write-Host "Alte Add-Ons gesichert in: $Backup" }
 Write-Host "Archicad starten. Kontrolle: Menue ELMonkey SAB > Ueber (zeigt ELM_SAB-Version, Knopf 'Nach Updates suchen')."

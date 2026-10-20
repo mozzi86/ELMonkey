@@ -1,5 +1,5 @@
 #!/bin/bash
-# ELMonkey-Installer für macOS (Archicad 27/28/29).
+# ELMonkey-Installer für macOS (Archicad 27/28/29/30).
 # - lädt das passende ELMonkey-Bundle aus dem Release github.com/mozzi86/-archicad (elm-sab-tapir-latest)
 # - sichert vorhandene ELMonkey- UND Vanilla-Tapir-Bundles nach ~/ELM_SAB_Backups/<Zeitstempel>/
 #   (ELMonkey enthält Tapir vollständig; zwei Add-Ons mit demselben TapirCommand-Namensraum stören sich)
@@ -34,7 +34,7 @@ VER=$(curl -fsSL "$REL/elmonkey-version.txt" 2>/dev/null | tr -d '[:space:]')
 [ -n "$VER" ] && say "Aktuelle ELMonkey-Version im Release: $VER" || say "Hinweis: Versionsdatei im Release nicht gefunden (ältere CI) – installiere trotzdem den aktuellen Stand."
 
 found=0; installed=0
-for dir in "$AC_ROOT"/[Gg][Rr][Aa][Pp][Hh][Ii][Ss][Oo][Ff][Tt]/Archicad\ 2[789]; do
+for dir in "$AC_ROOT"/[Gg][Rr][Aa][Pp][Hh][Ii][Ss][Oo][Ff][Tt]/Archicad\ 2[789] "$AC_ROOT"/[Gg][Rr][Aa][Pp][Hh][Ii][Ss][Oo][Ff][Tt]/Archicad\ 30; do
   [ -d "$dir" ] || continue
   v=$(basename "$dir" | sed 's/[^0-9]//g')
   [ -n "$ONLY_AC" ] && [ "$v" != "$ONLY_AC" ] && continue
@@ -78,7 +78,7 @@ for dir in "$AC_ROOT"/[Gg][Rr][Aa][Pp][Hh][Ii][Ss][Oo][Ff][Tt]/Archicad\ 2[789];
 done
 
 say ""
-[ "$found" -gt 0 ] || fail "Kein Archicad 27/28/29 unter $AC_ROOT/GRAPHISOFT gefunden."
+[ "$found" -gt 0 ] || fail "Kein Archicad 27/28/29/30 unter $AC_ROOT/GRAPHISOFT gefunden."
 say "Fertig: ELMonkey ${VER:-?} für $installed von $found Archicad-Version(en) installiert."
 [ "$DRY" != "1" ] && [ -d "$BACKUP" ] && say "Alte Bundles gesichert in: $BACKUP"
 say "Archicad starten. Kontrolle im Menü: ELMonkey SAB > Über (zeigt ELM_SAB-Version)."
