@@ -9,6 +9,16 @@ ENZYME APD, das seinerseits auf Tibor Lorantfys
 [archicad-additional-json-commands](https://github.com/tlorantfy/archicad-additional-json-commands)
 aufbaut.
 
+## Lizenzen / Licenses
+
+ELMonkey enthält Code aus folgenden MIT-lizenzierten Projekten; die Lizenztexte liegen in diesem Ordner und gehören zu jeder Weitergabe (Quelltext und Bundles):
+
+| Projekt | Lizenz | Datei |
+|---|---|---|
+| [Tapir](https://github.com/ENZYME-APD/tapir-archicad-automation) — Copyright (c) 2024 Enzyme APD | MIT | [`LICENSE-TAPIR`](LICENSE-TAPIR) |
+| [archicad-additional-json-commands](https://github.com/tlorantfy/archicad-additional-json-commands) — Copyright (c) 2023 Tibor Lorántfy | MIT | [`LICENSE-ARCHICAD-ADDITIONAL-JSON-COMMANDS`](LICENSE-ARCHICAD-ADDITIONAL-JSON-COMMANDS) |
+| Graphisoft Add-On-Vorlage (Basis des alten `ELM_SAB_Add-On`) — Copyright (c) 2020 GRAPHISOFT | MIT | [`../ELM_SAB_Add-On/LICENSE.md`](../ELM_SAB_Add-On/LICENSE.md) |
+
 ## Download
 
 Gebaut wird per GitHub Actions; die Artefakte liegen in der rollenden Vorabversion
