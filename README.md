@@ -1,7 +1,7 @@
 # ELM_SAB_Tapir — Kombi-Add-On für Archicad
 
 Das hauseigene Archicad-Add-On von Schwarz Architekturbüro Nürnberg. Es enthält
-**Tapir 1.5.4 vollständig** plus die SAB-eigenen Befehle in einem einzigen Bundle —
+**Tapir 1.7.2 vollständig** (seit ELMonkey 0.10.0; vorher 1.5.4) plus die SAB-eigenen Befehle in einem einzigen Bundle —
 beide Befehls-Namensräume, `TapirCommand` und `ELM_SAB`, sind gleichzeitig verfügbar.
 
 Basis ist [Tapir](https://github.com/ENZYME-APD/tapir-archicad-automation) von
@@ -70,7 +70,7 @@ curl -s localhost:19723 -H 'Content-Type: application/json' \
   -d '{"command":"API.ExecuteAddOnCommand","parameters":{"addOnCommandId":{"commandNamespace":"TapirCommand","commandName":"GetAddOnVersion"},"addOnCommandParameters":{}}}'
 ```
 
-Erwartet wird `{"succeeded":true,"result":{"addOnCommandResponse":{"version":"1.5.4"}}}`.
+Erwartet wird `{"succeeded":true,"result":{"addOnCommandResponse":{"version":"1.7.2"}}}`.
 Kommt keine Antwort, ist das Add-On nicht geladen. Läuft mehr als eine Archicad-Instanz,
 hört die zweite auf Port `19724`.
 
@@ -116,7 +116,7 @@ Ab 0.9.31 stürzt `CreateSlabs` nach Favoriten-Standards nicht mehr ab, und GDL-
 
 Der Build läuft normalerweise in der CI
 ([`.github/workflows/build-elm-sab-tapir.yml`](../.github/workflows/build-elm-sab-tapir.yml)):
-sie baut alle sechs Kombinationen aus AC27/28/29 und Mac/Windows und lädt sie in die
+sie baut alle acht Kombinationen aus AC27/28/29/30 und Mac/Windows und lädt sie in die
 rollende Vorabversion. Ein Push auf `ELM_SAB_Tapir/**` löst sie aus, per
 `workflow_dispatch` geht es auch von Hand.
 
