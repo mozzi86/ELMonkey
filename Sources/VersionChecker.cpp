@@ -10,78 +10,231 @@
 #include "IOBinProtocolXs.hpp"
 #include "IChannelX.hpp"
 #include "StringConversion.hpp"
+#include "MessageLoopExecutor.hpp"
 
 #include <map>
+#include <vector>
 #include <string>
+#include <cctype>
+#include <algorithm>
 
 static std::unique_ptr<VersionChecker> Intance;
 
-// "a.b.c" numerisch vergleichen: <0, 0, >0. Nicht-Ziffern beenden eine Stelle.
-int CompareDottedVersions (const GS::UniString& a, const GS::UniString& b)
+// Bounds how long the checker thread waits for GitHub. The lookup does not block Archicad, so the value only
+// limits how long the thread lives when GitHub accepts the connection but never answers (#798).
+static constexpr int VersionCheckTimeoutMs = 15 * 1000;
+
+// Splits "1.5.10" (or "v1.5.10") into its numeric components, so that
+// versions compare by number and not as strings ("1.5.10" > "1.5.9").
+static std::vector<GS::UInt32> ParseVersion (const std::string& version)
 {
-    const std::string sa = a.ToCStr ().Get ();
-    const std::string sb = b.ToCStr ().Get ();
-    size_t ia = 0, ib = 0;
-    while (ia < sa.size () || ib < sb.size ()) {
-        long va = 0, vb = 0;
-        while (ia < sa.size () && sa[ia] != '.') { if (sa[ia] >= '0' && sa[ia] <= '9') va = va * 10 + (sa[ia] - '0'); ++ia; }
-        while (ib < sb.size () && sb[ib] != '.') { if (sb[ib] >= '0' && sb[ib] <= '9') vb = vb * 10 + (sb[ib] - '0'); ++ib; }
-        if (va != vb) return va < vb ? -1 : 1;
-        if (ia < sa.size ()) ++ia;
-        if (ib < sb.size ()) ++ib;
+    std::vector<GS::UInt32> components;
+    size_t i = 0;
+    while (i < version.size () && !std::isdigit (static_cast<unsigned char> (version[i]))) {
+        ++i;
     }
-    return 0;
+    while (i < version.size () && std::isdigit (static_cast<unsigned char> (version[i]))) {
+        GS::UInt32 component = 0;
+        while (i < version.size () && std::isdigit (static_cast<unsigned char> (version[i]))) {
+            component = component * 10 + static_cast<GS::UInt32> (version[i] - '0');
+            ++i;
+        }
+        components.push_back (component);
+        if (i < version.size () && version[i] == '.') {
+            ++i;
+        } else {
+            break;
+        }
+    }
+    return components;
 }
+
+// Returns true when version is not newer than referenceVersion.
+// An unparsable version (e.g. the GitHub query failed) counts as not newer.
+static bool IsVersionNotNewerThan (const std::string& version, const std::string& referenceVersion)
+{
+    std::vector<GS::UInt32> components = ParseVersion (version);
+    if (components.empty ()) {
+        return true;
+    }
+    std::vector<GS::UInt32> referenceComponents = ParseVersion (referenceVersion);
+    const size_t count = std::max (components.size (), referenceComponents.size ());
+    for (size_t i = 0; i < count; ++i) {
+        const GS::UInt32 component = i < components.size () ? components[i] : 0;
+        const GS::UInt32 referenceComponent = i < referenceComponents.size () ? referenceComponents[i] : 0;
+        if (component != referenceComponent) {
+            return component < referenceComponent;
+        }
+    }
+    return true;
+}
+
+// Runs the GitHub lookup on the checker thread, then hands the completion back to the message loop,
+// like the UIUpdaterThread of the palette does for the script output.
+class VersionChecker::CheckTask : public GS::Runnable {
+    GS::UInt16              acMainVersion;
+    std::shared_ptr<Result> result;
+    std::function<void ()>  onCompleted;
+
+    class CompletedTask : public GS::Runnable {
+        std::function<void ()> onCompleted;
+    public:
+        explicit CompletedTask (const std::function<void ()>& onCompletedIn) : onCompleted (onCompletedIn)
+        {
+        }
+        virtual void Run () override
+        {
+            onCompleted ();
+        }
+    };
+
+public:
+    CheckTask (GS::UInt16 acMainVersionIn, const std::shared_ptr<Result>& resultIn, const std::function<void ()>& onCompletedIn)
+        : acMainVersion (acMainVersionIn)
+        , result (resultIn)
+        , onCompleted (onCompletedIn)
+    {
+    }
+
+    virtual void Run () override
+    {
+        GetVersionFromGithub (acMainVersion, *result);
+        result->completed.store (true, std::memory_order_release);
+        if (onCompleted) {
+            GS::MessageLoopExecutor ().Execute (new CompletedTask (onCompleted));
+        }
+    }
+};
 
 void VersionChecker::CreateInstance (GS::UInt16 acMainVersion)
 {
     Intance.reset (new VersionChecker (acMainVersion));
 }
 
+void VersionChecker::StartCheck (const std::function<void ()>& onCompleted)
+{
+    if (!Intance || Intance->checkStarted) {
+        return;
+    }
+    Intance->checkStarted = true;
+
+    try {
+        Intance->checkerThread = GS::Thread (new CheckTask (Intance->acMainVersion, Intance->result, onCompleted), "TapirVersionCheck");
+        Intance->checkerThread.Start ();
+    } catch (...) {
+        // Without the thread there is no lookup: the empty result counts as "no newer version", like a failed query.
+        Intance->result->completed.store (true, std::memory_order_release);
+    }
+}
+
+const VersionChecker::Result* VersionChecker::GetCompletedResult ()
+{
+    if (!Intance || !Intance->result->completed.load (std::memory_order_acquire)) {
+        return nullptr;
+    }
+
+    return Intance->result.get ();
+}
+
+bool VersionChecker::IsCheckCompleted ()
+{
+    return GetCompletedResult () != nullptr;
+}
+
 bool VersionChecker::IsUsingLatestVersion ()
 {
-    if (!Intance) {
+    const Result* result = GetCompletedResult ();
+    if (result == nullptr) {
         return true;
     }
 
-    // ELMonkey 0.9.30: numerisch gegen die ELMonkey-Version vergleichen (Text-Vergleich hielt
-    // "0.9.30" fuer kleiner als "0.9.9"). Unbekannte/leere Release-Version = kein Hinweis.
-    return Intance->latestVersion.IsEmpty () || CompareDottedVersions (Intance->latestVersion, ELM_SAB_VERSION) <= 0;
+    // Without an Add-On for this Archicad version in the latest release there is nothing to update to.
+    if (result->latestVersionDownloadUrl.IsEmpty ()) {
+        return true;
+    }
+
+    // ELMonkey: gegen die Bundle-Version, nicht gegen den Tapir-Unterbau.
+    return IsVersionNotNewerThan (result->latestVersion.ToCStr ().Get (), ELM_SAB_VERSION);
+}
+
+// True when the latest release is newer but has no Add-On for this Archicad version.
+bool VersionChecker::IsNewerVersionWithoutAddOn ()
+{
+    const Result* result = GetCompletedResult ();
+    if (result == nullptr || !result->latestVersionDownloadUrl.IsEmpty ()) {
+        return false;
+    }
+
+    return !IsVersionNotNewerThan (result->latestVersion.ToCStr ().Get (), ELM_SAB_VERSION);
 }
 
 const GS::UniString& VersionChecker::LatestVersion ()
 {
-    if (!Intance) {
+    const Result* result = GetCompletedResult ();
+    if (result == nullptr) {
         return GS::EmptyUniString;
     }
 
-    return Intance->latestVersion;
+    return result->latestVersion;
 }
 
 const GS::UniString& VersionChecker::LatestVersionName ()
 {
-    if (!Intance) {
+    const Result* result = GetCompletedResult ();
+    if (result == nullptr) {
         return GS::EmptyUniString;
     }
 
-    return Intance->latestVersionName;
+    return result->latestVersionName;
 }
 
+const GS::UniString& VersionChecker::LatestInstallerDownloadUrl ()
+{
+    const Result* result = GetCompletedResult ();
+    if (result == nullptr) {
+        return GS::EmptyUniString;
+    }
+
+    return result->latestInstallerDownloadUrl;
+}
+
+GS::UInt16 VersionChecker::ArchicadMainVersion ()
+{
+    if (!Intance) {
+        return 0;
+    }
+
+    return Intance->acMainVersion;
+}
+
+const GS::UniString& VersionChecker::LatestVersionDownloadUrl ()
+{
+    const Result* result = GetCompletedResult ();
+    if (result == nullptr) {
+        return GS::EmptyUniString;
+    }
+
+    return result->latestVersionDownloadUrl;
+}
+
+// Synchron auf dem Hauptthread (Ueber-Dialog). Ein neues Ergebnis-Objekt, damit ein noch laufender
+// Hintergrund-Thread in sein eigenes schreibt; der Tausch des shared_ptr passiert nur hier.
 bool VersionChecker::Refresh ()
 {
     if (!Intance) {
         return false;
     }
-    Intance->latestVersion.Clear ();
-    Intance->latestVersionName.Clear ();
-    Intance->latestVersionDownloadUrl.Clear ();
-    Intance->GetVersionFromGithub ();
-    return !Intance->latestVersion.IsEmpty ();
+    std::shared_ptr<Result> fresh = std::make_shared<Result> ();
+    GetVersionFromGithub (Intance->acMainVersion, *fresh);
+    fresh->completed.store (true, std::memory_order_release);
+    Intance->result = fresh;
+    Intance->checkStarted = true;
+    return !fresh->latestVersion.IsEmpty ();
 }
 
 GS::UInt16 VersionChecker::AcMainVersion ()
 {
-    return Intance ? Intance->acMainVersion : 0;
+    return ArchicadMainVersion ();
 }
 
 const GS::UniString& VersionChecker::ReleasePageUrl ()
@@ -90,33 +243,27 @@ const GS::UniString& VersionChecker::ReleasePageUrl ()
     return url;
 }
 
-const GS::UniString& VersionChecker::LatestVersionDownloadUrl ()
-{
-    if (!Intance) {
-        return GS::EmptyUniString;
-    }
-
-    return Intance->latestVersionDownloadUrl;
-}
-
 VersionChecker::VersionChecker (GS::UInt16 acMainVersionIn)
     : acMainVersion (acMainVersionIn)
+    , result (std::make_shared<Result> ())
 {
-    GetVersionFromGithub ();
 }
 
-const GS::UniString& VersionChecker::GetVersionFromGithub ()
+void VersionChecker::GetVersionFromGithub (GS::UInt16 acMainVersion, Result& result)
 {
     GS::UniString namePostfix = "_AC" + GS::ValueToUniString (acMainVersion);
 #if defined (WINDOWS)
     namePostfix += "_Win";
+    const GS::UniString installerName ("ELMonkey-Installer-Windows.cmd");
 #else
     namePostfix += "_Mac";
+    const GS::UniString installerName ("ELMonkey-Installer-Mac.command");
 #endif
 
     try {
         IO::URI::URI connectionUrl ("https://api.github.com");
         HTTP::Client::ClientConnection clientConnection (connectionUrl);
+        clientConnection.SetTimeout (VersionCheckTimeoutMs);
         clientConnection.Connect ();
 
         HTTP::Client::Request request (HTTP::MessageHeader::Method::Get, "/repos/mozzi86/-archicad/releases/tags/elm-sab-tapir-latest");
@@ -133,7 +280,6 @@ const GS::UniString& VersionChecker::GetVersionFromGithub ()
             // ELMonkey 0.9.30: Version steht im Release-Namen ("ELMonkey 0.9.30 - AC27/28/29 (CI)"),
             // der rollende Tag selbst traegt keine Nummer. Alter Name ohne Nummer = leer = kein Hinweis.
             JSON::StringValueRef releaseNameValue = GS::DynamicCast<JSON::StringValue> (outputObject->Get ("name"));
-            latestVersion.Clear ();
             if (releaseNameValue != nullptr) {
                 const std::string releaseName = releaseNameValue->Get ().ToCStr ().Get ();
                 const std::string prefix = "ELMonkey ";
@@ -145,7 +291,7 @@ const GS::UniString& VersionChecker::GetVersionFromGithub ()
                         if ((c >= '0' && c <= '9') || c == '.') ver += c;
                         else break;
                     }
-                    latestVersion = GS::UniString (ver.c_str ());
+                    result.latestVersion = GS::UniString (ver.c_str ());
                 }
             }
 
@@ -158,10 +304,16 @@ const GS::UniString& VersionChecker::GetVersionFromGithub ()
                 JSON::StringValueRef nameValue = GS::DynamicCast<JSON::StringValue> (assetObject->Get ("name"));
 
                 GS::UniString name = nameValue->Get ();
-                if (name.Contains (namePostfix)) {
+                // ELMonkey: Bundle-Namen ELM_SAB_Tapir_AC29_Mac.zip; die Build-Protokolle (build-mac-AC29.log) passen nicht.
+                if (result.latestVersionDownloadUrl.IsEmpty () && name.Contains (namePostfix) && name.BeginsWith ("ELM_SAB_Tapir")) {
                     JSON::StringValueRef downloadUrlValue = GS::DynamicCast<JSON::StringValue> (assetObject->Get ("browser_download_url"));
-                    latestVersionDownloadUrl = downloadUrlValue->Get ();
-                    latestVersionName = name;
+                    result.latestVersionDownloadUrl = downloadUrlValue->Get ();
+                    result.latestVersionName = name;
+                } else if (result.latestInstallerDownloadUrl.IsEmpty () && name == installerName) {
+                    JSON::StringValueRef downloadUrlValue = GS::DynamicCast<JSON::StringValue> (assetObject->Get ("browser_download_url"));
+                    result.latestInstallerDownloadUrl = downloadUrlValue->Get ();
+                }
+                if (!result.latestVersionDownloadUrl.IsEmpty () && !result.latestInstallerDownloadUrl.IsEmpty ()) {
                     break;
                 }
             }
@@ -169,7 +321,6 @@ const GS::UniString& VersionChecker::GetVersionFromGithub ()
 
         clientConnection.Close (false);
     } catch (...) {
+        // A failed or timed out query leaves the result empty, which counts as "no newer version".
     }
-
-    return latestVersion;
 }

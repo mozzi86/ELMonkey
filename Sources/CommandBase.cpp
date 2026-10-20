@@ -3,6 +3,8 @@
 #include "SchemaDefinitions.hpp"
 #include "MigrationHelper.hpp"
 
+#include <cmath>
+
 constexpr double EPS = 0.001;
 constexpr const char* CommandNamespace = "TapirCommand";
 
@@ -47,6 +49,13 @@ GS::Optional<GS::UniString> CommandBase::GetInputParametersSchema () const
     return {};
 }
 
+GS::Optional<GS::UniString> CommandBase::GetRawResponseSchema () const
+{
+    return {};
+}
+
+// Deliberately empty - see the comment on the declaration. The schema the command
+// declares is documented, not handed to Archicad's response validation.
 GS::Optional<GS::UniString> CommandBase::GetResponseSchema () const
 {
     return {};
@@ -67,10 +76,31 @@ GS::ObjectState CreateFailedExecutionResult (GSErrCode errorCode, const GS::UniS
     return error;
 }
 
+GS::ObjectState CreateFailedExecutionResult (const GS::ObjectState& errorResponse)
+{
+    GS::ObjectState result = errorResponse;
+    result.Add ("success", false);
+    return result;
+}
+
 GS::ObjectState CreateSuccessfulExecutionResult ()
 {
     return GS::ObjectState (
         "success", true);
+}
+
+// Plain wording for the errors the Change* / Import property and classification calls
+// return, so a caller sees why a definition edit was refused without an error table.
+GS::UniString DescribeDefinitionChangeError (GSErrCode err)
+{
+    switch (err) {
+        case APIERR_NOACCESSRIGHT:   return "no access right: in Teamwork this needs the right to modify properties or classifications";
+        case APIERR_NAMEALREADYUSED: return "the name is already used in the target group or system";
+        case APIERR_BADVALUE:        return "an enum option or the default value is not one of the allowed options";
+        case APIERR_BADID:           return "an id does not refer to an existing property, group or classification item";
+        case APIERR_BADPARS:         return "inconsistent definition, for example a default value that does not match the property type";
+        default:                     return GS::UniString::Printf ("Archicad refused the change (error %d)", (int) err);
+    }
 }
 
 API_Guid GetGuidFromObjectState (const GS::ObjectState& os)
@@ -188,6 +218,398 @@ std::vector<PolygonData> GetPolygonsFromMemoCoords (const API_Guid& elemGuid, bo
     return polygons;
 }
 
+GS::UniString AnchorIdToString (API_AnchorID anchorId)
+{
+    switch (anchorId) {
+        case APIAnc_LT: return "TopLeft";
+        case APIAnc_MT: return "TopCenter";
+        case APIAnc_RT: return "TopRight";
+        case APIAnc_LM: return "MiddleLeft";
+        case APIAnc_MM: return "Center";
+        case APIAnc_RM: return "MiddleRight";
+        case APIAnc_LB: return "BottomLeft";
+        case APIAnc_MB: return "BottomCenter";
+        case APIAnc_RB: return "BottomRight";
+        default:        return "Center";
+    }
+}
+
+API_AnchorID AnchorIdFromString (const GS::UniString& str, API_AnchorID defaultValue)
+{
+    if (str == "TopLeft")      return APIAnc_LT;
+    if (str == "TopCenter")    return APIAnc_MT;
+    if (str == "TopRight")     return APIAnc_RT;
+    if (str == "MiddleLeft")   return APIAnc_LM;
+    if (str == "Center")       return APIAnc_MM;
+    if (str == "MiddleRight")  return APIAnc_RM;
+    if (str == "BottomLeft")   return APIAnc_LB;
+    if (str == "BottomCenter") return APIAnc_MB;
+    if (str == "BottomRight")  return APIAnc_RB;
+    return defaultValue;
+}
+
+GS::UniString WallReferenceLineLocationToString (API_WallReferenceLineLocationID location)
+{
+    switch (location) {
+        case APIWallRefLine_Outside:     return "Outside";
+        case APIWallRefLine_Center:      return "Center";
+        case APIWallRefLine_Inside:      return "Inside";
+        case APIWallRefLine_CoreOutside: return "CoreOutside";
+        case APIWallRefLine_CoreCenter:  return "CoreCenter";
+        case APIWallRefLine_CoreInside:  return "CoreInside";
+        default:                         return "Outside";
+    }
+}
+
+API_WallReferenceLineLocationID WallReferenceLineLocationFromString (const GS::UniString& str, API_WallReferenceLineLocationID defaultValue)
+{
+    if (str == "Outside")     return APIWallRefLine_Outside;
+    if (str == "Center")      return APIWallRefLine_Center;
+    if (str == "Inside")      return APIWallRefLine_Inside;
+    if (str == "CoreOutside") return APIWallRefLine_CoreOutside;
+    if (str == "CoreCenter")  return APIWallRefLine_CoreCenter;
+    if (str == "CoreInside")  return APIWallRefLine_CoreInside;
+    return defaultValue;
+}
+
+GS::UniString ZoneRelToString (API_ZoneRelID zoneRel)
+{
+    switch (zoneRel) {
+        case APIZRel_Boundary:        return "Boundary";
+        case APIZRel_ReduceArea:      return "ReduceArea";
+        case APIZRel_None:            return "None";
+#ifdef ServerMainVers_2700
+        case APIZRel_SubtractFromZone:return "SubtractFromZone";
+#endif
+        default:                      return "Boundary";
+    }
+}
+
+API_ZoneRelID ZoneRelFromString (const GS::UniString& str, API_ZoneRelID defaultValue)
+{
+    if (str == "Boundary")         return APIZRel_Boundary;
+    if (str == "ReduceArea")       return APIZRel_ReduceArea;
+    if (str == "None")             return APIZRel_None;
+#ifdef ServerMainVers_2700
+    if (str == "SubtractFromZone") return APIZRel_SubtractFromZone;
+#endif
+    return defaultValue;
+}
+
+GS::ObjectState CreateStoryVisibilityObjectState (const API_StoryVisibility& visibility)
+{
+    return GS::ObjectState (
+        "showOnHome", visibility.showOnHome,
+        "showAllAbove", visibility.showAllAbove,
+        "showAllBelow", visibility.showAllBelow,
+        "showRelAbove", visibility.showRelAbove,
+        "showRelBelow", visibility.showRelBelow);
+}
+
+API_StoryVisibility GetStoryVisibilityFromObjectState (const GS::ObjectState& os)
+{
+    API_StoryVisibility visibility = {};
+    os.Get ("showOnHome", visibility.showOnHome);
+    os.Get ("showAllAbove", visibility.showAllAbove);
+    os.Get ("showAllBelow", visibility.showAllBelow);
+    short showRelAbove = 0;
+    if (os.Get ("showRelAbove", showRelAbove)) {
+        visibility.showRelAbove = showRelAbove;
+    }
+    short showRelBelow = 0;
+    if (os.Get ("showRelBelow", showRelBelow)) {
+        visibility.showRelBelow = showRelBelow;
+    }
+    return visibility;
+}
+
+GS::UniString SlabReferencePlaneLocationToString (API_SlabReferencePlaneLocationID location)
+{
+    switch (location) {
+        case APISlabRefPlane_Top:        return "Top";
+        case APISlabRefPlane_CoreTop:    return "CoreTop";
+        case APISlabRefPlane_CoreBottom: return "CoreBottom";
+        case APISlabRefPlane_Bottom:     return "Bottom";
+        default:                         return "Top";
+    }
+}
+
+API_SlabReferencePlaneLocationID SlabReferencePlaneLocationFromString (const GS::UniString& str, API_SlabReferencePlaneLocationID defaultValue)
+{
+    if (str == "Top")        return APISlabRefPlane_Top;
+    if (str == "CoreTop")    return APISlabRefPlane_CoreTop;
+    if (str == "CoreBottom") return APISlabRefPlane_CoreBottom;
+    if (str == "Bottom")     return APISlabRefPlane_Bottom;
+    return defaultValue;
+}
+
+GS::ObjectState CreateOverriddenMaterialObjectState (const API_OverriddenAttribute& attr)
+{
+#ifdef ServerMainVers_2700
+    const bool overridden = attr.hasValue;
+    const API_AttributeIndex index = attr.value;
+#else
+    const bool overridden = attr.overridden;
+    const API_AttributeIndex index = attr.attributeIndex;
+#endif
+    GS::ObjectState os ("overridden", overridden);
+    if (overridden) {
+        os.Add ("attributeId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_MaterialID, index)));
+    }
+    return os;
+}
+
+API_OverriddenAttribute GetOverriddenMaterialFromObjectState (const GS::ObjectState& os)
+{
+    API_OverriddenAttribute attr = {};
+    bool overridden = false;
+    os.Get ("overridden", overridden);
+
+    API_AttributeIndex index = {};
+    GS::ObjectState attributeIdOs;
+    if (overridden && os.Get ("attributeId", attributeIdOs)) {
+        index = GetAttributeIndexFromGuid (API_MaterialID, GetGuidFromObjectState (attributeIdOs));
+    }
+
+#ifdef ServerMainVers_2700
+    attr.hasValue = overridden;
+    attr.value = index;
+#else
+    attr.overridden = overridden;
+    attr.attributeIndex = index;
+#endif
+    return attr;
+}
+
+#ifdef ServerMainVers_2700
+GS::ObjectState CreateOverriddenPenObjectState (const API_OverriddenPen& pen)
+{
+    GS::ObjectState os ("overridden", pen.hasValue);
+    if (pen.hasValue) {
+        os.Add ("penIndex", static_cast<Int32> (pen.value));
+    }
+    return os;
+}
+
+API_OverriddenPen GetOverriddenPenFromObjectState (const GS::ObjectState& os)
+{
+    API_OverriddenPen pen = {};
+    bool overridden = false;
+    os.Get ("overridden", overridden);
+    Int32 penIndex = 0;
+    if (overridden && os.Get ("penIndex", penIndex)) {
+        pen = static_cast<API_PenIndex> (penIndex);
+    } else {
+        pen = APINullValue;
+    }
+    return pen;
+}
+#endif
+
+GS::UniString CoverFillTransformationTypeToString (API_CoverFillTransformationTypeID type)
+{
+    switch (type) {
+        case API_CoverFillTransformationType_Rotated:   return "Rotated";
+        case API_CoverFillTransformationType_Distorted: return "Distorted";
+        case API_CoverFillTransformationType_Global:
+        default:                                        return "Global";
+    }
+}
+
+API_CoverFillTransformationTypeID CoverFillTransformationTypeFromString (const GS::UniString& str, API_CoverFillTransformationTypeID defaultValue)
+{
+    if (str == "Rotated")   return API_CoverFillTransformationType_Rotated;
+    if (str == "Distorted") return API_CoverFillTransformationType_Distorted;
+    if (str == "Global")    return API_CoverFillTransformationType_Global;
+    return defaultValue;
+}
+
+GS::ObjectState CreateCoverFillTransformationObjectState (const API_CoverFillTransformation& transformation)
+{
+    GS::ObjectState os;
+    os.Add ("origin", Create2DCoordinateObjectState (transformation.origo));
+    os.Add ("xAxis", GS::ObjectState ("x", transformation.xAxis.x, "y", transformation.xAxis.y));
+    os.Add ("yAxis", GS::ObjectState ("x", transformation.yAxis.x, "y", transformation.yAxis.y));
+    return os;
+}
+
+API_CoverFillTransformation GetCoverFillTransformationFromObjectState (const GS::ObjectState& os)
+{
+    API_CoverFillTransformation transformation = {};
+    GS::ObjectState originOs;
+    if (os.Get ("origin", originOs)) {
+        transformation.origo = Get2DCoordinateFromObjectState (originOs);
+    }
+    GS::ObjectState xAxisOs;
+    if (os.Get ("xAxis", xAxisOs)) {
+        xAxisOs.Get ("x", transformation.xAxis.x);
+        xAxisOs.Get ("y", transformation.xAxis.y);
+    }
+    GS::ObjectState yAxisOs;
+    if (os.Get ("yAxis", yAxisOs)) {
+        yAxisOs.Get ("x", transformation.yAxis.x);
+        yAxisOs.Get ("y", transformation.yAxis.y);
+    }
+    return transformation;
+}
+
+GS::ObjectState CreateCoverFillObjectState (bool use, bool useFromSurface, bool orientationComesFrom3D, API_AttributeIndex fillIndex, short foregroundPen, short backgroundPen, API_CoverFillTransformationTypeID transformationType, const API_CoverFillTransformation& transformation)
+{
+    GS::ObjectState os;
+    os.Add ("use", use);
+    os.Add ("useFromSurface", useFromSurface);
+    os.Add ("orientationComesFrom3D", orientationComesFrom3D);
+    os.Add ("fillId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_FilltypeID, fillIndex)));
+    os.Add ("foregroundPen", foregroundPen);
+    os.Add ("backgroundPen", backgroundPen);
+    os.Add ("transformationType", CoverFillTransformationTypeToString (transformationType));
+    os.Add ("transformation", CreateCoverFillTransformationObjectState (transformation));
+    return os;
+}
+
+GS::UniString HatchOrientationTypeToString (API_HatchOrientationTypeID type)
+{
+    switch (type) {
+        case API_HatchRotated:   return "Rotated";
+        case API_HatchDistorted: return "Distorted";
+        case API_HatchCentered:  return "Centered";
+        case API_HatchGlobal:
+        default:                 return "Global";
+    }
+}
+
+API_HatchOrientationTypeID HatchOrientationTypeFromString (const GS::UniString& str, API_HatchOrientationTypeID defaultValue)
+{
+    if (str == "Rotated")   return API_HatchRotated;
+    if (str == "Distorted") return API_HatchDistorted;
+    if (str == "Centered")  return API_HatchCentered;
+    if (str == "Global")    return API_HatchGlobal;
+    return defaultValue;
+}
+
+GS::ObjectState CreateHatchOrientationObjectState (const API_HatchOrientation& orientation)
+{
+    GS::ObjectState os;
+    os.Add ("type", HatchOrientationTypeToString (orientation.type));
+    os.Add ("origin", Create2DCoordinateObjectState (orientation.origo));
+    os.Add ("matrix00", orientation.matrix00);
+    os.Add ("matrix10", orientation.matrix10);
+    os.Add ("matrix01", orientation.matrix01);
+    os.Add ("matrix11", orientation.matrix11);
+    os.Add ("innerRadius", orientation.innerRadius);
+    return os;
+}
+
+API_HatchOrientation GetHatchOrientationFromObjectState (const GS::ObjectState& os)
+{
+    API_HatchOrientation orientation = {};
+    GS::UniString typeStr;
+    if (os.Get ("type", typeStr)) {
+        orientation.type = HatchOrientationTypeFromString (typeStr);
+    }
+    GS::ObjectState originOs;
+    if (os.Get ("origin", originOs)) {
+        orientation.origo = Get2DCoordinateFromObjectState (originOs);
+    }
+    os.Get ("matrix00", orientation.matrix00);
+    os.Get ("matrix10", orientation.matrix10);
+    os.Get ("matrix01", orientation.matrix01);
+    os.Get ("matrix11", orientation.matrix11);
+    os.Get ("innerRadius", orientation.innerRadius);
+    return orientation;
+}
+
+GS::UniString DrawingNameTypeToString (API_NameTypeValues nameType)
+{
+    switch (nameType) {
+        case APIName_ViewIdAndName:  return "ViewIdAndName";
+        case APIName_CustomName:     return "CustomName";
+        default:
+        case APIName_ViewOrSrcFileName: return "ViewOrSourceFileName";
+    }
+}
+
+API_NameTypeValues DrawingNameTypeFromString (const GS::UniString& str, API_NameTypeValues defaultValue)
+{
+    if (str == "ViewIdAndName")
+        return APIName_ViewIdAndName;
+    if (str == "CustomName")
+        return APIName_CustomName;
+    if (str == "ViewOrSourceFileName")
+        return APIName_ViewOrSrcFileName;
+    return defaultValue;
+}
+
+void AddBeamHolesFromMemo (const API_Guid& elemGuid, GS::ObjectState& os, const GS::String& holesFieldName)
+{
+    const auto& holes = os.AddList<GS::ObjectState> (holesFieldName);
+
+    API_ElementMemo memo = {};
+    const GS::OnExit guard ([&memo] () { ACAPI_DisposeElemMemoHdls (&memo); });
+    if (ACAPI_Element_GetMemo (elemGuid, &memo, APIMemoMask_BeamHole) != NoError || memo.beamHoles == nullptr) {
+        return;
+    }
+
+    const GSSize nHoles = BMhGetSize (reinterpret_cast<GSHandle> (memo.beamHoles)) / sizeof (API_Beam_Hole);
+    for (GSIndex i = 0; i < nHoles; ++i) {
+        const API_Beam_Hole& hole = (*memo.beamHoles)[i];
+        holes (GS::ObjectState (
+            "holeId", hole.holeID,
+            "type", hole.holeType == APIBHole_Circular ? GS::UniString ("Circular") : GS::UniString ("Rectangular"),
+            "showContour", hole.holeContureOn,
+            "centerX", hole.centerx,
+            "centerZ", hole.centerz,
+            "width", hole.width,
+            "height", hole.height));
+    }
+}
+
+void AddColumnSectionFromMemo (const API_Guid& elemGuid, GS::ObjectState& os)
+{
+    API_ElementMemo memo = {};
+    const GS::OnExit guard ([&memo] () { ACAPI_DisposeElemMemoHdls (&memo); });
+    if (ACAPI_Element_GetMemo (elemGuid, &memo, APIMemoMask_ColumnSegment) != NoError || memo.columnSegments == nullptr) {
+        return;
+    }
+    const GSSize nSegments = BMGetPtrSize (reinterpret_cast<GSPtr> (memo.columnSegments)) / sizeof (API_ColumnSegmentType);
+    if (nSegments == 0) {
+        return;
+    }
+    const API_AssemblySegmentData& segment = memo.columnSegments[0].assemblySegmentData;
+    os.Add ("width", segment.nominalWidth);
+    os.Add ("depth", segment.nominalHeight);
+    os.Add ("isWidthAndHeightLinked", segment.isWidthAndHeightLinked);
+    os.Add ("circleBased", segment.circleBased);
+    if (segment.modelElemStructureType == API_BasicStructure) {
+        os.Add ("buildingMaterialId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_BuildingMaterialID, segment.buildingMaterial)));
+    } else if (segment.modelElemStructureType == API_ProfileStructure) {
+        os.Add ("profileId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_ProfileID, segment.profileAttr)));
+    }
+}
+
+void AddBeamSectionFromMemo (const API_Guid& elemGuid, GS::ObjectState& os)
+{
+    API_ElementMemo memo = {};
+    const GS::OnExit guard ([&memo] () { ACAPI_DisposeElemMemoHdls (&memo); });
+    if (ACAPI_Element_GetMemo (elemGuid, &memo, APIMemoMask_BeamSegment) != NoError || memo.beamSegments == nullptr) {
+        return;
+    }
+    const GSSize nSegments = BMGetPtrSize (reinterpret_cast<GSPtr> (memo.beamSegments)) / sizeof (API_BeamSegmentType);
+    if (nSegments == 0) {
+        return;
+    }
+    const API_AssemblySegmentData& segment = memo.beamSegments[0].assemblySegmentData;
+    os.Add ("width", segment.nominalWidth);
+    os.Add ("height", segment.nominalHeight);
+    os.Add ("isWidthAndHeightLinked", segment.isWidthAndHeightLinked);
+    os.Add ("circleBased", segment.circleBased);
+    if (segment.modelElemStructureType == API_BasicStructure) {
+        os.Add ("buildingMaterialId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_BuildingMaterialID, segment.buildingMaterial)));
+    } else if (segment.modelElemStructureType == API_ProfileStructure) {
+        os.Add ("profileId", CreateGuidObjectState (GetAttributeGuidFromIndex (API_ProfileID, segment.profileAttr)));
+    }
+}
+
 void AddPolygonFromMemoCoords (const API_Guid& elemGuid, GS::ObjectState& os, const GS::String& coordsFieldName, const GS::Optional<GS::String>& arcsFieldName)
 {
     const auto& coords = os.AddList<GS::ObjectState> (coordsFieldName);
@@ -284,6 +706,21 @@ bool GetHoleGeometry (const GS::ObjectState& holeOs, GS::Array<GS::ObjectState>&
     return true;
 }
 
+GS::Optional<GS::UniString> ValidateHoles (const GS::Array<GS::ObjectState>& holes)
+{
+    for (UIndex holeIndex = 0; holeIndex < holes.GetSize (); ++holeIndex) {
+        GS::Array<GS::ObjectState> holeCoords;
+        GS::Array<GS::ObjectState> holeArcs;
+        if (!GetHoleGeometry (holes[holeIndex], holeCoords, holeArcs)) {
+            return GS::UniString::Printf ("Invalid hole at index %d: each hole must be an object with a 'polygonOutline' (or legacy 'polygonCoordinates') coordinate array.", (int) holeIndex);
+        }
+        if (holeCoords.GetSize () < 3) {
+            return GS::UniString::Printf ("Invalid hole at index %d: the hole outline must contain at least 3 coordinates.", (int) holeIndex);
+        }
+    }
+    return {};
+}
+
 GS::ObjectState CreateIdObjectState (const GS::String& idFieldName, const API_Guid& guid)
 {
     return GS::ObjectState (idFieldName, CreateGuidObjectState (guid));
@@ -369,6 +806,15 @@ double GetZPos (const short floorIndex, const double offset, const Stories& stor
 
     const Story& story = it->second;
     return story.level + offset;
+}
+
+GS::Pair<short, double> ResolveFloorIndexAndOffset (const GS::ObjectState& parameters, const char* floorIndexFieldName, const double zPos, const Stories& stories)
+{
+    short floorIndex = 0;
+    if (parameters.Get (floorIndexFieldName, floorIndex)) {
+        return { floorIndex, zPos - GetZPos (floorIndex, 0.0, stories) };
+    }
+    return GetFloorIndexAndOffset (zPos, stories);
 }
 
 GS::UniString GetElementTypeNonLocalizedName (API_ElemTypeID typeID)
@@ -529,16 +975,7 @@ API_ElemTypeID GetElementTypeFromNonLocalizedName (const GS::UniString& typeStr)
 
 short ParseAnchorPointString (const GS::UniString& anchorPoint)
 {
-    if (anchorPoint == "TopLeft")      return 0;
-    if (anchorPoint == "TopCenter")    return 1;
-    if (anchorPoint == "TopRight")     return 2;
-    if (anchorPoint == "MiddleLeft")   return 3;
-    if (anchorPoint == "Center")       return 4;
-    if (anchorPoint == "MiddleRight")  return 5;
-    if (anchorPoint == "BottomLeft")   return 6;
-    if (anchorPoint == "BottomCenter") return 7;
-    if (anchorPoint == "BottomRight")  return 8;
-    return 4;
+    return static_cast<short> (AnchorIdFromString (anchorPoint));
 }
 
 API_Guid GetAttributeGuidFromIndex (API_AttrTypeID typeID, API_AttributeIndex index)
@@ -578,6 +1015,68 @@ API_AttributeIndex GetAttributeIndexFromGuid (API_AttrTypeID typeID, API_Guid gu
     }
 
     return attr.header.index;
+}
+
+GS::Optional<GS::UniString> GetFontNameFromIndex (short fontIndex)
+{
+    // The legacy 8-bit name field loses characters; Archicad hands out the real Unicode name
+    // through uniStringNamePtr, which has to point at storage before the Get call (the
+    // same way GetAttributeName in AttributeCommands.cpp reads attribute names).
+    GS::UniString name;
+#ifdef ServerMainVers_2700
+    // From Archicad 27 fonts are no attributes; they have their own API, indexed from 1.
+    API_FontType font = {};
+    font.head.index = fontIndex;
+    font.head.uniStringNamePtr = &name;
+
+    if (ACAPI_Font_GetFont (font) != NoError) {
+        return GS::NoValue;
+    }
+#else
+    API_Attribute attr = {};
+    attr.header.typeID = API_FontID;
+    attr.header.index = ACAPI_CreateAttributeIndex (fontIndex);
+    attr.header.uniStringNamePtr = &name;
+
+    if (ACAPI_Attribute_Get (&attr) != NoError) {
+        return GS::NoValue;
+    }
+#endif
+
+    return name;
+}
+
+GS::Optional<short> GetFontIndexFromName (const GS::UniString& fontName)
+{
+    GS::Array<short> fontIndices;
+#ifdef ServerMainVers_2700
+    const Int32 fontNum = ACAPI_Font_GetFontNum ();
+    for (Int32 fontIndex = 1; fontIndex <= fontNum; ++fontIndex) {
+        fontIndices.Push (static_cast<short> (fontIndex));
+    }
+#else
+    GS::Array<API_Attribute> fonts;
+    ACAPI_Attribute_GetAttributesByType (API_FontID, fonts);
+    for (const API_Attribute& font : fonts) {
+        fontIndices.Push (static_cast<short> (GetAttributeIndex (font.header.index)));
+    }
+#endif
+
+    GS::Optional<short> caseInsensitiveMatch;
+    for (const short fontIndex : fontIndices) {
+        const GS::Optional<GS::UniString> name = GetFontNameFromIndex (fontIndex);
+        if (!name.HasValue ()) {
+            continue;
+        }
+        if (*name == fontName) {
+            return fontIndex;
+        }
+        if (!caseInsensitiveMatch.HasValue () && name->Compare (fontName, CaseInsensitive) == GS::UniString::Equal) {
+            caseInsensitiveMatch = fontIndex;
+        }
+    }
+
+    return caseInsensitiveMatch;
 }
 
 const DatabaseIdResolver& DatabaseIdResolver::Instance ()
@@ -666,4 +1165,41 @@ bool DoesElementExist (const API_Guid& elementGuid, API_ElemTypeID expectedTypeI
         return false;
     }
     return GetElemTypeId (header) == expectedTypeId;
+}
+
+
+API_Tranmat CreateHotlinkTransformation (const API_Coord3D& origin, double rotationAngle, bool mirrored)
+{
+    API_Tranmat transformation = {};
+    const double co = std::cos (rotationAngle);
+    const double si = std::sin (rotationAngle);
+    const double mx = mirrored ? -1.0 : 1.0;
+
+    transformation.tmx[0]  = co * mx;
+    transformation.tmx[1]  = -si;
+    transformation.tmx[2]  = 0.0;
+    transformation.tmx[3]  = origin.x;
+
+    transformation.tmx[4]  = si * mx;
+    transformation.tmx[5]  = co;
+    transformation.tmx[6]  = 0.0;
+    transformation.tmx[7]  = origin.y;
+
+    transformation.tmx[8]  = 0.0;
+    transformation.tmx[9]  = 0.0;
+    transformation.tmx[10] = 1.0;
+    transformation.tmx[11] = origin.z;
+
+    return transformation;
+}
+
+void DecomposeHotlinkTransformation (const API_Tranmat& transformation, API_Coord3D& origin, double& rotationAngle, bool& mirrored)
+{
+    origin = { transformation.tmx[3], transformation.tmx[7], transformation.tmx[11] };
+    // The image of the local Y axis is the second column, (-sin, cos), and a
+    // mirror of the local X axis leaves it alone - so the angle reads off it
+    // regardless of mirroring, and the mirror reads off the determinant.
+    rotationAngle = std::atan2 (-transformation.tmx[1], transformation.tmx[5]);
+    const double det = transformation.tmx[0] * transformation.tmx[5] - transformation.tmx[1] * transformation.tmx[4];
+    mirrored = det < 0.0;
 }

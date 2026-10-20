@@ -32,6 +32,24 @@ GS::ObjectState Config::Repository::ToOS () const {
     };
 }
 
+Config::LocalFolder Config::LocalFolder::FromOS (const GS::ObjectState& os) {
+    LocalFolder folder;
+    os.Get ("displayName", folder.displayName);
+    os.Get ("path", folder.path);
+    os.Get ("includePattern", folder.includePattern);
+    os.Get ("excludePattern", folder.excludePattern);
+    return folder;
+}
+
+GS::ObjectState Config::LocalFolder::ToOS () const {
+    return {
+        "displayName", displayName,
+        "path", path,
+        "includePattern", includePattern,
+        "excludePattern", excludePattern
+    };
+}
+
 Config& Config::Instance ()
 {
     static Config instance;
@@ -61,8 +79,10 @@ void Config::GetDefaults ()
         "tapir-archicad-automation",
         "builtin-scripts"
     });
+    localFolders.clear ();
     askUpdatingAddOnBeforeEachExecution = false;
     uvLocationStr = GS::EmptyUniString;
+    pythonLocationStr = GS::EmptyUniString;
 }
 
 void Config::LoadFromFile (IO::File& file)
@@ -88,8 +108,18 @@ void Config::LoadFromFile (IO::File& file)
         repositories.push_back (Config::Repository::FromOS (repoOS));
     }
 
+    // Optional: config files written before this key existed simply have no local folders.
+    GS::Array<GS::ObjectState> localFoldersArray;
+    os.Get ("localFolders", localFoldersArray);
+
+    localFolders.clear ();
+    for (auto& folderOS : localFoldersArray) {
+        localFolders.push_back (Config::LocalFolder::FromOS (folderOS));
+    }
+
     os.Get ("askUpdatingAddOnBeforeEachExecution", askUpdatingAddOnBeforeEachExecution);
     os.Get ("uvLocation", uvLocationStr);
+    os.Get ("pythonLocation", pythonLocationStr);
 }
 
 void Config::SaveToFile (IO::File& file) const
@@ -100,8 +130,14 @@ void Config::SaveToFile (IO::File& file) const
         repositoriesArray (repo.ToOS ());
     }
 
+    const auto& localFoldersArray = os.AddList<GS::ObjectState> ("localFolders");
+    for (auto& folder : localFolders) {
+        localFoldersArray (folder.ToOS ());
+    }
+
     os.Add ("askUpdatingAddOnBeforeEachExecution", askUpdatingAddOnBeforeEachExecution);
     os.Add ("uvLocation", uvLocationStr);
+    os.Add ("pythonLocation", pythonLocationStr);
 
     constexpr bool prettyPrint = true;
     file.Open (IO::File::OpenMode::WriteEmptyMode);

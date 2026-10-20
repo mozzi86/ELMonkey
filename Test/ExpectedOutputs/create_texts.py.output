@@ -9,7 +9,9 @@ Parameters:
                 "z": 0.0
             },
             "text": "100",
-            "height": 2.5
+            "height": 2.5,
+            "angle": 0.0,
+            "justification": "Left"
         },
         {
             "coordinate": {
@@ -19,6 +21,7 @@ Parameters:
             },
             "text": "102",
             "height": 2.5,
+            "angle": 0.0,
             "justification": "Center"
         },
         {
@@ -29,7 +32,19 @@ Parameters:
             },
             "text": "multi\nline",
             "height": 2.5,
-            "angle": 0.0
+            "angle": 0.0,
+            "justification": "Left"
+        },
+        {
+            "coordinate": {
+                "x": 15.0,
+                "y": 6.0,
+                "z": 0.0
+            },
+            "text": "windows\r\nline endings",
+            "height": 2.5,
+            "angle": 0.0,
+            "justification": "Left"
         }
     ]
 }
@@ -50,22 +65,6 @@ Response:
             "elementId": {
                 "guid": "<GUID>"
             }
-        }
-    ]
-}
-Command: GetDetailsOfElements
-Parameters:
-{
-    "elements": [
-        {
-            "elementId": {
-                "guid": "<GUID>"
-            }
-        },
-        {
-            "elementId": {
-                "guid": "<GUID>"
-            }
         },
         {
             "elementId": {
@@ -74,39 +73,7 @@ Parameters:
         }
     ]
 }
-Response:
-{
-    "detailsOfElements": [
-        {
-            "type": "Text",
-            "floorIndex": 0,
-            "layerIndex": 42,
-            "drawIndex": 10,
-            "id": "",
-            "details": {
-                "error": "Not yet supported element type"
-            }
-        },
-        {
-            "type": "Text",
-            "floorIndex": 0,
-            "layerIndex": 42,
-            "drawIndex": 10,
-            "id": "",
-            "details": {
-                "error": "Not yet supported element type"
-            }
-        },
-        {
-            "type": "Text",
-            "floorIndex": 0,
-            "layerIndex": 42,
-            "drawIndex": 10,
-            "id": "",
-            "details": {
-                "error": "Not yet supported element type"
-            }
-        }
-    ]
-}
-{'detailsOfElements': [{'type': 'Text', 'floorIndex': 0, 'layerIndex': 42, 'drawIndex': 10, 'id': '', 'details': {'error': 'Not yet supported element type'}}, {'type': 'Text', 'floorIndex': 0, 'layerIndex': 42, 'drawIndex': 10, 'id': '', 'details': {'error': 'Not yet supported element type'}}, {'type': 'Text', 'floorIndex': 0, 'layerIndex': 42, 'drawIndex': 10, 'id': '', 'details': {'error': 'Not yet supported element type'}}]}
+Text '100' at (0, 0, 0) height=2.5 angle=0 justification=Left lines=1 paragraphs=1
+Text '102' at (5, 2, 0) height=2.5 angle=0 justification=Center lines=1 paragraphs=1
+Text 'multi\nline' at (10, 4, 0) height=2.5 angle=0 justification=Left lines=2 paragraphs=1
+Text 'windows\nline endings' at (15, 6, 0) height=2.5 angle=0 justification=Left lines=2 paragraphs=1

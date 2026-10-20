@@ -51,6 +51,14 @@ public:
     {
         return GS::NoValue;
     }
+
+    // ELMonkey 0.10.0: Tapir 1.7.x registriert die Befehls-Doku (ListCommands, GenerateDocumentation)
+    // ueber GetRawResponseSchema - Tapirs CommandBase meldet Archicad selbst kein Antwortschema mehr.
+    // ELM-Befehle melden ihres weiter (mit Fehlerzweig, ELMResponseSchemaWithError); fuer die Doku dasselbe.
+    GS::Optional<GS::UniString> GetRawResponseSchema () const
+    {
+        return GetResponseSchema ();
+    }
 };
 
 inline GS::ObjectState CreateGuidObjectStateELM (const API_Guid& guid)

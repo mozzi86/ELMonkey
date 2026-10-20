@@ -1,42 +1,45 @@
-// ELMonkey 0.9.34 — offenes Projekt am Ort sichern (fuer ELM_SAB.SaveProjectCopy und Tapir SaveProject).
-// Die parameterlose Form ACAPI_ProjectOperation_Save () lieferte live (AC29, 20.10.2026, lokale .pln,
-// eigene .lck, Cmd+S speichert ohne Meldung) APIERR_READONLY - auch Tapirs SaveProject scheiterte so.
-// Laut DevKit kommt READONLY auch, wenn das Projekt "nie gesichert" wurde und fileSavePars fehlt.
-// Deshalb wie bei CaptureView: API_FileSavePars mit PLN-Typ und dem Pfad des Originals. Teamwork und
-// unbenannte Projekte haben keinen lokalen Pfad - dort bleibt der alte Weg.
+// ELMonkey — offenes Projekt am Ort sichern (fuer ELM_SAB.SaveProjectCopy).
+// 0.9.34 lieferte die parameterlose Form ACAPI_ProjectOperation_Save () live APIERR_READONLY; der
+// damalige Fix (API_FileSavePars auf den eigenen Pfad) hat einen Haken, den Tapir 1.7.x (#681)
+// gemessen hat: er ueberschreibt auch ein schreibgeschuetzt geoeffnetes Projekt (veraltete Sperre,
+// anderer Nutzer), wo Ablage > Sichern ablehnt. Die eigentliche Ursache: das parameterlose Sichern
+// wirkt auf das AKTIVE Fenster - aus 3D/Schnitt/Ansicht gibt es nichts zu sichern -> READONLY.
+// 0.10.0: wie Tapirs SaveProject Grundriss kurz aktivieren, normal sichern, Fenster zurueckstellen.
 #pragma once
 
 #include "APIEnvir.h"
 #include "ACAPinc.h"
-#include "Location.hpp"
+#include "OnExit.hpp"
 
 #include <string>
 
 inline GSErrCode SaveProjectInPlaceELM ()
 {
-    API_ProjectInfo info = {};
-    const GSErrCode infoErr = ACAPI_ProjectOperation_Project (&info);
-    if (infoErr != NoError)
-        return infoErr;
-    if (info.teamwork || info.untitled || info.location == nullptr)
-        return ACAPI_ProjectOperation_Save ();
-
-    IO::Location file = *info.location;
-    API_FileSavePars fsp = {};
-    fsp.fileTypeID = APIFType_PlanFile;
-    fsp.file = &file;
-    return ACAPI_ProjectOperation_Save (&fsp);
+    API_WindowInfo previousWindow = {};
+    bool windowSwitched = false;
+    if (ACAPI_Window_GetCurrentWindow (&previousWindow) == NoError &&
+        previousWindow.typeID != APIWind_FloorPlanID) {
+        API_WindowInfo floorPlanWindow = {};
+        floorPlanWindow.typeID = APIWind_FloorPlanID;
+        windowSwitched = ACAPI_Window_ChangeWindow (&floorPlanWindow) == NoError;
+    }
+    const GS::OnExit restoreWindow ([&] () {
+        if (windowSwitched) {
+            ACAPI_Window_ChangeWindow (&previousWindow);
+        }
+    });
+    return ACAPI_ProjectOperation_Save ();
 }
 
 // Lesbarer Name der haeufigsten Speicher-Fehler fuer die Fehlermeldung.
 inline GS::UniString SaveErrorNameELM (GSErrCode err)
 {
     switch (err) {
-        case APIERR_READONLY:   return GS::UniString ("APIERR_READONLY");
-        case APIERR_REFUSEDCMD: return GS::UniString ("APIERR_REFUSEDCMD");
-        case APIERR_REFUSEDPAR: return GS::UniString ("APIERR_REFUSEDPAR");
-        case APIERR_BADPARS:    return GS::UniString ("APIERR_BADPARS");
+        case APIERR_READONLY:     return GS::UniString ("APIERR_READONLY - Projekt schreibgeschuetzt geoeffnet?");
+        case APIERR_REFUSEDCMD:   return GS::UniString ("APIERR_REFUSEDCMD");
+        case APIERR_REFUSEDPAR:   return GS::UniString ("APIERR_REFUSEDPAR");
+        case APIERR_BADPARS:      return GS::UniString ("APIERR_BADPARS");
         case APIERR_NOTSUPPORTED: return GS::UniString ("APIERR_NOTSUPPORTED");
-        default:                return GS::UniString ("Code ") + GS::UniString (std::to_string ((long) err).c_str ());
+        default:                  return GS::UniString ("Code ") + GS::UniString (std::to_string ((long) err).c_str ());
     }
 }

@@ -6,6 +6,7 @@
 
 #include "ObjectState.hpp"
 #include "BiHashTable.hpp"
+#include "HashSet.hpp"
 
 #include <vector>
 #include <map>
@@ -29,7 +30,15 @@ public:
 #endif
     virtual GS::Optional<GS::UniString> GetSchemaDefinitions () const override final;
     virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
-    virtual GS::Optional<GS::UniString> GetResponseSchema () const override;
+    // Archicad uses the response schema for exactly one thing: validating what
+    // the command returns. A failing command answers {"error": {code, message}}
+    // as the whole response, which no command's own schema accepts, so declaring
+    // one makes Archicad discard the error and report schema validation error
+    // 4009 instead - the caller never sees the message. Nothing else reads it:
+    // the documented schema comes from GetRawResponseSchema. So the API-facing
+    // one stays empty and the commands override GetRawResponseSchema.
+    virtual GS::Optional<GS::UniString> GetResponseSchema () const override final;
+    virtual GS::Optional<GS::UniString> GetRawResponseSchema () const;
 
 private:
     CommonSchema mCommonSchema;
@@ -37,7 +46,22 @@ private:
 
 GS::ObjectState CreateErrorResponse (GSErrCode errorCode, const GS::UniString& errorMessage);
 GS::ObjectState CreateFailedExecutionResult (GSErrCode errorCode, const GS::UniString& errorMessage);
+// The FailedExecutionResult shape for an error already built with CreateErrorResponse.
+GS::ObjectState CreateFailedExecutionResult (const GS::ObjectState& errorResponse);
 GS::ObjectState CreateSuccessfulExecutionResult ();
+GS::UniString DescribeDefinitionChangeError (GSErrCode err);
+
+// Adds {"guid": ...} to `list` for every guid in `from` that is not in `minus`. The import
+// commands use it to report what an import created and removed.
+template <typename List>
+void AddGuidDifference (const GS::HashSet<API_Guid>& from, const GS::HashSet<API_Guid>& minus, const List& list)
+{
+    for (const API_Guid& guid : from) {
+        if (!minus.Contains (guid)) {
+            list (GS::ObjectState ("guid", APIGuidToString (guid)));
+        }
+    }
+}
 
 API_Guid    GetGuidFromObjectState (const GS::ObjectState& os);
 API_Guid    GetGuidFromArrayItem (const GS::String& idFieldName, const GS::ObjectState& os);
@@ -65,6 +89,15 @@ inline GS::ObjectState CreateAttributeIdObjectState (const API_Guid& guid) { ret
 inline GS::ObjectState CreateIssueIdObjectState (const API_Guid& guid)     { return CreateIdObjectState ("issueId", guid); }
 inline GS::ObjectState CreateDatabaseIdObjectState (const API_Guid& guid)  { return CreateIdObjectState ("databaseId", guid); }
 
+// A hotlink instance is placed by an API_Tranmat. Every caller of this add-on
+// thinks in an origin, a rotation and a mirror flag, so the two directions of
+// that conversion live here, shared by the hotlink commands and by
+// GetDetailsOfElements. Mirroring reflects the module's local X axis before
+// the rotation is applied; a reflection is an orthogonal matrix, which is what
+// Archicad expects.
+API_Tranmat CreateHotlinkTransformation (const API_Coord3D& origin, double rotationAngle, bool mirrored);
+void        DecomposeHotlinkTransformation (const API_Tranmat& transformation, API_Coord3D& origin, double& rotationAngle, bool& mirrored);
+
 struct PolygonData {
     std::vector<API_Coord>   coords;
     std::vector<API_PolyArc> arcs;
@@ -74,6 +107,50 @@ std::vector<PolygonData> GetPolygonsFromMemoCoords (const API_Guid& elemGuid, bo
 void AddPolygonFromMemoCoords (const API_Guid& elemGuid, GS::ObjectState& os, const GS::String& coordsFieldName, const GS::Optional<GS::String>& arcsFieldName = {});
 void AddPolygonWithHolesFromMemoCoords (const API_Guid& elemGuid, GS::ObjectState& os, const GS::String& coordsFieldName, const GS::Optional<GS::String>& arcsFieldName, const GS::String& holesArrayFieldName, const GS::String& holeCoordsFieldName, const GS::Optional<GS::String>& holeArcsFieldName, bool includeZCoords = false);
 bool GetHoleGeometry (const GS::ObjectState& holeOs, GS::Array<GS::ObjectState>& outCoords, GS::Array<GS::ObjectState>& outArcs);
+GS::Optional<GS::UniString> ValidateHoles (const GS::Array<GS::ObjectState>& holes);
+void AddBeamHolesFromMemo (const API_Guid& elemGuid, GS::ObjectState& os, const GS::String& holesFieldName);
+void AddColumnSectionFromMemo (const API_Guid& elemGuid, GS::ObjectState& os);
+void AddBeamSectionFromMemo (const API_Guid& elemGuid, GS::ObjectState& os);
+GS::UniString AnchorIdToString (API_AnchorID anchorId);
+API_AnchorID AnchorIdFromString (const GS::UniString& str, API_AnchorID defaultValue = APIAnc_MM);
+GS::UniString WallReferenceLineLocationToString (API_WallReferenceLineLocationID location);
+API_WallReferenceLineLocationID WallReferenceLineLocationFromString (const GS::UniString& str, API_WallReferenceLineLocationID defaultValue = APIWallRefLine_Outside);
+GS::UniString ZoneRelToString (API_ZoneRelID zoneRel);
+API_ZoneRelID ZoneRelFromString (const GS::UniString& str, API_ZoneRelID defaultValue = APIZRel_Boundary);
+GS::ObjectState CreateStoryVisibilityObjectState (const API_StoryVisibility& visibility);
+API_StoryVisibility GetStoryVisibilityFromObjectState (const GS::ObjectState& os);
+GS::UniString SlabReferencePlaneLocationToString (API_SlabReferencePlaneLocationID location);
+API_SlabReferencePlaneLocationID SlabReferencePlaneLocationFromString (const GS::UniString& str, API_SlabReferencePlaneLocationID defaultValue = APISlabRefPlane_Top);
+GS::ObjectState CreateOverriddenMaterialObjectState (const API_OverriddenAttribute& attr);
+API_OverriddenAttribute GetOverriddenMaterialFromObjectState (const GS::ObjectState& os);
+#ifdef ServerMainVers_2700
+GS::ObjectState CreateOverriddenPenObjectState (const API_OverriddenPen& pen);
+API_OverriddenPen GetOverriddenPenFromObjectState (const GS::ObjectState& os);
+#endif
+GS::UniString CoverFillTransformationTypeToString (API_CoverFillTransformationTypeID type);
+API_CoverFillTransformationTypeID CoverFillTransformationTypeFromString (const GS::UniString& str, API_CoverFillTransformationTypeID defaultValue = API_CoverFillTransformationType_Global);
+GS::ObjectState CreateCoverFillTransformationObjectState (const API_CoverFillTransformation& transformation);
+API_CoverFillTransformation GetCoverFillTransformationFromObjectState (const GS::ObjectState& os);
+GS::ObjectState CreateCoverFillObjectState (bool use, bool useFromSurface, bool orientationComesFrom3D, API_AttributeIndex fillIndex, short foregroundPen, short backgroundPen, API_CoverFillTransformationTypeID transformationType, const API_CoverFillTransformation& transformation);
+GS::UniString HatchOrientationTypeToString (API_HatchOrientationTypeID type);
+API_HatchOrientationTypeID HatchOrientationTypeFromString (const GS::UniString& str, API_HatchOrientationTypeID defaultValue = API_HatchGlobal);
+GS::ObjectState CreateHatchOrientationObjectState (const API_HatchOrientation& orientation);
+API_HatchOrientation GetHatchOrientationFromObjectState (const GS::ObjectState& os);
+GS::UniString DrawingNameTypeToString (API_NameTypeValues nameType);
+API_NameTypeValues DrawingNameTypeFromString (const GS::UniString& str, API_NameTypeValues defaultValue = APIName_ViewOrSrcFileName);
+
+// Defined in ExtendedElementCommands.cpp (not ElementCommands.cpp, where it's called from) -
+// reading a Morph's body needs Model3D/MeshBody.hpp, which cannot be included in the same
+// translation unit as ModelMeshBody.hpp (already required by ElementCommands.cpp for zone
+// boundaries) without a "'GS' n'est pas membre de 'GS'" GDL header conflict - confirmed live,
+// root cause not fully understood, kept as two separate translation units instead.
+void AddMorphBodyFromMemo (const API_Element& elem, GS::ObjectState& typeSpecificDetails);
+
+// Shared by Morph and Wall (Get and Modify/Create) - defined in ExtendedElementCommands.cpp.
+GS::UniString ElemDisplayOptionToString (API_ElemDisplayOptionsID displayOption);
+bool ElemDisplayOptionFromString (const GS::UniString& str, API_ElemDisplayOptionsID& out);
+GS::UniString ViewDepthLimitationToString (API_ElemViewDepthLimitationsID viewDepthLimitation);
+bool ViewDepthLimitationFromString (const GS::UniString& str, API_ElemViewDepthLimitationsID& out);
 
 struct Story {
     Story (short _index, double _level)
@@ -89,6 +166,13 @@ using Stories = std::map<short, Story>;
 Stories GetStories ();
 GS::Pair<short, double> GetFloorIndexAndOffset (const double zPos, const Stories& stories);
 double GetZPos (const short floorIndex, const double offset, const Stories& stories);
+// Same result as GetFloorIndexAndOffset (zPos, stories), except an explicit floorIndex value under
+// floorIndexFieldName in `parameters` (when present) picks the floor directly instead of it being
+// derived from zPos - the offset is still computed against zPos, just relative to the chosen
+// floor's own base level. Use this wherever a Create/Modify command currently derives floorInd
+// purely from a Z coordinate, to let callers pin the floor explicitly instead of relying on a
+// guess that can land on the wrong floor for a Z value shared by more than one story.
+GS::Pair<short, double> ResolveFloorIndexAndOffset (const GS::ObjectState& parameters, const char* floorIndexFieldName, const double zPos, const Stories& stories);
 GS::UniString GetElementTypeNonLocalizedName (API_ElemTypeID typeID);
 API_ElemTypeID GetElementTypeFromNonLocalizedName (const GS::UniString& typeStr);
 short ParseAnchorPointString (const GS::UniString& anchorPoint);
@@ -96,6 +180,14 @@ short ParseAnchorPointString (const GS::UniString& anchorPoint);
 API_Guid GetAttributeGuidFromIndex (API_AttrTypeID typeID, API_AttributeIndex index);
 API_Attr_Head GetAttributeHeadFromGuid (API_Guid guid);
 API_AttributeIndex GetAttributeIndexFromGuid (API_AttrTypeID typeID, API_Guid guid);
+
+// Text and Label fields reference fonts by index (from 1), which is what the commands carry as
+// fontIndex. These map that index to and from the font's name (the name the Text tool's font list
+// shows), through the Font API from Archicad 27 and the Font attributes (API_FontID) before. The
+// lookup by name is exact first, then case-insensitive; NoValue when no loaded font has the name,
+// or the index none.
+GS::Optional<short> GetFontIndexFromName (const GS::UniString& fontName);
+GS::Optional<GS::UniString> GetFontNameFromIndex (short fontIndex);
 
 class DatabaseIdResolver {
 public:
@@ -165,6 +257,15 @@ GS::Optional<GS::UniString> BuildSlabMemoFromGeometry (
     GS::Array<GS::ObjectState>& polygonOutline,
     const GS::Array<GS::ObjectState>& polygonArcs,
     const GS::Array<GS::ObjectState>& holes);
+
+// Pushes the named favorite into the tool defaults of expectedTypeId, so a subsequent
+// ACAPI_Element_GetDefaults returns the favorite's settings as the baseline for a new
+// element. Mirrors ApplyFavoritesToElementDefaultsCommand: the element state plus the
+// favorite's classifications, category values and user properties (some favorites are
+// rejected by the create call without that extra metadata). Returns APIERR_REFUSEDPAR
+// when the favorite belongs to a different element type. Defined in
+// ExtendedElementCommands.cpp, next to the Window/Door specific variant.
+GSErrCode ApplyFavoriteToElementDefaults (const GS::UniString& favoriteName, API_ElemTypeID expectedTypeId);
 
 bool LoadElementHeaderByGuid (const API_Guid& elementGuid, API_Elem_Head& elementHeader);
 bool DoesElementExist (const API_Guid& elementGuid, API_ElemTypeID expectedTypeId);

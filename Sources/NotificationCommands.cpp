@@ -132,7 +132,7 @@ GS::Optional<GS::UniString> AddElementNotificationClientCommand::GetInputParamet
     })";
 }
 
-GS::Optional<GS::UniString> AddElementNotificationClientCommand::GetResponseSchema () const
+GS::Optional<GS::UniString> AddElementNotificationClientCommand::GetRawResponseSchema () const
 {
     return R"({
         "$ref": "#/ExecutionResult"
@@ -385,7 +385,7 @@ GS::Optional<GS::UniString> RemoveElementNotificationClientCommand::GetInputPara
     })";
 }
 
-GS::Optional<GS::UniString> RemoveElementNotificationClientCommand::GetResponseSchema () const
+GS::Optional<GS::UniString> RemoveElementNotificationClientCommand::GetRawResponseSchema () const
 {
     return R"({
         "$ref": "#/ExecutionResult"

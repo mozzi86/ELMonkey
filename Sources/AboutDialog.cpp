@@ -1,10 +1,11 @@
 #include "AboutDialog.hpp"
 
+// ELMonkey 0.10.0: Tapir-1.7-MigrationHelper braucht die API-Header VOR sich.
+#include "APIEnvir.h"
+#include "ACAPinc.h"
 #include "AddOnVersion.hpp"
 #include "ResourceIds.hpp"
 #include "MigrationHelper.hpp"
-
-#include "ACAPinc.h"
 #include "VersionChecker.hpp"
 
 #include <cstdlib>

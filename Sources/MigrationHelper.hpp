@@ -14,6 +14,7 @@
 #define ACAPI_MenuItem_InstallMenuHandler ACAPI_Install_MenuHandler
 #define ACAPI_MenuItem_GetMenuItemFlags(par1, par2) ACAPI_Interface (APIIo_GetMenuItemFlagsID, par1, par2);
 #define ACAPI_MenuItem_SetMenuItemFlags(par1, par2) ACAPI_Interface (APIIo_SetMenuItemFlagsID, par1, par2);
+#define ACAPI_MenuItem_SetMenuItemText(par1, par2, par3) ACAPI_Interface (APIIo_SetMenuItemTextID, par1, par2, par3);
 
 #define ACAPI_Markup_Create ACAPI_MarkUp_Create
 #define ACAPI_Markup_Delete ACAPI_MarkUp_Delete
@@ -38,6 +39,12 @@
 #define ACAPI_Teamwork_ReleaseElements ACAPI_TeamworkControl_ReleaseElements
 #define ACAPI_Teamwork_GetUsernameFromId ACAPI_TeamworkControl_GetUsernameFromId
 #define ACAPI_Teamwork_HasConnection ACAPI_TeamworkControl_HasConnection
+#define ACAPI_Teamwork_FindLockableObjectSet ACAPI_TeamworkControl_FindLockableObjectSet
+#define ACAPI_Teamwork_ReserveLockable ACAPI_TeamworkControl_ReserveLockable
+#define ACAPI_Teamwork_ReleaseLockable ACAPI_TeamworkControl_ReleaseLockable
+#define ACAPI_Teamwork_GetLockableStatus ACAPI_TeamworkControl_GetLockableStatus
+#define ACAPI_Teamwork_ReserveHotlinkCacheManagement ACAPI_TeamworkControl_ReserveHotlinkCacheManagement
+#define ACAPI_Teamwork_ReleaseHotlinkCacheManagement ACAPI_TeamworkControl_ReleaseHotlinkCacheManagement
 
 #define ACAPI_UserInput_SetElementHighlight ACAPI_Interface_SetElementHighlight
 #define ACAPI_UserInput_ClearElementHighlight ACAPI_Interface_ClearElementHighlight
@@ -85,8 +92,13 @@
 
 #define ACAPI_View_Get3DCuttingPlanes(par1) ACAPI_Environment (APIEnv_Get3DCuttingPlanesID, par1)
 #define ACAPI_View_Change3DCuttingPlanes(par1) ACAPI_Environment (APIEnv_Change3DCuttingPlanesID, par1)
+#define ACAPI_View_Get3DProjectionSets(par1) ACAPI_Environment (APIEnv_Get3DProjectionSetsID, par1)
+#define ACAPI_View_Change3DProjectionSets(par1, par2) ACAPI_Environment (APIEnv_Change3DProjectionSetsID, (void*) par1, (void*) par2)
 #define ACAPI_Window_GetCurrentWindow(par1) ACAPI_Database (APIDb_GetCurrentWindowID, par1)
-#define ACAPI_Window_ChangeWindow(par1) ACAPI_Database (APIDb_ChangeCurrentDatabaseID, par1)
+// APIDo_ChangeWindowID brings the window to the front; APIDb_ChangeCurrentDatabaseID only
+// switches the database the API works on and leaves the front window as it is, which is
+// what ACAPI_Database_ChangeCurrentDatabase below is for.
+#define ACAPI_Window_ChangeWindow(par1) ACAPI_Automate (APIDo_ChangeWindowID, (void*) par1)
 #define ACAPI_Database_GetLayoutDatabases(par1, par2) ACAPI_Database (APIDb_GetLayoutDatabasesID, par1, par2)
 #define ACAPI_Database_GetMasterLayoutDatabases(par1, par2) ACAPI_Database (APIDb_GetMasterLayoutDatabasesID, par1, par2)
 #define ACAPI_Navigator_GetLayoutSets(par1, par2) ACAPI_Environment (APIEnv_GetLayoutSetsID, par1, par2)
@@ -100,6 +112,7 @@ inline GSErrCode ACAPI_Navigator_ChangeLayoutSets (const API_LayoutInfo* layoutI
 #define ACAPI_Navigator_GetSubSetDefault(par1) ACAPI_Database (APIDb_GetSubSetDefaultID, par1)
 #define ACAPI_Navigator_CreateSubSet(par1, par2) ACAPI_Database (APIDb_CreateSubSetID, par1, (void*)par2)
 
+#define ACAPI_View_IsSuspendGroupOn(par1)   ACAPI_Environment (APIEnv_IsSuspendGroupOnID, par1)
 #define ACAPI_Grouping_CreateGroup          ACAPI_ElementGroup_Create
 #define ACAPI_Grouping_GetGroup             ACAPI_ElementGroup_GetGroup
 #define ACAPI_Grouping_GetRootGroup         ACAPI_ElementGroup_GetRootGroup
@@ -151,6 +164,27 @@ inline GSErrCode ACAPI_ProjectOperation_Save ()
     return ACAPI_Automate (APIDo_SaveID);
 }
 
+inline GSErrCode ACAPI_ProjectOperation_Save (const API_FileSavePars* fileSavePars, const API_SavePars_Ifc* formatPars)
+{
+    return ACAPI_Automate (APIDo_SaveID, (void*) fileSavePars, (void*) formatPars);
+}
+
+inline GSErrCode ACAPI_ProjectOperation_Save (const API_FileSavePars* fileSavePars, const API_SavePars_Archive* formatPars)
+{
+    return ACAPI_Automate (APIDo_SaveID, (void*) fileSavePars, (void*) formatPars);
+}
+
+inline GSErrCode ACAPI_ProjectOperation_Save (const API_FileSavePars* fileSavePars, const API_SavePars_Picture* formatPars)
+{
+    return ACAPI_Automate (APIDo_SaveID, (void*) fileSavePars, (void*) formatPars);
+}
+
+// Pre-27 Save-As: APIDo_SaveID takes the target file as par1 (API_FileSavePars*).
+inline GSErrCode ACAPI_ProjectOperation_Save (const API_FileSavePars* fileSavePars)
+{
+    return ACAPI_Automate (APIDo_SaveID, (void*) fileSavePars);
+}
+
 inline GSErrCode ACAPI_ProjectOperation_Print (const API_PrintPars* printPars)
 {
     return ACAPI_Automate (APIDo_PrintID, (void*) printPars);
@@ -186,9 +220,25 @@ inline GSErrCode ACAPI_AutoText_DeleteAnAutoText (const char* dbKey)
     return ACAPI_Goodies (APIAny_DeleteAnAutoTextID, (void*) dbKey);
 }
 
+// APIAny_GetPropertyAutoTextKeyTableID exists in APIdefs_Goodies.h from AC25 on: par1 is the
+// element guid (APINULLGuid for the keys common to every element), par2 the name -> key table.
+inline GSErrCode ACAPI_AutoText_GetPropertyAutoTextKeyTable (API_Guid* guid, GS::HashTable<GS::UniString, GS::UniString>* keyGuidTable)
+{
+    return ACAPI_Goodies (APIAny_GetPropertyAutoTextKeyTableID, (void*) guid, (void*) keyGuidTable);
+}
+
+// The unplaced-node flag (APIdefs_Database.h): AC26 takes it as par2 of
+// APIDb_GetHotlinkNodeID and par3 of APIDb_GetHotlinkNodesID; AC25 has neither
+// (par2 is "---" and the node list respectively), so on 25 the flag is accepted
+// for the callers' sake and dropped, and an unplaced node cannot be read.
 inline GSErrCode ACAPI_Hotlink_GetHotlinkNode (API_HotlinkNode* hotlinkNode, bool* enableUnplaced = nullptr)
 {
+#ifdef ServerMainVers_2600
     return ACAPI_Database (APIDb_GetHotlinkNodeID, hotlinkNode, enableUnplaced);
+#else
+    (void) enableUnplaced;
+    return ACAPI_Database (APIDb_GetHotlinkNodeID, hotlinkNode);
+#endif
 }
 
 inline GSErrCode ACAPI_Hotlink_GetHotlinkRootNodeGuid (const API_HotlinkTypeID* type, API_Guid* rootNodeGuid)
@@ -199,6 +249,35 @@ inline GSErrCode ACAPI_Hotlink_GetHotlinkRootNodeGuid (const API_HotlinkTypeID* 
 inline GSErrCode ACAPI_Hotlink_GetHotlinkNodeTree (const API_Guid* hotlinkNodeGuid, GS::HashTable<API_Guid, GS::Array<API_Guid>>* hotlinkNodeTree)
 {
     return ACAPI_Database (APIDb_GetHotlinkNodeTreeID, (void*) hotlinkNodeGuid, (void*) hotlinkNodeTree);
+}
+
+inline GSErrCode ACAPI_Hotlink_CreateHotlinkNode (API_HotlinkNode* hotlinkNode)
+{
+    return ACAPI_Database (APIDb_CreateHotlinkNodeID, hotlinkNode);
+}
+
+inline GSErrCode ACAPI_Hotlink_GetHotlinkNodes (const API_HotlinkTypeID* type, GS::Array<API_Guid>* nodeRefList, bool* enableUnplaced = nullptr)
+{
+#ifdef ServerMainVers_2600
+    return ACAPI_Database (APIDb_GetHotlinkNodesID, (void*) type, (void*) nodeRefList, (void*) enableUnplaced);
+#else
+    (void) enableUnplaced;
+    return ACAPI_Database (APIDb_GetHotlinkNodesID, (void*) type, (void*) nodeRefList);
+#endif
+}
+
+inline GSErrCode ACAPI_Hotlink_ModifyHotlinkNode (API_HotlinkNode* hotlinkNode)
+{
+    return ACAPI_Database (APIDb_ModifyHotlinkNodeID, hotlinkNode);
+}
+
+// APIDb_UpdateHotlinkCacheID takes the node guid as par1 and an optional
+// API_HotlinkCacheGenerator as par2 (APIdefs_Database.h). The add-on never
+// generates content, so par2 is left out here and the cache is re-read from
+// the source file; AC27's ACAPI_Hotlink_UpdateHotlinkCache defaults it the same way.
+inline GSErrCode ACAPI_Hotlink_UpdateHotlinkCache (const API_Guid* hotlinkNodeGuid)
+{
+    return ACAPI_Database (APIDb_UpdateHotlinkCacheID, (void*) hotlinkNodeGuid);
 }
 
 inline GSErrCode ACAPI_Navigator_GetNavigatorSetNum (Int32* setNum)
@@ -241,9 +320,61 @@ inline GSErrCode ACAPI_Element_UI2ElemPriority (GS::Int32* uiPriority, GS::Int32
     return ACAPI_Goodies (APIAny_UI2ElemPriorityID, uiPriority, elemPriority);
 }
 
+inline GSErrCode ACAPI_Element_Elem2UIPriority (GS::Int32* elemPriority, GS::Int32* uiPriority)
+{
+    return ACAPI_Goodies (APIAny_Elem2UIPriorityID, elemPriority, uiPriority);
+}
+
 inline GSErrCode ACAPI_LibraryManagement_GetLibraries (GS::Array<API_LibraryInfo>* activeLibs, Int32* embeddedLibraryIndex = nullptr)
 {
     return ACAPI_Environment (APIEnv_GetLibrariesID, activeLibs, embeddedLibraryIndex);
+}
+
+inline GSErrCode ACAPI_LibraryManagement_SetLibraries (const GS::Array<API_LibraryInfo>* activeLibs)
+{
+    return ACAPI_Environment (APIEnv_SetLibrariesID, (void*) activeLibs);
+}
+
+inline GSErrCode ACAPI_ProjectOperation_SaveAsModuleFile (const IO::Location* location, GS::Array<API_Elem_Head>* elemHead = nullptr)
+{
+    // AC25/26 take the element list as a handle (APIDo_SaveAsModuleFileID par2:
+    // API_Elem_Head**); the selection form is what this shim supports.
+    if (elemHead != nullptr && !elemHead->IsEmpty ()) {
+        return APIERR_BADPARS;
+    }
+    return ACAPI_Automate (APIDo_SaveAsModuleFileID, (void*) location);
+}
+
+inline GSErrCode ACAPI_UserInput_GetPoint (API_GetPointType* pointInfo, RubberLineInfoProc* rubberLineInfoProc = nullptr, Get3DComponentProc* get3DComponentProc = nullptr)
+{
+    return ACAPI_Interface (APIIo_GetPointID, pointInfo, (void*) rubberLineInfoProc, (void*) get3DComponentProc);
+}
+
+// APIIo_InitProcessWindowID takes the phase count as short*, AC27+ take an Int32*.
+inline GSErrCode ACAPI_ProcessWindow_InitProcessWindow (const GS::UniString* title = nullptr, Int32* nPhase = nullptr, API_ProcessControlTypeID* processControlType = nullptr)
+{
+    short phaseCount = nPhase != nullptr ? static_cast<short> (*nPhase) : 0;
+    return ACAPI_Interface (APIIo_InitProcessWindowID, const_cast<GS::UniString*> (title), nPhase != nullptr ? &phaseCount : nullptr, processControlType);
+}
+
+inline GSErrCode ACAPI_ProcessWindow_CloseProcessWindow ()
+{
+    return ACAPI_Interface (APIIo_CloseProcessWindowID);
+}
+
+inline GSErrCode ACAPI_ProcessWindow_SetNextProcessPhase (const GS::UniString* subtitle, Int32* maxval, bool* showPercent = nullptr)
+{
+    return ACAPI_Interface (APIIo_SetNextProcessPhaseID, const_cast<GS::UniString*> (subtitle), maxval, showPercent);
+}
+
+inline GSErrCode ACAPI_ProcessWindow_SetProcessValue (Int32* newval)
+{
+    return ACAPI_Interface (APIIo_SetProcessValueID, newval);
+}
+
+inline GSErrCode ACAPI_ProcessWindow_IsProcessCanceled ()
+{
+    return ACAPI_Interface (APIIo_IsProcessCanceledID);
 }
 
 inline GSErrCode ACAPI_ProjectSetting_GetStorySettings (API_StoryInfo* storyInfo)
@@ -368,7 +499,7 @@ inline GSErrCode ACAPI_IFC_GetIFCRelationshipData (API_IFCTranslatorIdentifier i
     return ACAPI_Goodies (APIAny_GetIFCRelationshipDataID, &ifcTranslator, &ifcRelationshipData);
 }
 
-inline GSErrCode ACAPI_IFC_GetIFCExportTranslatorsList (GS::Array<API_IFCTranslatorIdentifier> ifcExportTranslators)
+inline GSErrCode ACAPI_IFC_GetIFCExportTranslatorsList (GS::Array<API_IFCTranslatorIdentifier>& ifcExportTranslators)
 {
     return ACAPI_Goodies (APIAny_GetIFCExportTranslatorsListID, &ifcExportTranslators);
 }
@@ -463,6 +594,15 @@ inline API_ElemTypeID GetElemTypeId (const API_Elem_Head& elemHead)
 #endif
 }
 
+inline void SetElemVariationId (API_Elem_Head& elemHead, API_ElemVariationID variationID)
+{
+#ifdef ServerMainVers_2600
+    elemHead.type.variationID = variationID;
+#else
+    elemHead.variationID = variationID;
+#endif
+}
+
 inline GSErrCode TAPIR_Element_AddClassificationItemDefault (const API_Elem_Head& elemHead, const API_Guid& itemGuid)
 {
 #ifdef ServerMainVers_2600
@@ -485,12 +625,33 @@ inline GSErrCode TAPIR_Element_SetCategoryValueDefault (const API_Elem_Head& ele
 #endif
 }
 
+inline GSErrCode TAPIR_Element_SetCategoryValue (const API_Guid& elemGuid, const API_ElemCategoryValue& categoryValue)
+{
+#ifdef ServerMainVers_2700
+    return ACAPI_Category_SetCategoryValue (elemGuid, categoryValue.category, categoryValue);
+#else
+    return ACAPI_Element_SetCategoryValue (elemGuid, categoryValue.category, categoryValue);
+#endif
+}
+
 inline GSErrCode TAPIR_Element_SetPropertiesOfDefaultElem (const API_Elem_Head& elemHead, const GS::Array<API_Property>& properties)
 {
 #ifdef ServerMainVers_2600
     return ACAPI_Element_SetPropertiesOfDefaultElem (elemHead.type, properties);
 #else
     return ACAPI_Element_SetPropertiesOfDefaultElem (elemHead.typeID, elemHead.variationID, properties);
+#endif
+}
+
+// API_OverriddenAttribute accepts an API_AttributeIndex directly since AC27;
+// before that it is a plain struct { attributeIndex, overridden }.
+inline void SetOverriddenAttribute (API_OverriddenAttribute& target, const API_AttributeIndex& index)
+{
+#ifdef ServerMainVers_2700
+    target = index;
+#else
+    target.attributeIndex = index;
+    target.overridden = true;
 #endif
 }
 
