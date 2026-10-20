@@ -29,9 +29,16 @@
 #include "ACAPI_Navigator.h"
 #include "ACAPI/View.hpp"
 #include "ACAPI/DesignOptionManager.hpp"
+
 // Namespace-Alias statt using-Direktive (DesignOptionCommands.cpp): die DesignOptions-Namen
 // (DesignOption, ...) sollen nicht mit den FindElements-Namen kollidieren.
 namespace ELMDesignOptions = ACAPI::DesignOptions;
+#endif
+
+// ELMonkey 0.10.0: DevKit 30 hat GS::UniString::ToLowerCase durch GetLowerCased ersetzt (so loest es
+// auch Tapir 1.7.2 in TapirPalette.cpp). Nur in dieser Datei und erst nach allen Includes umbenannt.
+#ifdef ServerMainVers_3000
+#define ToLowerCase GetLowerCased
 #endif
 
 namespace FindElementsELM {

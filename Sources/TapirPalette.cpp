@@ -1771,10 +1771,14 @@ bool TapirPalette::UpdateAddOn ()
     // die ELM_SAB-Befehle und alle SAB-Fixes entfernen. Updates kommen
     // ausschliesslich aus der eigenen CI (Zweig ci-status, bundles/).
     // Deckt auch den Palette-Pfad ab (askUpdatingAddOnBeforeEachExecution).
-    // ELMonkey 0.10.0: auch Tapirs Installer-Lauf (1.7.0) bleibt damit aus.
-    return false;
+    // ELMonkey 0.10.0: auch Tapirs Installer-Lauf (1.7.0) bleibt damit aus. Laufzeit-Sperre statt
+    // "#if 0": so bleiben die Download-/Installer-Helfer benutzt (macOS -Werror -Wunused-function,
+    // MSVC /WX C4505) und der Rest ist fuer den Compiler nicht unerreichbar (MSVC C4702).
+    static volatile bool elmTapirSelfUpdateEnabled = false;
+    if (!elmTapirSelfUpdateEnabled) {
+        return false;
+    }
 
-#if 0
     // A second call during the download (e.g. from the menu) returns true, so the callers do not run a script
     if (isUpdatingAddOn) {
         return true;
@@ -1864,7 +1868,6 @@ bool TapirPalette::UpdateAddOn ()
     }
 
     return true;
-#endif // Upstream-Auto-Update stillgelegt (SAB-Kombi-Bundle)
 }
 
 #define PREFERENCES_VERSION 12

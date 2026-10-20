@@ -30,6 +30,12 @@
 #include <cstdio>
 #include <string>
 
+// ELMonkey 0.10.0: DevKit 30 hat GS::UniString::ToLowerCase durch GetLowerCased ersetzt (so loest es
+// auch Tapir 1.7.2 in TapirPalette.cpp). Nur in dieser Datei und erst nach allen Includes umbenannt.
+#ifdef ServerMainVers_3000
+#define ToLowerCase GetLowerCased
+#endif
+
 // =====================================================================================
 // Vertragsfunktionen (Task 1) und gemeinsame Lese-Helfer
 // =====================================================================================
