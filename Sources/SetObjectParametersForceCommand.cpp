@@ -59,7 +59,7 @@ GS::Optional<GS::UniString> SetObjectParametersForceCommand::GetInputParametersS
             },
             "syncObjectRatios": {
                 "type": "boolean",
-                "description": "Bei Objekten A/B zusaetzlich in xRatio/yRatio spiegeln, damit die Masse wirklich umspringen (Standard true)."
+                "description": "Bei Objekten A/B zusaetzlich in xRatio/yRatio spiegeln, bei Tueren/Fenstern in openingBase.width/height, damit die Masse wirklich umspringen (Standard true)."
             },
             "allowWithoutUndoScope": {
                 "type": "boolean",
@@ -258,9 +258,11 @@ void ApplyToOne (const API_Guid&                guid,
     }
 
     const API_ElemTypeID typeId = GetElemTypeId (element.header);
-    if (typeId != API_ObjectID && typeId != API_LampID && typeId != API_LabelID && typeId != API_ZoneID) {
+    // 0.9.31 (Beitrag Roman, nachgebaut aus dessen Bundle 19.10.): auch Tueren und Fenster.
+    if (typeId != API_ObjectID && typeId != API_LampID && typeId != API_LabelID && typeId != API_ZoneID &&
+        typeId != API_WindowID && typeId != API_DoorID) {
         result.err = APIERR_BADELEMENTTYPE;
-        result.message = "Nur Object, Lamp, Label oder Zone";
+        result.message = "Nur Object, Lamp, Label, Zone, Door oder Window";
         return;
     }
 
@@ -289,6 +291,19 @@ void ApplyToOne (const API_Guid&                guid,
         if (FindNumber (changes, "B", b)) {
             element.object.yRatio = b;
             ACAPI_ELEMENT_MASK_SET (mask, API_ObjectType, yRatio);
+        }
+    }
+    // Bei Tueren/Fenstern sind A/B die Oeffnungsmasse (openingBase, fuer Tuer und Fenster
+    // gleiche Lage im API_Element - so auch Tapirs SetGDLParametersOfElements).
+    if (syncObjectRatios && (typeId == API_WindowID || typeId == API_DoorID)) {
+        double a = 0.0, b = 0.0;
+        if (FindNumber (changes, "A", a)) {
+            element.window.openingBase.width = a;
+            ACAPI_ELEMENT_MASK_SET (mask, API_WindowType, openingBase.width);
+        }
+        if (FindNumber (changes, "B", b)) {
+            element.window.openingBase.height = b;
+            ACAPI_ELEMENT_MASK_SET (mask, API_WindowType, openingBase.height);
         }
     }
 

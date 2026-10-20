@@ -524,8 +524,10 @@ GS::ObjectState	SetGDLParametersOfElementsCommand::Execute (const GS::ObjectStat
                     continue;
                 }
                 const API_ElemTypeID tcId = typeCheck.header.type.typeID;
-                if (tcId != API_ObjectID && tcId != API_LampID) {
-                    executionResults (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "SetGDLParametersOfElements supports Object/Lamp only; use ELM_SAB.SetAddParsOfElements for Labels"));
+                // 0.9.31 (Beitrag Roman): Tueren/Fenster zulassen - der Schreibpfad unten setzt dafuer
+                // schon openingBase.width/height aus A/B.
+                if (tcId != API_ObjectID && tcId != API_LampID && tcId != API_DoorID && tcId != API_WindowID) {
+                    executionResults (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "SetGDLParametersOfElements supports Object/Lamp/Door/Window only; use ELM_SAB.SetAddParsOfElements for Labels"));
                     continue;
                 }
             }

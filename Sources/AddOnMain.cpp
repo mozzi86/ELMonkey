@@ -1033,7 +1033,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<SetObjectParametersForceCommand> (
             elmSabCommands, "0.9.16",
-            "ELM_SAB: Setzt GDL-Parameter (AddPars) von Object/Lamp/Label/Zone mit ECHTEM Fehlercode je Element — kein stilles Ueberspringen. Meldet zusaetzlich, ob ACAPI_CallUndoableCommand das Lambda ueberhaupt gestartet hat (undoScope), und wiederholt den Durchgang notfalls ohne Undo-Klammer. Spiegelt A/B in xRatio/yRatio, mit Ruecklese-Verifikation und Teamwork-Reservierung. 0.9.24: Aufruffehler kommen schemakonform beim Client an (statt 4009)."
+            "ELM_SAB: Setzt GDL-Parameter (AddPars) von Object/Lamp/Label/Zone/Door/Window mit ECHTEM Fehlercode je Element — kein stilles Ueberspringen. Meldet zusaetzlich, ob ACAPI_CallUndoableCommand das Lambda ueberhaupt gestartet hat (undoScope), und wiederholt den Durchgang notfalls ohne Undo-Klammer. Spiegelt A/B in xRatio/yRatio bzw. bei Tueren/Fenstern in openingBase.width/height, mit Ruecklese-Verifikation und Teamwork-Reservierung. 0.9.24: Aufruffehler kommen schemakonform beim Client an (statt 4009)."
         );
         err |= RegisterCommand<GetRecentEventsCommand> (
             elmSabCommands, "0.9.17",
