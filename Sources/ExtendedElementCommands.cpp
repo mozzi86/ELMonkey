@@ -1391,7 +1391,10 @@ bool ApplyBeamDetails (API_Element& element, API_Element& mask, const GS::Object
     auto slantAngle = GetOptionalDouble (details, "slantAngle");
     if (slantAngle.HasValue ()) {
         element.beam.slantAngle = slantAngle.Get ();
+        // ELMonkey 0.9.33: ohne isSlanted ignoriert Archicad den Winkel (live 20.10.: success, Balken blieb waagerecht).
+        element.beam.isSlanted = std::fabs (slantAngle.Get ()) > 1e-9;
         ACAPI_ELEMENT_MASK_SET (mask, API_BeamType, slantAngle);
+        ACAPI_ELEMENT_MASK_SET (mask, API_BeamType, isSlanted);
         changed = true;
     }
     auto arcAngle = GetOptionalDouble (details, "arcAngle");
@@ -1719,6 +1722,7 @@ GS::Optional<GS::ObjectState> CreateBeamsCommand::SetTypeSpecificParameters (API
     auto slantAngle = GetOptionalDouble (parameters, "slantAngle");
     if (slantAngle.HasValue ()) {
         element.beam.slantAngle = slantAngle.Get ();
+        element.beam.isSlanted = std::fabs (slantAngle.Get ()) > 1e-9;   // ELMonkey 0.9.33, s. ModifyBeams
     }
     auto arcAngle = GetOptionalDouble (parameters, "arcAngle");
     if (arcAngle.HasValue ()) {
