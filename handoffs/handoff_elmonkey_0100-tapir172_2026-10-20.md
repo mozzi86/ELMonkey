@@ -47,6 +47,7 @@ Details: https://github.com/mozzi86/-archicad
 - **Mehrere Archicad-Instanzen** (21.10.: 19723 leeres Testprojekt, 19724 **THN-Teamwork „Gesamtplanung TH Nürnberg“ – nie anfassen**, 19725 training session). Immer erst Port → Projekt per `GetProjectInfo` prüfen; Testskripte brechen bei Teamwork ab, „leer“ nur in unbenannten Projekten.
 - Leere Archicad-Instanzen nach dem Schließen: nur wenn `API.IsAlive` „no open project“ meldet, regulär per `NSRunningApplication.terminate` beenden (kein kill). Offener „Änderungen sichern“-Dialog = Projekt noch offen.
 - Bundle-Tausch nur bei geschlossenem Archicad; Version im Binary per `strings … | grep -x <Version>` prüfen.
+- Unteragenten mit `curl -o <relativer Pfad>` schreiben ins Arbeitsverzeichnis (= Skill-Repo): So entstand `rel021.md` (Versionshinweise Boti-Ormandi/archicad-mcp v0.2.1, Recherche-Unteragent 20.10. 18:27, nie eingecheckt), am 21.10. gelöscht. In Aufträgen an Unteragenten immer absolute Zielpfade vorgeben. Der zweite unversionierte Ordner `.planning/quick/261013-mb5-…` (13.10.) ist nicht aus dieser Sitzung, Herkunft ungeprüft, nicht angefasst.
 
 ## Werkzeuge
 
