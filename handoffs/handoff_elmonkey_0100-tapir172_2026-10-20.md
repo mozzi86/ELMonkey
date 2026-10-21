@@ -8,7 +8,7 @@ Repo `~/.claude/repos/archicad-skill` (= `~/.claude/skills/archicad`), Änderung
 | Version | Wo | Stand |
 |---|---|---|
 | 0.9.35 | **Release** (`elm-sab-tapir-latest`), main bis 867d400 | live getestet: leer 40/41 (offen B6), lokal 8/8; README zweisprachig mit Demo-Bildern; MIT-Lizenzhinweise Tapir + Lorántfy |
-| **0.10.0** | **Release** seit 21.10. (main `c855bb1`, CI-Lauf 39508968282: 8/8 grün, Release „ELMonkey 0.10.0 — AC27/28/29/30 (CI)“), bei Mudi eingebaut | Tapir 1.7.2 + AC30; **live getestet 21.10.: 11/11 + 40/41 (offen nur B6), keine Regression**; offen: Speichern aus 3D (`gegenprobe_0100.py <port> datei`) |
+| **0.10.0** | **Release** seit 21.10. (main `c855bb1`, CI-Lauf 39508968282: 8/8 grün, Release „ELMonkey 0.10.0 — AC27/28/29/30 (CI)“), bei Mudi eingebaut | Tapir 1.7.2 + AC30; **live getestet 21.10.: 11/11 + 40/41 + 8/8 (Speichern aus 3D) = 59/60, offen nur B6** |
 
 Mudis Auftrag 20.10.: „watcher stellen und addon bei mir installieren handoff schreiben und live gehen“ → Wächter `tools/watch_ci_install.sh 3c4b713 0.10.0` baut das AC29-Mac-Bundle bei Grün ein (nur wenn Archicad zu ist; Sicherung `~/.scratch/elm-bundle-0.10.0/backup_alt/`); danach Merge Branch → main (= Release 0.10.0).
 
