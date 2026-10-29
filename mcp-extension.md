@@ -2036,3 +2036,69 @@ Quelle: Wunschliste Michi 20.10. (Basis 0.9.18). Grundsatz: Gründe kommen als `
 * **Prüfung:** alle 66 Quellen lokal mit den macOS-CI-Schaltern (`-Wall -Wextra -Werror` + Upstream-Ausnahmen) gegen DevKit 27.3001/28.3001/29.3100; CI für AC27–30 × Mac/Win. Neue Werkzeuge: `~/.scratch/elmonkey/tools/syn1.sh <27|28|29> <datei>` (`STRICT=1`), `conflict.py`, `watch_ci_install.sh`.
 * **Live verifiziert 21.10.** (AC29 Mac, leeres Projekt aus der Bürovorlage, Release-Bundle): `gegenprobe_0100.py` **11/11** (Maxls Fall Favorit „Bodenabdeckung“ + 3 Decken ohne Absturz, `favoriteName` + `floorIndex` → Geschoss 1, Sparren Hub 3,315, `zReference:story` → zAbsolute 3,0, Move/Delete auf ausgeblendeter Ebene → `[LAYER_HIDDEN]` je Element, sichtbares gelöscht, Katalog 314 + 44) und `gegenprobe_0934.py … 0.10.0` **40/41** wie unter 0.9.35 (offen B6) → keine Regression. `gegenprobe_0100.py <port> datei` in `training session.pln` **8/8**: aus dem 3D-Fenster `SaveProject` (Datei geschrieben) und `SaveProjectCopy` (Kopie gleich groß, aktives Projekt unverändert), danach jeweils wieder 3D-Fenster aktiv (#681-Weg). Summe 59/60.
 * Testskripte: `gegenprobe_0934.py <port> leer 0.10.0` (bisherige Reihe) + `gegenprobe_0100.py <port> leer|datei` (Maxls Decken-Fall, Favorit je Element + `floorIndex`, Sparren, `zReference`, Move/Delete auf ausgeblendeter Ebene je Element, Speichern aus dem 3D-Fenster, Katalog 314+44).
+
+## ELMonkey 0.10.1 — Bauteilstifte lesen und setzen <!-- 2026-10-29 -->
+
+* **Anlass:** THN-Ausführungspläne zeigen rote Wandkonturen aus der Zeit, als die Brandschutzeigenschaften in der Wand gepflegt wurden. Brandschutz läuft jetzt über die grafische Überschreibung; die Bauteile sollen schwarz-weiß werden, die Schraffur wieder aus Baustoff/Verbund kommen (keine Überschreibung der Schnittflächenstifte am Element).
+* **Warum neu:** Weder Tapir 1.7.2 noch die offizielle JSON-API haben einen Befehl für die Stifte von Bauteilen (am 29.10. mit drei Discovery-Abfragen geprüft). `ELM_SAB.GetPenOfElements`/`SetPenOfElements` können nur 2D-Elemente. Tapirs `GetDetailsOfElements` liefert `cutFillPen` nur für Wand/Unterzug/Decke als Teil der Details, ohne Setzen. Über Eigenschaften sind die Stifte nicht lesbar.
+* **Typen:** Wand, Stütze, Unterzug, Decke, Dach, Schale, Fassade, Morph. Andere Typen → `APIERR_BADELEMENTTYPE` je Element.
+
+### `ELM_SAB.GetConstructionPensOfElements` (nur lesen)
+
+Eingabe `{elements:[{elementId:{guid}}], includeComposites?}`. Ausgabe je Element: `elementType`, `layer {index, name, hidden, locked}`, `floorIndex`, `structure` (`structureType` basic/composite/profile + Index/Name; Stütze/Unterzug aus Segment 0 + `nSegments`; Fassade ohne, Morph nur Baustoff), `pens` (DevKit-Feldnamen; `cutFillPen`/`cutFillBackgroundPen` als `{overridden, pen}` — `pen` ist nur bei `overridden:true` maßgeblich) und `ltypes` (Linientyp-Indizes getrennt). Mit `includeComposites:true` top-level `composites[]` je benutztem Mehrschicht-Aufbau genau einmal: `{compositeIndex, compositeName, skins:[{index, framePen, buildingMaterialIndex}], lines:[{index, linePen, ltypeIndex}]}`; Bezug über `structure.compositeIndex`.
+
+```json
+{"command":"API.ExecuteAddOnCommand","parameters":{"addOnCommandId":{"commandNamespace":"ELM_SAB","commandName":"GetConstructionPensOfElements"},
+ "addOnCommandParameters":{"elements":[{"elementId":{"guid":"…"}}],"includeComposites":true}}}
+→ {"pensOfElements":[{"success":true,"elementType":"Wall","layer":{"index":12,"name":"…","hidden":false,"locked":false},"floorIndex":0,
+   "structure":{"structureType":"composite","compositeIndex":7,"compositeName":"…"},
+   "pens":{"contPen":20,"contPen3D":20,"aboveViewLinePen":3,"cutFillPen":{"overridden":true,"pen":20},"cutFillBackgroundPen":{"overridden":false,"pen":0}},
+   "ltypes":{"contLtype":1}}],
+   "composites":[{"compositeIndex":7,"compositeName":"…","skins":[{"index":0,"framePen":20,"buildingMaterialIndex":5}],"lines":[{"index":0,"linePen":1,"ltypeIndex":1}]}]}
+```
+
+### `ELM_SAB.SetConstructionPensOfElements` (schreibt)
+
+Eingabe je Element (alle optional außer `elementId`): `cutLinePen`, `uncutLinePen`, `overheadLinePen` (1–255, Rollentabelle), `clearCutFillOverride` (`cutFillPen` + `cutFillBackgroundPen` → nicht überschrieben), `fields {<DevKit-Feld>: pen}` (Rohfelder, Namen wie in `pens`; ein `OverriddenPen`-Feld per `fields` = Überschreibung auf diesen Stift). Dieselben fünf Felder top-level als Vorgabe für alle Elemente (Element-Wert gewinnt), dazu `dryRun` (Standard false) und `reserve` (Standard true). Reihenfolge der Planung: Rollen → `clearCutFillOverride` → `fields` (gewinnt). Ohne jede Änderungsangabe → `APIERR_BADPARS`.
+
+Ablauf: Vorprüfung je Element (`ElmPreflight`) → Planung `{field, before, after}` (schon stimmende Werte zählen nicht; Element ohne Änderung → `unchanged:true`, wird weder reserviert noch geschrieben) → bei `dryRun` Ende (keine Reservierung, kein `ACAPI_Element_Change`) → Teamwork: nur Elemente mit Änderung reservieren, die mir noch nicht gehören; danach Header neu lesen → **ein** Undo-Schritt „ELM_SAB SetConstructionPensOfElements“ für alle (Maske nur für geänderte Felder) → Rücklese je Feld (`readBack`) → nur selbst gesetzte Reservierungen freigeben (vorher eigene bleiben). Antwort: `executionResults[]` in Eingabereihenfolge, `undoScope {executed, errorCode}` (nicht bei dryRun), `dryRun`, `summary {requested, changed, unchanged, failed}`.
+
+```json
+{"command":"API.ExecuteAddOnCommand","parameters":{"addOnCommandId":{"commandNamespace":"ELM_SAB","commandName":"SetConstructionPensOfElements"},
+ "addOnCommandParameters":{"elements":[{"elementId":{"guid":"…"}}],"cutLinePen":1,"clearCutFillOverride":true,"dryRun":true}}}
+→ {"executionResults":[{"elementId":{"guid":"…"},"success":true,"elementType":"Wall","changes":[
+     {"field":"contPen","before":{"pen":20},"after":{"pen":1}},
+     {"field":"cutFillPen","before":{"overridden":true,"pen":20},"after":{"overridden":false,"pen":20}}]}],
+   "dryRun":true,"summary":{"requested":1,"changed":1,"unchanged":0,"failed":0}}
+```
+
+### Rollentabelle (`cutLinePen` / `uncutLinePen` / `overheadLinePen`)
+
+| Typ (API) | cutLinePen → | uncutLinePen → | overheadLinePen → | clearCutFillOverride |
+|---|---|---|---|---|
+| Wand (API_WallID) | contPen | contPen3D (Annahme „Unverdeckte Linien", im Live-Test am Dialog belegen) | aboveViewLinePen | cutFillPen + cutFillBackgroundPen = APINullValue |
+| Stuetze (API_ColumnID) | corePen UND venLinePen (beide sind Schnittkonturen: Kern + Verkleidung) | belowViewLinePen | aboveViewLinePen | wie Wand |
+| Unterzug (API_BeamID) | cutContourLinePen | belowViewLinePen | aboveViewLinePen | wie Wand |
+| Decke (API_SlabID) | sectContPen (laut CONTEXT) | pen (Kontur) | kein Feld -> [FIELD_NOT_AVAILABLE] | wie Wand |
+| Dach (API_RoofID) | shellBase.sectContPen | shellBase.pen | shellBase.aboveViewLinePen | shellBase.cutFillPen + shellBase.cutFillBackgroundPen |
+| Schale (API_ShellID) | shellBase.sectContPen | shellBase.pen | shellBase.aboveViewLinePen | wie Dach |
+| Fassade (API_CurtainWallID) | frameCutLinePen UND panelCutLinePen | uncutLinePen | overheadLinePen | wie Wand |
+| Morph (API_MorphID) | cutLinePen | uncutLinePen | overheadLinePen | wie Wand |
+
+Alle übrigen Stiftfelder (`coreSymbolPen`, `hiddenLinePen`, `refPen`, `hiddenContourLinePen`, `coverFill*Pen`, `floorFill*Pen`, Fassaden-`pen` …) über `fields`; Linientypen (`contLtype`, `refLtype`, `ltypeInd`, `sectContLtype`) nur lesen.
+
+### Fallen (je Element gemeldet, nicht still übersprungen)
+
+* `[LAYER_HIDDEN]` / `[LAYER_LOCKED]` aus der Vorprüfung; lehnt `ACAPI_Element_Change` trotzdem mit `APIERR_NOACCESSRIGHT` ab → `[LAYER_HIDDEN?] … 6001 = meist ausgeblendete Ebene oder Hotlink` (Teamwork-6001-Befund).
+* `[HOTLINK]`, `[ELEMENT_LOCKED]`, `[RESERVED_BY_OTHER]` (auch wenn die Reservierung abgelehnt wurde).
+* `[FIELD_NOT_AVAILABLE]` — Rolle ohne Feld für den Typ (z. B. `overheadLinePen` an Decke) oder Feldname in `fields` unbekannt/kein Stift.
+* `[UNDO_SCOPE_FAILED]` — Undo-Klammer hat das Lambda nicht gestartet; **kein** Rückfall ohne Undo-Klammer.
+* `[NO_EFFECT]` — Rücklese weicht vom Soll ab.
+* **Rot im Element oder im Verbund:** zeigt `includeComposites` rote `framePen`/`linePen` im Mehrschicht-Aufbau, ist das kein Element-Lauf mehr, sondern eine eigene Entscheidung (Attribut-Änderung wirkt auf alle Bauteile mit diesem Aufbau).
+
+### DevKit-Befund und Stand
+
+* Feldnamen und -typen in DevKit 27.3001, 28.3001, 29.3100 und 30.3000 gleich → keine `#if`-Wächter. `API_OverriddenPen = APIOptional<API_PenIndex>` mit öffentlichen Membern `hasValue`/`value` (keine `HasValue()`-Methode), Löschen per `= APINullValue`.
+* Maske per Feldzeiger: `ACAPI_ELEMENT_MASK_SET` setzt nur das erste Byte des Feldes auf -1; die Feldtabelle setzt dasselbe Byte über den Offset im Masken-Element.
+* Katalog jetzt 314 Tapir- + 46 ELM_SAB-Befehle.
+* **Status:** Syntax STRICT=1 gegen DevKit 27/28/29/30 grün (`syn1.sh` kennt jetzt `30`); CI und Live-Test im leeren Testprojekt offen (`gegenprobe_0100.py <port> stifte`) — **nie THN**.
