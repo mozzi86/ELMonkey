@@ -44,6 +44,13 @@ SYNONYMS = {
     "ansicht": "view", "schnitt": "section", "innenansicht": "interior", "reservieren": "reserve", "senden": "send",
     "teamwork": "teamwork", "oeffnung": "opening", "öffnung": "opening", "durchbruch": "opening", "fassade": "curtain",
     "vorhangfassade": "curtain", "geometrie": "geometry", "version": "version", "projekt": "project", "gruppe": "group",
+    # 0.10.1 Bauteilstifte (GetConstructionPensOfElements / SetConstructionPensOfElements)
+    "bauteil": "construction", "bauteile": "construction", "unterzug": "beam", "unterzuege": "beam", "unterzüge": "beam",
+    "schale": "shell", "morph": "morph", "schnittlinie": "cut", "schnittlinien": "cut", "kontur": "contour",
+    "bauteilstifte": "construction pen",
+    # Zielwoerter, die in Namen/Beschreibungen tatsaechlich vorkommen (Wand -> wall, clearCutFillOverride -> cut/override)
+    "waenden": "wall", "wänden": "wall", "schnittflaeche": "cut", "schnittfläche": "cut",
+    "ueberschreibung": "override", "überschreibung": "override",
 }
 
 _cache: dict = {}
@@ -68,8 +75,8 @@ def _tokens(text: str) -> list[str]:
     for t in re.split(r"[^0-9A-Za-zÄÖÜäöüß]+", text.lower()):
         if len(t) < 2:
             continue
-        t = SYNONYMS.get(t, t)
-        out.append(_norm(t))
+        for u in SYNONYMS.get(t, t).split():   # Synonym darf mehrere Woerter haben ("construction pen")
+            out.append(_norm(u))
     return out
 
 
