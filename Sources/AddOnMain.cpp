@@ -76,6 +76,7 @@
 #include "SectionDimensionCommandsELM.hpp"
 #include "LayerLevelCommandsELM.hpp"
 #include "ModelEditCommandsELM.hpp"
+#include "ConstructionPensCommandsELM.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -1753,6 +1754,14 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<SetStructureOfElementsELMCommand> (
             elmSabCommands, "0.9.33",
             "ELM_SAB: Setzt den Aufbau BESTEHENDER Bauteile (basic/composite/profile mit Baustoff/Mehrschicht/Profil per Name oder Index) fuer Wand, Decke, Dach, Schale, Stuetze, Unterzug - mit Vorpruefung, Teamwork-Reservierung und Ruecklese."
+        );
+        err |= RegisterCommand<GetConstructionPensOfElementsELMCommand> (
+            elmSabCommands, "0.10.1",
+            "ELM_SAB: Liest die Stifte von Bauteilen (Wand, Stuetze, Unterzug, Decke, Dach, Schale, Fassade, Morph): Schnitt-/Kontur-, unverdeckte und Ueberkopf-Linien, Schnittflaechen-Ueberschreibung (overridden/pen), Deckflaechen, dazu Typ, Ebene, Geschoss, Aufbau; includeComposites liefert die Konturstifte der Verbundschichten. Nur lesen."
+        );
+        err |= RegisterCommand<SetConstructionPensOfElementsELMCommand> (
+            elmSabCommands, "0.10.1",
+            "ELM_SAB: Setzt die Stifte von Bauteilen: cutLinePen/uncutLinePen/overheadLinePen je Typ auf das passende Feld, clearCutFillOverride (Schraffur wieder aus Baustoff/Verbund), Rohfelder ueber fields; dryRun, Vorpruefung [CODE], Teamwork-Reservierung, ein Undo-Schritt, Ruecklese je Element."
         );
         err |= RegisterCommand<SaveProjectCopyELMCommand> (
             elmSabCommands, "0.10.0",

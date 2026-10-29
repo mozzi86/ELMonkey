@@ -9,7 +9,8 @@
 // Tapir-Befehle (Error = {code, message}, additionalProperties:false) unveraendert gueltig.
 //
 // Codes: NOT_FOUND, LAYER_HIDDEN, LAYER_LOCKED, LAYER_NOT_FOUND, ELEMENT_LOCKED, HOTLINK,
-//        RESERVED_BY_OTHER, WRONG_WINDOW_TYPE, UNDO_SCOPE_FAILED, NO_EFFECT
+//        RESERVED_BY_OTHER, WRONG_WINDOW_TYPE, UNDO_SCOPE_FAILED, NO_EFFECT,
+//        FIELD_NOT_AVAILABLE (0.10.1: Stiftfeld/Rolle gibt es fuer den Bauteiltyp nicht)
 #pragma once
 
 #include "APIEnvir.h"
