@@ -702,7 +702,7 @@ GS::ObjectState SetConstructionPensOfElementsELMCommand::Execute (const GS::Obje
         if (teamwork) {
             GS::Array<API_Guid> toReserve;
             for (const ElementPlanELM& p : plans)
-                if (!p.Failed () && !p.changes.empty () && p.element.header.lockId != myUserId)
+                if (!p.Failed () && !p.changes.empty () && p.element.header.userId != myUserId)   // Teamwork-Besitzer = userId, nicht lockId
                     toReserve.Push (p.guid);
             if (!toReserve.IsEmpty ()) {
                 GS::HashTable<API_Guid, short> conflicts;
@@ -711,7 +711,7 @@ GS::ObjectState SetConstructionPensOfElementsELMCommand::Execute (const GS::Obje
                     if (p.Failed () || p.changes.empty () || !toReserve.Contains (p.guid)) continue;
                     API_Elem_Head head = {};
                     head.guid = p.guid;
-                    if (ACAPI_Element_GetHeader (&head) == NoError && head.lockId == myUserId) {
+                    if (ACAPI_Element_GetHeader (&head) == NoError && head.userId == myUserId) {
                         reservedByMe.Push (p.guid);   // nur diese werden am Ende freigegeben
                     } else {
                         p.err = APIERR_NOACCESSRIGHT;

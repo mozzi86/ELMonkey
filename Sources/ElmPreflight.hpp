@@ -94,12 +94,13 @@ inline GS::UniString PreflightElementELM (const API_Guid& guid, short myUserId,
         return it->second;
 
     const bool teamwork = ACAPI_Teamwork_HasConnection ();
-    // Ohne Teamwork ist lockId der Sperrschalter, in Teamwork die Nutzer-ID des Reservierenden.
+    // Ohne Teamwork ist lockId der Sperrschalter. In Teamwork steht der Reservierende in userId
+    // ("owner"), lockId bleibt 0 - live THN 29.10.2026 (GetElementEditState vor/nach ReserveElements).
     if (!teamwork && head.lockId != 0)
         return GS::UniString ("[ELEMENT_LOCKED] Element ist gesperrt (UnlockElements)");
     if (head.hotlinkGuid != APINULLGuid)
         return GS::UniString ("[HOTLINK] Element gehoert zu einem Hotlink und ist nicht aenderbar");
-    if (teamwork && head.lockId != 0 && head.lockId != myUserId)
+    if (teamwork && head.userId != 0 && head.userId != myUserId)
         return GS::UniString ("[RESERVED_BY_OTHER] Element ist von einem anderen Teamwork-Nutzer reserviert");
     return GS::UniString ();
 }
