@@ -159,9 +159,11 @@ std::vector<PenFieldELM> CollectPenFieldsELM (API_Element& e, API_ElemTypeID typ
 // APIOptional hat keine HasValue()-Methode, nur die Member hasValue/value.
 GS::ObjectState OverriddenPenOS (const API_OverriddenPen& p)
 {
+    // 0.10.3: ohne Ueberschreibung keinen "pen" ausgeben - Archicad setzt den Wert beim Abschalten
+    // auf 0, ein stehengebliebener Alt-Stift taeuschte sonst eine Abweichung vor (THN 29.10.).
     GS::ObjectState os;
     os.Add ("overridden", p.hasValue);
-    os.Add ("pen", (Int32) p.value);
+    if (p.hasValue) os.Add ("pen", (Int32) p.value);
     return os;
 }
 
@@ -386,7 +388,7 @@ GS::ObjectState PenValueOS (PenFieldELM::Kind kind, const PenValueELM& v)
     if (kind == PenFieldELM::OverriddenPen) {
         GS::ObjectState os;
         os.Add ("overridden", v.overridden);
-        os.Add ("pen", v.pen);
+        if (v.overridden) os.Add ("pen", v.pen);   // wie OverriddenPenOS
         return os;
     }
     return GS::ObjectState ("pen", v.pen);

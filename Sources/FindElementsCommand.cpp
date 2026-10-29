@@ -1152,16 +1152,17 @@ bool MatchHeaderLeaf (const EvalContext& ctx, const Node& node, const API_Elem_H
         case NodeKind::Layer:
             return static_cast<const LayerLeaf*> (node.leaf.get ())->layers.Contains (GetAttributeIndex (head.layer));
         case NodeKind::Teamwork: {
-            // In Teamwork ist lockId die Nutzer-ID des Reservierenden, frei = 0 (InspectionCommands.cpp).
+            // In Teamwork ist userId ("owner") die Nutzer-ID des Reservierenden, frei = 0; lockId bleibt 0
+            // (live THN 29.10.2026, ELM 0.10.3).
             const TeamworkMode mode = static_cast<const TeamworkLeaf*> (node.leaf.get ())->mode;
-            const short lockId = head.lockId;
+            const short ownerId = head.userId;
             if (mode == TeamworkMode::Free) {
-                return lockId == 0;
+                return ownerId == 0;
             }
             if (mode == TeamworkMode::Mine) {
-                return lockId != 0 && lockId == ctx.myUserId;
+                return ownerId != 0 && ownerId == ctx.myUserId;
             }
-            return lockId != 0 && lockId != ctx.myUserId;
+            return ownerId != 0 && ownerId != ctx.myUserId;
         }
         default:
             return false;

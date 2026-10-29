@@ -244,9 +244,10 @@ GS::ObjectState GetElementEditStateCommand::Execute (const GS::ObjectState& para
             o.Add ("ownerUserId",   (Int32) h.userId);
             o.Add ("ownerUserName", UserNameOf (h.userId));
             o.Add ("lockUserId",    (Int32) h.lockId);
-            o.Add ("reservedByUser", UserNameOf (h.lockId));
-            const bool reservedByMe = (h.lockId != 0 && h.lockId == myUserId);
-            reservedByOther = (h.lockId != 0 && h.lockId != myUserId);
+            // Reservierender = userId ("owner"), lockId bleibt in Teamwork 0 (live THN 29.10.2026).
+            o.Add ("reservedByUser", UserNameOf (h.userId));
+            const bool reservedByMe = (h.userId != 0 && h.userId == myUserId);
+            reservedByOther = (h.userId != 0 && h.userId != myUserId);
             o.Add ("isReservedByMe", reservedByMe);
             o.Add ("hasDeleteModifyRight", ACAPI_Teamwork_HasDeleteModifyRight (guid));
         }
@@ -282,7 +283,7 @@ GS::ObjectState GetElementEditStateCommand::Execute (const GS::ObjectState& para
         else if (layerLocked)     reason = "layerLocked";
         else if (isLocked)        reason = "elementLocked";
         else if (inHotlink)       reason = "hotlink";
-        else if (reservedByOther) reason = GS::UniString ("reservedByUser:") + UserNameOf (h.lockId);
+        else if (reservedByOther) reason = GS::UniString ("reservedByUser:") + UserNameOf (h.userId);
         else if (libPartMissing)  reason = "libraryPartMissing";
 
         const bool editable = reason.IsEmpty ();
