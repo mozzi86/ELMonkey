@@ -1734,7 +1734,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<ModifySurfacesCommandELM> (
             elmSabCommands, "0.10.2",
-            "ELM_SAB: Ueberschreibt Oberflaechen-Attribute wirklich (items: index + surfaceColor {red,green,blue}, ambientReflection, diffuseReflection, specularReflection, transparency, shine, texture {xSize, ySize, rotationAngle (rad)}). Ruecklese."
+            "ELM_SAB: Ueberschreibt Oberflaechen-Attribute wirklich (items: index + surfaceColor {red,green,blue}, ambientReflection, diffuseReflection, specularReflection, transparency, shine, texture {xSize, ySize, rotationAngle (rad)}, fillPen = Stift der Vektorschraffur (Archicad-Wert fillCol, vorher lesen)). Nur index = lesen. Ruecklese inkl. fillPen."
         );
 #endif
         err |= RegisterCommand<SetStoryVisibilityOfElementsCommand> (

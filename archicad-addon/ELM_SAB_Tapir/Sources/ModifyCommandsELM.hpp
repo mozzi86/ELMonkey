@@ -5,7 +5,7 @@
 //   MoveOpenings         – Wandoeffnungen (API_OpeningID) verschieben (Tapir: "completely immovable")
 //   SetObjectsReflected  – Objekte/Lampen spiegeln bzw. Spiegelung aufheben
 //   ModifySurfaces       – Oberflaechen-Attribute wirklich ueberschreiben (Farbe, Reflexion,
-//                          Transparenz, Glanz, Texturgroesse und -drehwinkel)
+//                          Transparenz, Glanz, Texturgroesse und -drehwinkel, Stift der Vektorschraffur)
 // Alle: Teamwork-Reservierung, ACAPI_CallUndoableCommand, Ruecklese je Element.
 // Header-only, AC29.
 #pragma once
@@ -264,6 +264,9 @@ public:
                 if (it.Get ("specularReflection", v)) a.material.specularPc = (short) v;
                 if (it.Get ("transparency", v))       a.material.transpPc   = (short) v;
                 if (it.Get ("shine", v))              a.material.shine      = (short) v;
+                // Stift der vektoriellen 3D-Schraffur (Oberflaeche > Vektorielle Schraffur > Stift), Wert wie API fillCol.
+                // Tapir Create/GetSurfaces kennen fillCol nicht (0.10.6).
+                if (it.Get ("fillPen", v))            a.material.fillCol    = (short) v;
                 const GS::ObjectState* tx = it.Get ("texture");
                 if (tx != nullptr) {
                     tx->Get ("xSize", a.material.texture.xSize);
@@ -276,9 +279,10 @@ public:
                 ACAPI_Attribute_Get (&b);
                 const bool ok = fabs (b.material.surfaceRGB.f_red - a.material.surfaceRGB.f_red) < 1e-3 && b.material.shine == a.material.shine &&
                                 b.material.transpPc == a.material.transpPc && fabs (b.material.texture.rotAng - a.material.texture.rotAng) < 1e-6 &&
-                                fabs (b.material.texture.xSize - a.material.texture.xSize) < 1e-6;
+                                fabs (b.material.texture.xSize - a.material.texture.xSize) < 1e-6 && b.material.fillCol == a.material.fillCol;
                 r.Add ("success", ok);
                 r.Add ("name", GS::UniString (b.header.name));
+                r.Add ("fillPen", (Int32) b.material.fillCol);
                 GS::ObjectState t; t.Add ("xSize", b.material.texture.xSize); t.Add ("ySize", b.material.texture.ySize); t.Add ("rotationAngle", b.material.texture.rotAng);
                 r.Add ("texture", t);
                 if (!ok) r.Add ("error", GS::UniString ("Ruecklese weicht ab"));
