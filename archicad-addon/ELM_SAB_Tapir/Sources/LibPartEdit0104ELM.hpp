@@ -1,4 +1,4 @@
-// ELM_SAB 0.10.4 (2026-11-02) – Bibliotheksteile im Bestand pflegen, ohne Loeschen/Neu-Einfuegen
+// ELM_SAB 0.10.4/0.10.5 (2026-11-02) – Bibliotheksteile im Bestand pflegen, ohne Loeschen/Neu-Einfuegen
 //   GetLibraryPartInfo   – alle Treffer eines Namens: Bibliothek (eingebettet/Server/lokal), Datei, GUID,
 //                          Teamwork-Sperrstatus, Benutzer-Cache; optional Skripte, Parameterliste, GSM-Sicherung
 //   ReserveLibraryPart   – Teamwork: Bibliothekselement reservieren bzw. freigeben (release=true)  [experimentell]
@@ -217,8 +217,24 @@ inline GSErrCode CopyGsm (const Match& m, const GS::UniString& folder, GS::UniSt
     GSTime t = TIGetTime (); GSTimeRecord d; TIGetTimeRecord (t, &d, TI_CURRENT_TIME);
     char stamp[32]; snprintf (stamp, sizeof (stamp), "%04d-%02d-%02d_%02d%02d%02d", d.year, d.month, d.day, d.hour, d.minute, d.second);
     dst.AppendToLocal (IO::Name (Stem (m.fileName) + "__" + GS::UniString (stamp) + ".gsm"));
-    const GSErrCode e = IO::fileSystem.Copy (src, dst);
-    if (e == NoError) written = dst.ToDisplayText ();
+    // 0.10.5: Archicad schreibt die Kopie selbst. Eingebettete Teile liegen in Teamwork in einer
+    // Containerdatei (AutoSave-…/Emb_…/content ist kein Ordner) - eine Dateikopie scheitert dort (-7003).
+    GSErrCode e = APIERR_GENERAL;
+    auto lmRes = ACAPI::Library::GetLibraryManager ();
+    if (lmRes.IsOk ()) {
+        const auto lm = lmRes.Unwrap ();
+        auto lp = lm.GetLibPartByLibInd (m.libInd);
+        if (lp.IsOk ()) {
+            auto gsm = lm.GetGSMObjectOfLibPart (lp.Unwrap ());
+            if (gsm.IsOk ()) {
+                auto obj = gsm.Unwrap ();
+                if (obj.CopyTo (dst, ACAPI::Library::GSMObject::CopyMethod::KeepMainGuid).IsOk ()) e = NoError;
+            }
+        }
+    }
+    if (e != NoError) e = IO::fileSystem.Copy (src, dst);
+    bool ex = false; IO::fileSystem.Contains (dst, &ex);
+    if (e == NoError && ex) written = dst.ToDisplayText (); else if (e == NoError) e = APIERR_GENERAL;
     return e;
 }
 
