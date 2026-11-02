@@ -396,6 +396,17 @@ GS::ObjectState GetPropertyValuesOfElementsCommand::Execute (const GS::ObjectSta
     GS::Array<GS::ObjectState> properties;
     parameters.Get ("properties", properties);
 
+    // ELM_SAB 0.10.2: leere/ungueltige Property-Liste brachte Archicad zum Absturz (3x live, 20./21./29.10.2026).
+    // Vor jedem Zugriff abfangen und als Fehler melden.
+    bool anyValidProperty = false;
+    for (const GS::ObjectState& property : properties) {
+        const GS::ObjectState* propertyId = property.Get ("propertyId");
+        if (propertyId != nullptr && GetGuidFromObjectState (*propertyId) != APINULLGuid) { anyValidProperty = true; break; }
+    }
+    if (!anyValidProperty) {
+        return CreateErrorResponse (APIERR_BADPARS, "properties is empty or contains no valid propertyId (ELM_SAB guard against crash)");
+    }
+
     GS::ObjectState response;
     const auto& propertyValuesForElements = response.AddList<GS::ObjectState> ("propertyValuesForElements");
 

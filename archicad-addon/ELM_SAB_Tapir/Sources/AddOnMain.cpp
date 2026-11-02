@@ -74,6 +74,7 @@
 #include "InspectionCommands.hpp"
 #include "FindElementsCommand.hpp"
 #include "SectionDimensionCommandsELM.hpp"
+#include "ViewDrawingCommandsELM.hpp"
 #include "LayerLevelCommandsELM.hpp"
 #include "ModelEditCommandsELM.hpp"
 #include "ConstructionPensCommandsELM.hpp"
@@ -1667,6 +1668,28 @@ GSErrCode Initialize (void)
             elmSabCommands, "0.9.8",
             "ELM_SAB: Erzeugt Pfosten-Riegel-Fassade aus Achsmassen (Spaltenbreiten aus 2D, Zeilenhoehen aus Foto, opake Bruestungszeilen). Seit 0.9.7 auch nichtrechteckig (Trapez/Giebel via contour bzw. topProfile) und mit wirksamem bottomOffset. 0.9.8: Pfosten/Riegel bekommen echte Frame-Klassen (FirstCustomClass statt der profillosen Generik-Klasse Division). 0.9.14: optionaler angle-Parameter (Grad, 90=senkrecht) fuer geneigte Fassaden — Masse bleiben in-plane, vertikale Hoehe wird sin-skaliert, Ruecklese via verticalHeight/zMin/zMax."
         );
+#ifdef ServerMainVers_2900
+        err |= RegisterCommand<GetViewDesignOptionCombinationsCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Liest die Designoptionen-Kombination von Ausschnitten (navigatorItemIds) - status MainModelOnly/Standard/Custom/Missing + Name; liefert availableCombinations."
+        );
+        err |= RegisterCommand<SetViewDesignOptionCombinationCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Setzt die Designoptionen-Kombination von Ausschnitten (items: navigatorItemId + combinationName oder mainModelOnly), mit Ruecklese."
+        );
+        err |= RegisterCommand<DuplicateViewsCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Dupliziert Ausschnitte der Ausschnittmappe (items: navigatorItemId, newName, optional newId) mit allen Ausschnitteinstellungen und Designoptionen-Kombination."
+        );
+        err |= RegisterCommand<GetDrawingsOfLayoutCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Listet die Zeichnungen von Layouts (layoutNavigatorItemIds) mit drawingId, Name, Quelle (sourceNavigatorItemId/Name), Lage, Massstab."
+        );
+        err |= RegisterCommand<RelinkDrawingsCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Haengt Zeichnungen eines Layouts auf andere Ausschnitte um (layoutNavigatorItemId, items: drawingId + viewNavigatorItemId); Lage/Massstab bleiben, Ruecklese, optional Zeichnungsupdate."
+        );
+#endif
         err |= RegisterCommand<SetStoryVisibilityOfElementsCommand> (
             elmSabCommands, "0.9.15",
             "ELM_SAB: Setzt 'Auf Geschossen zeigen' von Objekten/Lampen (Preset oder custom), ab 0.10.1 auch Netze, Decken und Daecher (Kontur und Fuellung; AllRelevant dort nicht moeglich). Mit Ruecklese und Teamwork-Reservierung."
