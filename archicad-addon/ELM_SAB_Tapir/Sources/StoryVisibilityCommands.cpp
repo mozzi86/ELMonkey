@@ -38,6 +38,87 @@ GS::UniString SpecToPreset (const API_ObjectType& o)
 
 bool IsObjectOrLamp (API_ElemTypeID t) { return t == API_ObjectID || t == API_LampID; }
 
+// ---- ELM_SAB 0.9.32: Netze, Decken, Daecher (Kontur + Fuellung) ---------------------
+bool IsAreaElement (API_ElemTypeID t) { return t == API_MeshID || t == API_SlabID || t == API_RoofID; }
+
+GS::UniString VisToPreset (const API_StoryVisibility& v)
+{
+    if (v.showAllAbove && v.showAllBelow)                 return "AllStories";
+    if (v.showRelAbove == 1 && v.showRelBelow == 1)       return "HomeAndOneUpAndDown";
+    if (v.showRelAbove == 1 && v.showRelBelow == 0)       return "HomeAndOneUp";
+    if (v.showRelAbove == 0 && v.showRelBelow == 1)       return "HomeAndOneDown";
+    if (!v.showAllAbove && !v.showAllBelow &&
+        v.showRelAbove == 0 && v.showRelBelow == 0)       return "HomeOnly";
+    return "Custom";
+}
+
+void SpecToVis (const VisSpec& s, API_StoryVisibility& v)
+{
+    v.showOnHome   = s.showOnHome;
+    v.showAllAbove = s.showAllAbove;
+    v.showAllBelow = s.showAllBelow;
+    v.showRelAbove = s.relAbove;
+    v.showRelBelow = s.relBelow;
+}
+
+bool VisMatches (const VisSpec& s, const API_StoryVisibility& v)
+{
+    return v.showOnHome == s.showOnHome && v.showAllAbove == s.showAllAbove && v.showAllBelow == s.showAllBelow &&
+           v.showRelAbove == s.relAbove && v.showRelBelow == s.relBelow;
+}
+
+// Liefert Zeiger auf Kontur-/Fuellungs-Sichtbarkeit je Typ (nullptr = nicht unterstuetzt).
+void AreaVis (API_Element& e, API_StoryVisibility*& cont, API_StoryVisibility*& fill)
+{
+    cont = fill = nullptr;
+    switch (e.header.type.typeID) {
+        case API_MeshID: cont = &e.mesh.visibilityCont;            fill = &e.mesh.visibilityFill;            break;
+        case API_SlabID: cont = &e.slab.visibilityCont;            fill = &e.slab.visibilityFill;            break;
+        case API_RoofID: cont = &e.roof.shellBase.visibilityCont;  fill = &e.roof.shellBase.visibilityFill;  break;
+        default: break;
+    }
+}
+
+GSErrCode ApplyToArea (API_Element& element, const VisSpec& s, GS::UniString& istPreset)
+{
+    if (s.isAuto) return APIERR_BADPARS;          // "AllRelevant" gibt es fuer Netze/Decken/Daecher nicht
+    API_StoryVisibility* cont = nullptr;
+    API_StoryVisibility* fill = nullptr;
+    AreaVis (element, cont, fill);
+    if (cont == nullptr) return APIERR_BADELEMENTTYPE;
+    SpecToVis (s, *cont);
+    SpecToVis (s, *fill);
+
+    API_Element mask = {};
+    ACAPI_ELEMENT_MASK_CLEAR (mask);
+    switch (element.header.type.typeID) {
+        case API_MeshID:
+            ACAPI_ELEMENT_MASK_SET (mask, API_MeshType, visibilityCont);
+            ACAPI_ELEMENT_MASK_SET (mask, API_MeshType, visibilityFill);
+            break;
+        case API_SlabID:
+            ACAPI_ELEMENT_MASK_SET (mask, API_SlabType, visibilityCont);
+            ACAPI_ELEMENT_MASK_SET (mask, API_SlabType, visibilityFill);
+            break;
+        default:
+            ACAPI_ELEMENT_MASK_SET (mask, API_RoofType, shellBase.visibilityCont);
+            ACAPI_ELEMENT_MASK_SET (mask, API_RoofType, shellBase.visibilityFill);
+            break;
+    }
+    GSErrCode err = ACAPI_Element_Change (&element, &mask, nullptr, 0, true);
+    if (err != NoError) return err;
+
+    API_Element check = {};
+    check.header.guid = element.header.guid;
+    if (ACAPI_Element_Get (&check) != NoError) return APIERR_GENERAL;
+    API_StoryVisibility* c2 = nullptr;
+    API_StoryVisibility* f2 = nullptr;
+    AreaVis (check, c2, f2);
+    if (c2 == nullptr) return APIERR_GENERAL;
+    istPreset = VisToPreset (*c2);
+    return (VisMatches (s, *c2) && VisMatches (s, *f2)) ? NoError : APIERR_GENERAL;
+}
+
 // Setzt an EINEM Element und liest zurueck. err/ist werden gefuellt.
 GSErrCode ApplyToOne (const API_Guid& guid, const VisSpec& s, GS::UniString& istPreset)
 {
@@ -45,6 +126,7 @@ GSErrCode ApplyToOne (const API_Guid& guid, const VisSpec& s, GS::UniString& ist
     element.header.guid = guid;
     GSErrCode err = ACAPI_Element_Get (&element);
     if (err != NoError) return err;
+    if (IsAreaElement (element.header.type.typeID)) return ApplyToArea (element, s, istPreset);
     if (!IsObjectOrLamp (element.header.type.typeID)) return APIERR_BADELEMENTTYPE;
 
     element.object.isAutoOnStoryVisibility = s.isAuto;
@@ -187,8 +269,10 @@ GS::ObjectState SetStoryVisibilityOfElementsCommand::Execute (
             results (ok);
         } else if (status[i] == APIERR_NOACCESSRIGHT) {
             results (CreateFailedExecutionResult (status[i], "Reservierung fehlgeschlagen (anderer Nutzer, ausgeblendete Ebene oder Hotlink)"));
+        } else if (status[i] == APIERR_BADPARS) {
+            results (CreateFailedExecutionResult (status[i], "AllRelevant gibt es fuer Netze/Decken/Daecher nicht - AllStories oder HomeAndOneUp/Down verwenden"));
         } else if (status[i] == APIERR_BADELEMENTTYPE) {
-            results (CreateFailedExecutionResult (status[i], "Nur Object und Lamp"));
+            results (CreateFailedExecutionResult (status[i], "Nur Object, Lamp, Mesh, Slab, Roof"));
         } else {
             results (CreateFailedExecutionResult (status[i], "Aenderung nicht wirksam (Ruecklese fehlgeschlagen)"));
         }
@@ -224,9 +308,29 @@ GS::ObjectState GetStoryVisibilityOfElementsCommand::Execute (
         const GS::ObjectState* id = item.Get ("elementId");
         API_Element e = {};
         e.header.guid = (id != nullptr) ? GetGuidFromObjectState (*id) : APINULLGuid;
-        if (e.header.guid == APINULLGuid || ACAPI_Element_Get (&e) != NoError ||
-            !IsObjectOrLamp (e.header.type.typeID)) {
-            out (GS::ObjectState ("error", GS::UniString ("Element nicht lesbar oder kein Object/Lamp")));
+        if (e.header.guid == APINULLGuid || ACAPI_Element_Get (&e) != NoError) {
+            out (GS::ObjectState ("error", GS::UniString ("Element nicht lesbar")));
+            continue;
+        }
+        if (IsAreaElement (e.header.type.typeID)) {
+            API_StoryVisibility* cont = nullptr;
+            API_StoryVisibility* fill = nullptr;
+            AreaVis (e, cont, fill);
+            GS::ObjectState o;
+            o.Add ("elementId",    CreateGuidObjectState (e.header.guid));
+            o.Add ("visibility",   VisToPreset (*cont));
+            o.Add ("fillVisibility", VisToPreset (*fill));
+            o.Add ("showOnHome",   cont->showOnHome);
+            o.Add ("showAllAbove", cont->showAllAbove);
+            o.Add ("showAllBelow", cont->showAllBelow);
+            o.Add ("showRelAbove", (Int32) cont->showRelAbove);
+            o.Add ("showRelBelow", (Int32) cont->showRelBelow);
+            o.Add ("homeStory",    (Int32) e.header.floorInd);
+            out (o);
+            continue;
+        }
+        if (!IsObjectOrLamp (e.header.type.typeID)) {
+            out (GS::ObjectState ("error", GS::UniString ("Kein Object/Lamp/Mesh/Slab/Roof")));
             continue;
         }
         GS::ObjectState o;

@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include "HashTable.hpp"
 #include <limits>
 #include <map>
 #include <utility>
@@ -7371,6 +7372,96 @@ void BuildMeshSublinesMemoFromGeometry (
     }
 }
 
+// ---- ELM_SAB 0.10.1: Loecher erhalten + Hoehen nach dem Speichern pruefen ----------------
+// Archicad sortiert Umrisse beim Speichern teils um (Startpunkt/Laufrichtung). Mit veralteten
+// vertexIDs und meshPolyZ in alter Reihenfolge landeten Hoehen an falschen Punkten (2026-10-26).
+
+static GS::Array<GS::ObjectState> ExtractMeshHolesFromMemo (const API_Element& elem, const API_ElementMemo& memo)
+{
+    GS::Array<GS::ObjectState> holes;
+    if (memo.coords == nullptr || memo.pends == nullptr)
+        return holes;
+    const Int32 nSub  = elem.mesh.poly.nSubPolys;
+    const Int32 nArcs = elem.mesh.poly.nArcs;
+    for (Int32 k = 2; k <= nSub; ++k) {
+        const Int32 iStart = (*memo.pends)[k - 1] + 1;
+        const Int32 iEnd   = (*memo.pends)[k];
+        GS::ObjectState hole;
+        const auto& coords = hole.AddList<GS::ObjectState> ("polygonCoordinates");
+        for (Int32 i = iStart; i <= iEnd; ++i) {
+            GS::ObjectState c;
+            c.Add ("x", (*memo.coords)[i].x);
+            c.Add ("y", (*memo.coords)[i].y);
+            c.Add ("z", memo.meshPolyZ != nullptr ? (*memo.meshPolyZ)[i] : 0.0);
+            coords (c);
+        }
+        const auto& arcs = hole.AddList<GS::ObjectState> ("polygonArcs");
+        for (Int32 a = 0; a < nArcs && memo.parcs != nullptr; ++a) {
+            const API_PolyArc& pa = (*memo.parcs)[a];
+            if (pa.begIndex >= iStart && pa.begIndex < iEnd) {
+                GS::ObjectState ao;
+                ao.Add ("begIndex", pa.begIndex - iStart);
+                ao.Add ("endIndex", pa.endIndex - iStart);
+                ao.Add ("arcAngle", pa.arcAngle);
+                arcs (ao);
+            }
+        }
+        holes.Push (hole);
+    }
+    return holes;
+}
+
+static GS::UniString MeshXYKey (double x, double y)
+{
+    return GS::UniString::Printf ("%.4f|%.4f", x, y);
+}
+
+static void AddRingZ (const GS::Array<GS::ObjectState>& coords, GS::HashTable<GS::UniString, double>& zByXY)
+{
+    for (const GS::ObjectState& c : coords) {
+        double x = 0, y = 0, z = 0;
+        c.Get ("x", x); c.Get ("y", y);
+        if (c.Get ("z", z))
+            zByXY.Put (MeshXYKey (x, y), z);
+    }
+}
+
+// Liest den gespeicherten Umriss zurueck und setzt jede Hoehe anhand der xy-Lage auf den
+// gesendeten Wert. Rueckgabe: Anzahl korrigierter Punkte; unmatched = Punkte ohne Gegenstueck
+// (z. B. von Archicad eingefuegt), points/holeCount fuer die Rueckmeldung.
+static Int32 FixMeshZByPosition (const API_Guid& guid, const GS::HashTable<GS::UniString, double>& zByXY,
+                                 Int32& unmatched, Int32& points, Int32& holeCount, GSErrCode& err)
+{
+    unmatched = 0; points = 0; holeCount = 0; err = NoError;
+    API_Element e = {};
+    e.header.guid = guid;
+    if ((err = ACAPI_Element_Get (&e)) != NoError)
+        return 0;
+    API_ElementMemo m = {};
+    const GS::OnExit guard ([&m] () { ACAPI_DisposeElemMemoHdls (&m); });
+    if ((err = ACAPI_Element_GetMemo (guid, &m, APIMemoMask_Polygon | APIMemoMask_MeshPolyZ)) != NoError)
+        return 0;
+    points    = e.mesh.poly.nCoords;
+    holeCount = e.mesh.poly.nSubPolys - 1;
+    if (m.meshPolyZ == nullptr || m.coords == nullptr)
+        return 0;
+    Int32 fixed = 0;
+    for (Int32 i = 1; i <= e.mesh.poly.nCoords; ++i) {
+        const double* want = zByXY.GetPtr (MeshXYKey ((*m.coords)[i].x, (*m.coords)[i].y));
+        if (want == nullptr) { ++unmatched; continue; }
+        if (std::fabs ((*m.meshPolyZ)[i] - *want) > 1e-6) {
+            (*m.meshPolyZ)[i] = *want;
+            ++fixed;
+        }
+    }
+    if (fixed > 0) {
+        API_Element mask = {};
+        ACAPI_ELEMENT_MASK_CLEAR (mask);
+        err = ACAPI_Element_Change (&e, &mask, &m, APIMemoMask_Polygon | APIMemoMask_MeshPolyZ, true);
+    }
+    return fixed;
+}
+
 ModifyMeshesCommand::ModifyMeshesCommand () :
     CommandBase (CommonSchema::Used)
 {}
@@ -7555,13 +7646,30 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
 
             UInt64 memoChangeMask = 0;
 
+            GS::HashTable<GS::UniString, double> zByXY;
+            bool keptHoles = false;
             if (hasPolyGeom) {
+                if (!meshData->Contains ("holes") && elem.mesh.poly.nSubPolys > 1) {
+                    holes = ExtractMeshHolesFromMemo (elem, memo);      // 0.10.1: Loecher nicht verlieren
+                    keptHoles = !holes.IsEmpty ();
+                }
+                AddRingZ (polygonCoordinates, zByXY);
+                for (const GS::ObjectState& h : holes) {
+                    GS::Array<GS::ObjectState> hc, ha;
+                    if (GetHoleGeometry (h, hc, ha)) AddRingZ (hc, zByXY);
+                }
                 auto geoErr = BuildMeshPolyMemoFromGeometry (elem, memo, polygonCoordinates, polygonArcs, holes);
                 if (geoErr.HasValue ()) {
                     executionResults (CreateFailedExecutionResult (APIERR_BADPARS, geoErr.Get ()));
                     continue;
                 }
                 memoChangeMask |= APIMemoMask_Polygon | APIMemoMask_MeshPolyZ;
+                // 0.10.1: alte vertexIDs passen nicht mehr zu den neuen Punkten -> verwerfen,
+                // Archicad vergibt neue.
+                if (memo.vertexIDs != nullptr) {
+                    BMKillHandle (reinterpret_cast<GSHandle*> (&memo.vertexIDs));
+                    memo.vertexIDs = nullptr;
+                }
             }
 
             if (hasSublines) {
@@ -7617,7 +7725,19 @@ GS::ObjectState ModifyMeshesCommand::Execute (const GS::ObjectState& parameters,
                 continue;
             }
 
-            executionResults (CreateSuccessfulExecutionResult ());
+            GS::ObjectState ok = CreateSuccessfulExecutionResult ();
+            if (hasPolyGeom) {
+                Int32 unmatched = 0, points = 0, holeCount = 0;
+                GSErrCode fixErr = NoError;
+                const Int32 fixed = FixMeshZByPosition (elem.header.guid, zByXY, unmatched, points, holeCount, fixErr);
+                ok.Add ("zCorrected", fixed);
+                ok.Add ("unmatchedPoints", unmatched);
+                ok.Add ("pointCount", points);
+                ok.Add ("holeCount", holeCount);
+                ok.Add ("keptExistingHoles", keptHoles);
+                if (fixErr != NoError) ok.Add ("zCorrectionError", (Int32) fixErr);
+            }
+            executionResults (ok);
         }
 
         return NoError;

@@ -666,7 +666,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<ModifyMeshesCommand> (
             elementCommands, "1.5.4",
-            "Modifies the attributes of Mesh elements based on the given parameters."
+            "Modifies the attributes of Mesh elements based on the given parameters. ELM_SAB 0.10.1: keeps existing holes when only polygonCoordinates is given, drops stale vertex IDs and re-assigns every polygon z by its xy position after saving (reports zCorrected/unmatchedPoints/pointCount/holeCount)."
         );
         err |= RegisterCommand<ModifyObjectsCommand> (
             elementCommands, "1.5.7",
@@ -1669,7 +1669,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<SetStoryVisibilityOfElementsCommand> (
             elmSabCommands, "0.9.15",
-            "ELM_SAB: Setzt 'Auf Geschossen zeigen' von Objekten/Lampen (Preset oder custom), mit Ruecklese und Teamwork-Reservierung. 0.9.24: Aufruffehler kommen schemakonform beim Client an (statt 4009)."
+            "ELM_SAB: Setzt 'Auf Geschossen zeigen' von Objekten/Lampen (Preset oder custom), ab 0.10.1 auch Netze, Decken und Daecher (Kontur und Fuellung; AllRelevant dort nicht moeglich). Mit Ruecklese und Teamwork-Reservierung."
         );
         err |= RegisterCommand<GetStoryVisibilityOfElementsCommand> (
             elmSabCommands, "0.9.15",
