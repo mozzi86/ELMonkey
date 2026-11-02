@@ -75,6 +75,7 @@
 #include "FindElementsCommand.hpp"
 #include "SectionDimensionCommandsELM.hpp"
 #include "ViewDrawingCommandsELM.hpp"
+#include "ModifyCommandsELM.hpp"
 #include "LayerLevelCommandsELM.hpp"
 #include "ModelEditCommandsELM.hpp"
 #include "ConstructionPensCommandsELM.hpp"
@@ -1688,6 +1689,22 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<RelinkDrawingsCommandELM> (
             elmSabCommands, "0.10.2",
             "ELM_SAB: Haengt Zeichnungen eines Layouts auf andere Ausschnitte um (layoutNavigatorItemId, items: drawingId + viewNavigatorItemId); Lage/Massstab bleiben, Ruecklese, optional Zeichnungsupdate."
+        );
+        err |= RegisterCommand<ModifyMeshAppearanceCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Aendert Darstellung von Netzen/Gelaende ohne Neuanlage (items: elementId + topSurfaceIndex/sideSurfaceIndex/bottomSurfaceIndex (-1 = nicht ueberschrieben), materialsChained, buildingMaterialIndex, useFloorFill, floorFillIndex, floorFillPen, floorFillBackgroundPen, use3DHatching, showLines, contourPen, levelLinePen, lineTypeIndex, smoothRidges, fillAngle). Reservierung + Ruecklese."
+        );
+        err |= RegisterCommand<MoveOpeningsCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Verschiebt Wandoeffnungen (API_OpeningID) ohne Loeschen (items: elementId + moveVector {x,y,z} oder basePoint {x,y,z}). Reservierung + Ruecklese des Basispunkts."
+        );
+        err |= RegisterCommand<SetObjectsReflectedCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Spiegelt Objekte/Lampen bzw. hebt die Spiegelung auf (items: elementId + reflected). Reservierung + Ruecklese."
+        );
+        err |= RegisterCommand<ModifySurfacesCommandELM> (
+            elmSabCommands, "0.10.2",
+            "ELM_SAB: Ueberschreibt Oberflaechen-Attribute wirklich (items: index + surfaceColor {red,green,blue}, ambientReflection, diffuseReflection, specularReflection, transparency, shine, texture {xSize, ySize, rotationAngle (rad)}). Ruecklese."
         );
 #endif
         err |= RegisterCommand<SetStoryVisibilityOfElementsCommand> (
