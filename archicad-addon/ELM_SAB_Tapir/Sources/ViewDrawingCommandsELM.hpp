@@ -244,6 +244,12 @@ public:
             const GS::Guid prevGs = APIGuid2GSGuid (src);
             err = ACAPI_Navigator_NewNavigatorView (&neu, &view, hasParent ? &parentGs : nullptr, &prevGs);
             if (err != NoError) { r.Add ("success", false); r.Add ("error", GS::UniString ("NewNavigatorView failed.")); r.Add ("code", err); results (r); continue; }
+            // 0.10.3: neuen Ausschnitt direkt hinter das Original in denselben Ordner stellen
+            if (hasParent) {
+                const GS::Guid newGs = APIGuid2GSGuid (neu.guid);
+                const GSErrCode perr = ACAPI_Navigator_SetNavigatorItemPosition (&newGs, &parentGs, &prevGs);
+                r.Add ("placedNextToSource", perr == NoError);
+            }
             r.Add ("navigatorItemId", NavIdOS (neu.guid));
             r.Add ("name", GS::UniString (neu.uName));
             // Designoptionen-Kombination uebernehmen

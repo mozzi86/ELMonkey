@@ -76,6 +76,7 @@
 #include "SectionDimensionCommandsELM.hpp"
 #include "ViewDrawingCommandsELM.hpp"
 #include "ModifyCommandsELM.hpp"
+#include "Extras0103ELM.hpp"
 #include "LayerLevelCommandsELM.hpp"
 #include "ModelEditCommandsELM.hpp"
 #include "ConstructionPensCommandsELM.hpp"
@@ -1689,6 +1690,22 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<RelinkDrawingsCommandELM> (
             elmSabCommands, "0.10.2",
             "ELM_SAB: Haengt Zeichnungen eines Layouts auf andere Ausschnitte um (layoutNavigatorItemId, items: drawingId + viewNavigatorItemId); Lage/Massstab bleiben, Ruecklese, optional Zeichnungsupdate."
+        );
+        err |= RegisterCommand<ReplaceDrawingSourceCommandELM> (
+            elmSabCommands, "0.10.3",
+            "ELM_SAB: Ersetzt Zeichnungen eines Layouts 1:1 durch eine Kopie mit neuer Quelle (layoutNavigatorItemId, items: drawingId + viewNavigatorItemId, deleteOld=true). Prueft Verknuepfung und Lage, loescht die alte Zeichnung erst danach. Aktiviert das Layout-Fenster."
+        );
+        err |= RegisterCommand<MoveNavigatorItemsCommandELM> (
+            elmSabCommands, "0.10.3",
+            "ELM_SAB: Verschiebt Navigator-Eintraege (items: navigatorItemId + parentNavigatorItemId und/oder afterNavigatorItemId). Ruecklese des Elternordners."
+        );
+        err |= RegisterCommand<GetLibraryPartScriptsCommandELM> (
+            elmSabCommands, "0.10.3",
+            "ELM_SAB: Liest die GDL-Skripte eines geladenen Bibliotheksteils (name): master, 2d, 3d, parameter, ui, properties, comment."
+        );
+        err |= RegisterCommand<SetLibraryPartScriptsCommandELM> (
+            elmSabCommands, "0.10.3",
+            "ELM_SAB: Ersetzt einzelne GDL-Skripte eines Bibliotheksteils im Bestand (name, scripts: {master|2d|3d|parameter|ui|properties|comment: code}) - ohne Loeschen/Neu-Einfuegen, platzierte Exemplare bleiben. Ruecklese je Skript."
         );
         err |= RegisterCommand<ModifyMeshAppearanceCommandELM> (
             elmSabCommands, "0.10.2",
