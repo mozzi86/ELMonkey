@@ -77,6 +77,7 @@
 #include "ViewDrawingCommandsELM.hpp"
 #include "ModifyCommandsELM.hpp"
 #include "Extras0103ELM.hpp"
+#include "LibPartEdit0104ELM.hpp"
 #include "LayerLevelCommandsELM.hpp"
 #include "ModelEditCommandsELM.hpp"
 #include "ConstructionPensCommandsELM.hpp"
@@ -1706,6 +1707,18 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<SetLibraryPartScriptsCommandELM> (
             elmSabCommands, "0.10.3",
             "ELM_SAB: Ersetzt einzelne GDL-Skripte eines Bibliotheksteils im Bestand (name, scripts: {master|2d|3d|parameter|ui|properties|comment: code}) - ohne Loeschen/Neu-Einfuegen, platzierte Exemplare bleiben. Ruecklese je Skript."
+        );
+        err |= RegisterCommand<GetLibraryPartInfoCommandELM> (
+            elmSabCommands, "0.10.4",
+            "ELM_SAB: Alle geladenen Bibliothekselemente eines Namens (name, optional mainGuid/library): Bibliothek (Embedded/Server/Local/BuiltIn), Datei, GUID, Teamwork-Sperrstatus, Benutzer-Cache. Optional includeScripts, includeParameters, backupFolder (GSM-Kopie)."
+        );
+        err |= RegisterCommand<ReserveLibraryPartCommandELM> (
+            elmSabCommands, "0.10.4",
+            "ELM_SAB (experimentell): Teamwork-Reservierung eines Bibliothekselements (name, mainGuid?, library?, release=false, enableDialogs=false) ueber dessen Teamwork-Bezeichner. Ruecklese des Sperrstatus."
+        );
+        err |= RegisterCommand<UpdateLibraryPartCommandELM> (
+            elmSabCommands, "0.10.4",
+            "ELM_SAB: Aendert ein Bibliothekselement im Bestand (gleiche GUID, platzierte Exemplare bleiben): scripts {master|2d|3d|parameter|ui|properties|comment} und/oder addParameters [{name,type,description,value,child,bold,hidden}]. backupFolder Pflicht, dryRun, requireEditable=true. Ruecklese; bei Abweichung Ruecknahme."
         );
         err |= RegisterCommand<ModifyMeshAppearanceCommandELM> (
             elmSabCommands, "0.10.2",
