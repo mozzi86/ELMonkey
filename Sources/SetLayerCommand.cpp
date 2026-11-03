@@ -1,16 +1,44 @@
 #include "SetLayerCommand.hpp"
 #include "MigrationHelper.hpp"
+#include <string>
 #include <vector>
 
 namespace {
 
-// Setzt die Ebene EINES Elements und liest zurueck.
-GSErrCode ApplyLayerToOne (const API_Guid& guid, const API_AttributeIndex& target, API_AttributeIndex& istLayer)
+// 0.10.4: Stufen, an denen ein Element scheitern kann (fuer die Diagnose je Element).
+enum LayerApplyStageELM {
+    LayerStage_Ok = 0,
+    LayerStage_NotReadable,
+    LayerStage_ChangeRejected,
+    LayerStage_ReadbackUnreadable,
+    LayerStage_ReadbackMismatch
+};
+
+struct LayerApplyOutcomeELM {
+    GSErrCode           code;
+    int                 stage;
+    bool                haveActual;
+    API_AttributeIndex  actual;
+    GS::UniString       elementType;
+
+    LayerApplyOutcomeELM () :
+        code (APIERR_GENERAL), stage (LayerStage_NotReadable), haveActual (false),
+        actual (ACAPI_CreateAttributeIndex (-1)), elementType ()
+    {}
+};
+
+// Setzt die Ebene EINES Elements und liest zurueck; protokolliert Stufe, Code und Ist-Ebene.
+void ApplyLayerToOne (const API_Guid& guid, const API_AttributeIndex& target, LayerApplyOutcomeELM& out)
 {
     API_Element element = {};
     element.header.guid = guid;
     GSErrCode err = ACAPI_Element_Get (&element);
-    if (err != NoError) return err;
+    if (err != NoError) {
+        out.stage = LayerStage_NotReadable;
+        out.code = err;
+        return;
+    }
+    out.elementType = GetElementTypeNonLocalizedName (GetElemTypeId (element.header));
 
     element.header.layer = target;
 
@@ -19,14 +47,36 @@ GSErrCode ApplyLayerToOne (const API_Guid& guid, const API_AttributeIndex& targe
     ACAPI_ELEMENT_MASK_SET (mask, API_Elem_Head, layer);
 
     err = ACAPI_Element_Change (&element, &mask, nullptr, 0, true);
-    if (err != NoError) return err;
+    if (err != NoError) {
+        out.stage = LayerStage_ChangeRejected;
+        out.code = err;
+        // Nur lesend: welche Ebene hat das Element jetzt?
+        API_Element now = {};
+        now.header.guid = guid;
+        if (ACAPI_Element_Get (&now) == NoError) {
+            out.actual = now.header.layer;
+            out.haveActual = true;
+        }
+        return;
+    }
 
     // Ruecklese - NoError beweist nichts.
     API_Element check = {};
     check.header.guid = guid;
-    if (ACAPI_Element_Get (&check) != NoError) return APIERR_GENERAL;
-    istLayer = check.header.layer;
-    return (check.header.layer.ToInt32_Deprecated () == target.ToInt32_Deprecated ()) ? NoError : APIERR_GENERAL;
+    if (ACAPI_Element_Get (&check) != NoError) {
+        out.stage = LayerStage_ReadbackUnreadable;
+        out.code = APIERR_GENERAL;
+        return;
+    }
+    out.actual = check.header.layer;
+    out.haveActual = true;
+    if (check.header.layer.ToInt32_Deprecated () == target.ToInt32_Deprecated ()) {
+        out.stage = LayerStage_Ok;
+        out.code = NoError;
+    } else {
+        out.stage = LayerStage_ReadbackMismatch;
+        out.code = APIERR_GENERAL;
+    }
 }
 
 GS::UniString LayerNameOfIndex (const API_AttributeIndex& idx)
@@ -123,8 +173,8 @@ GS::ObjectState SetLayerOfElementsCommand::Execute (const GS::ObjectState& param
         ACAPI_Teamwork_ReserveElements (toReserve, &conflicts, false);
     }
 
-    std::vector<GSErrCode>         status (guids.size (), APIERR_GENERAL);
-    std::vector<API_AttributeIndex> ist (guids.size (), ACAPI_CreateAttributeIndex (-1));
+    std::vector<GSErrCode>              status (guids.size (), APIERR_GENERAL);
+    std::vector<LayerApplyOutcomeELM>   outcome (guids.size ());
 
     bool lambdaStarted = false;
     ACAPI_CallUndoableCommand ("ELM_SAB SetLayerOfElements", [&] () -> GSErrCode {
@@ -132,7 +182,8 @@ GS::ObjectState SetLayerOfElementsCommand::Execute (const GS::ObjectState& param
         for (size_t i = 0; i < guids.size (); ++i) {
             if (guids[i] == APINULLGuid)          { status[i] = APIERR_BADPARS;       continue; }
             if (conflicts.ContainsKey (guids[i])) { status[i] = APIERR_NOACCESSRIGHT; continue; }
-            status[i] = ApplyLayerToOne (guids[i], target, ist[i]);
+            ApplyLayerToOne (guids[i], target, outcome[i]);
+            status[i] = outcome[i].code;
         }
         return NoError;
     });
@@ -153,15 +204,46 @@ GS::ObjectState SetLayerOfElementsCommand::Execute (const GS::ObjectState& param
         } else if (status[i] == NoError) {
             GS::ObjectState ok = CreateSuccessfulExecutionResult ();
             ok.Add ("elementId", CreateGuidObjectState (guids[i]));
-            ok.Add ("layerIndex", (Int32) ist[i].ToInt32_Deprecated ());
-            ok.Add ("layerName", LayerNameOfIndex (ist[i]));
+            ok.Add ("layerIndex", (Int32) outcome[i].actual.ToInt32_Deprecated ());
+            ok.Add ("layerName", LayerNameOfIndex (outcome[i].actual));
             results (ok);
-        } else if (status[i] == APIERR_NOACCESSRIGHT) {
+        } else if (status[i] == APIERR_NOACCESSRIGHT && conflicts.ContainsKey (guids[i])) {
             results (CreateFailedExecutionResult (status[i], "Reservierung fehlgeschlagen (anderer Nutzer, ausgeblendete Ebene oder Hotlink)"));
-        } else if (status[i] == APIERR_BADPARS) {
+        } else if (status[i] == APIERR_BADPARS && guids[i] == APINULLGuid) {
             results (CreateFailedExecutionResult (status[i], "elementId fehlt"));
         } else {
-            results (CreateFailedExecutionResult (status[i], "Aenderung nicht wirksam (Element nicht lesbar oder Ruecklese weicht ab)"));
+            const LayerApplyOutcomeELM& o = outcome[i];
+            GS::UniString codeText (std::to_string ((long) o.code).c_str ());
+            GS::UniString actualName;
+            if (o.haveActual)
+                actualName = LayerNameOfIndex (o.actual);
+            GS::UniString msg;
+            switch (o.stage) {
+                case LayerStage_NotReadable:
+                    msg = GS::UniString ("Element nicht lesbar (ACAPI_Element_Get)");
+                    break;
+                case LayerStage_ChangeRejected:
+                    msg = GS::UniString ("Archicad lehnt Aenderung ab (code ") + codeText + GS::UniString (")");
+                    if (o.haveActual)
+                        msg += GS::UniString (", Ist-Ebene ") + actualName;
+                    break;
+                case LayerStage_ReadbackUnreadable:
+                    msg = GS::UniString ("Ruecklese nicht moeglich (Element nach Aenderung nicht lesbar)");
+                    break;
+                default:
+                    msg = GS::UniString ("Ruecklese weicht ab (Ist-Ebene ") + actualName + GS::UniString (")");
+                    break;
+            }
+            GS::ObjectState fail = CreateFailedExecutionResult (CreateErrorResponseELM (o.code, msg));
+            fail.Add ("elementId", CreateGuidObjectState (guids[i]));
+            if (!o.elementType.IsEmpty ())
+                fail.Add ("elementType", o.elementType);
+            fail.Add ("layerIndexTarget", (Int32) target.ToInt32_Deprecated ());
+            if (o.haveActual) {
+                fail.Add ("layerIndexActual", (Int32) o.actual.ToInt32_Deprecated ());
+                fail.Add ("layerNameActual", actualName);
+            }
+            results (fail);
         }
     }
     GS::ObjectState undoScope;
