@@ -20,9 +20,10 @@ in [`../reference/mcp-extension.md`](../reference/mcp-extension.md).
 6. [Worked Example — Wand modifizieren (Höhe ändern)](#worked-example--wand-modifizieren-höhe-ändern)
 7. [Worked Example — Wand löschen (mit Hosted-Element-Check)](#worked-example--wand-löschen-mit-hosted-element-check)
 8. [Worked Example — Wand klassifizieren](#worked-example--wand-klassifizieren)
-9. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
-10. [Gotchas](#gotchas)
-11. [Verwandte Recipes](#verwandte-recipes)
+9. [Worked Example — Wand in Schichten aufteilen (Kern + Schalen)](#worked-example--wand-in-schichten-aufteilen-kern--schalen)
+10. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
+11. [Gotchas](#gotchas)
+12. [Verwandte Recipes](#verwandte-recipes)
 
 ---
 
@@ -342,6 +343,51 @@ Beide GUIDs stammen aus den vorherigen Schritten — nie raten.
 
 ---
 
+## Worked Example — Wand in Schichten aufteilen (Kern + Schalen) <!-- 2026-11-02 -->
+
+Anlass: Bestandswand mit Befund „Mauerwerk + Klinker zum Flur + Trockenbau zum Raum“
+soll als Einzelwände je Schicht im Modell stehen. Live THN 02.11.2026: 67 Wände,
+94 neue Schalen, 16 Leere Türöffnungen, jede Wand auf 1 mm nachgemessen.
+
+**Grundsatz: Die Bestandswand bleibt der Kern.** Ihre GUID, Klassifizierung und die
+darin sitzenden Türen bleiben erhalten. Nur ihre Dicke und Lage ändern sich; die
+Schalen kommen als neue Wände daneben. (Löschen + neu bauen wäre SAFE-02-widrig und
+würde die Türen verlieren.)
+
+Ablauf je Wand (Update am Bestand → vorher Summary + `ja` des Users):
+
+1. **Vorprüfung, noch nichts ändern:** `ELM_SAB.GetUIState` (kein modaler Dialog,
+   richtiges Projekt), `ELM_SAB.GetElementEditState` (bearbeitbar, keine Fremd-
+   Reservierung), Dicke laut Modell = Dicke laut Befund, keine Fenster in der Wand,
+   Wand ist nicht polygonal.
+2. **Ist-Lage messen:** `floorPlanPolygons` der Wand auf die Normale der
+   Originalachse projizieren (links positiv) → Kanten `lo`/`hi`. Diese Erstlesung
+   sichern — sie ist die Referenz für alles Weitere (auch für einen Wiederanlauf).
+3. `TapirCommand.ReserveElements` auf den Kern.
+4. Kernbaustoff per `ELM_SAB.SetStructureOfElements` (`reserve:false`, Basic).
+5. **Kern verschmälern:** `TapirCommand.ModifyWalls` mit `thickness`, danach neu
+   messen und auf die Soll-Kanten schieben — bei Bezugslinie Mitte über die Achse,
+   sonst über `offset` (siehe Gotcha 9).
+6. **Schalen anlegen:** `TapirCommand.CreateWalls` je Schicht, Achse parallel zur
+   Originalachse in Schalenmitte, `referenceLineLocation:"Center"`, `offset:0`,
+   gleiches `floorIndex`/`zCoordinate`(=bottomOffset des Kerns)/`height`,
+   `structureType:"Basic"` + `buildingMaterialId`.
+7. Schalen **wie den Kern klassifizieren** (`API.SetClassificationsOfElements`),
+   **KI-Stempel**, Ebene per `ELM_SAB.SetLayerOfElements` (CreateWalls kennt keine Ebene).
+8. **Türen durchziehen:** je Kerntür in jede Schale `TapirCommand.CreateDoors` mit
+   `libraryPartName:"Leere Türöffnung 27"`, gleichem `centerOffset`/`width`/`height`/
+   `sillHeight`; Element-ID über die eingebaute Property `General_ElementID`
+   („<Tür-ID> Schale <Material>“), Klassifizierung wie die Kerntür.
+9. **Nachmessen** Kern + jede Schale gegen Soll-Intervall (Toleranz 1 mm), Baustoff,
+   Stempel, Öffnungs-IDs — einmal vor und einmal nach `TapirCommand.TeamworkSend`.
+10. `ReleaseElements` auf Kern **und alle neu angelegten Elemente** (Gotcha 10).
+11. CSV-Protokoll + GUID-Register (Kern → neue Wände, Türöffnungen) ablegen.
+
+Schichtregeln, Materialnamen und Ebenen sind projektspezifisch → Memory/Handoff,
+nicht hier.
+
+---
+
 ## Bulk-Klassifizierung (Stub)
 
 Bulk-Klassifizierung aller Wände nach Innen/Außen ist ein wiederkehrender Kern-Workflow.
@@ -409,6 +455,30 @@ Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifiz
    Hilfskörper, 2D-Darstellung, 3D-Massenstudie). Nicht blind auf eine Konstruktions-
    Unterklasse zwingen — SEO-Operatoren oder Bauzaun als „Betonwand" wäre sachlich falsch.
    Eindeutige Layer (Trennwand) → Unterklasse, Rest → Basis „Wand". <!-- 2026-06-19 -->
+
+9. **`offset` wirkt nicht bei Bezugslinie Mitte.** `TapirCommand.ModifyWalls` mit
+   `offset` meldet Erfolg, die Wand bleibt aber liegen, wenn
+   `referenceLineLocation == "Center"`. Dann die Achse selbst senkrecht verschieben:
+   `begCoordinate`/`endCoordinate` jeweils um `delta · Normale` versetzen (die Türen
+   wandern mit, weil ihr `centerOffset` längs der Achse gilt). Bei Außen-/Innenkante
+   als Bezugslinie geht `offset` — das Vorzeichen per Probe (+/−) und Nachmessung
+   ermitteln. Immer nach dem Schieben aus `floorPlanPolygons` nachmessen.
+   Live THN: ein Kern blieb deshalb verschmälert, aber unverschoben stehen. <!-- 2026-11-02 -->
+
+10. **Neu angelegte Elemente bleiben auf dich reserviert.** In Teamwork gehört jedes
+    per API erstellte Element (Wand, Tür, …) dem Anleger und bleibt reserviert, bis
+    es nach `TeamworkSend` ausdrücklich per `ReleaseElements` freigegeben wird. Wer
+    nur die vorher reservierten Bestandselemente freigibt, lässt die neuen gesperrt
+    für die Kollegen — und meldet fälschlich „freigegeben“. GUIDs aus jedem Create
+    sofort in die Freigabeliste aufnehmen; Abschluss per `GetElementEditState` prüfen.
+    <!-- 2026-11-02 -->
+
+11. **Wand ohne `floorPlanPolygons` → vor jeder Änderung abbrechen.** Manche Wände
+    liefern keinen Grundrissumriss (verdeckt/von einem anderen Bauteil geschluckt).
+    Ohne Ist-Kanten gibt es keine Soll-/Ist-Messung → nichts reservieren, nichts
+    ändern, Wand dem User zur Sichtung melden. Bricht ein Lauf ab, nachdem der Kern
+    schon verschmälert ist, mit den **Kanten aus der Erstlesung** fortsetzen, nicht
+    neu messen — die aktuelle Wand ist ja schon dünner. <!-- 2026-11-02 -->
 
 ---
 
