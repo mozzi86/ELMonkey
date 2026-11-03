@@ -29,11 +29,8 @@ Installationen**. Umbauplan: siehe [`docs/UMBAU.md`](docs/UMBAU.md).
 ## Kern benutzen
 
 ```bash
-uv pip install "git+ssh://git@github.com/mozzi86/ELMonkey.git#subdirectory=core"
+uv pip install "git+https://github.com/mozzi86/ELMonkey#subdirectory=core"
 ```
-
-Das Repo ist privat: über `git+ssh` mit hinterlegtem SSH-Schlüssel (geprüft 03.11.2026). `git+https`
-braucht einen Zugangstoken.
 
 ```python
 import elmonkey as em

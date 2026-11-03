@@ -1,9 +1,9 @@
 # ELMonkey in jeder KI einrichten
 
-Einmal installieren (macOS/Windows, braucht [uv](https://docs.astral.sh/uv/) und einen SSH-Schlüssel für das private Repo):
+Einmal installieren (macOS/Windows, braucht [uv](https://docs.astral.sh/uv/)):
 
 ```bash
-uv tool install "git+ssh://git@github.com/mozzi86/ELMonkey.git#subdirectory=mcp/elmonkey-mcp"
+uv tool install "git+https://github.com/mozzi86/ELMonkey#subdirectory=mcp/elmonkey-mcp"
 ```
 
 Das legt den Befehl `elmonkey-mcp` an (macOS: `~/.local/bin/elmonkey-mcp`). Der Server spricht MCP über
