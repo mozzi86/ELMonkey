@@ -60,6 +60,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-10-13 | 261013-n2y | ELM_SAB 0.9.26: neuer Befehl `Create2DElements` (Line/Arc/Circle/PolyLine/Spline/Hatch, ein Undo-Schritt, Rücklese je Element mit layer/floor/coordinatesMatch, Hatch area+perimeter über GetQuantities) + Spline-Lesezweig in `Get2DGeometryOfElements`; Fallen: Spline-coords 0-basiert, Tapir `GetPolyArcs` verschiebt Bogenindizes. CI 6/6 grün (`3f38981`), eingebaut + Versionsrücklese ok (WiSchu 19723); 0.9.25 gesichert in `~/.scratch/elm-bundle-0.9.26/backup_0.9.25`. Live-Abnahme siehe Folgecommit — 3 Code/Doku-Commits (`e7ec585`, `d5fa36a`, `3f38981`) |
 | 2026-10-29 | 261029-f9d | ELMonkey 0.10.1 (Branch elm-0.10.1-bauteilstifte): Get/SetConstructionPensOfElements – Bauteilstifte lesen/setzen, cutFill-Überschreibung löschen, dryRun, Teamwork, Rücklese; syn1 STRICT 27–30 ok, CI + Live-Test offen |
 | 2026-11-03 | thn-schalenbau-learnings | Worked Example Kern + Schalen, Gotchas offset/Mittelachse, neue Elemente freigeben, fehlender Grundrissumriss |
+| 2026-11-03 | 261103-m9g | ELMonkey 0.10.4: SetLayerAttributes isHidden/isLocked/isWireframe-Alias, SetLayerOfElements Code+Ist-Ebene je Element, Doku Stahlprofile per CreateProfiles newSkins + Morph body, MCP-Registrierung (CI ausstehend, nicht live getestet) |
 
 ## Performance Metrics
 
