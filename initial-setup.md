@@ -91,6 +91,7 @@ Archicad mit einem Projekt öffnen, dann:
 | „Mehrere Archicad-Instanzen offen" | kein `port` angegeben | `discovery_list_active_archicads` → `port` mitgeben |
 | `curl` auf 19723 verweigert | Archicad läuft nicht / anderer Port / modaler Dialog offen | Ports 19723–19744 durchprobieren; offenen Dialog schließen |
 | Windows: Installer startet nicht | Ausführungsrichtlinie / Download blockiert | `.cmd` verwenden (setzt `-ExecutionPolicy Bypass`), Datei-Eigenschaften → „Zulassen" |
+| `project_get_stories` bricht mit pydantic `extra_forbidden` (height/ifcId) ab, Morph-`body` im Schema unsichtbar <!-- 2026-11-03 --> | In der Desktop-App ist noch der alte `tapir-archicad-mcp` 0.4.3 als "archicad" registriert | Auf `~/.local/bin/elmonkey-mcp` umstellen (Desktop-Konfiguration bzw. `claude mcp add`); elmonkey-mcp zeigt `body` und liest GetStories fehlerfrei |
 
 Stand: ELMonkey 0.9.30 (Installer, Update-Knopf, `ListCommands`), `elmonkey-mcp` 0.1.0. <!-- 2026-10-14 -->
 Live verifiziert: Mac-Installer gegen Test-Ordner (Tapir + altes ELMonkey gesichert, AC28/29 installiert, Quarantäne weg); MCP-Server per stdio-Client (3 Werkzeuge, Fehlertexte). Windows-Installer und Selbst-Update unter Windows: **noch nicht live geprüft**.

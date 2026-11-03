@@ -18,8 +18,9 @@ Dieses Recipe deckt drei strukturelle Standard-Bauteile ab. **Slabs (Decken) und
 10. [Worked Example — Element löschen (alle 3 Typen)](#worked-example--element-löschen-alle-3-typen)
 11. [Worked Example — Klassifizieren (tragend / nicht-tragend)](#worked-example--klassifizieren-tragend--nicht-tragend)
 12. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
-13. [Gotchas pro Element-Typ](#gotchas-pro-element-typ)
-14. [Verwandte Recipes](#verwandte-recipes)
+13. [Stahlprofile ohne neuen Befehl (IPE, SHS ...)](#stahlprofile-ohne-neuen-befehl-ipe-shs-)
+14. [Gotchas pro Element-Typ](#gotchas-pro-element-typ)
+15. [Verwandte Recipes](#verwandte-recipes)
 
 ---
 
@@ -557,6 +558,24 @@ Details und vollständiges Muster: [`../reference/bulk-operations.md`](../refere
 
 ---
 
+## Stahlprofile ohne neuen Befehl (IPE, SHS ...) <!-- 2026-11-03, live verifiziert -->
+
+Stahlprofile entstehen mit vorhandenen Befehlen, ein eigener ELM_SAB-Befehl ist nicht noetig. Felder immer per Discovery/Schema pruefen, nicht raten.
+
+1. **Profil anlegen:** `TapirCommand.CreateProfiles` mit `newSkins:[{contours:[{polygonCoordinates:[{x,y}...]}, <Loch-Kontur>...], buildingMaterialId:{attributeId:{guid}}, isCore:true}]` plus `beamType`/`coluType`.
+2. **Beispiel IPE 120** (h 120, b 64, tw 4,4, tf 6,3 mm), Polygon in Metern, 12 Eckpunkte, y von 0 bis h: (-0.032,0) (0.032,0) (0.032,0.0063) (0.0022,0.0063) (0.0022,0.1137) (0.032,0.1137) (0.032,0.12) (-0.032,0.12) (-0.032,0.1137) (-0.0022,0.1137) (-0.0022,0.0063) (-0.032,0.0063). Ruecklese `TapirCommand.GetProfiles`: width 0.064 / height 0.12, nicht streckbar. SHS 100x100x5 mit zweiter Kontur als Loch funktioniert.
+3. **Anwenden:** `CreateBeams`/`CreateColumns`, dann `ELM_SAB.SetStructureOfElements {structureType:"profile", profileName}`. Ruecklese der 3D-Box: Traeger 0,064 x 0,12 und Stuetze 0,1 x 0,1 stimmen.
+4. **FALLE Profil-Ursprung:** Der Profil-Nullpunkt ist der Bezugspunkt. Profil mit y von 0 bis h: Traeger mit zCoordinate 2,95 liegt bei 2,95 bis 3,07 (Unterkante am Bezug). Stuetze mit Profil x -0,05..0,05 / y 0..0,1 sitzt an Koordinate (64,0) auf y 0..0,1 (Versatz +5 cm). Regel: Stuetzenprofile mittig um (0,0) zeichnen, bei Traegern bewusst OK oder UK an den Bezug legen.
+5. **Morph mit `body`** (`TapirCommand.CreateMorphs`): mit basePoint (0,0,0) sind die Vertices Weltkoordinaten, floorIndex wird uebernommen. Mehrere getrennte geschlossene Koerper in EINEM Morph gehen (Ruecklese isClosed true), z. B. eine Schraubengarnitur aus Kopf, Scheiben, Schaft und Mutter als ein Element. Flaechen muessen nach aussen zeigen (Vorzeichen des Volumens pruefen, sonst Reihenfolge umdrehen). Live: Stahlbalkon aus 41 Morphs. Die Tapir-Beschreibung nennt nur "simple box definitions", `body` steht aber im Schema.
+6. **Weitere Befunde:**
+   * Die eingebaute Property "Element ID" gibt es zweimal, beschreibbar ist die in der Gruppe "ID und Kategorien" (guid B1B54D45-C951-42C9-9AF8-898F0BF212AB, General_ElementID).
+   * "Bauteilname" ist klassenabhaengig verfuegbar (6703 bei 45/51).
+   * `API.DeleteElements` gibt es nicht, stattdessen `TapirCommand.DeleteElements`.
+   * Die 3D-Box einer Tuer enthaelt den Aufschlag.
+   * Falls `project_get_stories` oder `body` Schemafehler liefert: alter MCP-Server, siehe [`initial-setup.md`](initial-setup.md) Troubleshooting.
+
+---
+
 ## Gotchas pro Element-Typ
 
 ### Slabs
@@ -573,7 +592,7 @@ Details und vollständiges Muster: [`../reference/bulk-operations.md`](../refere
 
 **`coordinates.z` ist die Unterkante.** Die Stütze wächst von `z` nach oben. Höhe wird separat über `ColumnSettings` im Update-Call gesetzt, nicht beim Create. Eine frisch erstellte Stütze hat die Archicad-Standard-Höhe (meist Story-Höhe).
 
-**Profil-Zuweisung ist kein Create-Parameter.** Das Profil-Attribut (HEA, HEB, Rundstahl, etc.) kann nicht beim Create mitgegeben werden — nur über einen nachfolgenden `elements_set_details_of_elements`-Call. Wenn Profil und Position gemeinsam gesetzt werden sollen: Create, GUID speichern (SAFE-05), dann Update.
+**Profil-Zuweisung ist kein Create-Parameter.** Das Profil-Attribut (HEA, HEB, Rundstahl, etc.) kann nicht beim Create mitgegeben werden — nur über einen nachfolgenden `elements_set_details_of_elements`-Call. Wenn Profil und Position gemeinsam gesetzt werden sollen: Create, GUID speichern (SAFE-05), dann Update. Neuer Weg fuer Stahlprofile: [Stahlprofile ohne neuen Befehl](#stahlprofile-ohne-neuen-befehl-ipe-shs-) (`CreateProfiles` + `SetStructureOfElements`). <!-- 2026-11-03 -->
 
 **Profil-Attribut-GUIDs sind projektspezifisch.** GUIDs für Profil-Attribute (z. B. „HEA 200") sind projektabhängig und können sich zwischen Projekten unterscheiden. Immer über `attributes_get_attribute_ids_by_type` mit `"Profile"` frisch ermitteln.
 
