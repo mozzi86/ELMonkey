@@ -8,7 +8,9 @@ MCP-Server für Archicad mit ELMonkey (Tapir eingebaut + ELM_SAB). Ersetzt `tapi
 | `archicad_discover_tools(query, port?, max_results?)` | Stichwortsuche (auch deutsch) im Live-Katalog aus `ELM_SAB.ListCommands` (ab ELMonkey 0.9.30) + wichtige `API.*`-Befehle |
 | `archicad_call_tool(name, arguments)` | `name` = `ELM_SAB.X`, `TapirCommand.X`, `API.X`, eindeutiger Kurzname oder alter tapir-archicad-mcp-Name; `arguments` = `{port, params}` oder Parameter direkt neben `port` |
 
-Installation: `uv tool install "git+https://github.com/mozzi86/-archicad#subdirectory=mcp/elmonkey-mcp"`, Registrierung siehe `recipes/initial-setup.md`.
+Installation: `uv tool install "git+ssh://git@github.com/mozzi86/ELMonkey.git#subdirectory=mcp/elmonkey-mcp"` (Repo privat), Einrichtung je KI: [`clients/`](../../clients/).
+
+**Add-ons** (`ELMONKEY_ADDONS`, Standard `archicad,kern`): `archicad` = die drei Werkzeuge oben, `kern` = `elmonkey_finden` (Kern-Suche für Bauteillisten aus jeder Quelle).
 Keine schweren Abhängigkeiten (nur `mcp`), HTTP per Standardbibliothek, Zeitgrenze 600 s je Aufruf.
 
 Tests ohne Archicad: `python tests/test_catalog.py`.

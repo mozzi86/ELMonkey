@@ -1,0 +1,5 @@
+{
+  "servers": {
+    "archicad": { "type": "stdio", "command": "elmonkey-mcp" }
+  }
+}

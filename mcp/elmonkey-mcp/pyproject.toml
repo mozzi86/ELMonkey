@@ -1,9 +1,12 @@
 [project]
 name = "elmonkey-mcp"
-version = "0.1.0"
-description = "MCP-Server fuer Archicad mit ELMonkey (Tapir + ELM_SAB) - Schwarz Architekturbuero"
+version = "0.2.0"
+description = "ELMonkey-MCP: ein Server, Add-ons je Quelle (Archicad, Kern) - Schwarz Architekturbuero"
 requires-python = ">=3.10"
-dependencies = ["mcp>=1.2,<2"]
+dependencies = ["mcp>=1.2,<2", "elmonkey-core"]
+
+[tool.uv.sources]
+elmonkey-core = { path = "../../core" }
 
 [project.scripts]
 elmonkey-mcp = "elmonkey_mcp.server:main"

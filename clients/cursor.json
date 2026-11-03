@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "archicad": { "command": "elmonkey-mcp", "env": { "ELMONKEY_ADDONS": "archicad,kern" } }
+  }
+}
