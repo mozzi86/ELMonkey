@@ -1,6 +1,6 @@
 # ELMonkey als eigenes Repo – Umbauplan (03.11.2026)
 
-**Stand:** Schritte 1–3 erledigt. Kern gegen die 16 Plattform-Tests aus PR #95 geprüft; MCP-Server mit Historie umgezogen (Add-ons archicad + kern), Client-Konfigurationen für Claude, Cursor, VS Code, Codex.
+**Stand:** Schritte 1–4 erledigt (03.11.2026). Kern + MCP 0.2.0; Archicad-Add-On 0.10.4 mit Historie umgezogen, CI 8/8 grün im öffentlichen ELMonkey (macOS-Runner-Engpass → Jobs ggf. neu starten), Release `elm-sab-tapir-latest` mit allen Bundles; Update-Prüfung und Installer zeigen auf ELMonkey. -archicad unverändert, Kollegen installieren dort weiter.
 
 **Ziel:** Ein neues privates Repo `mozzi86/ELMonkey`: ein MCP-Plugin mit gemeinsamem Python-Kern
 und zwei Add-ons (Archicad, Schwarz Plattform). Jede KI soll sich wohlfühlen:
