@@ -75,7 +75,10 @@ GS::Optional<GS::UniString> SetLayerAttributesELMCommand::GetInputParametersSche
                         "layerIndex": { "type": "integer", "description": "Ebene per echtem Attribut-Index (siehe GetLayers)." },
                         "hidden":     { "type": "boolean" },
                         "locked":     { "type": "boolean" },
-                        "wireframe":  { "type": "boolean" }
+                        "wireframe":  { "type": "boolean" },
+                        "isHidden":    { "type": "boolean", "description": "Alias zu hidden (gleicher Name wie TapirCommand.CreateLayers)." },
+                        "isLocked":    { "type": "boolean", "description": "Alias zu locked (gleicher Name wie TapirCommand.CreateLayers)." },
+                        "isWireframe": { "type": "boolean", "description": "Alias zu wireframe (gleicher Name wie TapirCommand.CreateLayers)." }
                     },
                     "additionalProperties": false
                 }
@@ -84,6 +87,17 @@ GS::Optional<GS::UniString> SetLayerAttributesELMCommand::GetInputParametersSche
         "additionalProperties": false,
         "required": ["layers"]
     })";
+}
+
+// 0.10.4: liest ein Flag unter zwei Namen (z. B. hidden / isHidden). Widerspruch -> conflict.
+static void ReadFlagWithAliasELM (const GS::ObjectState& item, const char* name, const char* alias, bool& value, bool& has, bool& conflict)
+{
+    bool a = false, b = false;
+    const bool hasA = item.Get (name, a);
+    const bool hasB = item.Get (alias, b);
+    has = hasA || hasB;
+    conflict = hasA && hasB && (a != b);
+    value = hasA ? a : b;
 }
 
 GS::ObjectState SetLayerAttributesELMCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl&) const
@@ -132,9 +146,22 @@ GS::ObjectState SetLayerAttributesELMCommand::Execute (const GS::ObjectState& pa
         r.Add ("layerName", GS::UniString (attr.header.name));
 
         bool wantHidden = false, wantLocked = false, wantWire = false;
-        const bool hasHidden = item.Get ("hidden", wantHidden);
-        const bool hasLocked = item.Get ("locked", wantLocked);
-        const bool hasWire   = item.Get ("wireframe", wantWire);
+        bool hasHidden = false, hasLocked = false, hasWire = false;
+        bool confHidden = false, confLocked = false, confWire = false;
+        ReadFlagWithAliasELM (item, "hidden", "isHidden", wantHidden, hasHidden, confHidden);
+        ReadFlagWithAliasELM (item, "locked", "isLocked", wantLocked, hasLocked, confLocked);
+        ReadFlagWithAliasELM (item, "wireframe", "isWireframe", wantWire, hasWire, confWire);
+        if (confHidden || confLocked || confWire) {
+            GS::UniString msg ("[CONFLICT] ");
+            bool first = true;
+            if (confHidden) { msg += "hidden und isHidden widersprechen sich"; first = false; }
+            if (confLocked) { msg += first ? "" : "; "; msg += "locked und isLocked widersprechen sich"; first = false; }
+            if (confWire)   { msg += first ? "" : "; "; msg += "wireframe und isWireframe widersprechen sich"; }
+            r.Add ("success", false);
+            r.Add ("error", ErrOSELM (APIERR_BADPARS, msg));
+            results (r);
+            continue;
+        }
         // Typ vom Archicad-Feld nehmen: AC27/28 short, AC29 GSFlags (MSVC: Warnung = Fehler).
         using FlagT = decltype (attr.header.flags);
         FlagT flags = attr.header.flags;

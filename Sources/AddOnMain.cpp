@@ -1613,7 +1613,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<SetPenOfElementsCommand> (
             elmSabCommands, "0.9.0",
-            "ELM_SAB: Setzt Stifte (Kontur/Schraffur-VG/HG, Text-Deckung) von 2D-Elementen; optional ueber mehrere Datenbanken. 0.9.24: Aufruffehler kommen schemakonform beim Client an (statt 4009)."
+            "ELM_SAB: Setzt Stifte (Kontur/Schraffur-VG/HG, Text-Deckung) von 2D-Elementen; optional ueber mehrere Datenbanken. 0.9.24: Aufruffehler kommen schemakonform beim Client an (statt 4009). 0.10.4: Fehler je Element mit code, elementType, layerIndexActual/layerNameActual und Grund (nicht lesbar / Archicad lehnt ab / Ruecklese weicht ab)."
         );
         err |= RegisterCommand<GetPenOfElementsCommand> (
             elmSabCommands, "0.9.0",
@@ -1777,7 +1777,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<SetLayerAttributesELMCommand> (
             elmSabCommands, "0.9.32",
-            "ELM_SAB: Blendet Ebenen ein/aus, sperrt/entsperrt sie, setzt Drahtmodell - per layerName oder layerIndex, mit Ruecklese je Ebene."
+            "ELM_SAB: Blendet Ebenen ein/aus, sperrt/entsperrt sie, setzt Drahtmodell - per layerName oder layerIndex, mit Ruecklese je Ebene. 0.10.4: nimmt auch isHidden/isLocked/isWireframe (wie TapirCommand.CreateLayers); widerspruechliche Angaben -> Fehler je Ebene."
         );
         err |= RegisterCommand<GetSlabLevelsELMCommand> (
             elmSabCommands, "0.9.32",
