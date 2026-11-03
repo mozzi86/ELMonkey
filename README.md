@@ -6,7 +6,7 @@ Add-ons für die Quellen, in denen gearbeitet wird:
 | Teil | Ordner | Stand |
 |---|---|---|
 | **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese | [`core/`](core/) | ✅ 0.1.0, 11 Tests |
-| **Add-on Schwarz Plattform** – Kern mit den Plattform-Regeln, Grundmodell + Änderungsschicht | [`platform-addon/`](platform-addon/) | ✅ gegen die 16 Plattform-Tests aus PR #95 geprüft, noch nicht eingebaut |
+| **Add-on Schwarz Plattform** – Kern mit den Plattform-Regeln | lebt in der (privaten) Schwarz Plattform | ✅ Adapter gegen die 16 Plattform-Tests geprüft, Einbau nach Abstimmung |
 | **MCP-Server** `elmonkey-mcp` 0.2.0 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ umgezogen (mit Historie), 7 Tests, live gegen Archicad gelesen |
 | **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir, CI, Installer | [`archicad-addon/`](archicad-addon/) | ⏳ zieht aus `mozzi86/-archicad` um |
 | **Skill Archicad** – Arbeitswissen für Claude | [`skills/`](skills/) | ⏳ zieht aus `mozzi86/-archicad` um |

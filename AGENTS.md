@@ -21,5 +21,5 @@ Diese Regeln gelten überall gleich.
 
 - `core/` – Kern `elmonkey` (Python, nur Standardbibliothek). Neutrales Bauteil:
   `{guid, type, name, properties{…}, ausgeblendet?, geaendert?, plattform?, vertices?}`.
-- `platform-addon/` – Kern mit den Plattform-Regeln.
+- Schwarz Plattform: nutzt denselben Kern mit eigenen `Regeln`; der Adapter lebt in der Plattform (privat).
 - `mcp/`, `archicad-addon/`, `skills/`, `plugin/`, `clients/` – im Umzug aus `mozzi86/-archicad`.

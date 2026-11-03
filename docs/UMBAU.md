@@ -23,7 +23,6 @@ ELMonkey/
 │       ├─ archicad/         JSON-API + ELMonkey-Add-On (Discovery, call_tool, Finden auf Archicad-Daten)
 │       └─ schwarzplattform/ Anbindung an den Plattform-Konnektor (später, braucht Zugang)
 ├─ archicad-addon/           C++-Add-On ELM_SAB_Tapir (heute: -archicad/ELM_SAB_Tapir) + CI + Installer
-├─ platform-addon/           Kern-Adapter für die Schwarz Plattform (aus PR #95: Grundmodell + Änderungsschicht)
 ├─ skills/archicad/          der heutige Archicad-Skill (SKILL.md, reference/, recipes/)
 ├─ plugin/                   .claude-plugin/plugin.json, .mcp.json, Befehle
 └─ clients/                  fertige MCP-Konfigurationen für Claude Desktop, Cursor, Codex, ChatGPT
@@ -53,3 +52,6 @@ ELMonkey/
 - Repo-Name genau `ELMonkey`, privat (Vorschlag).
 - Historie mitnehmen (filter-repo) oder frisch starten (Vorschlag: mitnehmen für Add-On und Skill).
 - Plattform-Add-on im MCP-Server: über den Plattform-Konnektor (Token nötig) oder nur als Kern-Adapter.
+
+**Entscheidung 03.11.2026:** ELMonkey wird **öffentlich** (kostenlose CI, Installer ohne Anmeldung).
+Der Plattform-Adapter gehört in die private Schwarz Plattform und ist hier aus der Historie entfernt.
