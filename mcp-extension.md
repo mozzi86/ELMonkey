@@ -2112,3 +2112,11 @@ Alle übrigen Stiftfelder (`coreSymbolPen`, `hiddenLinePen`, `refPen`, `hiddenCo
 * **0.10.3:** `GetElementEditState` (`reservedByUser`, `isReservedByMe`, Sperrgrund) und die Teamwork-Filter in `FindElements` (frei/meine/fremde) lesen jetzt ebenfalls `userId`; `lockUserId` bleibt als Rohwert in der Ausgabe.
 * **0.10.3 Ausgabe Bauteilstifte:** Ohne Überschreibung liefern Get und Set (`before`/`after`/`readBack`) nur `{"overridden": false}` ohne `pen` — Archicad setzt den Wert beim Abschalten auf 0, ein mitgeschriebener Alt-Stift sah wie eine Rücklese-Abweichung aus (THN: 595 Schein-Abweichungen bei korrektem Modell). Vergleiche immer über `overridden` (und `pen` nur wenn `overridden`).
 * **Testlücke:** Das leere Testprojekt hat kein Teamwork — Reservierungslogik nur in einem Teamwork-Projekt prüfbar (dort nur lesen bzw. mit Freigabe).
+
+## ELMonkey 0.10.4 — SetLayerAttributes-Aliasse, SetLayerOfElements-Diagnose <!-- 2026-11-03 -->
+
+* **Befund live 03.11.** (eingebautes 0.10.3, Port 19731, unbenanntes Projekt): `ELM_SAB.SetLayerAttributes` mit `isHidden` -> 4002 Schemafehler, weil `TapirCommand.CreateLayers` diese Namen nutzt, SetLayerAttributes aber nur `hidden`/`locked`/`wireframe` kannte.
+* **Fix 0.10.4:** `isHidden`/`isLocked`/`isWireframe` sind als Alias zulaessig (`additionalProperties:false` bleibt). Widerspruechliche Angaben (z. B. `hidden:true` + `isHidden:false`) ergeben `[CONFLICT]` NUR fuer diese Ebene, die uebrigen laufen weiter. Die Antwort meldet weiter `hidden`/`locked`/`wireframe`.
+* **SetLayerOfElements:** Eine Tuer (Door, in einer Wand) liess sich nicht von A_01_TRAGWAND auf A_013_TUER umstellen, die Sammelmeldung verschwieg die Ursache; Ursache noch offen. Neu je fehlgeschlagenem Element: `error.code`, `elementType`, `layerIndexTarget`, `layerIndexActual`, `layerNameActual` und eine unterscheidbare Meldung: "Element nicht lesbar", "Archicad lehnt Aenderung ab (code N)", "Ruecklese nicht moeglich" bzw. "Ruecklese weicht ab (Ist-Ebene X)". Erfolgszweig, Reservierung und Undo-Scope unveraendert. Es wurde bewusst kein Workaround geraten.
+* **Offen:** Beim naechsten Live-Test die Tuer erneut probieren und Code + Ist-Ebene hier nachtragen.
+* **Testluecke:** nur Code-Lesung + CI-Build, noch nicht live getestet.
