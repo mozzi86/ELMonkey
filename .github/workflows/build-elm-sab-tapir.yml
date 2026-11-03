@@ -1,0 +1,280 @@
+name: Build ELM_SAB_Tapir (Kombi-Add-On, AC27/28/29/30)
+
+permissions:
+  contents: write
+
+# Negationen nach pyRevit-Vorbild (Fingerprint-Idee, billige Variante): Doku- und
+# Beispiel-Änderungen unterhalb von archicad-addon/ELM_SAB_Tapir/ ändern nichts am Bundle — ein
+# 6-Kombi-Lauf kostet aber zweistellige macOS-Minuten (zählen zehnfach).
+on:
+  push:
+    paths:
+      - 'archicad-addon/ELM_SAB_Tapir/**'
+      - '!archicad-addon/ELM_SAB_Tapir/**/*.md'
+      - '!archicad-addon/ELM_SAB_Tapir/Examples/**'
+      - '.github/workflows/build-elm-sab-tapir.yml'
+      - 'archicad-addon/installer/**'
+  workflow_dispatch:
+
+env:
+  RELEASE_TAG: elm-sab-tapir-latest
+
+# Ein zweiter Push soll den laufenden Build ablösen statt daneben weiterzulaufen —
+# macOS-Runner zählen zehnfach auf das Minutenkonto privater Repos.
+concurrency:
+  group: elm-sab-tapir-${{ github.ref }}
+  cancel-in-progress: true
+
+# Jede Archicad-Hauptversion braucht ihr eigenes Bundle — ein AC29-Bundle lädt nicht in
+# AC28 und erscheint dort gar nicht im Add-On-Manager, ohne Fehlermeldung.
+#
+# fail-fast ist aus: eine kaputte Version darf die anderen nicht mitreißen.
+# Veröffentlicht wird erst am Ende in EINEM Job — sechs parallele Release-Writes auf
+# denselben Tag überschreiben sich gegenseitig.
+#
+# DevKit-Builds bewusst identisch mit dem Upstream-Tapir-CI (27.3001 / 28.3001 / 29.3000 / 30.3000),
+# weil dort genau dieser Quellstand damit für AC25–29 grün baut. Neuere Builds existieren
+# (27.6003, 28.4001, 29.3100), sind für diese Quellen aber unerprobt — nur wechseln, wenn
+# es einen Grund gibt.
+#
+# ELMonkey 0.10.0: AC30 dazu (Tapir 1.7.2 baut es mit DevKit 30.3000, v143 / macos-latest).
+# Windows: Toolset v142 für AC27/28, v143 ab AC29 (Upstream-Split). Der Runner ist auf
+# windows-2022 gepinnt, weil v142 auf dem windows-2025-Image nicht mehr mitkommt.
+# macOS: ein Xcode-Generator für alle Versionen; ab AC26 baut CMakeCommon.cmake universal
+# (x86_64 + arm64), macos-latest genügt daher.
+# Bei Engpässen bricht GitHub wartende Mac-Jobs nach ~15 min mit "cancelled" ab ("The job was not
+# acquired by Runner of type hosted even after multiple attempts", 20.10.2026) - kein Code-Fehler,
+# einfach erneut auslösen (Re-run failed jobs bzw. neuer Push).
+
+jobs:
+  build_mac:
+    name: macOS AC${{ matrix.ac }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ac: 30
+            devkit: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/30.3000/API.Development.Kit.MAC.30.3000.zip
+          - ac: 29
+            devkit: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/29.3000/API.Development.Kit.MAC.29.3000.zip
+          - ac: 28
+            devkit: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/28.3001/API.Development.Kit.MAC.28.3001.zip
+          - ac: 27
+            devkit: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/27.3001/API.Development.Kit.MAC.27.3001.zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: DevKit ${{ matrix.ac }} laden
+        run: python3 archicad-addon/ELM_SAB_Tapir/Tools/download_and_unzip.py "${{ matrix.devkit }}" archicad-addon/ELM_SAB_Tapir/Build/DevKits/AC${{ matrix.ac }}
+
+      - name: DevKit-Layout prüfen
+        run: |
+          SUP="archicad-addon/ELM_SAB_Tapir/Build/DevKits/AC${{ matrix.ac }}/Support"
+          if [ ! -d "$SUP" ]; then
+            echo "::error::Support-Ordner fehlt unter $SUP — das ZIP-Layout weicht ab."
+            find archicad-addon/ELM_SAB_Tapir/Build/DevKits/AC${{ matrix.ac }} -maxdepth 2
+            exit 1
+          fi
+          echo "Support-Ordner ok: $SUP"
+
+      - name: Projekt generieren
+        run: |
+          set -o pipefail
+          cmake -B archicad-addon/ELM_SAB_Tapir/Build -G "Xcode" \
+            -DAC_VERSION=${{ matrix.ac }} \
+            -DAC_API_DEVKIT_DIR="archicad-addon/ELM_SAB_Tapir/Build/DevKits/AC${{ matrix.ac }}/Support" \
+            archicad-addon/ELM_SAB_Tapir 2>&1 | tee cmake-mac-AC${{ matrix.ac }}.log
+
+      - name: Bauen (RelWithDebInfo)
+        run: |
+          set -o pipefail
+          cmake --build archicad-addon/ELM_SAB_Tapir/Build --config RelWithDebInfo 2>&1 | tee build-mac-AC${{ matrix.ac }}.log
+
+      - name: Ad-hoc signieren und zippen
+        run: |
+          BUNDLE=$(find archicad-addon/ELM_SAB_Tapir/Build -name "*.bundle" -not -path "*DevKit*" | head -1)
+          if [ -z "$BUNDLE" ]; then
+            echo "::error::Kein .bundle gefunden — der Build hat nichts erzeugt."
+            exit 1
+          fi
+          echo "Bundle: $BUNDLE"
+          codesign --force --deep -s - "$BUNDLE"
+          ditto -c -k --keepParent "$BUNDLE" ELM_SAB_Tapir_AC${{ matrix.ac }}_Mac.zip
+
+      - name: Artefakt und Logs hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-AC${{ matrix.ac }}
+          path: |
+            ELM_SAB_Tapir_AC${{ matrix.ac }}_Mac.zip
+            cmake-mac-AC${{ matrix.ac }}.log
+            build-mac-AC${{ matrix.ac }}.log
+          if-no-files-found: warn
+
+  build_win:
+    name: Windows AC${{ matrix.ac }}
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ac: 30
+            devkit: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/30.3000/API.Development.Kit.WIN.30.3000.zip
+            toolset: v143
+          - ac: 29
+            devkit: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/29.3000/API.Development.Kit.WIN.29.3000.zip
+            toolset: v143
+          - ac: 28
+            devkit: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/28.3001/API.Development.Kit.WIN.28.3001.zip
+            toolset: v142
+          - ac: 27
+            devkit: https://github.com/GRAPHISOFT/archicad-api-devkit/releases/download/27.3001/API.Development.Kit.WIN.27.3001.zip
+            toolset: v142
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: DevKit ${{ matrix.ac }} laden
+        run: python Tools/download_and_unzip.py "${{ matrix.devkit }}" Build/DevKits/AC${{ matrix.ac }}
+        working-directory: archicad-addon/ELM_SAB_Tapir
+
+      - name: DevKit-Layout prüfen
+        run: |
+          SUP="archicad-addon/ELM_SAB_Tapir/Build/DevKits/AC${{ matrix.ac }}/Support"
+          if [ ! -d "$SUP" ]; then
+            echo "::error::Support-Ordner fehlt unter $SUP — das ZIP-Layout weicht ab."
+            find archicad-addon/ELM_SAB_Tapir/Build/DevKits/AC${{ matrix.ac }} -maxdepth 2
+            exit 1
+          fi
+          echo "Support-Ordner ok: $SUP"
+
+      - name: Projekt generieren (Toolset ${{ matrix.toolset }})
+        run: |
+          set -o pipefail
+          cmake -B archicad-addon/ELM_SAB_Tapir/Build -G "Visual Studio 17 2022" -A "x64" -T "${{ matrix.toolset }}" \
+            -DAC_VERSION=${{ matrix.ac }} \
+            -DAC_API_DEVKIT_DIR="archicad-addon/ELM_SAB_Tapir/Build/DevKits/AC${{ matrix.ac }}/Support" \
+            archicad-addon/ELM_SAB_Tapir 2>&1 | tee cmake-win-AC${{ matrix.ac }}.log
+
+      - name: Bauen (RelWithDebInfo)
+        run: |
+          set -o pipefail
+          cmake --build archicad-addon/ELM_SAB_Tapir/Build --config RelWithDebInfo 2>&1 | tee build-win-AC${{ matrix.ac }}.log
+
+      - name: .apx einsammeln
+        run: |
+          APX=$(find archicad-addon/ELM_SAB_Tapir/Build -name "*.apx" -not -path "*DevKit*" | head -1)
+          if [ -z "$APX" ]; then
+            echo "::error::Keine .apx gefunden — der Build hat nichts erzeugt."
+            exit 1
+          fi
+          echo "APX: $APX"
+          cp "$APX" ELM_SAB_Tapir_AC${{ matrix.ac }}_Win.apx
+
+      - name: Artefakt und Logs hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-AC${{ matrix.ac }}
+          path: |
+            ELM_SAB_Tapir_AC${{ matrix.ac }}_Win.apx
+            cmake-win-AC${{ matrix.ac }}.log
+            build-win-AC${{ matrix.ac }}.log
+          if-no-files-found: warn
+
+  publish:
+    name: In Release veröffentlichen
+    needs: [build_mac, build_win]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      # Muss der erste Schritt bleiben — checkout räumt das Arbeitsverzeichnis auf und
+      # würde sonst die heruntergeladenen Artefakte wieder wegwerfen.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Alle Artefakte einsammeln
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flach zusammenlegen und Bilanz ziehen
+        run: |
+          mkdir -p out
+          find dist -type f \( -name '*.zip' -o -name '*.apx' -o -name '*.log' \) -exec cp {} out/ \;
+          # ELMonkey 0.9.30: Version fuer Release-Namen (liest der Versionspruefer im Add-On)
+          # und die Installer als Assets mitliefern.
+          ELM_VER=$(sed -n 's/^#define ELM_SAB_VERSION "\(.*\)"/\1/p' archicad-addon/ELM_SAB_Tapir/Sources/AddOnVersion.hpp)
+          echo "ELM_VER=${ELM_VER}" >> "$GITHUB_ENV"
+          echo "${ELM_VER}" > out/elmonkey-version.txt
+          cp archicad-addon/installer/ELMonkey-Installer-Mac.command archicad-addon/installer/ELMonkey-Installer-Windows.ps1 archicad-addon/installer/ELMonkey-Installer-Windows.cmd out/ 2>/dev/null || true
+          {
+            echo "**ELMonkey ${ELM_VER}** — Installation: Archicad beenden, \`ELMonkey-Installer-Mac.command\` (Mac) bzw. \`ELMonkey-Installer-Windows.cmd\` (Windows) laden und doppelklicken."
+            echo
+            echo "Gebaut aus \`${GITHUB_SHA:0:7}\` — Basis Tapir 1.5.4 plus die SAB-eigenen Befehle."
+            echo
+            echo "| Archicad | macOS | Windows |"
+            echo "|---|---|---|"
+            for ac in 30 29 28 27; do
+              M="**fehlgeschlagen**"; W="**fehlgeschlagen**"
+              [ -f "out/ELM_SAB_Tapir_AC${ac}_Mac.zip" ] && M="\`ELM_SAB_Tapir_AC${ac}_Mac.zip\`"
+              [ -f "out/ELM_SAB_Tapir_AC${ac}_Win.apx" ] && W="\`ELM_SAB_Tapir_AC${ac}_Win.apx\`"
+              echo "| AC${ac} | ${M} | ${W} |"
+            done
+            echo
+            echo "Zu jeder fehlgeschlagenen Version liegt das passende \`build-*.log\` als Asset bei."
+            echo "Auf macOS nach dem Entpacken \`xattr -dr com.apple.quarantine\` auf das Bundle anwenden."
+          } > body.md
+          echo "---- Release-Text ----"; cat body.md
+          echo "---- Assets ----"; ls -l out/
+
+      # Der Zweig ci-status trägt das Ergebnis jedes Laufs in Textform. Anders als
+      # Actions-Logs und Release-Assets ist er in einem privaten Repo auch per SSH
+      # lesbar — `git fetch origin ci-status && git show origin/ci-status:status.md`.
+      # Der Zweig liegt außerhalb der paths-Filter oben, löst also keinen neuen Lauf aus.
+      #
+      # Seit 2026-08-03 wandern auch die gebauten Add-On-Dateien mit (`bundles/`). Grund:
+      # Release-Assets brauchen einen Token, und ein nicht angemeldetes `gh` ist keins.
+      # Damit ist ein Bundle-Tausch ohne Browser und ohne Anmeldung möglich:
+      #   git fetch origin ci-status
+      #   git show origin/ci-status:bundles/ELM_SAB_Tapir_AC29_Mac.zip > bundle.zip
+      # Der Zweig wird als Waisen-Commit force-gepusht, wächst also nicht mit jedem Lauf.
+      - name: Status und Bundles auf Zweig ci-status ablegen
+        run: |
+          cp body.md status.md
+          { echo "Commit: ${GITHUB_SHA}"; echo "Lauf:   ${GITHUB_RUN_ID}"; echo; ls -l out/; } > assets.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan ci-status-tmp
+          git rm -rq --cached . || true
+          mkdir -p logs && cp out/*.log logs/ 2>/dev/null || true
+          mkdir -p bundles && cp out/*.zip out/*.apx bundles/ 2>/dev/null || true
+          echo "---- was auf ci-status landet ----"; ls -l bundles/ || true
+          git add -f status.md assets.txt logs bundles
+          git commit -qm "Build-Status ${GITHUB_SHA:0:7} (Lauf ${GITHUB_RUN_ID})"
+          git push -qf origin HEAD:refs/heads/ci-status
+
+      # ELMonkey 0.9.30: Das Release ist die Installationsquelle fuer alle Kollegen (Installer,
+      # Update-Hinweis im Add-On) - es darf nur den main-Stand zeigen. Branch-Builds landen
+      # weiterhin auf ci-status.
+      - name: Release aktualisieren
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ env.RELEASE_TAG }}
+          # Den rollenden Tag auf den gebauten Commit ziehen. Ohne das bleibt er beim
+          # ersten Build stehen, und man kann von außen nicht erkennen, aus welchem
+          # Stand die Assets stammen.
+          commit: ${{ github.sha }}
+          name: "ELMonkey ${{ env.ELM_VER }} — AC27/28/29/30 (CI)"
+          bodyFile: body.md
+          prerelease: true
+          allowUpdates: true
+          artifacts: "out/*"
+          token: ${{ secrets.GITHUB_TOKEN }}

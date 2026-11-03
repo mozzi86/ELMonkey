@@ -41,7 +41,7 @@ void AboutDialog::ButtonClicked (const DG::ButtonClickEvent& ev)
     }
 }
 
-// ELMonkey 0.9.30: Update-Pruefung gegen das eigene Release (github.com/mozzi86/-archicad,
+// ELMonkey 0.9.30: Update-Pruefung gegen das eigene Release (github.com/mozzi86/ELMonkey,
 // Tag elm-sab-tapir-latest). Installiert NICHTS selbst - ein Add-On kann sich im laufenden
 // Archicad nicht ersetzen; installiert wird per Installer bei beendetem Archicad.
 void AboutDialog::CheckForUpdate ()
@@ -86,7 +86,7 @@ void AboutDialog::CheckForUpdate ()
 void AboutDialog::RunSelfUpdate (const GS::UniString& latest)
 {
     const GS::UniString ac = GS::ValueToUniString (VersionChecker::AcMainVersion ());
-    const GS::UniString base ("https://github.com/mozzi86/-archicad/releases/download/elm-sab-tapir-latest/");
+    const GS::UniString base ("https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest/");
 #ifdef WINDOWS
     const GS::UniString command = GS::UniString ("powershell -NoProfile -ExecutionPolicy Bypass -Command \"")
         + GS::UniString ("$p = Join-Path $env:TEMP 'ELMonkey-Installer-Windows.ps1'; ")

@@ -8,7 +8,7 @@ Add-ons für die Quellen, in denen gearbeitet wird:
 | **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese | [`core/`](core/) | ✅ 0.1.0, 11 Tests |
 | **Add-on Schwarz Plattform** – Kern mit den Plattform-Regeln | lebt in der (privaten) Schwarz Plattform | ✅ Adapter gegen die 16 Plattform-Tests geprüft, Einbau nach Abstimmung |
 | **MCP-Server** `elmonkey-mcp` 0.2.0 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ umgezogen (mit Historie), 7 Tests, live gegen Archicad gelesen |
-| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir, CI, Installer | [`archicad-addon/`](archicad-addon/) | ⏳ zieht aus `mozzi86/-archicad` um |
+| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.10.4, CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie); Update-Prüfung und Installer zeigen auf das ELMonkey-Release |
 | **Skill Archicad** – Arbeitswissen für Claude | [`skills/`](skills/) | ⏳ zieht aus `mozzi86/-archicad` um |
 | **Client-Konfigurationen** (Claude Desktop/Code, Cursor, VS Code, Codex) | [`clients/`](clients/) | ✅ |
 | **Claude-Plugin** | [`plugin/`](plugin/) | ⏳ |

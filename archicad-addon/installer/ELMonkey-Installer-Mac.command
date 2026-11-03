@@ -1,16 +1,16 @@
 #!/bin/bash
 # ELMonkey-Installer für macOS (Archicad 27/28/29/30).
-# - lädt das passende ELMonkey-Bundle aus dem Release github.com/mozzi86/-archicad (elm-sab-tapir-latest)
+# - lädt das passende ELMonkey-Bundle aus dem Release github.com/mozzi86/ELMonkey (elm-sab-tapir-latest)
 # - sichert vorhandene ELMonkey- UND Vanilla-Tapir-Bundles nach ~/ELM_SAB_Backups/<Zeitstempel>/
 #   (ELMonkey enthält Tapir vollständig; zwei Add-Ons mit demselben TapirCommand-Namensraum stören sich)
 # - entfernt die macOS-Quarantäne
 # Aufruf: Doppelklick, oder im Terminal:
-#   curl -fsSL https://raw.githubusercontent.com/mozzi86/-archicad/main/installer/ELMonkey-Installer-Mac.command | bash
+#   curl -fsSL https://raw.githubusercontent.com/mozzi86/ELMonkey/main/archicad-addon/installer/ELMonkey-Installer-Mac.command | bash
 # Test ohne echte Installation: ELM_AC_ROOT=/pfad/zu/fake-Applications ELM_DRY_RUN=1 bash ELMonkey-Installer-Mac.command
 # Aus dem Add-On (Knopf „Jetzt aktualisieren"): ELM_FROM_ADDON=1 ELM_ONLY_AC=29 — nur diese Version, kein
 # Abbruch bei laufendem Archicad (Tausch wirkt nach Neustart), kein sudo, keine Rückfrage.
 set -u
-REL="https://github.com/mozzi86/-archicad/releases/download/elm-sab-tapir-latest"
+REL="https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest"
 AC_ROOT="${ELM_AC_ROOT:-/Applications}"
 DRY="${ELM_DRY_RUN:-0}"
 FROM_ADDON="${ELM_FROM_ADDON:-0}"

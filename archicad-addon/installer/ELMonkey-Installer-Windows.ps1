@@ -1,5 +1,5 @@
 # ELMonkey-Installer fuer Windows (Archicad 27/28/29/30).
-# - laedt das passende ELMonkey-Add-On (.apx) aus dem Release github.com/mozzi86/-archicad (elm-sab-tapir-latest)
+# - laedt das passende ELMonkey-Add-On (.apx) aus dem Release github.com/mozzi86/ELMonkey (elm-sab-tapir-latest)
 # - sichert vorhandene ELMonkey- UND Vanilla-Tapir-Add-Ons nach %USERPROFILE%\ELM_SAB_Backups\<Zeitstempel>\
 #   (ELMonkey enthaelt Tapir vollstaendig; zwei Add-Ons mit demselben TapirCommand-Namensraum stoeren sich)
 # Start: ELMonkey-Installer-Windows.cmd doppelklicken (holt Administratorrechte).
@@ -9,7 +9,7 @@ param([string]$AcRoot = $env:ProgramFiles, [switch]$DryRun, [string]$BackupRoot 
 # -FromAddOn -OnlyAc 29: Aufruf aus dem Add-On (Knopf "Jetzt aktualisieren") - nur diese Version, kein Abbruch bei
 # laufendem Archicad (geladenes .apx wird umbenannt/verschoben, Tausch wirkt nach Neustart), keine Rueckfrage.
 $ErrorActionPreference = "Stop"
-$Rel = "https://github.com/mozzi86/-archicad/releases/download/elm-sab-tapir-latest"
+$Rel = "https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest"
 $Stamp = Get-Date -Format "yyyy-MM-dd_HHmmss"
 $Backup = Join-Path $BackupRoot $Stamp
 $Tmp = Join-Path $env:TEMP ("elmonkey_" + $Stamp)

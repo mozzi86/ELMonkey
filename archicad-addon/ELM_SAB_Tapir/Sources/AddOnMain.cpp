@@ -145,7 +145,7 @@ static GSErrCode MenuCommandHandler (const API_MenuParams* menuParams)
                             DGAlert (DG_INFORMATION,
                                 GS::UniString ("ELMonkey-Update verfuegbar"),
                                 GS::UniString ("Installiert: ") + GS::UniString (ELM_SAB_VERSION) + GS::UniString ("  -  Neu: ") + VersionChecker::LatestVersion (),
-                                GS::UniString ("Archicad beenden und den ELMonkey-Installer ausfuehren (Releases: github.com/mozzi86/-archicad). Direktdownload: ") + VersionChecker::LatestVersionDownloadUrl (),
+                                GS::UniString ("Archicad beenden und den ELMonkey-Installer ausfuehren (Releases: github.com/mozzi86/ELMonkey). Direktdownload: ") + VersionChecker::LatestVersionDownloadUrl (),
                                 GS::UniString ("OK"));
                         } else if (VersionChecker::IsNewerVersionWithoutAddOn ()) {
                             DGAlert (DG_INFORMATION, GS::UniString ("ELMonkey-Update"),

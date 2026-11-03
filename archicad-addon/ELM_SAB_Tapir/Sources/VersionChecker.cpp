@@ -239,7 +239,7 @@ GS::UInt16 VersionChecker::AcMainVersion ()
 
 const GS::UniString& VersionChecker::ReleasePageUrl ()
 {
-    static const GS::UniString url ("https://github.com/mozzi86/-archicad/releases/tag/elm-sab-tapir-latest");
+    static const GS::UniString url ("https://github.com/mozzi86/ELMonkey/releases/tag/elm-sab-tapir-latest");
     return url;
 }
 
@@ -266,7 +266,7 @@ void VersionChecker::GetVersionFromGithub (GS::UInt16 acMainVersion, Result& res
         clientConnection.SetTimeout (VersionCheckTimeoutMs);
         clientConnection.Connect ();
 
-        HTTP::Client::Request request (HTTP::MessageHeader::Method::Get, "/repos/mozzi86/-archicad/releases/tags/elm-sab-tapir-latest");
+        HTTP::Client::Request request (HTTP::MessageHeader::Method::Get, "/repos/mozzi86/ELMonkey/releases/tags/elm-sab-tapir-latest");
         request.GetRequestHeaderFieldCollection ().Add (HTTP::MessageHeader::HeaderFieldName::UserAgent,
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
         clientConnection.Send (request);

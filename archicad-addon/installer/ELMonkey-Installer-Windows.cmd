@@ -5,7 +5,7 @@ setlocal
 set "PS1=%~dp0ELMonkey-Installer-Windows.ps1"
 if not exist "%PS1%" (
   set "PS1=%TEMP%\ELMonkey-Installer-Windows.ps1"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol='Tls12'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/mozzi86/-archicad/releases/download/elm-sab-tapir-latest/ELMonkey-Installer-Windows.ps1' -OutFile '%TEMP%\ELMonkey-Installer-Windows.ps1'"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol='Tls12'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest/ELMonkey-Installer-Windows.ps1' -OutFile '%TEMP%\ELMonkey-Installer-Windows.ps1'"
 )
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"%PS1%\"'"
 endlocal

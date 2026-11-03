@@ -1,0 +1,75 @@
+name: Release-Inventur
+
+# Belegt, welche Dateien wirklich an der rollenden Vorabversion hängen.
+# In einem privaten Repo sind Release-Assets von außen nur mit Token lesbar; innerhalb
+# der Actions gibt es den Token gratis. Das Ergebnis landet als Textdatei auf dem Zweig
+# ci-release und ist damit per SSH abrufbar:
+#   git fetch origin ci-release && git show origin/ci-release:release-inventory.txt
+#
+# Läuft nach jedem Matrix-Build automatisch, damit die Inventur nie veraltet: der
+# Publish-Job schreibt seine Bilanz VOR dem Release-Upload, sein Erfolg allein beweist
+# also nicht, dass die Dateien wirklich am Release hängen. Diese Inventur schaut danach.
+# Der Trigger löst den teuren Matrix-Build nicht aus — das ist ein reiner Ubuntu-Job.
+
+on:
+  workflow_run:
+    workflows: ["Build ELM_SAB_Tapir (Kombi-Add-On, AC27/28/29/30)"]
+    types: [completed]
+  push:
+    paths:
+      - '.github/workflows/release-inventory.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  inventory:
+    name: Assets auflisten
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rollende Vorabversion abfragen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view elm-sab-tapir-latest --repo "$GITHUB_REPOSITORY" \
+                 --json tagName,isDraft,isPrerelease,publishedAt,assets > release.json; then
+            echo "::error::Release elm-sab-tapir-latest nicht abfragbar — existiert es?"
+            echo '{"tagName":"FEHLT","assets":[]}' > release.json
+          fi
+          {
+            echo "Release-Inventur, Lauf ${GITHUB_RUN_ID}, Stand $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo "Tag:          $(jq -r '.tagName' release.json)"
+            echo "Vorabversion: $(jq -r '.isPrerelease' release.json)"
+            echo "Publiziert:   $(jq -r '.publishedAt' release.json)"
+            echo "Anzahl Assets: $(jq -r '.assets | length' release.json)"
+            echo
+            jq -r '.assets[] | [.name, (.size|tostring), .updatedAt] | @tsv' release.json \
+              | sort \
+              | awk -F'\t' '{ printf "%-34s %10s Bytes   %s\n", $1, $2, $3 }'
+            echo
+            echo "Erwartet werden sechs Add-On-Dateien:"
+            for ac in 27 28 29; do
+              for f in "ELM_SAB_Tapir_AC${ac}_Mac.zip" "ELM_SAB_Tapir_AC${ac}_Win.apx"; do
+                if jq -e --arg f "$f" '.assets[] | select(.name == $f)' release.json > /dev/null; then
+                  echo "  vorhanden: $f"
+                else
+                  echo "  FEHLT:     $f"
+                fi
+              done
+            done
+          } > release-inventory.txt
+          cat release-inventory.txt
+
+      - name: Inventur auf Zweig ci-release ablegen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan ci-release-tmp
+          git rm -rq --cached . || true
+          git add -f release-inventory.txt
+          git commit -qm "Release-Inventur (Lauf ${GITHUB_RUN_ID})"
+          git push -qf origin HEAD:refs/heads/ci-release

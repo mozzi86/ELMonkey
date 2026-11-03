@@ -10,7 +10,7 @@
 
 // Looks up the latest Tapir release on GitHub.
 // ELMonkey 0.10.0: Tapirs Hintergrund-Pruefung (1.7.1) uebernommen, aber gegen das ELMonkey-Release
-// (mozzi86/-archicad, Tag elm-sab-tapir-latest, Version im Release-Namen "ELMonkey X.Y.Z") und gegen
+// (mozzi86/ELMonkey, Tag elm-sab-tapir-latest, Version im Release-Namen "ELMonkey X.Y.Z") und gegen
 // ELM_SAB_VERSION statt ADDON_VERSION. Dazu die ELMonkey-Zugriffe fuer den Update-Knopf im Ueber-Dialog.
 // The lookup runs on its own thread (StartCheck) with a bounded timeout, so Archicad never waits for GitHub
 // while it starts or opens a project (#798). Until the lookup completes, or when it fails, the accessors
