@@ -14,6 +14,9 @@ E = [{"name": f"{ns}.{n}", "namespace": ns, "command": n, "group": g, "descripti
          ("ELM_SAB", "SetPenOfElements", "ELM_SAB", "ELM_SAB: Setzt Stifte (Kontur/Schraffur-VG/HG, Text-Deckung) von 2D-Elementen; optional ueber mehrere Datenbanken. 0.9.24: Aufruffehler kommen schemakonform beim Client an (statt 4009)."),
          ("ELM_SAB", "GetConstructionPensOfElements", "ELM_SAB", "ELM_SAB: Liest die Stifte von Bauteilen (Wand, Stuetze, Unterzug, Decke, Dach, Schale, Fassade, Morph): Schnitt-/Kontur-, unverdeckte und Ueberkopf-Linien, Schnittflaechen-Ueberschreibung (overridden/pen), Deckflaechen, dazu Typ, Ebene, Geschoss, Aufbau; includeComposites liefert die Konturstifte der Verbundschichten. Nur lesen."),
          ("ELM_SAB", "SetConstructionPensOfElements", "ELM_SAB", "ELM_SAB: Setzt die Stifte von Bauteilen: cutLinePen/uncutLinePen/overheadLinePen je Typ auf das passende Feld, clearCutFillOverride (Schraffur wieder aus Baustoff/Verbund), Rohfelder ueber fields; dryRun, Vorpruefung [CODE], Teamwork-Reservierung, ein Undo-Schritt, Ruecklese je Element."),
+         ("TapirCommand", "CreateProfiles", "Attribute Commands", "Creates or overwrites Profile attributes as a copy of an existing Profile's geometry, based on the given parameters."),
+         ("TapirCommand", "GetProfiles", "Attribute Commands", "Returns the details of the given Profile attributes."),
+         ("TapirCommand", "CreateMorphs", "Element Commands", "Creates Morph elements from simple box definitions."),
      ]]
 
 
@@ -29,6 +32,14 @@ def test_search_bauteilstifte():
     assert c.search(E, "Schnittflaeche Ueberschreibung loeschen Bauteile")[0]["command"] == "SetConstructionPensOfElements"
 
 
+def test_search_profile_morph():
+    assert c.search(E, "Stahlprofil anlegen")[0]["command"] == "CreateProfiles"
+    assert c.search(E, "IPE Profil anlegen")[0]["command"] == "CreateProfiles"
+    assert c.search(E, "Querschnitt erstellen")[0]["command"] == "CreateProfiles"
+    assert c.search(E, "Morph Koerper erstellen")[0]["command"] == "CreateMorphs"
+    assert c.search(E, "Freiform anlegen")[0]["command"] == "CreateMorphs"
+
+
 def test_resolve():
     assert c.resolve(E, "elements_get_details_of_elements") == ("TapirCommand", "GetDetailsOfElements")
     assert c.resolve(E, "GetStories") == ("TapirCommand", "GetStories")
@@ -42,4 +53,4 @@ def test_resolve():
 
 
 if __name__ == "__main__":
-    test_search_german(); test_search_bauteilstifte(); test_resolve(); print("alle Tests ok")
+    test_search_german(); test_search_bauteilstifte(); test_search_profile_morph(); test_resolve(); print("alle Tests ok")

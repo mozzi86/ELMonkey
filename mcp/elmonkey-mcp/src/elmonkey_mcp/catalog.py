@@ -51,6 +51,10 @@ SYNONYMS = {
     # Zielwoerter, die in Namen/Beschreibungen tatsaechlich vorkommen (Wand -> wall, clearCutFillOverride -> cut/override)
     "waenden": "wall", "wänden": "wall", "schnittflaeche": "cut", "schnittfläche": "cut",
     "ueberschreibung": "override", "überschreibung": "override",
+    # 0.10.4 Stahlprofile / Morph-Koerper (CreateProfiles, GetProfiles, CreateMorphs)
+    "profil": "profile", "profile": "profile", "stahlprofil": "profile", "stahlprofile": "profile",
+    "querschnitt": "profile", "ipe": "profile", "hea": "profile", "heb": "profile", "shs": "profile", "rhs": "profile",
+    "koerper": "morph", "körper": "morph", "freiform": "morph", "volumenkoerper": "morph", "body": "morph",
 }
 
 _cache: dict = {}
