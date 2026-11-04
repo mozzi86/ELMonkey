@@ -62,6 +62,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-11-03 | thn-schalenbau-learnings | Worked Example Kern + Schalen, Gotchas offset/Mittelachse, neue Elemente freigeben, fehlender Grundrissumriss |
 | 2026-11-03 | 261103-m9g | ELMonkey 0.10.4: SetLayerAttributes isHidden/isLocked/isWireframe-Alias, SetLayerOfElements Code+Ist-Ebene je Element, Doku Stahlprofile per CreateProfiles newSkins + Morph body, MCP-Registrierung (CI ausstehend, nicht live getestet) |
 | 2026-11-04 | 261104-g8x | ELMonkey: Kern 0.2.0 mit elmonkey.plattform (16 Plattform-Tests grün über 10-Zeilen-Ersatz), Logo Affe+Python, README zweisprachig, LLM.txt/CLAUDE/AGENTS/UMBAU, Workflows Skill-Spiegel → -archicad + Kern-Release |
+| 2026-11-04 | 261104-k1x | CI: kein Add-On-Build bei Tags; Kern-Release core-v0.2.1 mit Wheel + sha256-Pinzeile (Pin geprüft, falscher Hash abgelehnt) |
 
 ## Performance Metrics
 
