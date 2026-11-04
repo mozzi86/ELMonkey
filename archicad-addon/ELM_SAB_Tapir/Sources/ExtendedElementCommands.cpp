@@ -1989,6 +1989,31 @@ bool ApplyWallDetails (API_Element& element, API_Element& mask, const GS::Object
         ACAPI_ELEMENT_MASK_SET (mask, API_WallType, logHeight);
         changed = true;
     }
+    // ELM_SAB 0.10.8: flipped = Wand an der Referenzlinie spiegeln (Außenseite/erste Schicht
+    // wechselt die Seite). Ohne das liegt die Außenseite immer links der Zeichenrichtung.
+    bool flipped = false;
+    if (details.Get ("flipped", flipped)) {
+        element.wall.flipped = flipped;
+        ACAPI_ELEMENT_MASK_SET (mask, API_WallType, flipped);
+        changed = true;
+    }
+    // ELM_SAB 0.10.8: negativer Bogenwinkel. Archicad speichert nur positive Winkel
+    // (Bogen rechts der Zeichenrichtung) und nimmt bei negativen still den Betrag, der Bogen
+    // zeigte dann zur falschen Seite. Ein negativer Winkel heißt hier: Bogen LINKS der Richtung
+    // beg->end, Außenseite bleibt wo sie ohne Bogen wäre. Umsetzung ohne Geometrieänderung:
+    // Anfang/Ende tauschen, Betrag nehmen, flipped umkehren.
+    if (element.wall.angle < 0.0) {
+        const API_Coord tmp = element.wall.begC;
+        element.wall.begC    = element.wall.endC;
+        element.wall.endC    = tmp;
+        element.wall.angle   = -element.wall.angle;
+        element.wall.flipped = !element.wall.flipped;
+        ACAPI_ELEMENT_MASK_SET (mask, API_WallType, begC);
+        ACAPI_ELEMENT_MASK_SET (mask, API_WallType, endC);
+        ACAPI_ELEMENT_MASK_SET (mask, API_WallType, angle);
+        ACAPI_ELEMENT_MASK_SET (mask, API_WallType, flipped);
+        changed = true;
+    }
     return changed;
 }
 
@@ -3599,7 +3624,8 @@ GS::Optional<GS::UniString> CreateWallsCommand::GetInputParametersSchema () cons
                             "description": "Optional thickness. When omitted, the favorite's or the Wall tool default's thickness is kept. Only takes effect on a Basic (homogeneous) wall - a Composite or Profile wall takes its thickness from the composite or profile attribute. Without structureType the new wall keeps the structure of the favorite (or the wall tool default), which may be a composite; send structureType 'Basic' for the thickness to apply."
                         },
                         "offset": { "type": "number", "description": "Optional reference line offset. When omitted, the favorite's or the Wall tool default's offset is kept." },
-                        "arcAngle": { "type": "number", "description": "Arc angle in radians; non-zero creates a curved wall (begCoordinate/endCoordinate are the chord endpoints)." },
+                        "arcAngle": { "type": "number", "description": "Arc angle in radians; non-zero creates a curved wall (begCoordinate/endCoordinate are the chord endpoints). Positive: arc bulges to the RIGHT of the direction beg->end; negative: to the LEFT (ELM_SAB 0.10.8: stored as swapped beg/end + positive angle + toggled flipped, so the outside face stays on the same side as for the straight wall)." },
+                        "flipped": { "type": "boolean", "description": "ELM_SAB 0.10.8: mirror the wall at its reference line. Unflipped, the outside face (first composite skin) lies LEFT of the direction beg->end." },
                         "referenceLineLocation": {
                             "$ref": "#/WallReferenceLineLocation",
                             "description": "Optional. When omitted, the favorite's or the Wall tool default's reference line location is kept. The Core* values only have an effect on a Composite or Profile wall."
@@ -5656,7 +5682,8 @@ GS::Optional<GS::UniString> ModifyWallsCommand::GetInputParametersSchema () cons
                         "geometryType": { "$ref": "#/WallModificationGeometryType", "description": "Polygonal is not settable here; it is read-only via GetDetailsOfElements. This is unrelated to slantAlpha/slantBeta - see profileType for the cross section shape those depend on." },
                         "begCoordinate": { "$ref": "#/Coordinate2D" },
                         "endCoordinate": { "$ref": "#/Coordinate2D" },
-                        "arcAngle": { "type": "number", "description": "Arc angle in radians; non-zero makes the wall curved (begCoordinate/endCoordinate are the chord endpoints)." },
+                        "arcAngle": { "type": "number", "description": "Arc angle in radians; non-zero makes the wall curved (begCoordinate/endCoordinate are the chord endpoints). Positive: arc to the RIGHT of beg->end, negative: to the LEFT (ELM_SAB 0.10.8, stored as swapped beg/end + toggled flipped)." },
+                        "flipped": { "type": "boolean", "description": "ELM_SAB 0.10.8: mirror the wall at its reference line (outside face / first composite skin changes side)." },
                         "height": { "type": "number", "exclusiveMinimum": 0.0, "description": "Sets relativeTopStory to 0 (explicit height). Do not combine with relativeTopStory in the same call - whichever is applied last wins, and Archicad recomputes the actual height from the story elevations once relativeTopStory is non-zero." },
                         "thickness": {
                             "type": "number",

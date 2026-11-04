@@ -513,7 +513,7 @@ GSErrCode Initialize (void)
             "Creates Column elements based on the given parameters."
         );
         err |= RegisterCommand<CreateWallsCommand> (
-            elementCommands, "1.4.0",
+            elementCommands, "1.7.3",
             "Creates Wall elements based on the given parameters."
         );
         err |= RegisterCommand<CreateBeamsCommand> (
@@ -637,7 +637,7 @@ GSErrCode Initialize (void)
             "Creates Level Dimension elements (the Level Dimension tool) based on the given parameters. With a parentElementId the dimension is associative: it shows the height of the parent element (Mesh, Slab, Roof ...) at its position and follows the element when it changes."
         );
         err |= RegisterCommand<ModifyWallsCommand> (
-            elementCommands, "1.4.0",
+            elementCommands, "1.7.3",
             "Modifies Wall elements based on the given parameters."
         );
         err |= RegisterCommand<ModifyBeamsCommand> (
