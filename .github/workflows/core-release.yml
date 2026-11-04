@@ -1,0 +1,57 @@
+name: Kern-Release (core-v*)
+
+# Ein Tag core-vX.Y.Z testet den Kern und legt ein GitHub-Release an. Dessen Tarball
+# (archive/refs/tags/core-vX.Y.Z.tar.gz#subdirectory=core) kann die Plattform fest pinnen.
+on:
+  push:
+    tags: ['core-v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: core-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # checkout löst annotierte Tags sonst zu leichten Tags auf — dann fehlte die Tag-Nachricht.
+      - name: Annotierten Tag holen
+        run: git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Kern-Tests
+        run: |
+          pip install pytest
+          cd core && python -m pytest -q tests
+
+      - name: Version abgleichen
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#core-v}"
+          pkg_version=$(sed -n 's/^version = "\(.*\)"/\1/p' core/pyproject.toml | head -n1)
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME passt nicht zu core/pyproject.toml (version = $pkg_version)"
+            exit 1
+          fi
+          echo "VERSION=$pkg_version" >> "$GITHUB_ENV"
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.md
+          if [ -z "$(tr -d '[:space:]' < notes.md)" ]; then
+            printf 'Kern elmonkey-core %s. Einbinden: pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/archive/refs/tags/%s.tar.gz#subdirectory=core"\n' "$VERSION" "$GITHUB_REF_NAME" > notes.md
+          fi
+          gh release create "$GITHUB_REF_NAME" --title "elmonkey-core $VERSION" --notes-file notes.md --verify-tag

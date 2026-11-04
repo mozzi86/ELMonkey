@@ -1,0 +1,85 @@
+name: Skill nach mozzi86/-archicad spiegeln
+
+# ELMonkey ist die einzige Quelle. Kollegen installieren den Skill weiter aus mozzi86/-archicad;
+# dieser Workflow hält die Wurzel dort automatisch aktuell. Links im Skill sind relativ innerhalb
+# von skills/archicad und bleiben im Spiegel gültig (geprüft: kein Link verlässt skills/archicad).
+#
+# Kein pull_request-Trigger: Fork-PRs bekämen sonst Zugriff auf das Secret.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/archicad/**'
+      - '.github/workflows/skill-spiegeln.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Spiegel-Pushes nicht abbrechen, sondern nacheinander ausführen — sonst bliebe ein halber Stand.
+concurrency:
+  group: skill-spiegeln
+  cancel-in-progress: false
+
+jobs:
+  spiegeln:
+    runs-on: ubuntu-latest
+    env:
+      # Secrets sind in if: nicht direkt nutzbar, daher über env.
+      SPIEGEL_TOKEN: ${{ secrets.ARCHICAD_SPIEGEL_TOKEN }}
+    steps:
+      - name: Token da?
+        id: token
+        run: |
+          if [ -z "$SPIEGEL_TOKEN" ]; then
+            echo "::warning::ARCHICAD_SPIEGEL_TOKEN fehlt — Spiegel übersprungen (fine-grained PAT, contents:write nur auf mozzi86/-archicad)"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          path: quelle
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          repository: mozzi86/-archicad
+          ref: main
+          token: ${{ env.SPIEGEL_TOKEN }}
+          path: spiegel
+          fetch-depth: 1
+
+      - name: Spiegeln
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          # rsync --delete NUR innerhalb dieser vier Ordner. In der Wurzel von -archicad liegen
+          # ELM_SAB_Tapir/, ELM_SAB_Add-On/, installer/, mcp/, capmo-qr/, .planning/, README.md,
+          # LLM.txt, CLAUDE.md usw. — die dürfen nie gelöscht werden.
+          # Abschließende Schrägstriche, sonst würden Unterordner verschachtelt.
+          for d in recipes reference commands scripts; do
+            mkdir -p "spiegel/$d"
+            rsync -a --delete "quelle/skills/archicad/$d/" "spiegel/$d/"
+          done
+          # Weitere Dateien unter skills/archicad werden bewusst nicht gespiegelt.
+          cp quelle/skills/archicad/SKILL.md spiegel/SKILL.md
+
+      - name: Commit und Push
+        if: steps.token.outputs.ok == 'true'
+        working-directory: spiegel
+        run: |
+          set -euo pipefail
+          git add -A -- SKILL.md recipes reference commands scripts
+          if git diff --cached --quiet; then
+            echo "Nichts zu spiegeln"
+            exit 0
+          fi
+          git config user.name "elmonkey-spiegel[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Variablen über die Shell-Umgebung, keine Interpolation in run (Injection-Schutz).
+          git commit -m "Skill aus ELMonkey gespiegelt (mozzi86/ELMonkey@${GITHUB_SHA::7})" \
+                     -m "Quelle: https://github.com/mozzi86/ELMonkey/commit/${GITHUB_SHA}"
+          git push origin HEAD:main
