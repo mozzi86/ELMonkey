@@ -351,6 +351,14 @@ GSErrCode Initialize (void)
             projectCommands, "1.7.1",
             "Repoints hotlink module nodes at other source files, as the Hotlink Manager's Relink button does. Follow it with UpdateHotlinks to re-read the content."
         );
+        err |= RegisterCommand<GetHotlinkInstancesCommand> (
+            projectCommands, "1.7.2",
+            "ELMonkey 0.10.8: Lists hotlink nodes with their source file and their placed instances (elementId, origin, rotation, mirrored, floorIndex, layer, nested). The instance ids are what ChangeHotlinkInstances needs; GetAllElements does not return hotlink instances."
+        );
+        err |= RegisterCommand<DeleteHotlinkNodesCommand> (
+            projectCommands, "1.7.2",
+            "ELMonkey 0.10.8: Removes hotlink module nodes from the project as the Hotlink Manager's Delete button does: deletes the placed instances (read back), then the node. Reserves the Hotlink management and the instances in Teamwork. The layers the module brought in stay."
+        );
         err |= RegisterCommand<OpenProjectCommand> (
             projectCommands, "1.0.7",
             "Opens the given project."

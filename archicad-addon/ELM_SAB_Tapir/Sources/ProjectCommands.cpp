@@ -3203,3 +3203,325 @@ GS::ObjectState ChangeHotlinkNodesCommand::Execute (const GS::ObjectState& param
 
     return response;
 }
+
+// ELMonkey 0.10.7: GetHotlinkInstances and DeleteHotlinkNodes close the loop
+// of the commands above - find the placed instances of a node (the built-in
+// GetAllElements leaves hotlink instances out, so there was no way to get an
+// instance id for ChangeHotlinkInstances), and remove a module from the
+// project as the Hotlink Manager's Delete button does.
+
+static GS::Array<API_Guid> GetAllHotlinkNodeGuids ()
+{
+    GS::Array<API_Guid> result;
+    bool enableUnplaced = true;
+    for (API_HotlinkTypeID type : {APIHotlink_Module, APIHotlink_XRef}) {
+        GS::Array<API_Guid> nodes;
+        if (ACAPI_Hotlink_GetHotlinkNodes (&type, &nodes, &enableUnplaced) == NoError) {
+            result.Append (nodes);
+        }
+    }
+    return result;
+}
+
+// The placed instances of a node, read off the element list: an instance is
+// an API_HotlinkID element whose hotlinkNodeGuid is the node. Instances that
+// sit inside another placed module come along too, flagged by their header's
+// hotlinkGuid; they belong to the outer module and cannot be changed alone.
+static GS::Array<API_Element> GetInstancesOfHotlinkNode (const API_Guid& nodeGuid)
+{
+    GS::Array<API_Element> result;
+    GS::Array<API_Guid> instanceGuids;
+    if (ACAPI_Element_GetElemList (API_HotlinkID, &instanceGuids) != NoError) {
+        return result;
+    }
+    for (const API_Guid& instanceGuid : instanceGuids) {
+        API_Element element = {};
+        element.header.guid = instanceGuid;
+        if (ACAPI_Element_Get (&element) == NoError && element.hotlink.hotlinkNodeGuid == nodeGuid) {
+            result.Push (element);
+        }
+    }
+    return result;
+}
+
+static GS::UniString GetHotlinkLayerName (const API_AttributeIndex& layerIndex)
+{
+    API_Attribute attr = {};
+    GS::UniString name;
+    attr.header.typeID = API_LayerID;
+    attr.header.index = layerIndex;
+    attr.header.uniStringNamePtr = &name;
+    if (ACAPI_Attribute_Get (&attr) != NoError) {
+        return GS::UniString ();
+    }
+    return name;
+}
+
+GetHotlinkInstancesCommand::GetHotlinkInstancesCommand () :
+    CommandBase (CommonSchema::Used)
+{
+}
+
+GS::String GetHotlinkInstancesCommand::GetName () const
+{
+    return "GetHotlinkInstances";
+}
+
+GS::Optional<GS::UniString> GetHotlinkInstancesCommand::GetInputParametersSchema () const
+{
+    return R"({
+        "type": "object",
+        "properties": {
+            "hotlinkNodes": {
+                "type": "array",
+                "description": "Optional. The hotlink nodes whose instances are listed. Without it every module and XRef node of the project is listed, placed or not.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "hotlinkNodeId": {
+                            "$ref": "#/HotlinkNodeId"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "hotlinkNodeId"
+                    ]
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": []
+    })";
+}
+
+GS::Optional<GS::UniString> GetHotlinkInstancesCommand::GetRawResponseSchema () const
+{
+    return R"({
+        "type": "object",
+        "properties": {
+            "hotlinkNodes": {
+                "type": "array",
+                "description": "One item per node: the node with its source and its placed instances, or an error.",
+                "items": {
+                    "type": "object"
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "hotlinkNodes"
+        ]
+    })";
+}
+
+GS::ObjectState GetHotlinkInstancesCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+    GS::Array<API_Guid> nodeGuids;
+    GS::Array<GS::ObjectState> hotlinkNodes;
+    if (parameters.Get ("hotlinkNodes", hotlinkNodes)) {
+        for (const GS::ObjectState& nodeData : hotlinkNodes) {
+            const GS::ObjectState* hotlinkNodeId = nodeData.Get ("hotlinkNodeId");
+            nodeGuids.Push (hotlinkNodeId != nullptr ? GetGuidFromObjectState (*hotlinkNodeId) : APINULLGuid);
+        }
+    } else {
+        nodeGuids = GetAllHotlinkNodeGuids ();
+    }
+
+    GS::ObjectState response;
+    const auto& results = response.AddList<GS::ObjectState> ("hotlinkNodes");
+
+    for (const API_Guid& nodeGuid : nodeGuids) {
+        API_HotlinkNode node = {};
+        node.guid = nodeGuid;
+        bool enableUnplaced = true;
+        if (nodeGuid == APINULLGuid || ACAPI_Hotlink_GetHotlinkNode (&node, &enableUnplaced) != NoError) {
+            results (CreateErrorResponse (APIERR_BADID, "hotlinkNodeId is not a hotlink node"));
+            continue;
+        }
+
+        GS::ObjectState item;
+        item.Add ("hotlinkNodeId", CreateGuidObjectState (nodeGuid));
+        item.Add ("name", GS::UniString (node.name));
+        item.Add ("type", node.type == APIHotlink_XRef ? "XRef" : "Module");
+        if (node.sourceLocation != nullptr) {
+            item.Add ("sourceLocation", node.sourceLocation->ToDisplayText ());
+        }
+
+        const auto& instances = item.AddList<GS::ObjectState> ("instances");
+        for (const API_Element& element : GetInstancesOfHotlinkNode (nodeGuid)) {
+            API_Coord3D origin;
+            double rotationAngle;
+            bool mirrored;
+            DecomposeHotlinkTransformation (element.hotlink.transformation, origin, rotationAngle, mirrored);
+
+            GS::ObjectState instance;
+            instance.Add ("elementId", CreateGuidObjectState (element.header.guid));
+            instance.Add ("origin", Create3DCoordinateObjectState (origin));
+            instance.Add ("rotationAngle", rotationAngle);
+            instance.Add ("rotationDegrees", rotationAngle * 180.0 / 3.14159265358979323846);
+            instance.Add ("mirrored", mirrored);
+            instance.Add ("floorIndex", static_cast<Int32> (element.header.floorInd));
+            instance.Add ("floorDifference", static_cast<Int32> (element.hotlink.floorDifference));
+            instance.Add ("layerIndex", element.header.layer.ToInt32_Deprecated ());
+            instance.Add ("layerName", GetHotlinkLayerName (element.header.layer));
+            instance.Add ("nested", element.header.hotlinkGuid != APINULLGuid);
+            instances (instance);
+        }
+        results (item);
+    }
+
+    return response;
+}
+
+DeleteHotlinkNodesCommand::DeleteHotlinkNodesCommand () :
+    CommandBase (CommonSchema::Used)
+{
+}
+
+GS::String DeleteHotlinkNodesCommand::GetName () const
+{
+    return "DeleteHotlinkNodes";
+}
+
+GS::Optional<GS::UniString> DeleteHotlinkNodesCommand::GetInputParametersSchema () const
+{
+    return R"({
+        "type": "object",
+        "properties": {
+            "hotlinkNodes": {
+                "type": "array",
+                "description": "The hotlink nodes to remove from the project, as the Hotlink Manager's Delete button does: their placed instances are deleted first, then the node itself. The layers the module brought in stay; delete them separately once they are empty.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "hotlinkNodeId": {
+                            "$ref": "#/HotlinkNodeId"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "hotlinkNodeId"
+                    ]
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "hotlinkNodes"
+        ]
+    })";
+}
+
+GS::Optional<GS::UniString> DeleteHotlinkNodesCommand::GetRawResponseSchema () const
+{
+    return R"({
+        "type": "object",
+        "properties": {
+            "hotlinkNodes": {
+                "type": "array",
+                "description": "One item per requested node, in order: the outcome, how many instances were deleted, or an error.",
+                "items": {
+                    "type": "object"
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "hotlinkNodes"
+        ]
+    })";
+}
+
+GS::ObjectState DeleteHotlinkNodesCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+    GS::Array<GS::ObjectState> hotlinkNodes;
+    parameters.Get ("hotlinkNodes", hotlinkNodes);
+
+    GS::ObjectState response;
+    const auto& results = response.AddList<GS::ObjectState> ("hotlinkNodes");
+
+    // In Teamwork the node belongs to the Hotlink and XRef management, which
+    // has to be reserved before a node can go; the instances are elements and
+    // are reserved like any other.
+    const bool teamwork = ACAPI_Teamwork_HasConnection ();
+    if (teamwork) {
+        short conflict = 0;
+        const GSErrCode err = ACAPI_Teamwork_ReserveHotlinkCacheManagement (&conflict);
+        if (err != NoError) {
+            for (Int32 i = 0; i < static_cast<Int32> (hotlinkNodes.GetSize ()); ++i) {
+                results (CreateErrorResponse (err, "Failed to reserve the Hotlink and XRef management (someone else may hold it)."));
+            }
+            return response;
+        }
+    }
+
+    for (const GS::ObjectState& nodeData : hotlinkNodes) {
+        const GS::ObjectState* hotlinkNodeId = nodeData.Get ("hotlinkNodeId");
+        if (hotlinkNodeId == nullptr) {
+            results (CreateErrorResponse (APIERR_BADPARS, "hotlinkNodeId is missing"));
+            continue;
+        }
+
+        API_HotlinkNode node = {};
+        node.guid = GetGuidFromObjectState (*hotlinkNodeId);
+        bool enableUnplaced = true;
+        if (ACAPI_Hotlink_GetHotlinkNode (&node, &enableUnplaced) != NoError) {
+            results (CreateErrorResponse (APIERR_BADID, "hotlinkNodeId is not a hotlink node"));
+            continue;
+        }
+
+        // Only the top-level instances can be deleted; nested ones go with
+        // the module they sit in.
+        GS::Array<API_Guid> instanceGuids;
+        for (const API_Element& element : GetInstancesOfHotlinkNode (node.guid)) {
+            if (element.header.hotlinkGuid == APINULLGuid) {
+                instanceGuids.Push (element.header.guid);
+            }
+        }
+
+        if (teamwork && !instanceGuids.IsEmpty ()) {
+            GS::HashTable<API_Guid, short> conflicts;
+            ACAPI_Teamwork_ReserveElements (instanceGuids, &conflicts, false);
+        }
+
+        GSErrCode err = NoError;
+        if (!instanceGuids.IsEmpty ()) {
+            ACAPI_CallUndoableCommand ("Delete Hotlink Instances", [&] () -> GSErrCode {
+                err = ACAPI_Element_Delete (instanceGuids);
+                return err;
+            });
+        }
+
+        // ACAPI_Element_Delete reports NoError even for elements it skipped,
+        // so whether the instances are gone is read back.
+        Int32 remaining = 0;
+        for (const API_Element& element : GetInstancesOfHotlinkNode (node.guid)) {
+            if (element.header.hotlinkGuid == APINULLGuid) {
+                ++remaining;
+            }
+        }
+        if (err != NoError || remaining > 0) {
+            results (CreateErrorResponse (err != NoError ? err : APIERR_REFUSEDCMD,
+                GS::UniString::Printf ("%d of %d instances could not be deleted (locked or hidden layer, or reserved by someone else); the node is kept.",
+                    remaining, static_cast<Int32> (instanceGuids.GetSize ()))));
+            continue;
+        }
+
+        // ELM_SAB 0.10.8: Knoten-Loeschen aendert die Datenbank -> im Undo-Rahmen ausfuehren.
+        err = ACAPI_CallUndoableCommand ("Delete Hotlink Node", [&] () -> GSErrCode {
+            return ACAPI_Hotlink_DeleteHotlinkNode (&node.guid);
+        });
+        if (err != NoError) {
+            results (CreateErrorResponse (err, "The instances were deleted, but the hotlink node could not be deleted."));
+            continue;
+        }
+
+        GS::ObjectState item;
+        item.Add ("hotlinkNodeId", CreateGuidObjectState (node.guid));
+        item.Add ("deleted", true);
+        item.Add ("deletedInstances", static_cast<Int32> (instanceGuids.GetSize ()));
+        results (item);
+    }
+
+    return response;
+}
