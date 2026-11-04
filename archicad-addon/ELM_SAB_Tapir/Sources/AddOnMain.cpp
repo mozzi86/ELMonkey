@@ -1624,7 +1624,7 @@ GSErrCode Initialize (void)
             "ELM_SAB: Liest Stifte inkl. RGB-Overrides von 2D-Elementen."
         );
         err |= RegisterCommand<CreatePolygonWallsCommand> (
-            elmSabCommands, "0.9.0",
+            elmSabCommands, "0.10.8",
             "ELM_SAB: Erstellt Polygonwaende (APIWtyp_Poly) aus Konturen."
         );
         err |= RegisterCommand<Get2DGeometryCommand> (

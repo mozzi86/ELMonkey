@@ -199,6 +199,15 @@ GS::ObjectState	CreateElementsCommandBase::Execute (const GS::ObjectState& param
                 }
             }
 
+            // ELM_SAB 0.10.8: Umbaustatus direkt beim Erzeugen (sonst gilt der Werkzeug-Standard).
+            {
+                const auto renErr = ApplyRenovationStatusELM (element, data);
+                if (renErr.HasValue ()) {
+                    elements (CreateErrorResponse (APIERR_BADPARS, renErr.Get ()));
+                    continue;
+                }
+            }
+
             // ELMonkey 0.9.32 (A1): ausgeblendete/gesperrte Zielebene -> Fehler statt stiller Erfolg.
             const GS::UniString layerReason = LayerBlockReasonELM (element.header.layer);
             if (!layerReason.IsEmpty ()) {
@@ -271,6 +280,7 @@ GS::Optional<GS::UniString> CreateColumnsCommand::GetInputParametersSchema () co
                     "type": "object",
                     "description": "The parameters of the new Column.",
                     "properties": {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." },
                         "favoriteName": {
                             "type": "string",
                             "description": "Optional name of a favorite to base the new element on. Its settings are applied first, then the explicitly given fields override them."
@@ -472,6 +482,7 @@ GS::Optional<GS::UniString> CreateSlabsCommand::GetInputParametersSchema () cons
                 "type": "object",
                 "description" : "The parameters of the new Slab.",
                 "properties" : {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." }, "topMaterial": { "$ref": "#/OverriddenMaterial" }, "sideMaterial": { "$ref": "#/OverriddenMaterial" }, "bottomMaterial": { "$ref": "#/OverriddenMaterial" },
                     "favoriteName": {
                         "type": "string",
                         "description": "Optional name of a favorite to base the new element on. Its settings are applied first, then the explicitly given fields override them."
@@ -641,6 +652,18 @@ GS::Optional<GS::ObjectState> CreateSlabsCommand::SetTypeSpecificParameters (API
         }
     }
 
+    // ELM_SAB 0.10.8: Oberflaechen-Ueberschreibung oben/Kante/unten schon beim Erzeugen.
+    GS::ObjectState slabMatOs;
+    if (parameters.Get ("topMaterial", slabMatOs)) {
+        element.slab.topMat = GetOverriddenMaterialFromObjectState (slabMatOs);
+    }
+    if (parameters.Get ("sideMaterial", slabMatOs)) {
+        element.slab.sideMat = GetOverriddenMaterialFromObjectState (slabMatOs);
+    }
+    if (parameters.Get ("bottomMaterial", slabMatOs)) {
+        element.slab.botMat = GetOverriddenMaterialFromObjectState (slabMatOs);
+    }
+
     GS::Array<GS::ObjectState> polygonCoordinates;
     GS::Array<GS::ObjectState> polygonArcs;
     GS::Array<GS::ObjectState> holes;
@@ -783,6 +806,7 @@ GS::Optional<GS::UniString> CreateZonesCommand::GetInputParametersSchema () cons
                 "type": "object",
                 "description" : "The parameters of the new Zone.",
                 "properties" : {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." },
                     "favoriteName": {
                         "type": "string",
                         "description": "Optional name of a favorite to base the new element on. Its settings are applied first, then the explicitly given fields override them."
@@ -1774,6 +1798,7 @@ static GS::UniString BuildLibraryPartBasedSchema (const char* arrayFieldName,
                     "type": "object",
                     "description": "The parameters of the new %s.",
                     "properties": {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." },
                         "libraryPartName": {
                             "type": "string",
                             "description" : "%s"
@@ -2767,6 +2792,7 @@ GS::Optional<GS::UniString> CreateMeshesCommand::GetInputParametersSchema () con
                 "type": "object",
                 "description" : "The parameters of the new Mesh.",
                 "properties" : {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." },
                     "favoriteName": {
                         "type": "string",
                         "description": "Optional name of a favorite to base the new element on. Its settings are applied first, then the explicitly given fields override them."
@@ -2954,6 +2980,7 @@ GS::Optional<GS::UniString> CreateCurtainWallsCommand::GetInputParametersSchema 
                 "type": "object",
                 "description": "The parameters of the new Curtain Wall. Everything not given here - the frame and panel classes, the surfaces, the boundary and corner frames, the pattern - comes from the favorite or from the Curtain Wall tool defaults of the open project.",
                 "properties": {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." },
                     "favoriteName": {
                         "type": "string",
                         "description": "Optional name of a favorite to base the new element on. Its settings are applied first, then the explicitly given fields override them."

@@ -2190,6 +2190,24 @@ GS::Optional<GS::UniString> ApplyRoofDetails (
         changed = true;
     }
 
+    // ELM_SAB 0.10.8: Oberflaechen-Ueberschreibung oben/Kante/unten (Create + Modify).
+    GS::ObjectState roofMatOs;
+    if (details.Get ("topMaterial", roofMatOs)) {
+        element.roof.shellBase.topMat = GetOverriddenMaterialFromObjectState (roofMatOs);
+        if (mask != nullptr) { ACAPI_ELEMENT_MASK_SET ((*mask), API_RoofType, shellBase.topMat); }
+        changed = true;
+    }
+    if (details.Get ("sideMaterial", roofMatOs)) {
+        element.roof.shellBase.sidMat = GetOverriddenMaterialFromObjectState (roofMatOs);
+        if (mask != nullptr) { ACAPI_ELEMENT_MASK_SET ((*mask), API_RoofType, shellBase.sidMat); }
+        changed = true;
+    }
+    if (details.Get ("bottomMaterial", roofMatOs)) {
+        element.roof.shellBase.botMat = GetOverriddenMaterialFromObjectState (roofMatOs);
+        if (mask != nullptr) { ACAPI_ELEMENT_MASK_SET ((*mask), API_RoofType, shellBase.botMat); }
+        changed = true;
+    }
+
     return ApplyRoofLevels (element, mask, details, changed);
 }
 
@@ -3609,6 +3627,7 @@ GS::Optional<GS::UniString> CreateWallsCommand::GetInputParametersSchema () cons
                 "items": {
                     "type": "object",
                     "properties": {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." }, "referenceMaterial": { "$ref": "#/OverriddenMaterial" }, "oppositeMaterial": { "$ref": "#/OverriddenMaterial" }, "sideMaterial": { "$ref": "#/OverriddenMaterial" },
                         "favoriteName": {
                             "type": "string",
                             "description": "Optional name of a Wall favorite to base the new element on. Its settings (structure, reference line location, top link, offsets, ...) are applied first, then the explicitly given fields override them. With a favorite only begCoordinate and endCoordinate are needed."
@@ -3819,6 +3838,7 @@ GS::Optional<GS::UniString> CreateBeamsCommand::GetInputParametersSchema () cons
                 "items": {
                     "type": "object",
                     "properties": {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." },
                         "favoriteName": {
                             "type": "string",
                             "description": "Optional name of a favorite to base the new element on. Its settings are applied first, then the explicitly given fields override them."
@@ -3997,6 +4017,7 @@ GS::Optional<GS::UniString> CreateStairsCommand::GetInputParametersSchema () con
                     "type": "object",
                     "description": "The parameters of the new Stair.",
                     "properties": {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." },
                         "favoriteName": {
                             "type": "string",
                             "description": "Optional name of a favorite to base the new element on. Its settings are applied first, then the explicitly given fields override them."
@@ -5031,6 +5052,7 @@ GS::Optional<GS::UniString> CreateRoofsCommand::GetInputParametersSchema () cons
                 "items": {
                     "type": "object",
                     "properties": {
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus des neuen Elements. Ohne Angabe gilt der Werkzeug-Standard (oft Bestand!)." }, "topMaterial": { "$ref": "#/OverriddenMaterial" }, "sideMaterial": { "$ref": "#/OverriddenMaterial" }, "bottomMaterial": { "$ref": "#/OverriddenMaterial" },
                         "level": { "type": "number" },
                         "floorIndex": { "type": "integer", "description": "Optional floor index. If omitted, derived from level." },
                         "thickness": {
@@ -5136,6 +5158,13 @@ GS::ObjectState CreateRoofsCommand::Execute (const GS::ObjectState& parameters, 
                 auto error = ApplyRoofDetails (element, nullptr, data, stories, changed);
                 if (error.HasValue ()) {
                     elements.Push (CreateErrorResponse (APIERR_BADPARS, error.Get ()));
+                    continue;
+                }
+            }
+            {
+                const auto renErr = ApplyRenovationStatusELM (element, data);
+                if (renErr.HasValue ()) {
+                    elements.Push (CreateErrorResponse (APIERR_BADPARS, renErr.Get ()));
                     continue;
                 }
             }
@@ -6180,6 +6209,7 @@ GS::Optional<GS::UniString> ModifyRoofsCommand::GetInputParametersSchema () cons
                 "items": {
                     "type": "object",
                     "properties": {
+                        "topMaterial": { "$ref": "#/OverriddenMaterial", "description": "ELM_SAB 0.10.8: Oberflaeche oben." }, "sideMaterial": { "$ref": "#/OverriddenMaterial", "description": "ELM_SAB 0.10.8: Oberflaeche der Kanten." }, "bottomMaterial": { "$ref": "#/OverriddenMaterial", "description": "ELM_SAB 0.10.8: Oberflaeche unten." },
                         "elementId": { "$ref": "#/ElementId" },
                         "level": { "type": "number" },
                         "thickness": {

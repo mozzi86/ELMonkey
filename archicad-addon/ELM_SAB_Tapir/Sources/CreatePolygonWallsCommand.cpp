@@ -51,7 +51,21 @@ GS::Optional<GS::UniString> CreatePolygonWallsCommand::GetInputParametersSchema 
                         "buildingMaterialIndex": {
                             "type": "integer",
                             "description": "Baustoff (Attribut-Index) für Basic-Struktur. Optional."
-                        }
+                        },
+                        "polygonArcs": {
+                            "type": "array",
+                            "description": "ELM_SAB 0.10.8: Bogensegmente wie bei CreateSlabs (0-basiert): begIndex/endIndex = Punktindizes in polygonCoordinates, Schlusskante = endIndex n (Anzahl Punkte); arcAngle in Radiant, positiv = Bogen rechts der Richtung begIndex->endIndex.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "begIndex": { "type": "integer" },
+                                    "endIndex": { "type": "integer" },
+                                    "arcAngle": { "type": "number" }
+                                },
+                                "required": ["begIndex", "endIndex", "arcAngle"]
+                            }
+                        },
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus der neuen Wand." }
                     },
                     "required": ["polygonCoordinates"]
                 }
@@ -142,10 +156,35 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
                 element.wall.buildingMaterial = ACAPI_CreateAttributeIndex (buildingMaterialIndex);
             }
 
+            {
+                const auto renErr = ApplyRenovationStatusELM (element, wallData);
+                if (renErr.HasValue ()) {
+                    ACAPI_DisposeElemMemoHdls (&memo);
+                    elements (CreateFailedExecutionResult (APIERR_BADPARS, renErr.Get ()));
+                    continue;
+                }
+            }
+
+            // ELM_SAB 0.10.8: Bogensegmente (0-basiert wie CreateSlabs -> Memo 1-basiert)
+            GS::Array<GS::ObjectState> arcsIn;
+            wallData.Get ("polygonArcs", arcsIn);
+            const GS::Array<API_PolyArc> polyArcs = GetPolyArcs (arcsIn, 1);
+            bool arcsOk = true;
+            for (const API_PolyArc& a : polyArcs) {
+                if (a.begIndex < 1 || a.endIndex < 1 || a.begIndex > n + 1 || a.endIndex > n + 1 || a.begIndex == a.endIndex || a.arcAngle == 0.0) {
+                    arcsOk = false;
+                }
+            }
+            if (!arcsOk) {
+                ACAPI_DisposeElemMemoHdls (&memo);
+                elements (CreateFailedExecutionResult (APIERR_BADPARS, "polygonArcs: Index ausserhalb 0..n, gleiche Indizes oder Winkel 0"));
+                continue;
+            }
+
             // Polygon in Element + Memo (1-basiert, Endpunkt = Startpunkt)
             element.wall.poly.nCoords   = n + 1;
             element.wall.poly.nSubPolys = 1;
-            element.wall.poly.nArcs     = 0;
+            element.wall.poly.nArcs     = (Int32) polyArcs.GetSize ();
 
             memo.coords = reinterpret_cast<API_Coord**> (BMAllocateHandle ((element.wall.poly.nCoords + 1) * sizeof (API_Coord), ALLOCATE_CLEAR, 0));
             memo.pends  = reinterpret_cast<Int32**> (BMAllocateHandle ((element.wall.poly.nSubPolys + 1) * sizeof (Int32), ALLOCATE_CLEAR, 0));
@@ -166,6 +205,18 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             }
             (*memo.coords)[i] = (*memo.coords)[1];
             (*memo.pends)[1] = element.wall.poly.nCoords;
+            if (element.wall.poly.nArcs > 0) {
+                memo.parcs = reinterpret_cast<API_PolyArc**> (BMAllocateHandle (element.wall.poly.nArcs * sizeof (API_PolyArc), ALLOCATE_CLEAR, 0));
+                if (memo.parcs == nullptr) {
+                    ACAPI_DisposeElemMemoHdls (&memo);
+                    elements (CreateFailedExecutionResult (APIERR_MEMFULL, "Speicher-Allokation (Boegen) fehlgeschlagen"));
+                    continue;
+                }
+                Int32 iArc = 0;
+                for (const API_PolyArc& a : polyArcs) {
+                    (*memo.parcs)[iArc++] = a;
+                }
+            }
 
             element.wall.begC = (*memo.coords)[1];
             element.wall.endC = (*memo.coords)[1];

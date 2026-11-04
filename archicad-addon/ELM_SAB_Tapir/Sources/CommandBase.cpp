@@ -1203,3 +1203,22 @@ void DecomposeHotlinkTransformation (const API_Tranmat& transformation, API_Coor
     const double det = transformation.tmx[0] * transformation.tmx[5] - transformation.tmx[1] * transformation.tmx[4];
     mirrored = det < 0.0;
 }
+
+
+GS::Optional<GS::UniString> ApplyRenovationStatusELM (API_Element& element, const GS::ObjectState& data)
+{
+    GS::UniString status;
+    if (!data.Get ("renovationStatus", status) || status.IsEmpty ()) {
+        return {};
+    }
+    if (status == "Existing" || status == "Bestand") {
+        element.header.renovationStatus = API_ExistingStatus;
+    } else if (status == "New" || status == "Neubau") {
+        element.header.renovationStatus = API_NewStatus;
+    } else if (status == "ToBeDemolished" || status == "Abbruch") {
+        element.header.renovationStatus = API_DemolishedStatus;
+    } else {
+        return GS::UniString ("renovationStatus muss Existing/New/ToBeDemolished (Bestand/Neubau/Abbruch) sein, nicht '") + status + GS::UniString ("'");
+    }
+    return {};
+}

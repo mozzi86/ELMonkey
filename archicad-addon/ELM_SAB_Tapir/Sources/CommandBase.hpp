@@ -240,6 +240,12 @@ bool SetUCharProperty (const GS::ObjectState* os, const char* propertyKey, GS::u
 
 GS::Array<API_PolyArc> GetPolyArcs (const GS::Array<GS::ObjectState>& arcs, Int32 startIndex);
 
+// ELM_SAB 0.10.8: optionales "renovationStatus" eines Erzeugungs-Eintrags in den Element-Kopf schreiben.
+// Erlaubt: Existing/New/ToBeDemolished (wie die Eigenschaft Umbau-Status) bzw. Bestand/Neubau/Abbruch.
+// Rueckgabe: Fehlermeldung bei unbekanntem Wert, sonst leer (auch wenn das Feld fehlt).
+GS::Optional<GS::UniString> ApplyRenovationStatusELM (API_Element& element, const GS::ObjectState& data);
+
+
 void AddPolyToMemo (
     const GS::Array<GS::ObjectState>& coords,
     const GS::Array<GS::ObjectState>& arcs,
