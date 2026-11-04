@@ -77,6 +77,7 @@
 #include "ViewDrawingCommandsELM.hpp"
 #include "ModifyCommandsELM.hpp"
 #include "Extras0103ELM.hpp"
+#include "DrawingLinksCommandELM.hpp"
 #include "LibPartEdit0104ELM.hpp"
 #include "LayerLevelCommandsELM.hpp"
 #include "ModelEditCommandsELM.hpp"
@@ -1699,6 +1700,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<RelinkDrawingsCommandELM> (
             elmSabCommands, "0.10.2",
             "ELM_SAB: Haengt Zeichnungen eines Layouts auf andere Ausschnitte um (layoutNavigatorItemId, items: drawingId + viewNavigatorItemId); Lage/Massstab bleiben, Ruecklese, optional Zeichnungsupdate."
+        );
+        err |= RegisterCommand<GetDrawingLinksCommandELM> (
+            elmSabCommands, "0.10.8",
+            "ELM_SAB: Quelle und Status eingesetzter Zeichnungen (elements optional, sonst alle der aktuellen Datenbank): linkType Dwg/Pdf/Image/InternalView..., filePath, fileExists, status UpToDate/Modified/Unknown, Ebene. Nur lesen."
         );
         err |= RegisterCommand<ReplaceDrawingSourceCommandELM> (
             elmSabCommands, "0.10.3",
