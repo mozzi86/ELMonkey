@@ -1,0 +1,60 @@
+{
+  "_comment": "Template-Konfiguration für DWG->IFC Decken-Pipeline. Aktuell sind LAYER_MAP / LAYER_LOOSE / CLASS_SPECS noch in den step_*.py-Skripten hartkodiert. Diese Datei ist als Referenz und für künftiges Refactoring gedacht — für neue Projekte: passe die Werte hier an UND synce sie nach step_2_polygonize.py / step_3_fill_gaps.py / step_4_build_ifc.py.",
+
+  "LAYER_MAP": {
+    "_description": "Welche DWG-Layer-Namen welcher IFC-Klasse zugeordnet werden. Pro Klasse mehrere Layer möglich.",
+    "Strasse": [
+      "road_site", "Cement_Street", "Zaunstrasse_BUPOL", "A_01_Strasse_neu",
+      "60 Straße", "parking area 305 - lighting", "parking area 325 - cobble stone",
+      "parking area 325 - default", "pa 325 - concrete joints", "Apron#"
+    ],
+    "Bordstein": [
+      "sidewalks", "BORDSTEIN", "BETON", "RINNE", "Concrete_area", "BASE"
+    ],
+    "Gebaeude": [
+      "buildings", "GARAGE", "Bunker", "Gazebo", "Antenna", "Flag_Pole",
+      "Tanks", "WashRack", "HAZERDOUS_WASTE",
+      "A_01_Leichtbauhalle", "assigned_Bldgs",
+      "C_Besucherz", "C_Büro", "C_WC´s",
+      "Gebäude_Phase1+2", "Gebäude_Phase1+2+3", "Gebäude_Phase2",
+      "Gebäude_Phase1+2_neu_grün", "Gebäude_Phase1_2_Küchen",
+      "Gebäude_Phase1_RBW-Hallen", "Gebäude_Phase1_alle grau",
+      "Gebäude_Phase2_Busse", "Gebäude_Phase2_RBW-Hallen",
+      "Gebäude_nurPhase2_RWB_BIMA", "Gebäude_nurPhase2_Sport",
+      "Gebäude_nurPhase2_UK_BIMA", "Gebäude_nurPhase2_VS_BIMA",
+      "Gebäude_nurPhase2_VW_BIMA", "Gebäude_nur_Garagen",
+      "Gebäude_Grün_Phase2_7487", "Gebäude_Phase 1 _Unterkunft"
+    ]
+  },
+
+  "SNAP_TIGHT": 0.10,
+  "DEFAULT_LOOSE": 0.30,
+
+  "LAYER_LOOSE": {
+    "_description": "Pro Layer eigene loose-snap-Toleranz (Stage 2). Default-Wert ist DEFAULT_LOOSE.",
+    "road_site":     1.00,
+    "sidewalks":     0.75,
+    "BASE":          0.75,
+    "Cement_Street": 0.50,
+    "BORDSTEIN":     0.50,
+    "Apron#":        0.50,
+    "buildings":     0.30,
+    "GARAGE":        0.20,
+    "Bunker":        0.30,
+    "Gazebo":        0.30
+  },
+
+  "MIN_AREA": 1.0,
+  "MAX_AREA": 80000,
+  "FLATTEN_TOL": 0.05,
+
+  "CONCAVE_HULL_RATIO": 0.05,
+
+  "CLASS_SPECS": {
+    "_description": "Z-Höhen, Dicken und Farben pro IFC-Klasse. Höhen-Schema siehe README.",
+    "Strasse":      { "top_z": -0.15, "thickness": 0.15, "color": [0.25, 0.25, 0.25] },
+    "Bordstein":    { "top_z":  0.00, "thickness": 0.15, "color": [0.75, 0.75, 0.75] },
+    "Gebaeude":     { "top_z":  6.00, "thickness": 6.00, "color": [0.85, 0.65, 0.45] },
+    "Strasse_Fill": { "top_z": -0.20, "thickness": 0.10, "color": [0.15, 0.15, 0.15] }
+  }
+}
