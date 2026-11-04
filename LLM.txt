@@ -3,14 +3,14 @@
 Idee aus revit-mcp-python (github.com/mcp-servers-for-revit/mcp-server-for-revit-python):
 ein Dokument, das einem LLM alles gibt, um hier sicher neue Funktionalität zu bauen.
 Kurzfassung — die Tiefen-Doku mit allen live erlebten Fallen bleibt kanonisch in
-`reference/mcp-extension.md`. Bei Widerspruch gewinnt die Referenz.
+`skills/archicad/reference/mcp-extension.md`. Bei Widerspruch gewinnt die Referenz.
 
 ## Der Stack (wer spricht mit wem)
 
     Claude / LLM-Client
         │  MCP (stdio)                    ODER  Fast-Path: `scripts/arc` (direktes HTTP)
         ▼
-    Archicad-MCP-Server (extern, tapir-archicad-MCP)
+    elmonkey-mcp (mcp/elmonkey-mcp, Python-Monkey)
         │  HTTP  127.0.0.1:19723–19744
         ▼
     Archicad-Prozess mit Kombi-Add-On „ELMonkey SAB"
@@ -22,19 +22,24 @@ Kurzfassung — die Tiefen-Doku mit allen live erlebten Fallen bleibt kanonisch 
 
 ## Repo-Karte
 
-- `ELM_SAB_Tapir/` — das Kombi-Add-On (Tapir-Fork + ELM_SAB-Befehle). DIE Quelle.
+- `archicad-addon/ELM_SAB_Tapir/` — das Kombi-Add-On (Tapir-Fork + ELM_SAB-Befehle). DIE Quelle.
   - `Sources/ELMCommandBase.hpp` — Basisklasse für ELM_SAB-Befehle
   - `Sources/AddOnMain.cpp` — Registrierung (nach Kommentar „ELM_SAB Commands" suchen)
   - `Sources/AddOnVersion.hpp` — ELM_SAB_VERSION: bei JEDER Befehls-Änderung bumpen
-- `ELM_SAB_Add-On/` — Vorgänger-Add-On (nur noch Referenz, nicht weiterentwickeln)
-- `SKILL.md`, `reference/`, `recipes/`, `commands/` — der Claude-Code-Skill
-- `scripts/arc` — HTTP-Fast-Path-CLI (stdlib-only Python); Kombis vorhandener
-  Befehle gehören HIERHER, nicht ins C++ (Erweiterungs-Entscheidungsbaum)
-- `.github/workflows/build-elm-sab-tapir.yml` — CI baut AC27/28/29 × Mac/Win
+- `archicad-addon/installer/` — Installer
+- `skills/archicad/` — der Claude-Code-Skill: `SKILL.md`, `reference/`, `recipes/`, `commands/`, `scripts/`
+  - `scripts/arc` — HTTP-Fast-Path-CLI (stdlib-only Python); Kombis vorhandener
+    Befehle gehören HIERHER, nicht ins C++ (Erweiterungs-Entscheidungsbaum)
+- `mcp/elmonkey-mcp` — MCP-Server (Python-Monkey)
+- `core/` — Kern `elmonkey` (inkl. `elmonkey.plattform` für die Schwarz Plattform)
+- `.github/workflows/` — `build-elm-sab-tapir` (AC27/28/29/30 × Mac/Win), `skill-spiegeln`
+  (Skill → mozzi86/-archicad), `core-release` (Tag `core-v*` → Release)
+- `ELM_SAB_Add-On` (Vorgänger) lebt nur noch in mozzi86/-archicad:
+  https://github.com/mozzi86/-archicad/tree/main/ELM_SAB_Add-On
 
 ## Neuen ELM_SAB-Befehl bauen (Muster)
 
-1. **Entscheidungsbaum zuerst** (`reference/mcp-extension.md` § Erweiterungs-Entscheidungsbaum):
+1. **Entscheidungsbaum zuerst** (`skills/archicad/reference/mcp-extension.md` § Erweiterungs-Entscheidungsbaum):
    Kombi vorhandener Befehle → Python/arc. Neues Primitiv (C++-API nötig) → ELM_SAB.
 2. Neue Datei `Sources/<Name>Command.hpp`, header-only (kein CMake-Eingriff nötig),
    Klasse von `ELMCommandBase` ableiten. Vorlage: `GetVersionCommandELM.hpp` (simpel)
@@ -55,9 +60,11 @@ Kurzfassung — die Tiefen-Doku mit allen live erlebten Fallen bleibt kanonisch 
   `GetMemoTextContentELM`/`SetMemoTextContentELM` (ELMCommandBase.hpp). Bei jedem
   neuen Memo-Feld die AC28-Release-Notes prüfen.
 - **Kein lokaler Build** (kein cmake/Xcode auf dem SAB-Mac). Pushen — die CI baut.
-- **CI-Ergebnis lesen** (privates Repo, kein Token nötig):
+- **CI-Ergebnis lesen** (Repo öffentlich, anonym möglich):
   `git fetch origin ci-status && git show FETCH_HEAD:status.md`
   Bundles: `git show origin/ci-status:bundles/ELM_SAB_Tapir_AC29_Mac.zip > /tmp/elm.zip`
+  macOS-Runner-Engpass („not acquired by Runner" → cancelled) ist kein Code-Fehler:
+  `gh run rerun <id> --failed`.
   Der rollende Tag `elm-sab-tapir-latest` ist KEIN Erfolgssignal (bewegt sich nicht).
 - **Bundle-Einbau** nur bei maximal EINER laufenden Archicad-Instanz, mit Backup nach
   `~/ELM_SAB_Backups/` (NIE .bak ins Add-Ons-Verzeichnis) und Rücklese per
@@ -71,7 +78,7 @@ Kurzfassung — die Tiefen-Doku mit allen live erlebten Fallen bleibt kanonisch 
 
 ## Pflichtlektüre nach Thema
 
-- API-Fallen, Live-Erkenntnisse, Mehrversionsbau: `reference/mcp-extension.md`
-- MCP-Konventionen, Discovery, Pagination: `reference/mcp-conventions.md`
-- Bulk-Operationen (Trust-but-verify): `reference/bulk-operations.md`
+- API-Fallen, Live-Erkenntnisse, Mehrversionsbau: `skills/archicad/reference/mcp-extension.md`
+- MCP-Konventionen, Discovery, Pagination: `skills/archicad/reference/mcp-conventions.md`
+- Bulk-Operationen (Trust-but-verify): `skills/archicad/reference/bulk-operations.md`
 - Schnelle Read-Queries ohne MCP: `scripts/arc --help`

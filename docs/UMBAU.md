@@ -1,6 +1,6 @@
 # ELMonkey als eigenes Repo – Umbauplan (03.11.2026)
 
-**Stand:** Schritte 1–4 erledigt (03.11.2026). Kern + MCP 0.2.0; Archicad-Add-On 0.10.4 mit Historie umgezogen, CI 8/8 grün im öffentlichen ELMonkey (macOS-Runner-Engpass → Jobs ggf. neu starten), Release `elm-sab-tapir-latest` mit allen Bundles; Update-Prüfung und Installer zeigen auf ELMonkey. -archicad unverändert, Kollegen installieren dort weiter.
+**Stand:** Schritte 1–5 erledigt (04.11.2026). Kern 0.2.0 + MCP 0.2.0; Archicad-Add-On 0.10.4 umgezogen, CI grün, Release `elm-sab-tapir-latest`; Skill nach `skills/archicad` umgezogen; Plattform-Klebe (`elmonkey.plattform`) im Kern. Kollegen installieren den Skill weiter aus -archicad (Spiegel).
 
 **Ziel:** Ein neues privates Repo `mozzi86/ELMonkey`: ein MCP-Plugin mit gemeinsamem Python-Kern
 und zwei Add-ons (Archicad, Schwarz Plattform). Jede KI soll sich wohlfühlen:
@@ -43,8 +43,7 @@ ELMonkey/
    `-archicad` → Umstellung erst, wenn das neue Release grün ist.
 5. **Skill + Plugin** – Skill nach `skills/archicad`, Symlink `~/.claude/skills/archicad` umhängen,
    Claude-Plugin und Client-Konfigurationen, `/gsd-quick`-Regel und `.planning/` mitnehmen.
-6. **Plattform** – SchwarzPlatform bindet den Kern ein (Kopie mit Herkunftsvermerk oder
-   Abhängigkeit). Abstimmung mit dem Plattform-Maintainer; PR #95 bleibt bis dahin die Plattform-Version.
+6. **Plattform** – (offen) SchwarzPlatform pinnt ein Kern-Release (Tag `core-vX.Y.Z`, Tarball-URL) und ersetzt ihre `core/elmonkey.py` durch `Plattform(modell_stand)`. Abstimmung mit dem Plattform-Maintainer; PR #95 bleibt bis dahin die Plattform-Version.
 7. **Abschluss** – `-archicad` auf Archiv/Weiterleitung, Memory und Handoff aktualisieren.
 
 ## Offene Entscheidungen
@@ -55,3 +54,10 @@ ELMonkey/
 
 **Entscheidung 03.11.2026:** ELMonkey wird **öffentlich** (kostenlose CI, Installer ohne Anmeldung).
 Der Plattform-Adapter gehört in die private Schwarz Plattform und ist hier aus der Historie entfernt.
+
+## Abgleich (entschieden 04.11.2026)
+
+Eine Quelle = ELMonkey. `skills/archicad` wird per Workflow `skill-spiegeln` in die Wurzel von
+`mozzi86/-archicad` gespiegelt (nur `SKILL.md`, `recipes/`, `reference/`, `commands/`, `scripts/`;
+Secret `ARCHICAD_SPIEGEL_TOKEN`). Die Plattform pinnt Kern-Releases (Tag `core-vX.Y.Z`, Tarball-URL)
+und zieht Updates per PR; der Maintainer entscheidet.

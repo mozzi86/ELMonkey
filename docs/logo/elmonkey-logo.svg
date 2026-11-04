@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Python-Schlange als Ring (ca. 320 Grad), Lücke oben rechts -->
+  <path d="M 256 51 A 205 205 0 1 0 401 111" fill="none" stroke="#1E4F7A" stroke-width="42" stroke-linecap="round"/>
+  <path d="M 256 51 A 205 205 0 1 0 401 111" fill="none" stroke="#3776AB" stroke-width="34" stroke-linecap="round"/>
+  <path d="M 256 51 A 205 205 0 1 0 401 111" fill="none" stroke="#FFD43B" stroke-width="12" stroke-linecap="butt" stroke-dasharray="14 22"/>
+  <!-- Schlangenkopf am Lückenende (oben rechts) -->
+  <ellipse cx="256" cy="51" rx="30" ry="24" fill="#3776AB" stroke="#1E4F7A" stroke-width="4"/>
+  <circle cx="262" cy="44" r="7" fill="#FFFFFF" stroke="#2B1A0D" stroke-width="2"/>
+  <circle cx="264" cy="44" r="3.5" fill="#2B1A0D"/>
+  <!-- gespaltene Zunge in die Lücke -->
+  <path d="M 284 52 L 318 52 M 318 52 L 332 44 M 318 52 L 332 60" fill="none" stroke="#E0383E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Affenkopf -->
+  <circle cx="118" cy="248" r="44" fill="#8B5A2B" stroke="#2B1A0D" stroke-width="4"/>
+  <circle cx="118" cy="248" r="26" fill="#F1D3A6" stroke="#5C3A1A" stroke-width="3"/>
+  <circle cx="394" cy="248" r="44" fill="#8B5A2B" stroke="#2B1A0D" stroke-width="4"/>
+  <circle cx="394" cy="248" r="26" fill="#F1D3A6" stroke="#5C3A1A" stroke-width="3"/>
+  <circle cx="256" cy="260" r="124" fill="#8B5A2B" stroke="#2B1A0D" stroke-width="4"/>
+  <path d="M 256 206 C 232 176 168 186 168 244 C 168 290 196 326 256 354 C 316 326 344 290 344 244 C 344 186 280 176 256 206 Z" fill="#F1D3A6" stroke="#5C3A1A" stroke-width="3"/>
+  <ellipse cx="222" cy="246" rx="15" ry="19" fill="#FFFFFF" stroke="#2B1A0D" stroke-width="3"/>
+  <ellipse cx="290" cy="246" rx="15" ry="19" fill="#FFFFFF" stroke="#2B1A0D" stroke-width="3"/>
+  <circle cx="224" cy="250" r="9" fill="#2B1A0D"/>
+  <circle cx="288" cy="250" r="9" fill="#2B1A0D"/>
+  <circle cx="227" cy="246" r="3" fill="#FFFFFF"/>
+  <circle cx="291" cy="246" r="3" fill="#FFFFFF"/>
+  <ellipse cx="256" cy="296" rx="20" ry="13" fill="#5C3A1A" stroke="#2B1A0D" stroke-width="3"/>
+  <circle cx="249" cy="296" r="3" fill="#2B1A0D"/>
+  <circle cx="263" cy="296" r="3" fill="#2B1A0D"/>
+  <path d="M 222 322 Q 256 348 290 322" fill="none" stroke="#2B1A0D" stroke-width="4" stroke-linecap="round"/>
+</svg>

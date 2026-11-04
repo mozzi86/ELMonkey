@@ -21,5 +21,9 @@ Diese Regeln gelten überall gleich.
 
 - `core/` – Kern `elmonkey` (Python, nur Standardbibliothek). Neutrales Bauteil:
   `{guid, type, name, properties{…}, ausgeblendet?, geaendert?, plattform?, vertices?}`.
-- Schwarz Plattform: nutzt denselben Kern mit eigenen `Regeln`; der Adapter lebt in der Plattform (privat).
-- `mcp/`, `archicad-addon/`, `skills/`, `plugin/`, `clients/` – im Umzug aus `mozzi86/-archicad`.
+  `elmonkey.plattform` ist die Klebe-Logik für die Schwarz Plattform.
+- `mcp/elmonkey-mcp` – MCP-Server (Python-Monkey).
+- `archicad-addon/ELM_SAB_Tapir` + `installer` – C++-Add-On (Archicad-Monkey), gebaut von der CI.
+- `skills/archicad` – Archicad-Skill, wird nach `mozzi86/-archicad` gespiegelt.
+- `clients/` – MCP-Konfigurationen je Client. `plugin/` – Claude-Plugin (⏳).
+- Schwarz Plattform: bindet den Kern als festes Release ein und gibt ihr Modul an `elmonkey.plattform`.
