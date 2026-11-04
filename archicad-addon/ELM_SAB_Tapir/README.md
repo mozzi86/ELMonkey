@@ -17,18 +17,18 @@ ELMonkey enthält Code aus folgenden MIT-lizenzierten Projekten; die Lizenztexte
 |---|---|---|
 | [Tapir](https://github.com/ENZYME-APD/tapir-archicad-automation) — Copyright (c) 2024 Enzyme APD | MIT | [`LICENSE-TAPIR`](LICENSE-TAPIR) |
 | [archicad-additional-json-commands](https://github.com/tlorantfy/archicad-additional-json-commands) — Copyright (c) 2023 Tibor Lorántfy | MIT | [`LICENSE-ARCHICAD-ADDITIONAL-JSON-COMMANDS`](LICENSE-ARCHICAD-ADDITIONAL-JSON-COMMANDS) |
-| Graphisoft Add-On-Vorlage (Basis des alten `ELM_SAB_Add-On`) — Copyright (c) 2020 GRAPHISOFT | MIT | [`../ELM_SAB_Add-On/LICENSE.md`](../ELM_SAB_Add-On/LICENSE.md) |
+| Graphisoft Add-On-Vorlage (Basis des alten `ELM_SAB_Add-On`) — Copyright (c) 2020 GRAPHISOFT | MIT | [`../ELM_SAB_Add-On/LICENSE.md`](https://github.com/mozzi86/-archicad/tree/main/ELM_SAB_Add-On/LICENSE.md) |
 
 ## Download
 
 Gebaut wird per GitHub Actions; die Artefakte liegen in der rollenden Vorabversion
-[`elm-sab-tapir-latest`](../../releases/tag/elm-sab-tapir-latest).
+[`elm-sab-tapir-latest`](https://github.com/mozzi86/ELMonkey/releases/tag/elm-sab-tapir-latest).
 
 | Archicad | macOS | Windows |
 |---|---|---|
-| **29** | [ELM_SAB_Tapir_AC29_Mac.zip](../../releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC29_Mac.zip) | [ELM_SAB_Tapir_AC29_Win.apx](../../releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC29_Win.apx) |
-| **28** | [ELM_SAB_Tapir_AC28_Mac.zip](../../releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC28_Mac.zip) | [ELM_SAB_Tapir_AC28_Win.apx](../../releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC28_Win.apx) |
-| **27** | [ELM_SAB_Tapir_AC27_Mac.zip](../../releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC27_Mac.zip) | [ELM_SAB_Tapir_AC27_Win.apx](../../releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC27_Win.apx) |
+| **29** | [ELM_SAB_Tapir_AC29_Mac.zip](https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC29_Mac.zip) | [ELM_SAB_Tapir_AC29_Win.apx](https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC29_Win.apx) |
+| **28** | [ELM_SAB_Tapir_AC28_Mac.zip](https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC28_Mac.zip) | [ELM_SAB_Tapir_AC28_Win.apx](https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC28_Win.apx) |
+| **27** | [ELM_SAB_Tapir_AC27_Mac.zip](https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC27_Mac.zip) | [ELM_SAB_Tapir_AC27_Win.apx](https://github.com/mozzi86/ELMonkey/releases/download/elm-sab-tapir-latest/ELM_SAB_Tapir_AC27_Win.apx) |
 
 Die Datei muss zur Archicad-Hauptversion passen. Ein AC29-Bundle lädt nicht in AC28 —
 es erscheint dann gar nicht im Add-On-Manager, ohne Fehlermeldung. Die eigene Version
@@ -105,18 +105,18 @@ Alle im Namensraum `ELM_SAB`, alle mit eingebauter Rücklese-Verifikation — ei
 | `SetLayerOfElements` | Ebene per `layerId` oder `layerName` setzen, im Undo-Scope, mit Teamwork-Reservierung (Standard) und Rücklese je Element. Ab 0.9.19. |
 | `FindElements` | Suche wie „Suchen & aktivieren" mit `and`/`or`/`not` über Typ, Geschoss, Ebene, Eigenschaft, Klassifizierung, Bibliotheksteil, GDL, IFC, Flags, Teamwork, Wirt/Öffnung, Zone, Bereich, Auswahl, Design-Option; liest immer die Grundriss-Datenbank (alle Geschosse), nie das aktive Fenster. `scope`, `return`-Eigenschaften, `criteriaStats` je Kriterium, optional `select` mit Rücklese. Nur lesen. Ab 0.9.23. |
 
-Ab 0.9.24 kommen Aufruffehler (fehlender oder ungültiger Parameter) bei `SetPenOfElements`, `SetTextSizeOfElements`, `SetStoryVisibilityOfElements`, `SetLayerOfElements`, `CreateWallOpenings` und `SetObjectParametersForce` als lesbare Fehlermeldung beim Client an statt als `4009 Invalid command response` (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitt 0.9.24).
+Ab 0.9.24 kommen Aufruffehler (fehlender oder ungültiger Parameter) bei `SetPenOfElements`, `SetTextSizeOfElements`, `SetStoryVisibilityOfElements`, `SetLayerOfElements`, `CreateWallOpenings` und `SetObjectParametersForce` als lesbare Fehlermeldung beim Client an statt als `4009 Invalid command response` (Details: [reference/mcp-extension.md](../../skills/archicad/reference/mcp-extension.md), Abschnitt 0.9.24).
 
-Ab 0.9.25 speichert `CaptureView` das PNG mit Echtfarbtiefe (macOS `MiC`, Windows `TC24`) statt `FromSourceImage`, der wahrscheinlichen Ursache des APIERR_BADID. Liefert Archicad trotzdem APIERR_BADID, folgt ein Rückfall auf `256C`. Die Antwort meldet die benutzte Tiefe in `colorDepth`. Noch nicht live verifiziert (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitt 0.9.25).
+Ab 0.9.25 speichert `CaptureView` das PNG mit Echtfarbtiefe (macOS `MiC`, Windows `TC24`) statt `FromSourceImage`, der wahrscheinlichen Ursache des APIERR_BADID. Liefert Archicad trotzdem APIERR_BADID, folgt ein Rückfall auf `256C`. Die Antwort meldet die benutzte Tiefe in `colorDepth`. Noch nicht live verifiziert (Details: [reference/mcp-extension.md](../../skills/archicad/reference/mcp-extension.md), Abschnitt 0.9.25).
 
-Ab 0.9.26 legt `Create2DElements` 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch), als Schreib-Gegenstück zu `Get2DGeometryOfElements`, der dafür einen eigenen Spline-Zweig bekommt. Anlass sind die farbigen Füllflächen im Flucht- und Rettungswegeplan WiSchu, denn Tapir kann nur Polylinien anlegen. Live verifiziert am 13.10. (WiSchu): alle sechs Typen, Fläche/Umfang exakt, Fehler je Element lesbar. Ab 0.9.27 (live verifiziert) meldet die Rücklese Kreise korrekt (Archicad speichert sie als Bogen mit `whole`), `Get2DGeometryOfElements` liefert `subPolyEnds`; ab 0.9.28 (live verifiziert) legt `Create2DElements` damit auch Schraffuren mit Löchern an (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitte 0.9.26/0.9.27).
+Ab 0.9.26 legt `Create2DElements` 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch), als Schreib-Gegenstück zu `Get2DGeometryOfElements`, der dafür einen eigenen Spline-Zweig bekommt. Anlass sind die farbigen Füllflächen im Flucht- und Rettungswegeplan WiSchu, denn Tapir kann nur Polylinien anlegen. Live verifiziert am 13.10. (WiSchu): alle sechs Typen, Fläche/Umfang exakt, Fehler je Element lesbar. Ab 0.9.27 (live verifiziert) meldet die Rücklese Kreise korrekt (Archicad speichert sie als Bogen mit `whole`), `Get2DGeometryOfElements` liefert `subPolyEnds`; ab 0.9.28 (live verifiziert) legt `Create2DElements` damit auch Schraffuren mit Löchern an (Details: [reference/mcp-extension.md](../../skills/archicad/reference/mcp-extension.md), Abschnitte 0.9.26/0.9.27).
 
-Ab 0.9.31 stürzt `CreateSlabs` nach Favoriten-Standards nicht mehr ab, und GDL-Parameter lassen sich auch bei Türen und Fenstern setzen (Öffnungsmaße springen mit). Ab 0.9.32 prüfen schreibende Befehle vorab und melden Gründe als `[CODE]` (ausgeblendete/gesperrte Ebene, gesperrt, Hotlink, fremd reserviert, falsches Fenster, Undo-Klammer, keine Wirkung); alle Tapir-Erstellbefehle nehmen `layerName`; neu sind `GetLayers`, `SetLayerAttributes`, `GetSlabLevels`; Objekte/Lampen kennen `zReference` absolut oder geschossbezogen. Live verifiziert (Details: [reference/mcp-extension.md](../reference/mcp-extension.md), Abschnitte 0.9.31/0.9.32).
+Ab 0.9.31 stürzt `CreateSlabs` nach Favoriten-Standards nicht mehr ab, und GDL-Parameter lassen sich auch bei Türen und Fenstern setzen (Öffnungsmaße springen mit). Ab 0.9.32 prüfen schreibende Befehle vorab und melden Gründe als `[CODE]` (ausgeblendete/gesperrte Ebene, gesperrt, Hotlink, fremd reserviert, falsches Fenster, Undo-Klammer, keine Wirkung); alle Tapir-Erstellbefehle nehmen `layerName`; neu sind `GetLayers`, `SetLayerAttributes`, `GetSlabLevels`; Objekte/Lampen kennen `zReference` absolut oder geschossbezogen. Live verifiziert (Details: [reference/mcp-extension.md](../../skills/archicad/reference/mcp-extension.md), Abschnitte 0.9.31/0.9.32).
 
 ## Selbst bauen
 
 Der Build läuft normalerweise in der CI
-([`.github/workflows/build-elm-sab-tapir.yml`](../.github/workflows/build-elm-sab-tapir.yml)):
+([`.github/workflows/build-elm-sab-tapir.yml`](../../.github/workflows/build-elm-sab-tapir.yml)):
 sie baut alle acht Kombinationen aus AC27/28/29/30 und Mac/Windows und lädt sie in die
 rollende Vorabversion. Ein Push auf `ELM_SAB_Tapir/**` löst sie aus, per
 `workflow_dispatch` geht es auch von Hand.

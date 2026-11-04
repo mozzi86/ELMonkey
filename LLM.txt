@@ -1,0 +1,77 @@
+# LLM.txt — Kontext für Agenten, die dieses Repo weiterentwickeln
+
+Idee aus revit-mcp-python (github.com/mcp-servers-for-revit/mcp-server-for-revit-python):
+ein Dokument, das einem LLM alles gibt, um hier sicher neue Funktionalität zu bauen.
+Kurzfassung — die Tiefen-Doku mit allen live erlebten Fallen bleibt kanonisch in
+`reference/mcp-extension.md`. Bei Widerspruch gewinnt die Referenz.
+
+## Der Stack (wer spricht mit wem)
+
+    Claude / LLM-Client
+        │  MCP (stdio)                    ODER  Fast-Path: `scripts/arc` (direktes HTTP)
+        ▼
+    Archicad-MCP-Server (extern, tapir-archicad-MCP)
+        │  HTTP  127.0.0.1:19723–19744
+        ▼
+    Archicad-Prozess mit Kombi-Add-On „ELMonkey SAB"
+        ├─ Tapir-Basis (Namespace TapirCommand, aktuell 1.5.4)
+        └─ eigene Befehle (Namespace ELM_SAB)   ← hier wird erweitert
+        │  C++-API-Aufrufe
+        ▼
+    Archicad-Modell
+
+## Repo-Karte
+
+- `ELM_SAB_Tapir/` — das Kombi-Add-On (Tapir-Fork + ELM_SAB-Befehle). DIE Quelle.
+  - `Sources/ELMCommandBase.hpp` — Basisklasse für ELM_SAB-Befehle
+  - `Sources/AddOnMain.cpp` — Registrierung (nach Kommentar „ELM_SAB Commands" suchen)
+  - `Sources/AddOnVersion.hpp` — ELM_SAB_VERSION: bei JEDER Befehls-Änderung bumpen
+- `ELM_SAB_Add-On/` — Vorgänger-Add-On (nur noch Referenz, nicht weiterentwickeln)
+- `SKILL.md`, `reference/`, `recipes/`, `commands/` — der Claude-Code-Skill
+- `scripts/arc` — HTTP-Fast-Path-CLI (stdlib-only Python); Kombis vorhandener
+  Befehle gehören HIERHER, nicht ins C++ (Erweiterungs-Entscheidungsbaum)
+- `.github/workflows/build-elm-sab-tapir.yml` — CI baut AC27/28/29 × Mac/Win
+
+## Neuen ELM_SAB-Befehl bauen (Muster)
+
+1. **Entscheidungsbaum zuerst** (`reference/mcp-extension.md` § Erweiterungs-Entscheidungsbaum):
+   Kombi vorhandener Befehle → Python/arc. Neues Primitiv (C++-API nötig) → ELM_SAB.
+2. Neue Datei `Sources/<Name>Command.hpp`, header-only (kein CMake-Eingriff nötig),
+   Klasse von `ELMCommandBase` ableiten. Vorlage: `GetVersionCommandELM.hpp` (simpel)
+   oder `CaptureViewCommand.hpp` (mit Parametern + API-Aufrufen).
+3. In `AddOnMain.cpp` includen und im ELM_SAB-Block registrieren — Versionsstring =
+   neue ELM_SAB_VERSION, Beschreibung deutsch, beginnend mit „ELM_SAB: ".
+4. `AddOnVersion.hpp`: ELM_SAB_VERSION bumpen (sonst ist am laufenden Archicad nicht
+   feststellbar, welcher Build geladen ist).
+5. Schreib-Befehle IMMER mit Rücklese-Verifikation im Execute (Muster:
+   SetColumnRotationCommand). Reads brauchen das nicht.
+
+## Harte Regeln (Verstöße kosten einen CI-Zyklus oder Datenverlust)
+
+- **Kein C++20** — AC27/28 bauen C++17 (ranges, span, starts_with, designated
+  initializers verboten). AC29 allein grün ist KEIN Erfolg.
+- **Memo-Felder**: `textContent` ist in AC28 von char** auf GS::UniString* umgestellt;
+  direkter Zugriff kompiliert unter AC27 und liefert stillen Müll. Immer über
+  `GetMemoTextContentELM`/`SetMemoTextContentELM` (ELMCommandBase.hpp). Bei jedem
+  neuen Memo-Feld die AC28-Release-Notes prüfen.
+- **Kein lokaler Build** (kein cmake/Xcode auf dem SAB-Mac). Pushen — die CI baut.
+- **CI-Ergebnis lesen** (privates Repo, kein Token nötig):
+  `git fetch origin ci-status && git show FETCH_HEAD:status.md`
+  Bundles: `git show origin/ci-status:bundles/ELM_SAB_Tapir_AC29_Mac.zip > /tmp/elm.zip`
+  Der rollende Tag `elm-sab-tapir-latest` ist KEIN Erfolgssignal (bewegt sich nicht).
+- **Bundle-Einbau** nur bei maximal EINER laufenden Archicad-Instanz, mit Backup nach
+  `~/ELM_SAB_Backups/` (NIE .bak ins Add-Ons-Verzeichnis) und Rücklese per
+  `ELM_SAB.GetAddOnVersion` (Tapirs GetAddOnVersion meldet nur den Unterbau).
+- **Version live prüfen**: `arc tapir GetAddOnVersion` lügt über den ELM-Stand —
+  immer `ELM_SAB.GetAddOnVersion` (via arc: `arc call API.ExecuteAddOnCommand` mit
+  commandNamespace "ELM_SAB").
+- **Tapir-Upstream** (ENZYME-APD/tapir-archicad-automation) nicht blind nachziehen —
+  Auto-Update ist bewusst stillgelegt, ein Vanilla-Tapir-Update würde die
+  ELM_SAB-Befehle wegwerfen.
+
+## Pflichtlektüre nach Thema
+
+- API-Fallen, Live-Erkenntnisse, Mehrversionsbau: `reference/mcp-extension.md`
+- MCP-Konventionen, Discovery, Pagination: `reference/mcp-conventions.md`
+- Bulk-Operationen (Trust-but-verify): `reference/bulk-operations.md`
+- Schnelle Read-Queries ohne MCP: `scripts/arc --help`
