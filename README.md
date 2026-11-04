@@ -8,7 +8,7 @@
 
 | Teil | Ordner | Stand |
 |---|---|---|
-| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.2.0, 19 Tests |
+| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.2.1, 19 Tests |
 | **Schwarz Plattform** – Plattform bindet `elmonkey-core` als festes Release ein (`elmonkey.plattform`) | Plattform (privat) | ✅ Klebe-Logik im Kern, Einbau nach Abstimmung |
 | **MCP-Server** `elmonkey-mcp` 0.2.0 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 7 Tests, live gegen Archicad gelesen |
 | **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.10.4, CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
@@ -21,7 +21,7 @@ automatischer Spiegel von `skills/archicad`. Umbauplan: [`docs/UMBAU.md`](docs/U
 
 ## Installation
 
-- **Kern:** `pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/archive/refs/tags/core-v0.2.0.tar.gz#subdirectory=core"`
+- **Kern:** `pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/releases/download/core-v0.2.1/elmonkey_core-0.2.1-py3-none-any.whl"`
 - **MCP-Server:** `uv tool install "git+https://github.com/mozzi86/ELMonkey#subdirectory=mcp/elmonkey-mcp"`
 - **Add-On:** Release [`elm-sab-tapir-latest`](https://github.com/mozzi86/ELMonkey/releases/tag/elm-sab-tapir-latest), siehe [`archicad-addon/ELM_SAB_Tapir/README.md`](archicad-addon/ELM_SAB_Tapir/README.md)
 
@@ -45,7 +45,7 @@ gespiegelt (Workflow `skill-spiegeln`); die Plattform holt neue Kern-Releases pe
 ## Kern benutzen
 
 ```bash
-pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/archive/refs/tags/core-v0.2.0.tar.gz#subdirectory=core"
+pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/releases/download/core-v0.2.1/elmonkey_core-0.2.1-py3-none-any.whl"
 ```
 
 ```python

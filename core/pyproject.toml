@@ -1,6 +1,6 @@
 [project]
 name = "elmonkey-core"
-version = "0.2.0"
+version = "0.2.1"
 description = "ELMonkey-Kern: finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese — neutral für Archicad und die Schwarz Plattform + Plattform-Klebe (elmonkey.plattform)"
 requires-python = ">=3.10"
 dependencies = []

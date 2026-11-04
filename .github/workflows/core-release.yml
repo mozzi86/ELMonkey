@@ -45,13 +45,28 @@ jobs:
           fi
           echo "VERSION=$pkg_version" >> "$GITHUB_ENV"
 
+      # Wheel + sdist als Release-Dateien: bytegleich und mit Prüfsumme pinnbar (GitHub-Archive sind
+      # nicht garantiert bytestabil). pip prüft ein #sha256=-Fragment, ohne den Hash-Zwang für alle
+      # anderen Pakete einzuschalten.
+      - name: Wheel und sdist bauen
+        run: |
+          set -euo pipefail
+          pip install build
+          python -m build core --outdir dist
+          ls -l dist
+
       - name: Release anlegen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          WHL=$(ls dist/*.whl | head -n1); NAME=$(basename "$WHL")
+          SHA=$(sha256sum "$WHL" | cut -d' ' -f1)
           git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.md
-          if [ -z "$(tr -d '[:space:]' < notes.md)" ]; then
-            printf 'Kern elmonkey-core %s. Einbinden: pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/archive/refs/tags/%s.tar.gz#subdirectory=core"\n' "$VERSION" "$GITHUB_REF_NAME" > notes.md
-          fi
-          gh release create "$GITHUB_REF_NAME" --title "elmonkey-core $VERSION" --notes-file notes.md --verify-tag
+          {
+            echo; echo "**Einbinden (fest, mit Prüfsumme):**"; echo
+            echo '```'
+            echo "elmonkey-core @ https://github.com/mozzi86/ELMonkey/releases/download/${GITHUB_REF_NAME}/${NAME}#sha256=${SHA}"
+            echo '```'
+          } >> notes.md
+          gh release create "$GITHUB_REF_NAME" --title "elmonkey-core $VERSION" --notes-file notes.md --verify-tag dist/*

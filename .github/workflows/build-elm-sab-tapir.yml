@@ -8,6 +8,7 @@ permissions:
 # 6-Kombi-Lauf kostet aber zweistellige macOS-Minuten (zählen zehnfach).
 on:
   push:
+    branches: ['**']          # Tags (z. B. core-v*) bauen das Add-On nicht
     paths:
       - 'archicad-addon/ELM_SAB_Tapir/**'
       - '!archicad-addon/ELM_SAB_Tapir/**/*.md'
