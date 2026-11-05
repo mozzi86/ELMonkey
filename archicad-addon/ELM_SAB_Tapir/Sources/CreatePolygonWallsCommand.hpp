@@ -22,3 +22,21 @@ public:
 
     virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
 };
+
+// ELMonkey 0.11.5 — GetPolygonWallInfo: Rohfelder einer Wand (type, rLinInd, Referenzlinie, Polygon),
+// um von Hand gezeichnete Polygonwaende mit API-erzeugten zu vergleichen (Diagnose 05.11.2026).
+class GetPolygonWallInfoCommand : public ELMCommandBase
+{
+public:
+    GetPolygonWallInfoCommand () = default;
+
+    virtual GS::String GetName () const override
+    {
+        return "GetPolygonWallInfo";
+    }
+
+    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
+    virtual GS::Optional<GS::UniString> GetResponseSchema () const override;
+
+    virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
+};

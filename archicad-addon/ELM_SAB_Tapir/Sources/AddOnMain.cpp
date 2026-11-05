@@ -1636,6 +1636,10 @@ GSErrCode Initialize (void)
             elmSabCommands, "0.10.8",
             "ELM_SAB: Erstellt Polygonwaende (APIWtyp_Poly) aus Konturen."
         );
+        err |= RegisterCommand<GetPolygonWallInfoCommand> (
+            elmSabCommands, "0.11.5",
+            "ELM_SAB: Rohfelder einer Wand (type, rLinInd, Referenzlinie, Polygon-Memo) zur Polygonwand-Diagnose."
+        );
         err |= RegisterCommand<Get2DGeometryCommand> (
             elmSabCommands, "0.9.0",
             "ELM_SAB: Liefert 2D-Geometrie von Line/Arc/Circle/PolyLine/Spline/Hatch. 0.9.19: alle uebrigen Typen ueber ShapePrims (Zeichenprimitive wie im Grundriss). 0.9.26: Spline (coordinates, bezierDirs, closed, autoSmooth) - Ausgabe ist Eingabe fuer Create2DElements. 0.9.27: PolyLine/Hatch liefern subPolyEnds (Teilpolygon-Enden, Loecher erkennbar)."

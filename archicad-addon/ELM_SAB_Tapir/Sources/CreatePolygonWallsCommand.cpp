@@ -74,6 +74,10 @@ GS::Optional<GS::UniString> CreatePolygonWallsCommand::GetInputParametersSchema 
                         "referenceLineEndEdge": {
                             "type": "integer",
                             "description": "ELMonkey 0.11.2: Endkante der Referenzlinie (1-basiert). Optional, Default = referenceLineEdge."
+                        },
+                        "minimal": {
+                            "type": "boolean",
+                            "description": "ELMonkey 0.11.5 (Diagnose): true = exakt wie das Graphisoft-Forum-Beispiel: GetDefaults ohne Memo, nur type/Struktur/poly/coords/pends/vertexIDs/edgeIDs, keine Referenzlinie, kein begC/endC, kein polyCanChange."
                         }
                     },
                     "required": ["polygonCoordinates"]
@@ -128,7 +132,10 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
 #else
             element.header.typeID = API_WallID;
 #endif
-            GSErrCode err = ACAPI_Element_GetDefaults (&element, &memo);
+            bool minimal = false;
+            wallData.Get ("minimal", minimal);
+
+            GSErrCode err = ACAPI_Element_GetDefaults (&element, minimal ? nullptr : &memo);
             if (err != NoError) {
                 ACAPI_DisposeElemMemoHdls (&memo);
                 elements (CreateFailedExecutionResult (err, "GetDefaults fehlgeschlagen"));
@@ -136,10 +143,12 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             }
 
             element.wall.type = APIWtyp_Poly;
-            element.wall.polyCanChange = true;
-            // 0.11.3: Polygonwaende haben laut SDK-Header immer APIWallRefLine_Outside (Center ist dort ungueltig).
-            element.wall.referenceLineLocation = APIWallRefLine_Outside;
-            element.wall.offset = 0.0;
+            if (!minimal) {
+                element.wall.polyCanChange = true;
+                // 0.11.3: Polygonwaende haben laut SDK-Header immer APIWallRefLine_Outside (Center ist dort ungueltig).
+                element.wall.referenceLineLocation = APIWallRefLine_Outside;
+                element.wall.offset = 0.0;
+            }
 
             Int32 floorIndex = 0;
             if (wallData.Get ("floorIndex", floorIndex))
@@ -280,14 +289,16 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
                 elements (CreateFailedExecutionResult (APIERR_BADPARS, "referenceLineEdge/referenceLineEndEdge ausserhalb 1..n"));
                 continue;
             }
-            element.wall.rLinInd    = refEdge;
-            element.wall.rLinEndInd = refEndEdge;
-            element.wall.begC = (*memo.coords)[refEdge];
-            element.wall.endC = (*memo.coords)[refEdge + 1];
-            if (std::fabs (element.wall.endC.x - element.wall.begC.x) + std::fabs (element.wall.endC.y - element.wall.begC.y) < 1e-6) {
-                ACAPI_DisposeElemMemoHdls (&memo);
-                elements (CreateFailedExecutionResult (APIERR_BADPARS, "Referenzlinien-Kante hat Laenge 0"));
-                continue;
+            if (!minimal) {
+                element.wall.rLinInd    = refEdge;
+                element.wall.rLinEndInd = refEndEdge;
+                element.wall.begC = (*memo.coords)[refEdge];
+                element.wall.endC = (*memo.coords)[refEdge + 1];
+                if (std::fabs (element.wall.endC.x - element.wall.begC.x) + std::fabs (element.wall.endC.y - element.wall.begC.y) < 1e-6) {
+                    ACAPI_DisposeElemMemoHdls (&memo);
+                    elements (CreateFailedExecutionResult (APIERR_BADPARS, "Referenzlinien-Kante hat Laenge 0"));
+                    continue;
+                }
             }
 
             err = ACAPI_Element_Create (&element, &memo);
@@ -319,5 +330,118 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
         return NoError;
     });
 
+    return response;
+}
+
+// ---------------------------------------------------------------------------
+// GetPolygonWallInfo (0.11.5, Diagnose)
+// ---------------------------------------------------------------------------
+
+GS::Optional<GS::UniString> GetPolygonWallInfoCommand::GetInputParametersSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": {
+            "elements": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": { "elementId": { "type": "object", "properties": { "guid": { "type": "string" } }, "required": ["guid"] } },
+                    "required": ["elementId"]
+                }
+            }
+        },
+        "required": ["elements"]
+    })");
+}
+
+GS::Optional<GS::UniString> GetPolygonWallInfoCommand::GetResponseSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": { "walls": { "type": "array", "items": { "type": "object" } } },
+        "required": ["walls"]
+    })");
+}
+
+GS::ObjectState GetPolygonWallInfoCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+    GS::Array<GS::ObjectState> elems;
+    parameters.Get ("elements", elems);
+
+    GS::ObjectState response;
+    const auto& walls = response.AddList<GS::ObjectState> ("walls");
+
+    for (const GS::ObjectState& e : elems) {
+        const GS::ObjectState* idOs = e.Get ("elementId");
+        const API_Guid guid = idOs != nullptr ? GetGuidFromObjectState (*idOs) : APINULLGuid;
+        API_Element el = {};
+        el.header.guid = guid;
+        GSErrCode err = ACAPI_Element_Get (&el);
+        if (err != NoError) {
+            walls (CreateFailedExecutionResult (err, "ACAPI_Element_Get fehlgeschlagen"));
+            continue;
+        }
+#ifdef ServerMainVers_2600
+        const bool isWall = el.header.type == API_WallID;
+#else
+        const bool isWall = el.header.typeID == API_WallID;
+#endif
+        if (!isWall) {
+            walls (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "Kein Wand-Element"));
+            continue;
+        }
+        GS::ObjectState w;
+        w.Add ("elementId", CreateGuidObjectStateELM (guid));
+        w.Add ("type", (Int32) el.wall.type);
+        w.Add ("structureType", (Int32) el.wall.modelElemStructureType);
+        w.Add ("referenceLineLocation", (Int32) el.wall.referenceLineLocation);
+        w.Add ("polyCanChange", el.wall.polyCanChange);
+        w.Add ("flipped", el.wall.flipped);
+        w.Add ("rLinInd", el.wall.rLinInd);
+        w.Add ("rLinEndInd", el.wall.rLinEndInd);
+        w.Add ("refInd", el.wall.refInd);
+        w.Add ("refEndInd", el.wall.refEndInd);
+        w.Add ("oppInd", el.wall.oppInd);
+        w.Add ("oppEndInd", el.wall.oppEndInd);
+        w.Add ("thickness", el.wall.thickness);
+        w.Add ("thickness1", el.wall.thickness1);
+        w.Add ("offset", el.wall.offset);
+        w.Add ("height", el.wall.height);
+        w.Add ("relativeTopStory", (Int32) el.wall.relativeTopStory);
+        w.Add ("angle", el.wall.angle);
+        w.Add ("begC", Create2DCoordinateObjectState (el.wall.begC));
+        w.Add ("endC", Create2DCoordinateObjectState (el.wall.endC));
+        w.Add ("nCoords", el.wall.poly.nCoords);
+        w.Add ("nSubPolys", el.wall.poly.nSubPolys);
+        w.Add ("nArcs", el.wall.poly.nArcs);
+
+        API_ElementMemo memo = {};
+        if (ACAPI_Element_GetMemo (guid, &memo, APIMemoMask_Polygon) == NoError) {
+            const auto& coords = w.AddList<GS::ObjectState> ("coords");
+            if (memo.coords != nullptr) {
+                for (Int32 k = 1; k <= el.wall.poly.nCoords; ++k)
+                    coords (Create2DCoordinateObjectState ((*memo.coords)[k]));
+            }
+            const auto& pends = w.AddList<Int32> ("pends");
+            if (memo.pends != nullptr) {
+                for (Int32 k = 0; k <= el.wall.poly.nSubPolys; ++k)
+                    pends ((*memo.pends)[k]);
+            }
+            const auto& vids = w.AddList<Int32> ("vertexIDs");
+            if (memo.vertexIDs != nullptr) {
+                for (Int32 k = 0; k <= el.wall.poly.nCoords; ++k)
+                    vids ((Int32) (*memo.vertexIDs)[k]);
+            }
+            const auto& eids = w.AddList<Int32> ("edgeIDs");
+            if (memo.edgeIDs != nullptr) {
+                for (Int32 k = 0; k <= el.wall.poly.nCoords; ++k)
+                    eids ((Int32) (*memo.edgeIDs)[k]);
+            }
+            w.Add ("hasParcs", memo.parcs != nullptr);
+        }
+        ACAPI_DisposeElemMemoHdls (&memo);
+        walls (w);
+    }
     return response;
 }
