@@ -11,3 +11,11 @@ status: complete
 - CI Lauf 42036133079: 8/8 grün (AC27–30 × Mac/Win), Kopf `e918db7`.
 - Skill: Abschnitt „ELMonkey 0.11.0" in `reference/mcp-extension.md` (RKs Fallen + AC30-Falle).
 - Offen: nicht in `main` gemergt, nicht installiert, gemeinsamer Live-Test beider Linien steht aus.
+
+## Nachtrag 05.11.2026 abends — Polygonwände (0.11.1 → 0.11.11)
+
+Ursache des CreatePolygonWalls-Absturzes/Normalwand-Problems: Archicad nimmt `APIWtyp_Poly` nur an, wenn die
+Wand-Werkzeug-Voreinstellung der Datei Basis-Struktur hat (Diff vor/nach Handwand: einziges Feld
+`modelElemStructureType`). Fix: `ACAPI_Element_ChangeDefaults` auf Basis vor `GetDefaults`, danach zurück.
+Zehn CI-Builds (0.11.2–0.11.11), live verifiziert in frischer INT-Datei (AC29 5101), Gegenprobe AC28 (7006).
+Details: skills/archicad/reference/mcp-extension.md, Abschnitt „0.11.1–0.11.11 Polygonwände, GELÖST".

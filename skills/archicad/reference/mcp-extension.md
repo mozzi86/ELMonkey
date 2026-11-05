@@ -2155,11 +2155,25 @@ Fallen:
 - RKs Linie war nur für AC29 lokal gebaut. In der CI fiel AC30 an `UniString::ToLowerCase` durch
   (DevKit 30: `GetLowerCased`). In Headern deshalb ein eigener Makroname (`ELM_LOWER_CASED`),
   nicht `#define ToLowerCase`, das in jede einbindende Datei durchschlagen würde.
-- **0.11.1 (OFFEN):** `ELM_SAB.CreatePolygonWalls` brachte AC29 in 0.11.0 mit SIGABRT zum Absturz — auch
-  ohne Bogen (live 05.11., zweimal, leere INT-Vorlage). Stack: `CreatePolygonWallsCommand::Execute` →
-  Anschluss-Update → `ProfileTo3DTransformer::SetupCoordinateSystemFromWall` → `CustomUnitVector3D::Create`
-  wirft (Nullrichtung, `begC == endC`). 0.11.1 setzt `begC/endC` auf die erste Kante: kein Absturz mehr,
-  ABER Archicad legt dann eine **gerade Standardwand** an (Polygon, Bogen und `height` ignoriert, 0,30 m,
-  3 m) — auch mit `buildingMaterialIndex` (Basic). Im Juli liefen 2.032 Polygonwände mit `begC == endC`
-  fehlerfrei. **Bis zur Klärung keine Polygonwände über die API anlegen.** Nächster Schritt: 0.10.4-Bundle
-  gegenprobieren (Regression seit Tapir 1.7.2/0.10.0 oder RKs 0.10.8?).
+- **0.11.1–0.11.11 Polygonwände, GELÖST (05.11.2026):** `ELM_SAB.CreatePolygonWalls` stürzte in 0.10.4/0.11.0
+  ab (SIGABRT, `ProfileTo3DTransformer::SetupCoordinateSystemFromWall`, Nullrichtung `begC == endC`) bzw.
+  legte ab 0.11.1 eine **gerade Normalwand** an. Ursache nach zehn Diagnose-Builds: **Archicad entscheidet
+  beim `ACAPI_Element_Create` über die Annahme von `APIWtyp_Poly` anhand der Wand-Werkzeug-Voreinstellung
+  der Datei, nicht anhand des übergebenen Elements.** Ist die Voreinstellung *mehrschichtig* (INT-Vorlage,
+  aktuelle Bürovorlage), wird das Polygon verworfen und aus `begC/endC` eine Normalwand gebaut — mit
+  `begC == endC` der Absturz. Ist sie *Basis* (Projekt im Juli, oder nachdem einmal von Hand eine Polygonwand
+  gezeichnet wurde), klappt derselbe Aufruf. Beleg: Diff der Voreinstellung vor/nach einer Handwand in
+  derselben Datei — einziges geändertes Feld `modelElemStructureType 1 → 0`; eine Handwand per
+  `ClonePolygonWall` 1:1 kopiert wird polygonal. Reproduziert in AC28 (7006) und AC29 (5101), unabhängig
+  von Vorlage, Memo (vertexIDs/edgeIDs/parcs), rLinInd, Referenzlinie. Das Graphisoft-Forum kennt den
+  Absturz seit 2024 ohne Erklärung (Thread „Wall Geometry Method: Polygonal", Bug-Report offen).
+  **Fix 0.11.10/0.11.11:** vor `GetDefaults` die Voreinstellung per `ACAPI_Element_ChangeDefaults` (Maske
+  `modelElemStructureType`) auf Basis stellen, nach dem Erzeugen zurückstellen (`forceBasicDefaults`,
+  Default an). Dazu: `begC/endC` = Referenzlinien-Kante (`referenceLineEdge`), `rLinInd/rLinEndInd`,
+  `vertexIDs [n,1..n,1]`/`edgeIDs [0,1..n,1]` wie bei Handwänden, `parcs`-Handle immer, Top-Link gelöst,
+  wenn `height` gesetzt. Live verifiziert in frischer INT-Datei: 4×0,2×1 m, mit Bogen, mit
+  `compositeIndex` (Ergebnis bleibt Basic — Polygonwände sind in AC immer Basis), drei Wände je Aufruf.
+  Diagnosebefehle bleiben: `GetPolygonWallInfo` (Rohfelder + Memo einer Wand), `ClonePolygonWall`
+  (Wand 1:1 per Create kopieren), Parameter `debug`, `typeOverride`, `minimal`, `forceBasicDefaults`.
+  Testskripte: `~/.scratch/elmonkey/tools/test_polywand.py`, `test_clonewand.py`.
+  Weitergabe: Tapir-Issue + Forum-Antwort (Entwürfe in `~/.scratch/elmonkey/weitergabe/`).
