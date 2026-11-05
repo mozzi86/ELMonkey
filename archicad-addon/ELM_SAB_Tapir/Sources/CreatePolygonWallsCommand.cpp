@@ -79,6 +79,10 @@ GS::Optional<GS::UniString> CreatePolygonWallsCommand::GetInputParametersSchema 
                             "type": "integer",
                             "description": "ELMonkey 0.11.7 (Diagnose): erzwingt element.wall.type (0 Normal, 1 Trapez, 2 Poly) nach allen anderen Feldern."
                         },
+                        "forceBasicDefaults": {
+                            "type": "boolean",
+                            "description": "ELMonkey 0.11.10: Wand-Werkzeug-Voreinstellung vor dem Erzeugen auf Basis-Struktur stellen (Default true). Mit mehrschichtiger Voreinstellung legt Archicad sonst eine Normalwand an."
+                        },
                         "minimal": {
                             "type": "boolean",
                             "description": "ELMonkey 0.11.5 (Diagnose): true = exakt wie das Graphisoft-Forum-Beispiel: GetDefaults ohne Memo, nur type/Struktur/poly/coords/pends/vertexIDs/edgeIDs, keine Referenzlinie, kein begC/endC, kein polyCanChange."
@@ -138,6 +142,30 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
 #endif
             bool minimal = false;
             wallData.Get ("minimal", minimal);
+
+            // 0.11.10: Die Wand-Werkzeug-Voreinstellung entscheidet, ob AC das Polygon annimmt: mit
+            // mehrschichtiger Voreinstellung (INT-Vorlage) entsteht eine Normalwand, obwohl das Element
+            // selbst auf Basic steht; nach einer von Hand gezeichneten Polygonwand (Voreinstellung Basic)
+            // klappt derselbe Aufruf (05.11.2026). Deshalb vorher die Voreinstellung auf Basic stellen.
+            bool forceBasicDefaults = true;
+            wallData.Get ("forceBasicDefaults", forceBasicDefaults);
+            Int32 defaultsChanged = 0;      // 0 = nicht noetig, 1 = umgestellt, <0 = Fehlercode
+            if (forceBasicDefaults && !minimal) {
+                API_Element def = {};
+#ifdef ServerMainVers_2600
+                def.header.type = API_WallID;
+#else
+                def.header.typeID = API_WallID;
+#endif
+                if (ACAPI_Element_GetDefaults (&def, nullptr) == NoError && def.wall.modelElemStructureType != API_BasicStructure) {
+                    API_Element mask;
+                    ACAPI_ELEMENT_MASK_CLEAR (mask);
+                    ACAPI_ELEMENT_MASK_SET (mask, API_WallType, modelElemStructureType);
+                    def.wall.modelElemStructureType = API_BasicStructure;
+                    const GSErrCode derr = ACAPI_Element_ChangeDefaults (&def, nullptr, &mask);
+                    defaultsChanged = derr == NoError ? 1 : (Int32) derr;
+                }
+            }
 
             GSErrCode err = ACAPI_Element_GetDefaults (&element, minimal ? nullptr : &memo);
             if (err != NoError) {
@@ -207,6 +235,16 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             debug.Add ("defaultAngle", element.wall.angle);
             debug.Add ("defaultMemoGables", memo.gables != nullptr);
             debug.Add ("defaultRefInd", element.wall.refInd);
+            debug.Add ("defaultsChangedToBasic", defaultsChanged);
+            debug.Add ("defaultContPen", (Int32) element.wall.contPen);
+            debug.Add ("defaultContLtype", element.wall.contLtype.ToInt32_Deprecated ());
+            debug.Add ("defaultLinkToSettings", (Int32) element.wall.linkToSettings);
+            debug.Add ("defaultInheritEndSurface", element.wall.inheritEndSurface);
+            debug.Add ("defaultAlignTexture", element.wall.alignTexture);
+            debug.Add ("defaultAutoStoryVis", element.wall.isAutoOnStoryVisibility);
+            debug.Add ("defaultLayer", element.header.layer.ToInt32_Deprecated ());
+            debug.Add ("defaultRenovationStatus", (Int32) element.header.renovationStatus);
+            debug.Add ("defaultHasMemo", element.header.hasMemo);
             debug.Add ("defaultOppInd", element.wall.oppInd);
 
             double height = 0.0;
