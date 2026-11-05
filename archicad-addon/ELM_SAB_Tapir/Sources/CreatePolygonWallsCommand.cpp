@@ -257,14 +257,22 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
                 elements (CreateFailedExecutionResult (APIERR_MEMFULL, "Speicher-Allokation (vertexIDs/edgeIDs) fehlgeschlagen"));
                 continue;
             }
-            (*memo.vertexIDs)[0] = (UInt32) element.wall.poly.nCoords;
+            // 0.11.6: Muster einer von Hand gezeichneten Polygonwand (AC29 live, GetPolygonWallInfo):
+            // vertexIDs = [n, 1..n, 1], edgeIDs = [0, 1..n, 1] — der Schlusspunkt traegt die ID des
+            // Startpunkts, [0] ist die Anzahl der Ecken (n), nicht nCoords. Bis 0.11.5 stand dort
+            // [nCoords, 1..nCoords] -> doppelte Ecke mit eigener ID -> AC verwirft das Polygon.
+            (*memo.vertexIDs)[0] = (UInt32) n;
             (*memo.edgeIDs)[0]   = 0;
-            for (Int32 k = 1; k <= element.wall.poly.nCoords; ++k) {
+            for (Int32 k = 1; k <= n; ++k) {
                 (*memo.vertexIDs)[k] = (UInt32) k;
                 (*memo.edgeIDs)[k]   = (UInt32) k;
             }
-            if (element.wall.poly.nArcs > 0) {
-                memo.parcs = reinterpret_cast<API_PolyArc**> (BMAllocateHandle (element.wall.poly.nArcs * sizeof (API_PolyArc), ALLOCATE_CLEAR, 0));
+            (*memo.vertexIDs)[n + 1] = 1;
+            (*memo.edgeIDs)[n + 1]   = 1;
+            // 0.11.6: parcs-Handle immer anlegen (echte Polygonwaende haben es auch ohne Boegen).
+            {
+                const Int32 nArcAlloc = element.wall.poly.nArcs > 0 ? element.wall.poly.nArcs : 1;
+                memo.parcs = reinterpret_cast<API_PolyArc**> (BMAllocateHandle (nArcAlloc * sizeof (API_PolyArc), ALLOCATE_CLEAR, 0));
                 if (memo.parcs == nullptr) {
                     ACAPI_DisposeElemMemoHdls (&memo);
                     elements (CreateFailedExecutionResult (APIERR_MEMFULL, "Speicher-Allokation (Boegen) fehlgeschlagen"));
@@ -292,6 +300,13 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             if (!minimal) {
                 element.wall.rLinInd    = refEdge;
                 element.wall.rLinEndInd = refEndEdge;
+                // 0.11.6: wie bei Handwaenden: Referenzmaterial-Kanten = Referenzlinie, Gegenseite = gegenueberliegende Kante
+                element.wall.refInd     = refEdge;
+                element.wall.refEndInd  = refEndEdge;
+                element.wall.oppInd     = ((refEndEdge + n / 2 - 1) % n) + 1;
+                element.wall.oppEndInd  = element.wall.oppInd;
+                element.wall.polyCanChange = false;
+                element.wall.flipped = false;
                 element.wall.begC = (*memo.coords)[refEdge];
                 element.wall.endC = (*memo.coords)[refEdge + 1];
                 if (std::fabs (element.wall.endC.x - element.wall.begC.x) + std::fabs (element.wall.endC.y - element.wall.begC.y) < 1e-6) {
