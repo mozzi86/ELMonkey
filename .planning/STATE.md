@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 last_updated: "2026-09-03T00:00:00.000Z"
-last_activity: 2026-10-13 — Quick: Doku ELM_SAB 0.9.22–0.9.25 live verifiziert (261013-lmd)
+last_activity: 2026-11-05 — Quick: Bauteilkatalog-Maschine in elmonkey-core 0.3.0 (261105-e41)
 progress:
   total_phases: 8
   completed_phases: 6
@@ -63,6 +63,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 | 2026-11-03 | 261103-m9g | ELMonkey 0.10.4: SetLayerAttributes isHidden/isLocked/isWireframe-Alias, SetLayerOfElements Code+Ist-Ebene je Element, Doku Stahlprofile per CreateProfiles newSkins + Morph body, MCP-Registrierung (CI ausstehend, nicht live getestet) |
 | 2026-11-04 | 261104-g8x | ELMonkey: Kern 0.2.0 mit elmonkey.plattform (16 Plattform-Tests grün über 10-Zeilen-Ersatz), Logo Affe+Python, README zweisprachig, LLM.txt/CLAUDE/AGENTS/UMBAU, Workflows Skill-Spiegel → -archicad + Kern-Release |
 | 2026-11-04 | 261104-k1x | CI: kein Add-On-Build bei Tags; Kern-Release core-v0.2.1 mit Wheel + sha256-Pinzeile (Pin geprüft, falscher Hash abgelehnt) |
+| 2026-11-05 | 261105-e41 | Bauteilkatalog-Maschine als `elmonkey.katalog` in elmonkey-core 0.3.0 (Extra `[ifc]`); SAB-Daten bleiben in der Plattform; neutrales Fixture, 66 Tests mit / 52+2 ohne ifcopenshell; Branch katalog-0.3.0, nicht gepusht |
 
 ## Performance Metrics
 
