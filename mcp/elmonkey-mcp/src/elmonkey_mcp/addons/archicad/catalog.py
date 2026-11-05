@@ -55,6 +55,10 @@ SYNONYMS = {
     "profil": "profile", "profile": "profile", "stahlprofil": "profile", "stahlprofile": "profile",
     "querschnitt": "profile", "ipe": "profile", "hea": "profile", "heb": "profile", "shs": "profile", "rhs": "profile",
     "koerper": "morph", "körper": "morph", "freiform": "morph", "volumenkoerper": "morph", "body": "morph",
+    # 0.11 Polygonwaende, Hotlinks, Zeichnungsquellen (CreatePolygonWalls, GetHotlinkInstances, GetDrawingLinks)
+    "polygonwand": "polygon", "polygonwaende": "polygon", "polygonwände": "polygon", "polywand": "polygon",
+    "hotlink": "hotlink", "hotlinks": "hotlink", "modulverknuepfung": "hotlink",
+    "zeichnungsquelle": "drawing", "zeichnungsverknuepfung": "drawing", "umbaustatus": "renovation",
 }
 
 _cache: dict = {}

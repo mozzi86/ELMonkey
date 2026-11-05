@@ -1,6 +1,6 @@
 # ELMonkey als eigenes Repo – Umbauplan (03.11.2026)
 
-**Stand:** Schritte 1–5 erledigt (04.11.2026). Kern 0.2.0 + MCP 0.2.0; Archicad-Add-On 0.10.4 umgezogen, CI grün, Release `elm-sab-tapir-latest`; Skill nach `skills/archicad` umgezogen; Plattform-Klebe (`elmonkey.plattform`) im Kern. Kollegen installieren den Skill weiter aus -archicad (Spiegel).
+**Stand:** Schritte 1–5 erledigt (04.11.2026). Kern 0.2.0 + MCP 0.2.0; Archicad-Add-On 0.11.11 (RK-Linie 0.10.1–0.10.8 + Polygonwand-Fix) umgezogen, CI grün, Release `elm-sab-tapir-latest`; Skill nach `skills/archicad` umgezogen; Plattform-Klebe (`elmonkey.plattform`) im Kern. Kollegen installieren den Skill weiter aus -archicad (Spiegel).
 
 **Ziel:** Ein neues privates Repo `mozzi86/ELMonkey`: ein MCP-Plugin mit gemeinsamem Python-Kern
 und zwei Add-ons (Archicad, Schwarz Plattform). Jede KI soll sich wohlfühlen:
