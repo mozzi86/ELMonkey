@@ -1,4 +1,5 @@
 #include "CreatePolygonWallsCommand.hpp"
+#include <cmath>
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -218,8 +219,23 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
                 }
             }
 
+            // ELMonkey 0.11.1: begC/endC = erste Kante mit Länge > 0. Bis 0.11.0 standen beide auf
+            // Punkt 1; AC29 bildet daraus beim Anschluss-Update die Wandrichtung (ProfileTo3DTransformer::
+            // SetupCoordinateSystemFromWall) und bricht bei einem Nullvektor mit SIGABRT ab (05.11.2026).
             element.wall.begC = (*memo.coords)[1];
             element.wall.endC = (*memo.coords)[1];
+            for (Int32 k = 2; k <= n; ++k) {
+                const API_Coord& c = (*memo.coords)[k];
+                if (std::fabs (c.x - element.wall.begC.x) + std::fabs (c.y - element.wall.begC.y) > 1e-6) {
+                    element.wall.endC = c;
+                    break;
+                }
+            }
+            if (element.wall.endC.x == element.wall.begC.x && element.wall.endC.y == element.wall.begC.y) {
+                ACAPI_DisposeElemMemoHdls (&memo);
+                elements (CreateFailedExecutionResult (APIERR_BADPARS, "polygonCoordinates: alle Punkte gleich (Polygon ohne Fläche)"));
+                continue;
+            }
 
             err = ACAPI_Element_Create (&element, &memo);
             ACAPI_DisposeElemMemoHdls (&memo);

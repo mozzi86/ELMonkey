@@ -2155,3 +2155,8 @@ Fallen:
 - RKs Linie war nur für AC29 lokal gebaut. In der CI fiel AC30 an `UniString::ToLowerCase` durch
   (DevKit 30: `GetLowerCased`). In Headern deshalb ein eigener Makroname (`ELM_LOWER_CASED`),
   nicht `#define ToLowerCase`, das in jede einbindende Datei durchschlagen würde.
+- **0.11.1:** `ELM_SAB.CreatePolygonWalls` brachte AC29 mit SIGABRT zum Absturz — auch ohne Bogen
+  (live 05.11., zweimal reproduziert). Ursache: `begC == endC` (beide Punkt 1). Archicad rechnet beim
+  Anschluss-Update daraus die Wandrichtung (`ProfileTo3DTransformer::SetupCoordinateSystemFromWall` →
+  `CustomUnitVector3D::Create` wirft). Fix: `begC/endC` = erste Kante mit Länge > 0. Vor 0.11.1 Polygonwände
+  nicht über die API anlegen.
