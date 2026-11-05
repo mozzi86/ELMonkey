@@ -1,0 +1,72 @@
+{
+  "hinweis": "Verstärkungsarten als Vorlagen (Mudi 04.11.2026, Entscheidung 7): Art im Katalog, Lage am Bauteil (abstand_m vom Wandanfang bis Mitte, hoehe_m = Mitte über Rohfußboden). Herstellerneutral. Klasse IfcMember USERDEFINED „Wandverstärkung“ wie in der Plattform (IAB 171172) — durch die Recherche nicht als Norm belegt (Spec §12). last_kN ist ein Planungsrichtwert ohne Normbeleg — im Projekt mit Hersteller/Tragwerksplanung bestätigen.",
+  "verstaerkungen": [
+    {
+      "schluessel": "traverse-haengelast",
+      "name": "Traverse für Hängelasten",
+      "zweck": "Hängelast (Hängeschrank, Regal)",
+      "art": "traverse",
+      "breite_m": 0.625,
+      "hoehe_m": 0.3,
+      "dicke_m": 0.02,
+      "baustoff": "osb-platte-350",
+      "hoehe_standard_m": 1.6,
+      "last_kN": 0.7,
+      "last_kN_hinweis": "Richtwert, nicht normativ belegt"
+    },
+    {
+      "schluessel": "stuetzklappgriff-din18040",
+      "name": "Tragständer Stützklappgriff (DIN 18040-2)",
+      "zweck": "barrierefrei: Stützklappgriff am WC",
+      "art": "tragstaender",
+      "breite_m": 0.5,
+      "hoehe_m": 0.4,
+      "dicke_m": 0.02,
+      "baustoff": "osb-platte-350",
+      "hoehe_standard_m": 0.85,
+      "last_kN": 1.0,
+      "norm": "DIN 18040-2 (Sanitärräume) — konkrete Anforderung im Projekt prüfen",
+      "last_kN_hinweis": "Richtwert, nicht normativ belegt"
+    },
+    {
+      "schluessel": "haltegriff-din18040",
+      "name": "Verstärkung Haltegriff (DIN 18040-2)",
+      "zweck": "barrierefrei: Haltegriff Dusche/Waschtisch",
+      "art": "traverse",
+      "breite_m": 0.625,
+      "hoehe_m": 0.3,
+      "dicke_m": 0.02,
+      "baustoff": "osb-platte-350",
+      "hoehe_standard_m": 0.85,
+      "last_kN": 1.0,
+      "norm": "DIN 18040-2 (Sanitärräume) — konkrete Anforderung im Projekt prüfen",
+      "last_kN_hinweis": "Richtwert, nicht normativ belegt"
+    },
+    {
+      "schluessel": "waschtisch",
+      "name": "Tragständer Waschtisch",
+      "zweck": "Waschtisch/Sanitärobjekt",
+      "art": "tragstaender",
+      "breite_m": 0.625,
+      "hoehe_m": 0.3,
+      "dicke_m": 0.02,
+      "baustoff": "osb-platte-350",
+      "hoehe_standard_m": 0.8,
+      "last_kN": 1.5,
+      "last_kN_hinweis": "Richtwert, nicht normativ belegt"
+    },
+    {
+      "schluessel": "montageplatte",
+      "name": "Montageplatte allgemein",
+      "zweck": "allgemeine Befestigung (TV, Bildschirm, Handlauf)",
+      "art": "traverse",
+      "breite_m": 0.625,
+      "hoehe_m": 0.5,
+      "dicke_m": 0.02,
+      "baustoff": "osb-platte-350",
+      "hoehe_standard_m": 1.2,
+      "last_kN": 0.5,
+      "last_kN_hinweis": "Richtwert, nicht normativ belegt"
+    }
+  ]
+}

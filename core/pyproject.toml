@@ -1,9 +1,12 @@
 [project]
 name = "elmonkey-core"
-version = "0.2.1"
-description = "ELMonkey-Kern: finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese — neutral für Archicad und die Schwarz Plattform + Plattform-Klebe (elmonkey.plattform)"
+version = "0.3.0"
+description = "ELMonkey-Kern: finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese — neutral für Archicad und die Schwarz Plattform + Plattform-Klebe (elmonkey.plattform) + Bauteilkatalog-Maschine (elmonkey.katalog, IFC über Extra [ifc])"
 requires-python = ">=3.10"
 dependencies = []
+
+[project.optional-dependencies]
+ifc = ["ifcopenshell>=0.8"]
 
 [build-system]
 requires = ["hatchling"]

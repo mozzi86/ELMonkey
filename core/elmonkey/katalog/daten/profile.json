@@ -1,0 +1,14 @@
+{
+  "hinweis": "Herstellerneutral. CW/UW-Profile nach DIN 18182-1 (Nennmaße), Holzständer nach üblichen KVH-Querschnitten. Mudi 04.11.2026: produktneutral.",
+  "profile": [
+    {"schluessel": "CW50",  "kurz": "CW50",  "art": "metall", "norm": "DIN 18182-1", "steg_m": 0.050, "flansch_m": 0.050, "blech_m": 0.0006, "ifc_predefined_type": "STUD", "baustoff": "stahl-verzinkt-760"},
+    {"schluessel": "CW75",  "kurz": "CW75",  "art": "metall", "norm": "DIN 18182-1", "steg_m": 0.075, "flansch_m": 0.050, "blech_m": 0.0006, "ifc_predefined_type": "STUD", "baustoff": "stahl-verzinkt-760"},
+    {"schluessel": "CW100", "kurz": "CW100", "art": "metall", "norm": "DIN 18182-1", "steg_m": 0.100, "flansch_m": 0.050, "blech_m": 0.0006, "ifc_predefined_type": "STUD", "baustoff": "stahl-verzinkt-760"},
+    {"schluessel": "UW50",  "kurz": "UW50",  "art": "metall", "norm": "DIN 18182-1", "steg_m": 0.050, "flansch_m": 0.040, "blech_m": 0.0006, "ifc_predefined_type": "PLATE", "baustoff": "stahl-verzinkt-760"},
+    {"schluessel": "UW75",  "kurz": "UW75",  "art": "metall", "norm": "DIN 18182-1", "steg_m": 0.075, "flansch_m": 0.040, "blech_m": 0.0006, "ifc_predefined_type": "PLATE", "baustoff": "stahl-verzinkt-760"},
+    {"schluessel": "UW100", "kurz": "UW100", "art": "metall", "norm": "DIN 18182-1", "steg_m": 0.100, "flansch_m": 0.040, "blech_m": 0.0006, "ifc_predefined_type": "PLATE", "baustoff": "stahl-verzinkt-760"},
+    {"schluessel": "KVH60x100", "kurz": "KVH 6/10", "art": "holz", "norm": "DIN 4074-1 (Sortierung)", "steg_m": 0.100, "flansch_m": 0.060, "ifc_predefined_type": "STUD", "baustoff": "vollholz-350"},
+    {"schluessel": "KVH60x120", "kurz": "KVH 6/12", "art": "holz", "norm": "DIN 4074-1 (Sortierung)", "steg_m": 0.120, "flansch_m": 0.060, "ifc_predefined_type": "STUD", "baustoff": "vollholz-350"}
+  ],
+  "uw_zu_cw": {"CW50": "UW50", "CW75": "UW75", "CW100": "UW100"}
+}
