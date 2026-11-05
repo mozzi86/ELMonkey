@@ -137,7 +137,9 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
 
             element.wall.type = APIWtyp_Poly;
             element.wall.polyCanChange = true;
-            element.wall.referenceLineLocation = APIWallRefLine_Center;
+            // 0.11.3: Polygonwaende haben laut SDK-Header immer APIWallRefLine_Outside (Center ist dort ungueltig).
+            element.wall.referenceLineLocation = APIWallRefLine_Outside;
+            element.wall.offset = 0.0;
 
             Int32 floorIndex = 0;
             if (wallData.Get ("floorIndex", floorIndex))
@@ -226,6 +228,22 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             }
             (*memo.coords)[i] = (*memo.coords)[1];
             (*memo.pends)[1] = element.wall.poly.nCoords;
+
+            // 0.11.3: vertexIDs/edgeIDs sind fuer Polygonwaende Pflicht (Graphisoft-Forum, akzeptierte Loesung
+            // "Wall Geometry Method: Polygonal", 2023). Ohne sie speichert AC29 die Wand als Normalwand.
+            memo.vertexIDs = reinterpret_cast<UInt32**> (BMAllocateHandle ((element.wall.poly.nCoords + 1) * sizeof (UInt32), ALLOCATE_CLEAR, 0));
+            memo.edgeIDs   = reinterpret_cast<UInt32**> (BMAllocateHandle ((element.wall.poly.nCoords + 1) * sizeof (UInt32), ALLOCATE_CLEAR, 0));
+            if (memo.vertexIDs == nullptr || memo.edgeIDs == nullptr) {
+                ACAPI_DisposeElemMemoHdls (&memo);
+                elements (CreateFailedExecutionResult (APIERR_MEMFULL, "Speicher-Allokation (vertexIDs/edgeIDs) fehlgeschlagen"));
+                continue;
+            }
+            (*memo.vertexIDs)[0] = (UInt32) element.wall.poly.nCoords;
+            (*memo.edgeIDs)[0]   = 0;
+            for (Int32 k = 1; k <= element.wall.poly.nCoords; ++k) {
+                (*memo.vertexIDs)[k] = (UInt32) k;
+                (*memo.edgeIDs)[k]   = (UInt32) k;
+            }
             if (element.wall.poly.nArcs > 0) {
                 memo.parcs = reinterpret_cast<API_PolyArc**> (BMAllocateHandle (element.wall.poly.nArcs * sizeof (API_PolyArc), ALLOCATE_CLEAR, 0));
                 if (memo.parcs == nullptr) {
