@@ -66,7 +66,15 @@ GS::Optional<GS::UniString> CreatePolygonWallsCommand::GetInputParametersSchema 
                                 "required": ["begIndex", "endIndex", "arcAngle"]
                             }
                         },
-                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus der neuen Wand." }
+                        "renovationStatus": { "type": "string", "enum": ["Existing", "New", "ToBeDemolished", "Bestand", "Neubau", "Abbruch"], "description": "ELM_SAB 0.10.8: Umbaustatus der neuen Wand." },
+                        "referenceLineEdge": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.11.2: Kante der Kontur, auf der die Referenzlinie der Polygonwand liegt (1-basiert, Kante k = Punkt k -> Punkt k+1). Optional, Default 1."
+                        },
+                        "referenceLineEndEdge": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.11.2: Endkante der Referenzlinie (1-basiert). Optional, Default = referenceLineEdge."
+                        }
                     },
                     "required": ["polygonCoordinates"]
                 }
@@ -135,9 +143,21 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             if (wallData.Get ("floorIndex", floorIndex))
                 element.header.floorInd = (short) floorIndex;
 
+            // Werte der Werkzeug-Voreinstellung, bevor wir eingreifen (Diagnose, 0.11.2)
+            GS::ObjectState debug;
+            debug.Add ("defaultType", (Int32) element.wall.type);
+            debug.Add ("defaultRLinInd", element.wall.rLinInd);
+            debug.Add ("defaultRLinEndInd", element.wall.rLinEndInd);
+            debug.Add ("defaultRelativeTopStory", (Int32) element.wall.relativeTopStory);
+            debug.Add ("defaultStructureType", (Int32) element.wall.modelElemStructureType);
+            debug.Add ("defaultProfileAttr", element.wall.profileAttr.ToInt32_Deprecated ());
+
             double height = 0.0;
-            if (wallData.Get ("height", height))
+            if (wallData.Get ("height", height)) {
                 element.wall.height = height;
+                // 0.11.2: Eine oben ans Geschoss gelinkte Voreinstellung ueberschreibt die Hoehe — Link loesen.
+                element.wall.relativeTopStory = 0;
+            }
 
             double bottomOffset = 0.0;
             if (wallData.Get ("bottomOffset", bottomOffset))
@@ -219,21 +239,26 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
                 }
             }
 
-            // ELMonkey 0.11.1: begC/endC = erste Kante mit Länge > 0. Bis 0.11.0 standen beide auf
-            // Punkt 1; AC29 bildet daraus beim Anschluss-Update die Wandrichtung (ProfileTo3DTransformer::
-            // SetupCoordinateSystemFromWall) und bricht bei einem Nullvektor mit SIGABRT ab (05.11.2026).
-            element.wall.begC = (*memo.coords)[1];
-            element.wall.endC = (*memo.coords)[1];
-            for (Int32 k = 2; k <= n; ++k) {
-                const API_Coord& c = (*memo.coords)[k];
-                if (std::fabs (c.x - element.wall.begC.x) + std::fabs (c.y - element.wall.begC.y) > 1e-6) {
-                    element.wall.endC = c;
-                    break;
-                }
-            }
-            if (element.wall.endC.x == element.wall.begC.x && element.wall.endC.y == element.wall.begC.y) {
+            // ELMonkey 0.11.2: Referenzlinie der Polygonwand = Kante rLinInd..rLinEndInd (1-basiert,
+            // API_WallType::rLinInd). Ohne diese Felder (0 aus der Voreinstellung) macht AC29 aus der
+            // Polygonwand eine Normalwand von begC nach endC — bis 0.11.0 mit begC == endC sogar ein
+            // Nullvektor, an dem ProfileTo3DTransformer::SetupCoordinateSystemFromWall mit SIGABRT abbrach.
+            Int32 refEdge = 1, refEndEdge = 0;
+            wallData.Get ("referenceLineEdge", refEdge);
+            if (!wallData.Get ("referenceLineEndEdge", refEndEdge))
+                refEndEdge = refEdge;
+            if (refEdge < 1 || refEdge > n || refEndEdge < 1 || refEndEdge > n) {
                 ACAPI_DisposeElemMemoHdls (&memo);
-                elements (CreateFailedExecutionResult (APIERR_BADPARS, "polygonCoordinates: alle Punkte gleich (Polygon ohne Fläche)"));
+                elements (CreateFailedExecutionResult (APIERR_BADPARS, "referenceLineEdge/referenceLineEndEdge ausserhalb 1..n"));
+                continue;
+            }
+            element.wall.rLinInd    = refEdge;
+            element.wall.rLinEndInd = refEndEdge;
+            element.wall.begC = (*memo.coords)[refEdge];
+            element.wall.endC = (*memo.coords)[refEdge + 1];
+            if (std::fabs (element.wall.endC.x - element.wall.begC.x) + std::fabs (element.wall.endC.y - element.wall.begC.y) < 1e-6) {
+                ACAPI_DisposeElemMemoHdls (&memo);
+                elements (CreateFailedExecutionResult (APIERR_BADPARS, "Referenzlinien-Kante hat Laenge 0"));
                 continue;
             }
 
@@ -245,8 +270,22 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
                 continue;
             }
 
+            // Ruecklese: was hat Archicad daraus gemacht? (0.11.2)
+            API_Element got = {};
+            got.header.guid = element.header.guid;
+            if (ACAPI_Element_Get (&got) == NoError) {
+                debug.Add ("createdType", (Int32) got.wall.type);
+                debug.Add ("createdRLinInd", got.wall.rLinInd);
+                debug.Add ("createdRLinEndInd", got.wall.rLinEndInd);
+                debug.Add ("createdRelativeTopStory", (Int32) got.wall.relativeTopStory);
+                debug.Add ("createdHeight", got.wall.height);
+                debug.Add ("createdNCoords", got.wall.poly.nCoords);
+            }
+
             GS::ObjectState ok;
             ok.Add ("elementId", CreateGuidObjectStateELM (element.header.guid));
+            ok.Add ("isPolygonal", got.wall.type == APIWtyp_Poly);
+            ok.Add ("debug", debug);
             elements (ok);
         }
         return NoError;
