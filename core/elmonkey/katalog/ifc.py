@@ -327,10 +327,18 @@ class Schreiber:
         self._inhalt: list = []
         return gs
 
+    def _typ_zuweisen(self, e, guid: str, typ) -> None:
+        """Ein Typ hat höchstens EINE IfcRelDefinesByType (SET [0:1]) — weitere Bauteile hängen sich dort an."""
+        rel = next(iter(typ.Types or ()), None)
+        if rel is None:
+            self.f.createIfcRelDefinesByType(gid(guid, "typ"), None, None, None, [e], typ)
+        else:
+            rel.RelatedObjects = list(rel.RelatedObjects) + [e]
+
     def _bauteil(self, klasse: str, name: str, guid: str, platz, typ=None, pt: Optional[str] = None, ot: Optional[str] = None):
         e = self.f.create_entity(klasse, GlobalId=guid, Name=name[:255], ObjectPlacement=platz)
         if typ is not None:
-            self.f.createIfcRelDefinesByType(gid(guid, "typ"), None, None, None, [e], typ)
+            self._typ_zuweisen(e, guid, typ)
         elif pt and hasattr(e, "PredefinedType"):
             e.PredefinedType = pt
             if pt == "USERDEFINED" and ot:
@@ -355,7 +363,7 @@ class Schreiber:
         f = self.f
         w.ObjectPlacement = platz
         if typ_zuweisen:
-            f.createIfcRelDefinesByType(gid(w.GlobalId, "typ"), None, None, None, [w], self.typ(plan.typ))
+            self._typ_zuweisen(w, w.GlobalId, self.typ(plan.typ))
         achse = f.createIfcShapeRepresentation(self.achse_ctx, "Axis", "Curve2D",
                                                [f.createIfcPolyline([f.createIfcCartesianPoint((0.0, 0.0)),
                                                                      f.createIfcCartesianPoint((float(plan.laenge), 0.0))])])

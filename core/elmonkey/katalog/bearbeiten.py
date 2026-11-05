@@ -132,7 +132,7 @@ def anwenden(k: Katalog, typ_ref: str, operationen: list[dict], autor: Optional[
         t["schluessel"] = f"{alt['schluessel']}-{fingerabdruck(t)[:6]}"
         t["version"] = 1
         if "umbenennen" not in {o["op"] for o in operationen}:
-            t.pop("kurzname_fest", None)       # der alte Favoritenname beschreibt den neuen Aufbau nicht mehr
+            t.pop("kurzname_fest", None)       # der alte feste Kurzname beschreibt den neuen Aufbau nicht mehr
         grund = "neuer Typ aus Rohling" if alt.get("rohling") else "neuer Typ aus dem Grundbestand"
     t["ebene"] = "laufzeit"
     return {"typ": benennen(t, k), "neu": True, "grund": grund}
