@@ -79,6 +79,10 @@ GS::Optional<GS::UniString> CreatePolygonWallsCommand::GetInputParametersSchema 
                             "type": "integer",
                             "description": "ELMonkey 0.11.7 (Diagnose): erzwingt element.wall.type (0 Normal, 1 Trapez, 2 Poly) nach allen anderen Feldern."
                         },
+                        "debug": {
+                            "type": "boolean",
+                            "description": "ELMonkey 0.11.11: true = Antwort enthaelt das debug-Objekt (Voreinstellung und Ruecklese)."
+                        },
                         "forceBasicDefaults": {
                             "type": "boolean",
                             "description": "ELMonkey 0.11.10: Wand-Werkzeug-Voreinstellung vor dem Erzeugen auf Basis-Struktur stellen (Default true). Mit mehrschichtiger Voreinstellung legt Archicad sonst eine Normalwand an."
@@ -150,14 +154,15 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             bool forceBasicDefaults = true;
             wallData.Get ("forceBasicDefaults", forceBasicDefaults);
             Int32 defaultsChanged = 0;      // 0 = nicht noetig, 1 = umgestellt, <0 = Fehlercode
+            API_Element defSaved = {};
             if (forceBasicDefaults && !minimal) {
-                API_Element def = {};
 #ifdef ServerMainVers_2600
-                def.header.type = API_WallID;
+                defSaved.header.type = API_WallID;
 #else
-                def.header.typeID = API_WallID;
+                defSaved.header.typeID = API_WallID;
 #endif
-                if (ACAPI_Element_GetDefaults (&def, nullptr) == NoError && def.wall.modelElemStructureType != API_BasicStructure) {
+                if (ACAPI_Element_GetDefaults (&defSaved, nullptr) == NoError && defSaved.wall.modelElemStructureType != API_BasicStructure) {
+                    API_Element def = defSaved;
                     API_Element mask;
                     ACAPI_ELEMENT_MASK_CLEAR (mask);
                     ACAPI_ELEMENT_MASK_SET (mask, API_WallType, modelElemStructureType);
@@ -166,6 +171,17 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
                     defaultsChanged = derr == NoError ? 1 : (Int32) derr;
                 }
             }
+            // 0.11.11: Voreinstellung des Nutzers nach dem Erzeugen wiederherstellen (Werkzeug bleibt, wie es war)
+            struct DefaultsRestorer {
+                bool active; API_Element saved;
+                ~DefaultsRestorer () {
+                    if (!active) return;
+                    API_Element mask;
+                    ACAPI_ELEMENT_MASK_CLEAR (mask);
+                    ACAPI_ELEMENT_MASK_SET (mask, API_WallType, modelElemStructureType);
+                    ACAPI_Element_ChangeDefaults (&saved, nullptr, &mask);
+                }
+            } restorer { defaultsChanged == 1, defSaved };
 
             GSErrCode err = ACAPI_Element_GetDefaults (&element, minimal ? nullptr : &memo);
             if (err != NoError) {
@@ -417,7 +433,9 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             GS::ObjectState ok;
             ok.Add ("elementId", CreateGuidObjectStateELM (element.header.guid));
             ok.Add ("isPolygonal", got.wall.type == APIWtyp_Poly);
-            ok.Add ("debug", debug);
+            bool wantDebug = false;
+            if (wallData.Get ("debug", wantDebug) && wantDebug)
+                ok.Add ("debug", debug);
             elements (ok);
         }
         return NoError;
