@@ -2175,7 +2175,10 @@ Fallen:
   `compositeIndex` (Ergebnis bleibt Basic — Polygonwände sind in AC immer Basis), drei Wände je Aufruf.
   Diagnosebefehle bleiben: `GetPolygonWallInfo` (Rohfelder + Memo einer Wand), `ClonePolygonWall`
   (Wand 1:1 per Create kopieren), Parameter `debug`, `typeOverride`, `minimal`, `forceBasicDefaults`.
-  Testskripte: `~/.scratch/elmonkey/tools/test_polywand.py`, `test_clonewand.py`.
+  Gegenprobe Bürovorlage (Kopie, 05.11.): polygonal, aber Unterkante bei −0,15 m — `bottomOffset` erbt wie
+  alle Tapir-Create-Befehle die Werkzeug-Voreinstellung; wer die Wand auf Geschossniveau will, gibt
+  `bottomOffset: 0` mit. Schreibtest `test_0110.py` 14/14 in INT- und SAB-Datei.
+  Testskripte: `~/.scratch/elmonkey/tools/test_polywand.py`, `test_clonewand.py`, `test_0110.py`.
   Weitergabe: Tapir-Issue https://github.com/ENZYME-APD/tapir-archicad-automation/issues/1914 (05.11.2026);
   Forum-Antwort im Thread „Wall Geometry Method: Polygonal":
   https://community.graphisoft.com/t5/Archicad-C-API/I-would-like-to-know-how-to-create-a-wall-using-Wall-Geometry/m-p/719915 (05.11.2026).

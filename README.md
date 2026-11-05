@@ -10,7 +10,7 @@
 |---|---|---|
 | **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.2.1, 19 Tests |
 | **Schwarz Plattform** – Plattform bindet `elmonkey-core` als festes Release ein (`elmonkey.plattform`) | Plattform (privat) | ✅ Klebe-Logik im Kern, Einbau nach Abstimmung |
-| **MCP-Server** `elmonkey-mcp` 0.2.0 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 7 Tests, live gegen Archicad gelesen |
+| **MCP-Server** `elmonkey-mcp` 0.2.1 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 7 Tests, live gegen Archicad gelesen |
 | **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.11, CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
 | **Skill Archicad** – Arbeitswissen für Claude | [`skills/archicad/`](skills/archicad/) | ✅ umgezogen, wird nach `mozzi86/-archicad` gespiegelt |
 | **Client-Konfigurationen** (Claude Desktop/Code, Cursor, VS Code, Codex) | [`clients/`](clients/) | ✅ |
