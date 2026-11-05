@@ -22,6 +22,10 @@ Diese Regeln gelten überall gleich.
 - `core/` – Kern `elmonkey` (Python, nur Standardbibliothek). Neutrales Bauteil:
   `{guid, type, name, properties{…}, ausgeblendet?, geaendert?, plattform?, vertices?}`.
   `elmonkey.plattform` ist die Klebe-Logik für die Schwarz Plattform.
+  `elmonkey.katalog` = Bauteilkatalog-Maschine (Typen aus Schichten, Bauplan/Ständerwerk, Bearbeiten mit Versionen,
+  IFC-Bibliotheken über `elmonkey.katalog.ifc`, braucht das Extra `[ifc]` = ifcopenshell). Baustoffe/Typen bringt der
+  Aufrufer als Ordner mit — die SAB-Bürodaten liegen in der Plattform, nie in diesem öffentlichen Repo;
+  Profile/Verstärkungen (herstellerneutral) liegen als Paketdaten bei.
 - `mcp/elmonkey-mcp` – MCP-Server (Python-Monkey).
 - `archicad-addon/ELM_SAB_Tapir` + `installer` – C++-Add-On (Archicad-Monkey), gebaut von der CI.
 - `skills/archicad` – Archicad-Skill, wird nach `mozzi86/-archicad` gespiegelt.
