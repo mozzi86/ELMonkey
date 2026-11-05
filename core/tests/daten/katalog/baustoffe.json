@@ -1,0 +1,387 @@
+{
+ "quelle": "Test-Fixture elmonkey (erfunden)",
+ "baustoffe": [
+  {
+   "schluessel": "kalksandstein",
+   "name": "Kalksandstein",
+   "kurz": "KS",
+   "werkstoffklasse": "mauerwerk",
+   "kategorie_ifc": "masonry",
+   "verschneidungsprioritaet": 700,
+   "kennwerte": {
+    "dichte_kg_m3": 1800,
+    "lambda_W_mK": 0.99
+   },
+   "farbe": "#d8d2c4",
+   "textur": "klasse:mauerwerk",
+   "schraffur": {
+    "klasse": "mauerwerk",
+    "scharen": [
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.0025,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Mauerwerk künstliche Steine, Schraffur 45°"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "gipsplatte",
+   "name": "Gipsplatte",
+   "kurz": "GKB",
+   "werkstoffklasse": "gipsplatte",
+   "kategorie_ifc": "gypsum",
+   "verschneidungsprioritaet": 350,
+   "kennwerte": {
+    "dichte_kg_m3": 900,
+    "lambda_W_mK": 0.25
+   },
+   "farbe": "#eeeeea",
+   "textur": "klasse:putz",
+   "schraffur": {
+    "klasse": "gipsplatte",
+    "scharen": [
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.001,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Gips/Gipsplatte, enge Schraffur"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "mineralwolle",
+   "name": "Mineralwolle",
+   "kurz": "MW",
+   "werkstoffklasse": "daemmung_weich",
+   "kategorie_ifc": "insulation",
+   "verschneidungsprioritaet": 220,
+   "kennwerte": {
+    "dichte_kg_m3": 40,
+    "lambda_W_mK": 0.035
+   },
+   "farbe": "#e8d77a",
+   "textur": "klasse:daemmung",
+   "schraffur": {
+    "klasse": "daemmung_weich",
+    "scharen": [
+     {
+      "winkel": 60.0,
+      "abstand_m": 0.004,
+      "gestrichelt": false
+     },
+     {
+      "winkel": 120.0,
+      "abstand_m": 0.004,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Dämmschicht weich (Wellenlinie), genähert als Zickzack-Scharen"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "polystyrol-hartschaum",
+   "name": "Polystyrol Hartschaum",
+   "kurz": "XPS",
+   "werkstoffklasse": "daemmung_hart",
+   "kategorie_ifc": "insulation",
+   "verschneidungsprioritaet": 230,
+   "kennwerte": {
+    "dichte_kg_m3": 30,
+    "lambda_W_mK": 0.035
+   },
+   "farbe": "#9fc4e0",
+   "textur": "klasse:daemmung",
+   "schraffur": {
+    "klasse": "daemmung_hart",
+    "scharen": [
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.004,
+      "gestrichelt": false
+     },
+     {
+      "winkel": 135.0,
+      "abstand_m": 0.004,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Dämmschicht hart (Zickzack), genähert als Kreuzschar"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "stahlbeton",
+   "name": "Stahlbeton",
+   "kurz": "STB",
+   "werkstoffklasse": "stahlbeton",
+   "kategorie_ifc": "concrete",
+   "verschneidungsprioritaet": 800,
+   "kennwerte": {
+    "dichte_kg_m3": 2400,
+    "lambda_W_mK": 2.3
+   },
+   "farbe": "#a9a9a9",
+   "textur": "klasse:beton",
+   "schraffur": {
+    "klasse": "stahlbeton",
+    "scharen": [
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.0025,
+      "gestrichelt": false
+     },
+     {
+      "winkel": 135.0,
+      "abstand_m": 0.0025,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Stahlbeton, Kreuzschraffur"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "putz",
+   "name": "Putz",
+   "kurz": "Putz",
+   "werkstoffklasse": "putz",
+   "kategorie_ifc": "plaster",
+   "verschneidungsprioritaet": 300,
+   "kennwerte": {
+    "dichte_kg_m3": 1600,
+    "lambda_W_mK": 0.87
+   },
+   "farbe": "#f1ede2",
+   "textur": "klasse:putz",
+   "schraffur": {
+    "klasse": "putz",
+    "scharen": [
+     {
+      "winkel": 0.0,
+      "abstand_m": 0.001,
+      "gestrichelt": true
+     }
+    ],
+    "din": "DIN 1356-1: Putz, Mörtel (Punktierung), genähert"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "luft",
+   "name": "Luftschicht",
+   "kurz": null,
+   "werkstoffklasse": "luft",
+   "kategorie_ifc": "air",
+   "verschneidungsprioritaet": 100,
+   "kennwerte": {
+    "dichte_kg_m3": 1
+   },
+   "farbe": "#f5f9ff",
+   "textur": null,
+   "schraffur": {
+    "klasse": "luft",
+    "scharen": [],
+    "din": "keine Schraffur (Hohlraum)"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "zementestrich",
+   "name": "Zementestrich",
+   "kurz": "ZE",
+   "werkstoffklasse": "estrich",
+   "kategorie_ifc": "concrete",
+   "verschneidungsprioritaet": 330,
+   "kennwerte": {
+    "dichte_kg_m3": 2000,
+    "lambda_W_mK": 1.4
+   },
+   "farbe": "#b9b6ae",
+   "textur": "klasse:beton",
+   "schraffur": {
+    "klasse": "estrich",
+    "scharen": [
+     {
+      "winkel": 0.0,
+      "abstand_m": 0.0015,
+      "gestrichelt": true
+     }
+    ],
+    "din": "DIN 1356-1: Estrich, genähert als waagerechte Strichschar"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "trittschalldaemmung",
+   "name": "Trittschalldämmung",
+   "kurz": "TSD",
+   "werkstoffklasse": "daemmung_weich",
+   "kategorie_ifc": "insulation",
+   "verschneidungsprioritaet": 210,
+   "kennwerte": {
+    "dichte_kg_m3": 100,
+    "lambda_W_mK": 0.04
+   },
+   "farbe": "#c9d27a",
+   "textur": "klasse:daemmung",
+   "schraffur": {
+    "klasse": "daemmung_weich",
+    "scharen": [
+     {
+      "winkel": 60.0,
+      "abstand_m": 0.004,
+      "gestrichelt": false
+     },
+     {
+      "winkel": 120.0,
+      "abstand_m": 0.004,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Dämmschicht weich (Wellenlinie), genähert als Zickzack-Scharen"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "stahl-verzinkt-760",
+   "name": "Stahl verzinkt",
+   "kurz": null,
+   "werkstoffklasse": "metall",
+   "kategorie_ifc": "steel",
+   "verschneidungsprioritaet": 760,
+   "kennwerte": {
+    "dichte_kg_m3": 7800,
+    "lambda_W_mK": 50
+   },
+   "farbe": "#98a0a5",
+   "textur": "klasse:metall",
+   "schraffur": {
+    "klasse": "metall",
+    "scharen": [
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.0008,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Metall (voll/eng geschraffert)"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "vollholz-350",
+   "name": "Vollholz",
+   "kurz": null,
+   "werkstoffklasse": "holz",
+   "kategorie_ifc": "wood",
+   "verschneidungsprioritaet": 350,
+   "kennwerte": {
+    "dichte_kg_m3": 500,
+    "lambda_W_mK": 0.13
+   },
+   "farbe": "#ccbeac",
+   "textur": "klasse:holz",
+   "schraffur": {
+    "klasse": "holz",
+    "scharen": [
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.0015,
+      "gestrichelt": false
+     },
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.006,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Holz im Querschnitt"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "osb-platte-350",
+   "name": "OSB-Platte",
+   "kurz": "OSB",
+   "werkstoffklasse": "holzwerkstoff",
+   "kategorie_ifc": "wood",
+   "verschneidungsprioritaet": 350,
+   "kennwerte": {
+    "dichte_kg_m3": 650,
+    "lambda_W_mK": 0.13
+   },
+   "farbe": "#d9bc95",
+   "textur": "klasse:holz",
+   "schraffur": {
+    "klasse": "holzwerkstoff",
+    "scharen": [
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.0015,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN 1356-1: Holzwerkstoffplatte"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  },
+  {
+   "schluessel": "normalglas",
+   "name": "Normalglas",
+   "kurz": null,
+   "werkstoffklasse": "glas",
+   "kategorie_ifc": "glass",
+   "verschneidungsprioritaet": 530,
+   "kennwerte": {
+    "dichte_kg_m3": 2500,
+    "lambda_W_mK": 1.0
+   },
+   "farbe": "#cfe8ee",
+   "textur": "klasse:glas",
+   "schraffur": {
+    "klasse": "glas",
+    "scharen": [
+     {
+      "winkel": 45.0,
+      "abstand_m": 0.01,
+      "gestrichelt": false
+     }
+    ],
+    "din": "DIN ISO 128-50: Glas, weite Schraffur"
+   },
+   "herkunft": {
+    "quelle": "Test-Fixture (erfunden)"
+   }
+  }
+ ]
+}

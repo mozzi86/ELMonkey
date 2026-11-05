@@ -31,7 +31,7 @@ jobs:
 
       - name: Kern-Tests
         run: |
-          pip install pytest
+          pip install pytest ifcopenshell
           cd core && python -m pytest -q tests
 
       - name: Version abgleichen
