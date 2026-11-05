@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-05 | 261105-r11 | RKs Linie 0.10.1–0.10.8 + Hauptlinie 0.10.4 = ELMonkey 0.11.0 auf Zweig elm-0.11.0-rk-integration, CI 8/8, Autor neutralisiert, AC30-Fix |
 | 2026-09-03 | datumskorrektur | Datumsmarker der drei Tageseinträge 01.09. → 03.09. (Sitzungstag), keine Inhaltsänderung |
 | 2026-09-03 | teamwork-6001-diagnose | 6001 = zuerst Ebene ausgeblendet/Hotlink prüfen (Rezept ein-/ausblenden); 4001 nennt Dialog; API-Selektion ortsgebunden (3 Dateien) |
 | 2026-09-07 | 260907-k1t | Rezept „Gelände aus Punktwolke" (E57 → Bodenraster → Tapir CreateMeshes) + drei parametrisierte Skripte in SKILL.md verlinkt |
