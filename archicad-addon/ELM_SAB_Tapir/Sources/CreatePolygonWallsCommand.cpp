@@ -148,6 +148,16 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             // Werte der Werkzeug-Voreinstellung, bevor wir eingreifen (Diagnose, 0.11.2)
             GS::ObjectState debug;
             debug.Add ("defaultType", (Int32) element.wall.type);
+            debug.Add ("defaultMemoCoords", memo.coords != nullptr);
+            debug.Add ("defaultMemoParcs", memo.parcs != nullptr);
+            debug.Add ("defaultNArcs", element.wall.poly.nArcs);
+
+            // 0.11.4: Die Voreinstellung kann selbst eine Polygonwand sein (defaultType 2 live in der
+            // INT-Vorlage) und bringt dann eigene Memo-Handles (coords/pends/parcs/...) mit. Die wurden bis
+            // 0.11.3 nur teilweise ueberschrieben (parcs blieb stehen, nArcs = 0) -> AC29 verwirft das Polygon
+            // und speichert eine Normalwand. Deshalb: Memo der Voreinstellung komplett verwerfen.
+            ACAPI_DisposeElemMemoHdls (&memo);
+            memo = {};
             debug.Add ("defaultRLinInd", element.wall.rLinInd);
             debug.Add ("defaultRLinEndInd", element.wall.rLinEndInd);
             debug.Add ("defaultRelativeTopStory", (Int32) element.wall.relativeTopStory);

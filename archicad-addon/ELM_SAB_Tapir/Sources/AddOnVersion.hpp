@@ -11,7 +11,7 @@
 // Update-Stolperfalle aus reference/mcp-extension.md).
 // 0.11.0 (05.11.2026): RKs Linie 0.10.1–0.10.8 (Bogenwand, Hotlinks, Bibliotheksteile, Zeichnungen)
 // mit der Hauptlinie 0.10.4 (Ebenen-Fixes) zusammengeführt.
-#define ELM_SAB_VERSION "0.11.3"
+#define ELM_SAB_VERSION "0.11.4"
 
 // Identifiziert den konkreten Build — die CI baut aus einem rollenden Tag, der Tag allein
 // ist also kein Beleg dafür, welcher Stand im Bundle steckt.
