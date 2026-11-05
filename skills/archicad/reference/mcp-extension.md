@@ -2120,3 +2120,35 @@ Alle übrigen Stiftfelder (`coreSymbolPen`, `hiddenLinePen`, `refPen`, `hiddenCo
 * **SetLayerOfElements:** Eine Tuer (Door, in einer Wand) liess sich nicht von A_01_TRAGWAND auf A_013_TUER umstellen, die Sammelmeldung verschwieg die Ursache; Ursache noch offen. Neu je fehlgeschlagenem Element: `error.code`, `elementType`, `layerIndexTarget`, `layerIndexActual`, `layerNameActual` und eine unterscheidbare Meldung: "Element nicht lesbar", "Archicad lehnt Aenderung ab (code N)", "Ruecklese nicht moeglich" bzw. "Ruecklese weicht ab (Ist-Ebene X)". Erfolgszweig, Reservierung und Undo-Scope unveraendert. Es wurde bewusst kein Workaround geraten.
 * **Offen:** Beim naechsten Live-Test die Tuer erneut probieren und Code + Ist-Ebene hier nachtragen.
 * **Testluecke:** nur Code-Lesung + CI-Build, noch nicht live getestet.
+
+## ELMonkey 0.11.0 — RKs Linie 0.10.1–0.10.8 mit der Hauptlinie zusammengeführt <!-- 2026-11-05 -->
+
+Bis 0.10.x gab es zwei Linien mit gleichen Versionsnummern (gemeinsamer Vorfahr `39abbc6`):
+die Hauptlinie (Bauteilstifte, Teamwork-Besitzer, Ebenen-Fixes 0.10.4) und RKs Linie
+(Designoptionen/Ausschnitte, LibraryPartScripts, UpdateLibraryPart, GSM-Sicherung, fillPen,
+Bogenwand, Hotlinks, GetDrawingLinks). Ab 0.11.0 ist das eine Linie; **„0.10.4" allein sagt
+nicht, welche gemeint ist** — immer `ELM_SAB.GetAddOnVersion` plus Build-Stempel lesen.
+
+Neu aus RKs 0.10.8 (live getestet von RK am 04.11., AC29 Mac):
+
+- `CreateWalls`/`ModifyWalls`: `flipped`; **negativer `arcAngle` = Bogen links** (Außenseite =
+  1. Verbundschicht bleibt). `ELM_SAB.CreatePolygonWalls`: `polygonArcs` (0-basiert wie CreateSlabs).
+- `renovationStatus` (Existing/New/ToBeDemolished oder Bestand/Neubau/Abbruch) in allen
+  Tapir-Create*-Befehlen für Modellelemente, CreateRoofs und CreatePolygonWalls.
+- Oberflächen beim Erzeugen: Wände `referenceMaterial/oppositeMaterial/sideMaterial`,
+  Decken `topMaterial/sideMaterial/bottomMaterial`, Dächer beim Erzeugen und Ändern.
+- `GetHotlinkInstances`, `DeleteHotlinkNodes` (im Undo-Rahmen, Ebenen des Moduls bleiben).
+- `ELM_SAB.GetDrawingLinks`: linkType, filePath, fileExists, status eingesetzter Zeichnungen.
+
+Fallen:
+
+- Ohne `renovationStatus` bekommen neue Elemente den Werkzeug-Standard (meist „Bestand") —
+  beim Neubau immer mitgeben.
+- `CreatePolygonWalls` ohne `floorIndex` landet im **aktuellen** Geschoss.
+- Dach-Oberflächen lassen sich nicht zurücklesen (GetDetails zeigt sie bei Dächern nicht) →
+  Rücklese `ungeprueft` melden, nicht `ok`.
+- `GetDrawingLinks.status` ist bei externen DWG/PDF immer `Unknown`
+  (`ACAPI_Drawing_CheckDrawingStatus` liefert −1) — `fileExists` ist der verlässliche Wert.
+- Teamwork: mit „Abbruch" erzeugte Elemente erst per `ReserveElements` reservieren, sonst 6001.
+- Das MCP-Discovery-Schema hinkt hinterher (z. B. kein `arcAngle`). Maßgeblich sind
+  `ELM_SAB.ListCommands` und die Quelle (`ExtendedElementCommands.cpp`).
