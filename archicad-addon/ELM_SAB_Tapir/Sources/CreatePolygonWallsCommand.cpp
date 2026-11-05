@@ -238,7 +238,6 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             debug.Add ("defaultsChangedToBasic", defaultsChanged);
             debug.Add ("defaultContPen", (Int32) element.wall.contPen);
             debug.Add ("defaultContLtype", element.wall.contLtype.ToInt32_Deprecated ());
-            debug.Add ("defaultLinkToSettings", (Int32) element.wall.linkToSettings);
             debug.Add ("defaultInheritEndSurface", element.wall.inheritEndSurface);
             debug.Add ("defaultAlignTexture", element.wall.alignTexture);
             debug.Add ("defaultAutoStoryVis", element.wall.isAutoOnStoryVisibility);
