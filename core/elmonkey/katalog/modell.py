@@ -178,7 +178,7 @@ def kurzname(t: dict, k: Katalog) -> str:
             sw = kr["staenderwerk"]
             bepl = [s for s in sch if k.baustoff(s["baustoff"]).get("werkstoffklasse") == "gipsplatte"]
             lagen = max(1, len(bepl) // 2) if bepl else 0
-            teile.append(f"{k.profile[sw['profil']]['kurz']}" + (f" {lagen}×{_cm(bepl[0]['dicke_m'])}" if bepl else ""))
+            teile.append(f"{k.profile[sw['profil']]['kurz']}" + (f" {lagen}×{_mm(bepl[0]['dicke_m'])}" if bepl else ""))
         else:
             teile.append(f"{k.baustoff(kr['baustoff']).get('kurz') or k.baustoff(kr['baustoff'])['name']} {_cm(kr['dicke_m'])}")
     zusatz = [s for s in sch if s is not kr and s.get("rolle") == "Insulation" and s["dicke_m"] >= 0.04

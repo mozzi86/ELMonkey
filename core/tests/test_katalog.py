@@ -214,3 +214,15 @@ def test_nutzung_findet_veraltete_versionen():
 def test_laufzeit_ueberdeckt_grundbestand_nie(k):
     with pytest.raises(KatalogFehler, match="Grundbestand"):
         Katalog.laden(FIXTURE, laufzeit=[{**k.typ("schichtwand-ks-wdvs"), "version": 7}])
+
+
+def test_kurzname_staenderwand_plattendicke_in_mm():
+    # 2 × 12,5 mm Beplankung — nicht „2×1,2“ (Zentimeter gerundet), Fund beim Umzug 05.11.2026
+    import json
+    import pathlib
+    from elmonkey.katalog.modell import Katalog, benennen
+    ordner = pathlib.Path(__file__).parent / "daten" / "katalog"
+    k = Katalog.laden(ordner)
+    sw = next(t for t in k.typen.values() if any(s.get("staenderwerk") for s in t.get("schichten") or []))
+    t = {**sw, "kurzname_fest": None}
+    assert "2×12,5" in benennen(t, k)["kurzname"]
