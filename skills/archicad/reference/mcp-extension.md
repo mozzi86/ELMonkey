@@ -2155,8 +2155,11 @@ Fallen:
 - RKs Linie war nur für AC29 lokal gebaut. In der CI fiel AC30 an `UniString::ToLowerCase` durch
   (DevKit 30: `GetLowerCased`). In Headern deshalb ein eigener Makroname (`ELM_LOWER_CASED`),
   nicht `#define ToLowerCase`, das in jede einbindende Datei durchschlagen würde.
-- **0.11.1:** `ELM_SAB.CreatePolygonWalls` brachte AC29 mit SIGABRT zum Absturz — auch ohne Bogen
-  (live 05.11., zweimal reproduziert). Ursache: `begC == endC` (beide Punkt 1). Archicad rechnet beim
-  Anschluss-Update daraus die Wandrichtung (`ProfileTo3DTransformer::SetupCoordinateSystemFromWall` →
-  `CustomUnitVector3D::Create` wirft). Fix: `begC/endC` = erste Kante mit Länge > 0. Vor 0.11.1 Polygonwände
-  nicht über die API anlegen.
+- **0.11.1 (OFFEN):** `ELM_SAB.CreatePolygonWalls` brachte AC29 in 0.11.0 mit SIGABRT zum Absturz — auch
+  ohne Bogen (live 05.11., zweimal, leere INT-Vorlage). Stack: `CreatePolygonWallsCommand::Execute` →
+  Anschluss-Update → `ProfileTo3DTransformer::SetupCoordinateSystemFromWall` → `CustomUnitVector3D::Create`
+  wirft (Nullrichtung, `begC == endC`). 0.11.1 setzt `begC/endC` auf die erste Kante: kein Absturz mehr,
+  ABER Archicad legt dann eine **gerade Standardwand** an (Polygon, Bogen und `height` ignoriert, 0,30 m,
+  3 m) — auch mit `buildingMaterialIndex` (Basic). Im Juli liefen 2.032 Polygonwände mit `begC == endC`
+  fehlerfrei. **Bis zur Klärung keine Polygonwände über die API anlegen.** Nächster Schritt: 0.10.4-Bundle
+  gegenprobieren (Regression seit Tapir 1.7.2/0.10.0 oder RKs 0.10.8?).
