@@ -1636,6 +1636,10 @@ GSErrCode Initialize (void)
             elmSabCommands, "0.10.8",
             "ELM_SAB: Erstellt Polygonwaende (APIWtyp_Poly) aus Konturen."
         );
+        err |= RegisterCommand<ClonePolygonWallCommand> (
+            elmSabCommands, "0.11.7",
+            "ELM_SAB: Kopiert eine Wand 1:1 (Element + komplettes Memo) versetzt per ACAPI_Element_Create — Polygonwand-Diagnose."
+        );
         err |= RegisterCommand<GetPolygonWallInfoCommand> (
             elmSabCommands, "0.11.5",
             "ELM_SAB: Rohfelder einer Wand (type, rLinInd, Referenzlinie, Polygon-Memo) zur Polygonwand-Diagnose."

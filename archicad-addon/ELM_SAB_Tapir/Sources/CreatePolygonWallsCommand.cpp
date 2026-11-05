@@ -75,6 +75,10 @@ GS::Optional<GS::UniString> CreatePolygonWallsCommand::GetInputParametersSchema 
                             "type": "integer",
                             "description": "ELMonkey 0.11.2: Endkante der Referenzlinie (1-basiert). Optional, Default = referenceLineEdge."
                         },
+                        "typeOverride": {
+                            "type": "integer",
+                            "description": "ELMonkey 0.11.7 (Diagnose): erzwingt element.wall.type (0 Normal, 1 Trapez, 2 Poly) nach allen anderen Feldern."
+                        },
                         "minimal": {
                             "type": "boolean",
                             "description": "ELMonkey 0.11.5 (Diagnose): true = exakt wie das Graphisoft-Forum-Beispiel: GetDefaults ohne Memo, nur type/Struktur/poly/coords/pends/vertexIDs/edgeIDs, keine Referenzlinie, kein begC/endC, kein polyCanChange."
@@ -316,6 +320,11 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
                 }
             }
 
+            Int32 typeOverride = -1;
+            if (wallData.Get ("typeOverride", typeOverride) && typeOverride >= 0 && typeOverride <= 2)
+                element.wall.type = (API_WallTypeID) typeOverride;
+            debug.Add ("sentType", (Int32) element.wall.type);
+
             err = ACAPI_Element_Create (&element, &memo);
             ACAPI_DisposeElemMemoHdls (&memo);
 
@@ -457,6 +466,99 @@ GS::ObjectState GetPolygonWallInfoCommand::Execute (const GS::ObjectState& param
         }
         ACAPI_DisposeElemMemoHdls (&memo);
         walls (w);
+    }
+    return response;
+}
+
+// ---------------------------------------------------------------------------
+// ClonePolygonWall (0.11.7, Diagnose)
+// ---------------------------------------------------------------------------
+
+GS::Optional<GS::UniString> ClonePolygonWallCommand::GetInputParametersSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": {
+            "elementId": { "type": "object", "properties": { "guid": { "type": "string" } }, "required": ["guid"] },
+            "dx": { "type": "number", "description": "Versatz in x (m). Default 0." },
+            "dy": { "type": "number", "description": "Versatz in y (m). Default 0." },
+            "forcePoly": { "type": "boolean", "description": "true = element.wall.type vor dem Create auf APIWtyp_Poly setzen (Default: wie gelesen)." }
+        },
+        "required": ["elementId"]
+    })");
+}
+
+GS::Optional<GS::UniString> ClonePolygonWallCommand::GetResponseSchema () const
+{
+    return GS::UniString (R"({ "type": "object" })");
+}
+
+GS::ObjectState ClonePolygonWallCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+    const GS::ObjectState* idOs = parameters.Get ("elementId");
+    const API_Guid guid = idOs != nullptr ? GetGuidFromObjectState (*idOs) : APINULLGuid;
+    double dx = 0.0, dy = 0.0; bool forcePoly = false;
+    parameters.Get ("dx", dx); parameters.Get ("dy", dy); parameters.Get ("forcePoly", forcePoly);
+
+    GS::ObjectState response;
+    API_Element src = {};
+    src.header.guid = guid;
+    GSErrCode err = ACAPI_Element_Get (&src);
+    if (err != NoError)
+        return CreateFailedExecutionResult (err, "ACAPI_Element_Get fehlgeschlagen");
+#ifdef ServerMainVers_2600
+    if (src.header.type != API_WallID)
+#else
+    if (src.header.typeID != API_WallID)
+#endif
+        return CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "Kein Wand-Element");
+
+    API_ElementMemo memo = {};
+    err = ACAPI_Element_GetMemo (guid, &memo, APIMemoMask_All);
+    if (err != NoError) {
+        ACAPI_DisposeElemMemoHdls (&memo);
+        return CreateFailedExecutionResult (err, "ACAPI_Element_GetMemo fehlgeschlagen");
+    }
+
+    response.Add ("sourceType", (Int32) src.wall.type);
+    response.Add ("sourceNCoords", src.wall.poly.nCoords);
+    response.Add ("memoCoords", memo.coords != nullptr);
+    response.Add ("memoPends", memo.pends != nullptr);
+    response.Add ("memoParcs", memo.parcs != nullptr);
+    response.Add ("memoVertexIDs", memo.vertexIDs != nullptr);
+    response.Add ("memoEdgeIDs", memo.edgeIDs != nullptr);
+    response.Add ("memoGables", memo.gables != nullptr);
+
+    src.header.guid = APINULLGuid;
+    src.wall.begC.x += dx; src.wall.begC.y += dy;
+    src.wall.endC.x += dx; src.wall.endC.y += dy;
+    if (memo.coords != nullptr) {
+        for (Int32 k = 1; k <= src.wall.poly.nCoords; ++k) {
+            (*memo.coords)[k].x += dx;
+            (*memo.coords)[k].y += dy;
+        }
+    }
+    if (forcePoly)
+        src.wall.type = APIWtyp_Poly;
+    response.Add ("sentType", (Int32) src.wall.type);
+
+    GSErrCode cerr = NoError;
+    ACAPI_CallUndoableCommand ("ELM_SAB ClonePolygonWall", [&] () -> GSErrCode {
+        cerr = ACAPI_Element_Create (&src, &memo);
+        return cerr;
+    });
+    ACAPI_DisposeElemMemoHdls (&memo);
+    if (cerr != NoError)
+        return CreateFailedExecutionResult (cerr, "ACAPI_Element_Create fehlgeschlagen");
+
+    response.Add ("elementId", CreateGuidObjectStateELM (src.header.guid));
+    API_Element got = {};
+    got.header.guid = src.header.guid;
+    if (ACAPI_Element_Get (&got) == NoError) {
+        response.Add ("createdType", (Int32) got.wall.type);
+        response.Add ("createdNCoords", got.wall.poly.nCoords);
+        response.Add ("createdRLinInd", got.wall.rLinInd);
+        response.Add ("isPolygonal", got.wall.type == APIWtyp_Poly);
     }
     return response;
 }
