@@ -2177,4 +2177,5 @@ Fallen:
   (Wand 1:1 per Create kopieren), Parameter `debug`, `typeOverride`, `minimal`, `forceBasicDefaults`.
   Testskripte: `~/.scratch/elmonkey/tools/test_polywand.py`, `test_clonewand.py`.
   Weitergabe: Tapir-Issue https://github.com/ENZYME-APD/tapir-archicad-automation/issues/1914 (05.11.2026);
-  Forum-Antwort im Thread „Wall Geometry Method: Polygonal" (Entwurf in `~/.scratch/elmonkey/weitergabe/`).
+  Forum-Antwort im Thread „Wall Geometry Method: Polygonal":
+  https://community.graphisoft.com/t5/Archicad-C-API/I-would-like-to-know-how-to-create-a-wall-using-Wall-Geometry/m-p/719915 (05.11.2026).
