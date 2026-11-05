@@ -148,6 +148,17 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
 
             element.wall.type = APIWtyp_Poly;
             if (!minimal) {
+                // 0.11.9: Voreinstellungen, die eine Polygonwand verhindern koennen, hart setzen.
+                // INT-Vorlage liefert sequence 5000 (SDK: 0..999) -> AC verwirft das Polygon und baut eine
+                // Normalwand aus begC/endC (05.11.2026, Dump in frischer INT-Datei).
+                if (element.wall.sequence < 0 || element.wall.sequence > 999)
+                    element.wall.sequence = 0;
+                element.wall.profileType = APISect_Normal;
+                element.wall.profileAttr = APIInvalidAttributeIndex;
+                element.wall.logHeight = 0.0;
+                element.wall.beamFlags = 0;
+                element.wall.angle = 0.0;
+                element.wall.thickness1 = element.wall.thickness;
                 element.wall.polyCanChange = true;
                 // 0.11.3: Polygonwaende haben laut SDK-Header immer APIWallRefLine_Outside (Center ist dort ungueltig).
                 element.wall.referenceLineLocation = APIWallRefLine_Outside;
