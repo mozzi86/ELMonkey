@@ -20,6 +20,13 @@
 #include "Folder.hpp"
 #include "GSTime.hpp"
 
+// AC30 hat UniString::ToLowerCase durch GetLowerCased ersetzt (gleiches Muster wie TapirPalette.cpp).
+#ifdef ServerMainVers_3000
+#define ELM_LOWER_CASED GetLowerCased
+#else
+#define ELM_LOWER_CASED ToLowerCase
+#endif
+
 namespace ElmLibPart0104 {
 
 struct Match {
@@ -60,10 +67,10 @@ inline GSErrCode FindMatches (const GS::UniString& name, const GS::UniString& ma
     auto lmRes = ACAPI::Library::GetLibraryManager ();
     if (lmRes.IsErr ()) { msg = "LibraryManager nicht verfuegbar (kein Projekt?)"; return APIERR_NOPLAN; }
     const auto lm = lmRes.Unwrap ();
-    const GS::UniString wanted = Stem (name).ToLowerCase ();
+    const GS::UniString wanted = Stem (name).ELM_LOWER_CASED ();
     const auto parts = lm.FindLibParts ([&] (const ACAPI::Library::LibPart& lp) {
         auto n = lp.GetName ();
-        return n.IsOk () && Stem (n.Unwrap ()).ToLowerCase () == wanted;
+        return n.IsOk () && Stem (n.Unwrap ()).ELM_LOWER_CASED () == wanted;
     });
     for (const auto& lp : parts) {
         Match m;
@@ -88,9 +95,9 @@ inline GSErrCode FindMatches (const GS::UniString& name, const GS::UniString& ma
         }
         if (!mainGuid.IsEmpty ()) {
             GS::UniString g = mainGuid; g.ReplaceAll ("{", ""); g.ReplaceAll ("}", "");
-            if (g.ToLowerCase () != m.mainGuid.ToLowerCase ()) continue;
+            if (g.ELM_LOWER_CASED () != m.mainGuid.ELM_LOWER_CASED ()) continue;
         }
-        if (!library.IsEmpty () && !m.libraryName.ToLowerCase ().Contains (library.ToLowerCase ())) continue;
+        if (!library.IsEmpty () && !m.libraryName.ELM_LOWER_CASED ().Contains (library.ELM_LOWER_CASED ())) continue;
         out.Push (m);
     }
     if (out.IsEmpty ()) { msg = GS::UniString ("Kein geladenes Bibliothekselement gefunden: ") + name; return APIERR_BADNAME; }
@@ -168,8 +175,8 @@ inline const char* TypeName (API_AddParID t)
 inline API_AddParID TypeFromName (const GS::UniString& n)
 {
     for (int t = APIParT_Integer; t <= APIParT_Profile; ++t)
-        if (n.ToLowerCase () == GS::UniString (TypeName ((API_AddParID) t)).ToLowerCase ()) return (API_AddParID) t;
-    if (n.ToLowerCase () == "text" || n.ToLowerCase () == "abc") return APIParT_CString;
+        if (n.ELM_LOWER_CASED () == GS::UniString (TypeName ((API_AddParID) t)).ELM_LOWER_CASED ()) return (API_AddParID) t;
+    if (n.ELM_LOWER_CASED () == "text" || n.ELM_LOWER_CASED () == "abc") return APIParT_CString;
     return API_ZombieParT;
 }
 

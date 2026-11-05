@@ -2152,3 +2152,6 @@ Fallen:
 - Teamwork: mit „Abbruch" erzeugte Elemente erst per `ReserveElements` reservieren, sonst 6001.
 - Das MCP-Discovery-Schema hinkt hinterher (z. B. kein `arcAngle`). Maßgeblich sind
   `ELM_SAB.ListCommands` und die Quelle (`ExtendedElementCommands.cpp`).
+- RKs Linie war nur für AC29 lokal gebaut. In der CI fiel AC30 an `UniString::ToLowerCase` durch
+  (DevKit 30: `GetLowerCased`). In Headern deshalb ein eigener Makroname (`ELM_LOWER_CASED`),
+  nicht `#define ToLowerCase`, das in jede einbindende Datei durchschlagen würde.
