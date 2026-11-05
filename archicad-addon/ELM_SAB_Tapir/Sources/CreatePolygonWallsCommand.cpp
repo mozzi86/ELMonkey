@@ -176,6 +176,27 @@ GS::ObjectState CreatePolygonWallsCommand::Execute (const GS::ObjectState& param
             debug.Add ("defaultRelativeTopStory", (Int32) element.wall.relativeTopStory);
             debug.Add ("defaultStructureType", (Int32) element.wall.modelElemStructureType);
             debug.Add ("defaultProfileAttr", element.wall.profileAttr.ToInt32_Deprecated ());
+            // 0.11.8: vollstaendiger Blick auf die Voreinstellung (Suche nach dem Feld, das Poly verhindert)
+            debug.Add ("defaultProfileType", (Int32) element.wall.profileType);
+            debug.Add ("defaultComposite", element.wall.composite.ToInt32_Deprecated ());
+            debug.Add ("defaultBuildingMaterial", element.wall.buildingMaterial.ToInt32_Deprecated ());
+            debug.Add ("defaultThickness", element.wall.thickness);
+            debug.Add ("defaultThickness1", element.wall.thickness1);
+            debug.Add ("defaultOffset", element.wall.offset);
+            debug.Add ("defaultFlipped", element.wall.flipped);
+            debug.Add ("defaultRefLineLocation", (Int32) element.wall.referenceLineLocation);
+            debug.Add ("defaultPolyCanChange", element.wall.polyCanChange);
+            debug.Add ("defaultMaterialsChained", element.wall.materialsChained);
+            debug.Add ("defaultZoneRel", (Int32) element.wall.zoneRel);
+            debug.Add ("defaultWallConnPriority", element.wall.wallConnPriority);
+            debug.Add ("defaultUseCompositePriority", element.wall.useCompositePriority);
+            debug.Add ("defaultSequence", element.wall.sequence);
+            debug.Add ("defaultLogHeight", element.wall.logHeight);
+            debug.Add ("defaultBeamFlags", element.wall.beamFlags);
+            debug.Add ("defaultAngle", element.wall.angle);
+            debug.Add ("defaultMemoGables", memo.gables != nullptr);
+            debug.Add ("defaultRefInd", element.wall.refInd);
+            debug.Add ("defaultOppInd", element.wall.oppInd);
 
             double height = 0.0;
             if (wallData.Get ("height", height)) {
@@ -418,6 +439,16 @@ GS::ObjectState GetPolygonWallInfoCommand::Execute (const GS::ObjectState& param
         GS::ObjectState w;
         w.Add ("elementId", CreateGuidObjectStateELM (guid));
         w.Add ("type", (Int32) el.wall.type);
+        w.Add ("profileType", (Int32) el.wall.profileType);
+        w.Add ("materialsChained", el.wall.materialsChained);
+        w.Add ("zoneRel", (Int32) el.wall.zoneRel);
+        w.Add ("wallConnPriority", el.wall.wallConnPriority);
+        w.Add ("useCompositePriority", el.wall.useCompositePriority);
+        w.Add ("sequence", el.wall.sequence);
+        w.Add ("logHeight", el.wall.logHeight);
+        w.Add ("beamFlags", el.wall.beamFlags);
+        w.Add ("composite", el.wall.composite.ToInt32_Deprecated ());
+        w.Add ("buildingMaterial", el.wall.buildingMaterial.ToInt32_Deprecated ());
         w.Add ("structureType", (Int32) el.wall.modelElemStructureType);
         w.Add ("referenceLineLocation", (Int32) el.wall.referenceLineLocation);
         w.Add ("polyCanChange", el.wall.polyCanChange);
