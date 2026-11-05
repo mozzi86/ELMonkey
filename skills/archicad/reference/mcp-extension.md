@@ -2176,4 +2176,5 @@ Fallen:
   Diagnosebefehle bleiben: `GetPolygonWallInfo` (Rohfelder + Memo einer Wand), `ClonePolygonWall`
   (Wand 1:1 per Create kopieren), Parameter `debug`, `typeOverride`, `minimal`, `forceBasicDefaults`.
   Testskripte: `~/.scratch/elmonkey/tools/test_polywand.py`, `test_clonewand.py`.
-  Weitergabe: Tapir-Issue + Forum-Antwort (Entwürfe in `~/.scratch/elmonkey/weitergabe/`).
+  Weitergabe: Tapir-Issue https://github.com/ENZYME-APD/tapir-archicad-automation/issues/1914 (05.11.2026);
+  Forum-Antwort im Thread „Wall Geometry Method: Polygonal" (Entwurf in `~/.scratch/elmonkey/weitergabe/`).
