@@ -1,5 +1,7 @@
 # elmonkey-core 0.3.0
 
+> **Drei Monkeys, funktionsgleich:** Archicad-Monkey (Add-On), Python-Monkey (Kern + MCP) und Plattform-Monkey (Schwarz Plattform) arbeiten gleich und werden immer angeglichen — eine Änderung an einem kommt im selben Zug in die beiden anderen. Siehe [README im Wurzelordner](../README.md#drei-monkeys--funktionsgleich-immer-angeglichen).
+
 Neutraler Kern des Python-Monkeys. Nur Standardbibliothek; IFC-Ausgabe über das Extra `[ifc]`.
 
 ## Module

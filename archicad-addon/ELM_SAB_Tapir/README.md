@@ -1,5 +1,7 @@
 # ELM_SAB_Tapir — Kombi-Add-On für Archicad
 
+> **Drei Monkeys, funktionsgleich:** Archicad-Monkey (Add-On), Python-Monkey (Kern + MCP) und Plattform-Monkey (Schwarz Plattform) arbeiten gleich und werden immer angeglichen — eine Änderung an einem kommt im selben Zug in die beiden anderen. Siehe [README im Wurzelordner](../../README.md#drei-monkeys--funktionsgleich-immer-angeglichen).
+
 Das hauseigene Archicad-Add-On von Schwarz Architekturbüro Nürnberg. Es enthält
 **Tapir 1.7.2 vollständig** (seit ELMonkey 0.10.0; vorher 1.5.4) plus die SAB-eigenen Befehle in einem einzigen Bundle —
 beide Befehls-Namensräume, `TapirCommand` und `ELM_SAB`, sind gleichzeitig verfügbar.

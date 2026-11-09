@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-09 | 261109-mqy | Drei Monkeys funktionsgleich + immer angeglichen in allen READMEs; Kern 0.3.0, MCP 0.2.2 lokal, Plattform-Monkey = Kern 0.3.0 |
 | 2026-11-09 | 261109-ii2 | ELM_SAB.ExportSurfaces 0.11.12: Oberflächen + Texturbilder als Ordner (sab-oberflaechen/1, Vorlage Bernd), MCP 0.2.2 Synonyme; Zweig elm-0.11.12-oberflaechen-export, live offen |
 | 2026-11-05 | 261105-r11 | RKs Linie 0.10.1–0.10.8 + Hauptlinie 0.10.4 = ELMonkey 0.11.0 auf Zweig elm-0.11.0-rk-integration, CI 8/8, Autor neutralisiert, AC30-Fix |
 | 2026-11-05 | 261105-r11 | Polygonwände gelöst (0.11.11): Wand-Voreinstellung bestimmt Poly-Annahme → ChangeDefaults auf Basis vor Create; Diagnosebefehle GetPolygonWallInfo/ClonePolygonWall |

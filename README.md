@@ -8,20 +8,39 @@
 
 | Teil | Ordner | Stand |
 |---|---|---|
-| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.2.1, 19 Tests |
-| **Schwarz Plattform** – Plattform bindet `elmonkey-core` als festes Release ein (`elmonkey.plattform`) | Plattform (privat) | ✅ Klebe-Logik im Kern, Einbau nach Abstimmung |
+| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.3.0, 54 Tests |
+| **Plattform-Monkey** – eigene, funktionsgleiche Kopie des Kerns in der Schwarz Plattform (`core/plattform_monkey`) | Plattform (privat) | ✅ gleichauf mit Kern 0.3.0 (abgeglichen 09.11.2026) |
 | **MCP-Server** `elmonkey-mcp` 0.2.2 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 8 Tests, live gegen Archicad gelesen |
 | **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.12, CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
 | **Skill Archicad** – Arbeitswissen für Claude | [`skills/archicad/`](skills/archicad/) | ✅ umgezogen, wird nach `mozzi86/-archicad` gespiegelt |
 | **Client-Konfigurationen** (Claude Desktop/Code, Cursor, VS Code, Codex) | [`clients/`](clients/) | ✅ |
 | **Claude-Plugin** | [`plugin/`](plugin/) | ⏳ |
 
+## Drei Monkeys – funktionsgleich, immer angeglichen
+
+| Monkey | Wo | Was |
+|---|---|---|
+| **Archicad-Monkey** | Add-On ELM_SAB_Tapir ([`archicad-addon/`](archicad-addon/)) | schreibt in Archicad |
+| **Python-Monkey** | Kern `elmonkey` + MCP-Server ([`core/`](core/), [`mcp/`](mcp/)) | jede KI, außerhalb von Archicad |
+| **Plattform-Monkey** | `core/plattform_monkey` in der Schwarz Plattform (privat) | am Grundmodell der Plattform, ohne Archicad |
+
+**DE** — Die drei Monkeys sind **funktionsgleich**: dieselben drei Arbeitsweisen (Finden mit und/oder/nicht wie
+„Suchen & aktivieren“, Vorprüfung mit denselben Codes vor jedem Schreiben, Rücklese nach jedem Schreiben), dieselben
+Begriffe und dasselbe Austauschformat (z. B. `sab-oberflaechen/1`). Sie werden **immer angeglichen**: Eine Änderung an
+einem Monkey kommt im selben Zug in die beiden anderen — Kern und Plattform-Monkey bleiben Zeile für Zeile gleich
+(`kern`, `regeln`, `plattform`), neue Archicad-Befehle bekommen ihr Gegenstück bzw. ihren Suchbegriff im
+Python-Monkey und ihren Weg in die Plattform. Abgleich zuletzt: 09.11.2026 (Add-On 0.11.12 · Kern 0.3.0 ·
+MCP 0.2.2 · Plattform-Monkey = Kern 0.3.0).
+
+**EN** — The three monkeys are **functionally identical** (same find / pre-check / read-back, same codes, same
+exchange formats) and are **always kept in sync**: a change to one goes into the other two in the same step.
+
 Kollegen installieren den Skill weiter aus [`mozzi86/-archicad`](https://github.com/mozzi86/-archicad); das ist jetzt ein
 automatischer Spiegel von `skills/archicad`. Umbauplan: [`docs/UMBAU.md`](docs/UMBAU.md).
 
 ## Installation
 
-- **Kern:** `pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/releases/download/core-v0.2.1/elmonkey_core-0.2.1-py3-none-any.whl"`
+- **Kern:** `pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/releases/download/core-v0.3.0/elmonkey_core-0.3.0-py3-none-any.whl"`
 - **MCP-Server:** `uv tool install "git+https://github.com/mozzi86/ELMonkey#subdirectory=mcp/elmonkey-mcp"`
 - **Add-On:** Release [`elm-sab-tapir-latest`](https://github.com/mozzi86/ELMonkey/releases/tag/elm-sab-tapir-latest), siehe [`archicad-addon/ELM_SAB_Tapir/README.md`](archicad-addon/ELM_SAB_Tapir/README.md)
 
@@ -45,7 +64,7 @@ gespiegelt (Workflow `skill-spiegeln`); die Plattform holt neue Kern-Releases pe
 ## Kern benutzen
 
 ```bash
-pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/releases/download/core-v0.2.1/elmonkey_core-0.2.1-py3-none-any.whl"
+pip install "elmonkey-core @ https://github.com/mozzi86/ELMonkey/releases/download/core-v0.3.0/elmonkey_core-0.3.0-py3-none-any.whl"
 ```
 
 ```python
