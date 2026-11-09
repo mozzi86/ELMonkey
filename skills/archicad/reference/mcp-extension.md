@@ -2200,4 +2200,8 @@ Fallen:
   Attribut-Indizes haben Lücken (Fehler bei Get = überspringen); Zahlen immer mit Punkt (`locale::classic`).
 - Liest nur, reserviert nichts. Prüfen ohne Archicad: `python3 Tools/oberflaechen/pruefen.py <Ordner>`.
 - **Stand 09.11.:** syntaxgeprüft gegen DevKit 28/29/30 (clang, `-Wall -Wextra -Werror`), CI AC27–30 × Mac/Win.
-  **Live in Archicad noch nicht gelaufen.**
+  **Live verifiziert 09.11. (AC29, Mac, Teamwork-Projekt):** 238 Oberflächen, 161 mit Bild, 0 ohne Bilddatei,
+  77 ohne Textur, 146 Bilddateien (alle echte JPEG/PNG, 31 MB) in 0,15 s; `pruefen.py` „In Ordnung“; der
+  Plattform-Leser (`paket_lesen`/`plan`) liest den Ordner ohne Fehler und Warnung (238 Materialien). Umlaute in
+  Namen und im Ordnernamen bleiben erhalten. Stichprobe Mauerziegel DF: Kachel 1,5 × 1,488 m, im Bild ~23
+  Schichten = 64 mm Schichthöhe — Kachelmaß passt zum Bild. Windows noch nicht live.
