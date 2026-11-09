@@ -17,6 +17,9 @@ E = [{"name": f"{ns}.{n}", "namespace": ns, "command": n, "group": g, "descripti
          ("TapirCommand", "CreateProfiles", "Attribute Commands", "Creates or overwrites Profile attributes as a copy of an existing Profile's geometry, based on the given parameters."),
          ("TapirCommand", "GetProfiles", "Attribute Commands", "Returns the details of the given Profile attributes."),
          ("TapirCommand", "CreateMorphs", "Element Commands", "Creates Morph elements from simple box definitions."),
+         ("TapirCommand", "GetSurfaces", "Attribute Commands", "Returns the details of the given Surface attributes."),
+         ("TapirCommand", "CreateSurfaces", "Attribute Commands", "Creates or overwrites Surface attributes based on the given parameters."),
+         ("ELM_SAB", "ExportSurfaces", "ELM_SAB", "ELM_SAB: Exportiert alle Oberflaechen des Projekts samt Texturbildern als Ordner im Format sab-oberflaechen/1 (oberflaechen.json + texturen/ + LIESMICH.md) - Farbe, Glanz, Transparenz, Kachelmass breite_m/hoehe_m, Drehung, Flags. Bilder aus eingebetteter Bibliothek/.lcf ueber IO::File; nicht lesbare stehen mit bild_fehlt drin. targetFolder optional (Standard <Benutzer>/Downloads). Liest nur, aendert nichts. Gleiches Format wie der Export des Plattform-Add-ons."),
      ]]
 
 
@@ -38,6 +41,13 @@ def test_search_profile_morph():
     assert c.search(E, "Querschnitt erstellen")[0]["command"] == "CreateProfiles"
     assert c.search(E, "Morph Koerper erstellen")[0]["command"] == "CreateMorphs"
     assert c.search(E, "Freiform anlegen")[0]["command"] == "CreateMorphs"
+
+
+def test_search_oberflaechen_export():
+    assert c.search(E, "Texturen exportieren")[0]["command"] == "ExportSurfaces"
+    assert c.search(E, "Oberflaechen exportieren")[0]["command"] == "ExportSurfaces"
+    assert c.search(E, "Oberflächen mit Texturbildern exportieren")[0]["command"] == "ExportSurfaces"
+    assert c.search(E, "Oberflaechen anlegen")[0]["command"] == "CreateSurfaces"
 
 
 def test_resolve():

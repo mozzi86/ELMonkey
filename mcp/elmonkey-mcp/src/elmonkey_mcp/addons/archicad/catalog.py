@@ -59,6 +59,10 @@ SYNONYMS = {
     "polygonwand": "polygon", "polygonwaende": "polygon", "polygonwände": "polygon", "polywand": "polygon",
     "hotlink": "hotlink", "hotlinks": "hotlink", "modulverknuepfung": "hotlink",
     "zeichnungsquelle": "drawing", "zeichnungsverknuepfung": "drawing", "umbaustatus": "renovation",
+    # 0.11.12 Oberflaechen-Export (ExportSurfaces)
+    "oberflaeche": "surface", "oberfläche": "surface", "oberflaechen": "surface", "oberflächen": "surface",
+    "textur": "texture surface", "texturen": "texture surface", "material": "surface", "materialien": "surface",
+    "exportieren": "export", "export": "export", "ausgeben": "export",
 }
 
 _cache: dict = {}

@@ -63,6 +63,7 @@
 #include "SetColumnRotationCommand.hpp"
 #include "CreateCurtainWallCommand.hpp"
 #include "CaptureViewCommand.hpp"
+#include "ExportSurfacesCommand.hpp"
 #include "StoryVisibilityCommands.hpp"
 #include "SetObjectParametersForceCommand.hpp"
 #include "CreateWallOpeningsCommand.hpp"
@@ -1679,6 +1680,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<SetColumnDetailsCommand> (
             elmSabCommands, "0.9.5",
             "ELM_SAB: Setzt Stuetzen-Kernmasse (nominalWidth/Height, alle Segmente) — mit Ruecklese-Verifikation."
+        );
+        err |= RegisterCommand<ExportSurfacesCommand> (
+            elmSabCommands, "0.11.12",
+            "ELM_SAB: Exportiert alle Oberflaechen des Projekts samt Texturbildern als Ordner im Format sab-oberflaechen/1 (oberflaechen.json + texturen/ + LIESMICH.md) - Farbe, Glanz, Transparenz, Kachelmass breite_m/hoehe_m, Drehung, Flags. Bilder aus eingebetteter Bibliothek/.lcf ueber IO::File; nicht lesbare stehen mit bild_fehlt drin. targetFolder optional (Standard <Benutzer>/Downloads). Liest nur, aendert nichts. Gleiches Format wie der Export des Plattform-Add-ons."
         );
         err |= RegisterCommand<CaptureViewCommand> (
             elmSabCommands, "0.9.12",

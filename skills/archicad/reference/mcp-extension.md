@@ -2182,3 +2182,22 @@ Fallen:
   Weitergabe: Tapir-Issue https://github.com/ENZYME-APD/tapir-archicad-automation/issues/1914 (05.11.2026);
   Forum-Antwort im Thread „Wall Geometry Method: Polygonal":
   https://community.graphisoft.com/t5/Archicad-C-API/I-would-like-to-know-how-to-create-a-wall-using-Wall-Geometry/m-p/719915 (05.11.2026).
+
+## ELM_SAB 0.11.12 — ExportSurfaces (Oberflächen + Texturbilder) <!-- 2026-11-09 -->
+
+- **`ELM_SAB.ExportSurfaces`** schreibt alle Oberflächen des Projekts als Ordner
+  `<Ziel>/<Projekt>_oberflaechen_<JJJJMMTT-hhmmss>/` mit `oberflaechen.json`, `texturen/` und `LIESMICH.md`
+  (Format `sab-oberflaechen/1`, Beschreibung `archicad-addon/ELM_SAB_Tapir/Tools/oberflaechen/FORMAT_sab-oberflaechen-1.md`).
+  Parameter nur `targetFolder` (optional, Standard `<Benutzer>/Downloads`). Antwort: `folder`, `project`,
+  `archicadVersion`, `surfaces`, `withImage`, `imageMissing`, `withoutTexture`, `images`; Fehler als `{error}`.
+- Gleiches Format wie der Oberflächen-Export des Plattform-Add-ons — der Ordner geht unverändert durch das
+  Einlese-Werkzeug der Plattform. Die IFC-Stilnamen im Modell sind die Oberflächennamen, darüber ordnet die
+  Plattform zu; `breite_m`/`hoehe_m` (Kachelmaß) fehlen im IFC und kommen nur hierüber.
+- Bilder: `texture.fileLoc` wird vor `ACAPI_Attribute_Get` angelegt; liegt das Bild als Datei vor, wird es kopiert,
+  sonst über `IO::File` gelesen (eingebettete Bibliothek, `.lcf`). Was so nicht lesbar ist, steht mit
+  `bild_fehlt: "Datei fehlt: …"` drin — die Plattform holt solche Bilder beim Einlesen selbst aus dem `.lcf`.
+- Fallen aus der Vorlage: `API_ProjectInfo` nicht selbst freigeben (doppeltes delete → Absturz);
+  Attribut-Indizes haben Lücken (Fehler bei Get = überspringen); Zahlen immer mit Punkt (`locale::classic`).
+- Liest nur, reserviert nichts. Prüfen ohne Archicad: `python3 Tools/oberflaechen/pruefen.py <Ordner>`.
+- **Stand 09.11.:** syntaxgeprüft gegen DevKit 28/29/30 (clang, `-Wall -Wextra -Werror`), CI AC27–30 × Mac/Win.
+  **Live in Archicad noch nicht gelaufen.**
