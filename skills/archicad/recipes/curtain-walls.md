@@ -20,9 +20,10 @@ Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-El
 12. [Worked Example — CurtainWallSegment + Accessory Operations](#worked-example--curtainwallsegment--accessory-operations)
 13. [Worked Example — CurtainWall klassifizieren](#worked-example--curtainwall-klassifizieren)
 14. [Worked Example — CurtainWall löschen (mit Sub-Element-Pre-Check)](#worked-example--curtainwall-löschen-mit-sub-element-pre-check)
-15. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
-16. [Gotchas pro Element-Typ](#gotchas-pro-element-typ)
-17. [Verwandte Recipes](#verwandte-recipes)
+15. [Liegende Fassaden (Zwischenstand AC29)](#liegende-fassaden-zwischenstand-ac29)
+16. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
+17. [Gotchas pro Element-Typ](#gotchas-pro-element-typ)
+18. [Verwandte Recipes](#verwandte-recipes)
 
 ---
 
@@ -114,7 +115,7 @@ Für `typeSpecificDetails` in `elements_set_details_of_elements`. Alle Felder op
 | `endCoordinate` | `{x: m, y: m}` | Endpunkt (2D, kein Z). |
 | `height` | `number` (m) | Höhe der Fassade. |
 | `bottomOffset` | `number` (m) | Abstand Fassaden-Fuß zu Story-Level. |
-| `angle` | `number` (rad) | Neigungswinkel (für geneigte Fassaden). |
+| `angle` | `number` (**Grad**) | Neigung: 90 = senkrecht, 0 = liegend (Boden/Abhangdecke). Favoriten speichern immer `SlantAngle 90`, auch von liegenden Fassaden — Neigung darum beim Create explizit übergeben (`CreateCurtainWallFromAxes` `angle`; `0` wird ab ELMonkey 0.11.12.2 akzeptiert, **wirkt in Archicad aber derzeit nicht**, siehe [Liegende Fassaden](#liegende-fassaden-zwischenstand-ac29)). <!-- 2026-11-09 --> |
 | `layerIndex` | `number` | Layer-Index (Float, 1-basiert). |
 
 <!-- VERIFY --> Vollständige CurtainWallSettings-Felder über Discovery und Schema-Read in der Session bestätigen — Basis-Felder wie oben sind erwartet, aber AC29-spezifische Ergänzungen möglich.
@@ -209,6 +210,33 @@ löschen. Erst dann ans Modell.
 
 Danach: **erst klassifizieren, dann KI-Property** (siehe SKILL.md), dann
 Voll-Re-Inventur, dann ggf. das ersetzte Element löschen.
+
+---
+
+## Liegende Fassaden (Zwischenstand AC29)
+
+> **Zwischenstand, live nur AC29 Mac erprobt (2026-11-10).** Nicht auf AC27/28/30 und nicht unter Windows geprüft. Vor produktivem Einsatz an einer Wegwerf-Fassade gegenmessen und zurücklesen.
+
+Liegende Fassaden (Bodenfliesen, Abhangdecken) sind Pfosten-Riegel-Fassaden mit `angle` 0. Neu ab ELMonkey 0.11.12.2: `ELM_SAB.GetCurtainWallPlaneELM` (liest Neigung, `planeMatrix`, `planeOffset`, Kontur, Segmente) und `ELM_SAB.SetCurtainWallSegmentELM` (ändert Kontur, Raster, Basislinie, Höhe einer bestehenden Fassade).
+
+**Was nicht funktioniert:** `angle` 0 sowie `planeMatrix`/`planeOffset` bei `CreateCurtainWallFromAxes` wirken in Archicad derzeit **nicht**. Archicad setzt `angle` 0 beim Anlegen auf 90 zurück, die Parameter bleiben ohne Wirkung. Nach jedem Create `angleReadBack`/`planeMatrixReadBack` prüfen.
+
+**Funktionierender Weg:**
+
+1. Ein liegendes Muster (von Hand gezeichnete liegende Fassade) bereitstellen und reservieren (Teamwork).
+2. Muster per `TapirCommand.MoveElements` mit `copy: true` duplizieren (Versatzvektor an die Zielstelle).
+3. Die Kopie mit `ELM_SAB.SetCurtainWallSegmentELM` anpassen: `columnWidths`/`rowHeights` (wirken), `contour` (Segment-Kontur), `baseLine` (Raumkante), `height`.
+4. Zurücklesen mit `GetCurtainWallPlaneELM` (und Bbox gegenmessen).
+
+**Fallen:**
+
+- `columnWidths`/`rowHeights` wirken; `height` allein wirkt für das Raster **nicht**.
+- Kontur und `baseLine` gehen in **Ebenen-Lokalkoordinaten** (u entlang der Basislinie, v quer dazu); `GetCurtainWallPlaneELM` liefert die Basislinie in **Weltkoordinaten**. Nicht mischen.
+- Nach einer Kontur-Änderung greift das Raster nicht: Raster nach jeder Kontur-Änderung zurücklesen und nicht als gegeben annehmen.
+- Nach der Änderung bekommt das Segment eine **neue GUID**: Sub-Elemente nach dem Aufruf neu suchen, nie mit alten GUIDs weiterarbeiten.
+- Nur Fassaden mit genau einem Segment werden angepasst.
+
+**Menübefehl „Bodenfliese aus Auswahl“ (ELMonkey SAB):** setzt je gewählter geschlossener Polylinie, Schraffur, Decke oder Zone ein Objekt „SAB Bodenfliese liegend“. Dafür muss dieses Bibliothekselement im Projekt geladen sein; es liegt **nicht** im Repo (Bibliotheksmanager).
 
 ---
 
