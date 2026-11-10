@@ -13,6 +13,10 @@
 #define ID_ADDON_MENU_FOR_UPDATE        32003
 #define ID_ADDON_MENU_UPDATE                1
 
+// ELMonkey 0.11.12.2 (SAB): Bodenfliese aus Auswahl
+#define ID_ADDON_MENU_BODENFLIESE       32050
+#define ID_ADDON_MENU_BODENFLIESE_AUS_AUSWAHL 1
+
 #define ID_SCRIPTUI_PALETTE             32041
 
 #define ID_ADDON_MENU_FOR_SHORTCUTS     32026

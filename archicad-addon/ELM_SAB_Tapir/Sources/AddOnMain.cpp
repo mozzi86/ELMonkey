@@ -1,6 +1,8 @@
 #include "APIEnvir.h"
 #include "ACAPinc.h"
 
+#include "BodenflieseAusAuswahlELM.hpp"
+
 #include "DGModule.hpp"
 #include "DGFolderDialog.hpp"
 
@@ -122,6 +124,10 @@ static GSErrCode MenuCommandHandler (const API_MenuParams* menuParams)
                     break;
             }
             break;
+        case ID_ADDON_MENU_BODENFLIESE:
+            if (menuParams->menuItemRef.itemIndex == ID_ADDON_MENU_BODENFLIESE_AUS_AUSWAHL)
+                ELM_BodenflieseAusAuswahl ();
+            break;
         case ID_ADDON_MENU_FOR_PALETTE:
             switch (menuParams->menuItemRef.itemIndex) {
                 case ID_ADDON_MENU_PALETTE:
@@ -212,6 +218,7 @@ GSErrCode RegisterInterface (void)
     // (Zweig ci-status, bundles/).
     // err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_FOR_UPDATE, 0, MenuCode_UserDef, MenuFlag_Default);
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU, 0, MenuCode_UserDef, MenuFlag_Default);
+    err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_BODENFLIESE, 0, MenuCode_UserDef, MenuFlag_Default);
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_FOR_SHORTCUTS, 0, MenuCode_UserDef, MenuFlag_SeparatorBefore);
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_RUNSCRIPT_1, 0, MenuCode_UserDef, MenuFlag_Default);
     err |= ACAPI_MenuItem_RegisterMenu (ID_ADDON_MENU_RUNSCRIPT_2, 0, MenuCode_UserDef, MenuFlag_Default);
@@ -232,6 +239,7 @@ GSErrCode Initialize (void)
     // dafuer zu installieren wuerde nur einen Fehler in err einmischen.
     // err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_FOR_UPDATE, MenuCommandHandler);
     err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU, MenuCommandHandler);
+    err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_BODENFLIESE, MenuCommandHandler);
     err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_FOR_SHORTCUTS, MenuCommandHandler);
     err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_RUNSCRIPT_1, MenuCommandHandler);
     err |= ACAPI_MenuItem_InstallMenuHandler (ID_ADDON_MENU_RUNSCRIPT_2, MenuCommandHandler);
@@ -1692,6 +1700,14 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<CreateCurtainWallCommand> (
             elmSabCommands, "0.9.8",
             "ELM_SAB: Erzeugt Pfosten-Riegel-Fassade aus Achsmassen (Spaltenbreiten aus 2D, Zeilenhoehen aus Foto, opake Bruestungszeilen). Seit 0.9.7 auch nichtrechteckig (Trapez/Giebel via contour bzw. topProfile) und mit wirksamem bottomOffset. 0.9.8: Pfosten/Riegel bekommen echte Frame-Klassen (FirstCustomClass statt der profillosen Generik-Klasse Division). 0.9.14: optionaler angle-Parameter (Grad, 90=senkrecht) fuer geneigte Fassaden — Masse bleiben in-plane, vertikale Hoehe wird sin-skaliert, Ruecklese via verticalHeight/zMin/zMax."
+        );
+        err |= RegisterCommand<GetCurtainWallPlaneCommand> (
+            elmSabCommands, "0.11.12.2",
+            "ELM_SAB: Liest Neigung (angle, Grad), planeMatrix, planeOffset, Hoehe und flipped bestehender Fassaden - Vorlage fuer liegende Fassaden (Boden/Abhangdecke)."
+        );
+        err |= RegisterCommand<SetCurtainWallSegmentCommand> (
+            elmSabCommands, "0.11.12.2",
+            "ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen (Zellen nach Vorlage der ersten Zelle), Basislinienlaenge, Hoehe. Fuer liegende Fassaden: Muster per MoveElements copy duplizieren, dann hiermit anpassen."
         );
 #ifdef ServerMainVers_2900
         err |= RegisterCommand<GetViewDesignOptionCombinationsCommandELM> (

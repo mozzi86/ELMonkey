@@ -29,3 +29,35 @@ public:
 
     virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
 };
+
+class GetCurtainWallPlaneCommand : public ELMCommandBase
+{
+public:
+    GetCurtainWallPlaneCommand () = default;
+
+    virtual GS::String GetName () const override
+    {
+        return "GetCurtainWallPlaneELM";
+    }
+
+    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
+    virtual GS::Optional<GS::UniString> GetResponseSchema () const override;
+
+    virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
+};
+
+class SetCurtainWallSegmentCommand : public ELMCommandBase
+{
+public:
+    SetCurtainWallSegmentCommand () = default;
+
+    virtual GS::String GetName () const override
+    {
+        return "SetCurtainWallSegmentELM";
+    }
+
+    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
+    virtual GS::Optional<GS::UniString> GetResponseSchema () const override;
+
+    virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
+};

@@ -20,7 +20,7 @@ GS::Optional<GS::UniString> CreateCurtainWallCommand::GetInputParametersSchema (
             },
             "floorIndex": { "type": "integer" },
             "bottomOffset": { "type": "number", "description": "Unterkante relativ zum Geschoss, Meter. Wird nach dem Create per Drag nachgezogen (storyRelLevel wirkt beim Create nicht) und rueckgelesen." },
-            "angle": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180, "description": "Neigung in Grad, Konvention wie CW-Dialog und Tapir-GetDetailsOfElements: 90 = senkrecht, 135 = um 45 Grad zur Extrusionsseite gekippt. columnWidths/rowHeights/contour bleiben IN-PLANE-Masse; die vertikale Hoehe setzt der Befehl intern auf totalHeight*sin(angle). Optional, Default 90." },
+            "angle": { "type": "number", "minimum": 0, "exclusiveMaximum": 180, "description": "Neigung in Grad, Konvention wie CW-Dialog und Tapir-GetDetailsOfElements: 90 = senkrecht, 135 = um 45 Grad zur Extrusionsseite gekippt, 0 = LIEGEND (Boden/Abhangdecke; v laeuft dann waagerecht nach links der Basislinie beg->end, height = in-plane). columnWidths/rowHeights/contour bleiben IN-PLANE-Masse; die vertikale Hoehe setzt der Befehl intern auf totalHeight*sin(angle). Optional, Default 90." },
             "columnWidths": {
                 "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 1,
                 "description": "Spaltenbreiten von beg nach end (Pfosten-Achsmasse), Meter. Summe sollte der Wandlaenge entsprechen."
@@ -48,7 +48,9 @@ GS::Optional<GS::UniString> CreateCurtainWallCommand::GetInputParametersSchema (
                 "description": "Bequemer Weg zu Trapez/Giebel statt 'contour': Oberkanten-Hoehen v an den Pfostenachsen, also genau columnWidths+1 Werte (u = 0, c0, c0+c1, ...). Unterkante ist durchgehend v=0. Wird ignoriert, wenn 'contour' gesetzt ist."
             },
             "mullionClass": { "type": "integer", "minimum": 0, "description": "0-basierter Index in die Frame-Klassen der CW-Defaults fuer die SENKRECHTEN Rahmen (Pfosten). Default 0 = erste Klasse." },
-            "transomClass": { "type": "integer", "minimum": 0, "description": "0-basierter Index in die Frame-Klassen der CW-Defaults fuer die WAAGERECHTEN Rahmen (Riegel). Default 0 = erste Klasse." }
+            "transomClass": { "type": "integer", "minimum": 0, "description": "0-basierter Index in die Frame-Klassen der CW-Defaults fuer die WAAGERECHTEN Rahmen (Riegel). Default 0 = erste Klasse." },
+            "planeMatrix": { "type": "array", "items": { "type": "number" }, "minItems": 12, "maxItems": 12, "description": "Optional curtainWall.planeMatrix (API_Tranmat.tmx, 12 Werte), z. B. aus GetCurtainWallPlaneELM einer liegenden Musterfassade. Archicad setzt angle 0 allein auf 90 zurueck (live 2026-11-09)." },
+            "planeOffset": { "type": "number", "description": "Optional curtainWall.planeOffset." }
         },
         "required": ["begCoordinate", "endCoordinate", "columnWidths", "rowHeights"]
     })");
@@ -63,6 +65,8 @@ GS::Optional<GS::UniString> CreateCurtainWallCommand::GetResponseSchema () const
             "height": { "type": "number", "description": "IN-PLANE-Gesamthoehe (Summe rowHeights bzw. Kontur-vMax)." },
             "verticalHeight": { "type": "number", "description": "Vertikale Hoehe = height*sin(angle); Soll-Wert fuer die bbox-dz-Ruecklese." },
             "angleApplied": { "type": "number" },
+            "angleReadBack": { "type": "number" },
+            "planeMatrixReadBack": { "type": "array", "items": { "type": "number" } },
             "contourVertices": { "type": "integer" },
             "bottomOffsetApplied": { "type": "boolean" },
             "zMin": { "type": "number" },
@@ -129,8 +133,11 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
 
     if (begOS == nullptr || endOS == nullptr || columnWidths.IsEmpty () || rowHeights.IsEmpty ())
         return CreateErrorResponse (APIERR_BADPARS, "begCoordinate/endCoordinate/columnWidths/rowHeights noetig");
-    if (angle <= 0.0 || angle >= 180.0)
-        return CreateErrorResponse (APIERR_BADPARS, "angle muss zwischen 0 und 180 Grad liegen (exklusiv; 90 = senkrecht)");
+    if (angle < 0.0 || angle >= 180.0)
+        return CreateErrorResponse (APIERR_BADPARS, "angle muss in [0, 180) Grad liegen (90 = senkrecht, 0 = liegend)");
+    // angle 0 = liegende Fassade (Bodenfliesen, Abhangdecke). Live-Test AC29 2026-11-09:
+    // von Hand gezeichnete liegende CWs melden angle 0 und height = IN-PLANE-Ausdehnung.
+    const bool lying = angle < 1e-9;
 
     const API_Coord beg = Get2DCoordinateFromObjectState (*begOS);
     const API_Coord end = Get2DCoordinateFromObjectState (*endOS);
@@ -246,7 +253,19 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
     // NICHT mit (live verifiziert: Dialog 135 -> erzeugt 90), darum immer explizit.
     const double angleRad = angle * 3.14159265358979323846 / 180.0;
     element.curtainWall.angle = angle;
-    element.curtainWall.height = totalHeight * std::sin (angleRad);
+    element.curtainWall.height = lying ? totalHeight : totalHeight * std::sin (angleRad);
+    GS::Array<double> planeMatrix;
+    if (parameters.Get ("planeMatrix", planeMatrix)) {
+        if (planeMatrix.GetSize () != 12) {
+            ACAPI_DisposeElemMemoHdls (&memo);
+            return CreateErrorResponse (APIERR_BADPARS, "planeMatrix braucht genau 12 Werte");
+        }
+        for (UIndex i = 0; i < 12; ++i)
+            element.curtainWall.planeMatrix.tmx[i] = planeMatrix[i];
+    }
+    double planeOffset = 0.0;
+    if (parameters.Get ("planeOffset", planeOffset))
+        element.curtainWall.planeOffset = planeOffset;
 
     // Panel-Klassen der Defaults verwenden: 1. Klasse = Standard (Glas),
     // 2. Klasse (falls vorhanden) fuer opaqueRows.
@@ -340,8 +359,18 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
     elements (idOS);
 
     response.Add ("height", totalHeight);
-    response.Add ("verticalHeight", totalHeight * std::sin (angleRad));
+    response.Add ("verticalHeight", lying ? 0.0 : totalHeight * std::sin (angleRad));
     response.Add ("angleApplied", angle);
+    {
+        API_Element created = {};
+        created.header.guid = element.header.guid;
+        if (ACAPI_Element_Get (&created) == NoError) {
+            response.Add ("angleReadBack", created.curtainWall.angle);
+            const auto& tm = response.AddList<double> ("planeMatrixReadBack");
+            for (UIndex i = 0; i < 12; ++i)
+                tm (created.curtainWall.planeMatrix.tmx[i]);
+        }
+    }
     response.Add ("contourVertices", (Int32) contour.GetSize ());
     response.Add ("bottomOffsetApplied", dragDone || std::fabs (bottomOffset) <= 1e-9);
 
@@ -354,5 +383,327 @@ GS::ObjectState CreateCurtainWallCommand::Execute (const GS::ObjectState& parame
         response.Add ("zMax", box3D.zMax);
     }
 
+    return response;
+}
+
+
+// ---------------------------------------------------------------------------
+// GetCurtainWallPlaneELM (0.11.12.2) — Ebene (Neigung, planeMatrix, Kontur, Segmente) einer
+// Fassade lesen. Anlass: liegende Fassaden (Bodenfliesen, Abhangdecken). Archicad
+// setzt angle 0 beim Create auf 90 zurueck; liegende Fassaden haben eine eigene planeMatrix.
+// ---------------------------------------------------------------------------
+GS::Optional<GS::UniString> GetCurtainWallPlaneCommand::GetInputParametersSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": {
+            "elements": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "elementId": { "type": "object", "properties": { "guid": { "type": "string" } }, "required": ["guid"] }
+                    },
+                    "required": ["elementId"]
+                }
+            }
+        },
+        "required": ["elements"]
+    })");
+}
+
+GS::Optional<GS::UniString> GetCurtainWallPlaneCommand::GetResponseSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": {
+            "curtainWalls": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["curtainWalls"]
+    })");
+}
+
+static void AddCwPlane (GS::ObjectState& os, const API_Element& element)
+{
+    os.Add ("angle", element.curtainWall.angle);
+    os.Add ("height", element.curtainWall.height);
+    os.Add ("planeOffset", element.curtainWall.planeOffset);
+    os.Add ("storyRelLevel", element.curtainWall.storyRelLevel);
+    os.Add ("flipped", element.curtainWall.flipped);
+    os.Add ("floorIndex", (Int32) element.header.floorInd);
+    const auto& tm = os.AddList<double> ("planeMatrix");
+    for (UIndex i = 0; i < 12; ++i)
+        tm (element.curtainWall.planeMatrix.tmx[i]);
+}
+
+GS::ObjectState GetCurtainWallPlaneCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+    GS::Array<GS::ObjectState> elements;
+    parameters.Get ("elements", elements);
+
+    GS::ObjectState response;
+    const auto& list = response.AddList<GS::ObjectState> ("curtainWalls");
+    for (const GS::ObjectState& item : elements) {
+        const GS::ObjectState* elementId = item.Get ("elementId");
+        if (elementId == nullptr) {
+            list (CreateFailedExecutionResult (APIERR_BADPARS, "elementId fehlt"));
+            continue;
+        }
+        API_Element element = {};
+        element.header.guid = GetGuidFromObjectState (*elementId);
+        const GSErrCode err = ACAPI_Element_Get (&element);
+        if (err != NoError) {
+            list (CreateFailedExecutionResult (err, "Element nicht gefunden"));
+            continue;
+        }
+        if (element.header.type.typeID != API_CurtainWallID) {
+            list (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "keine Fassade"));
+            continue;
+        }
+        GS::ObjectState os;
+        os.Add ("success", true);
+        AddCwPlane (os, element);
+        os.Add ("polyNCoords", (Int32) element.curtainWall.polygon.nCoords);
+        os.Add ("polyNSubPolys", (Int32) element.curtainWall.polygon.nSubPolys);
+        os.Add ("polyNArcs", (Int32) element.curtainWall.polygon.nArcs);
+        os.Add ("nSegments", (Int32) element.curtainWall.nSegments);
+        API_ElementMemo memo = {};
+        if (ACAPI_Element_GetMemo (element.header.guid, &memo, APIMemoMask_Polygon | APIMemoMask_CWallSegments | APIMemoMask_CWSegContour) == NoError) {
+            if (memo.cWSegContour != nullptr) {
+                const UInt32 nc = (UInt32) (BMpGetSize (reinterpret_cast<GSPtr> (memo.cWSegContour)) / sizeof (API_CWContourData));
+                const auto& cl = os.AddList<GS::ObjectState> ("segmentContours");
+                for (UInt32 k = 0; k < nc; ++k) {
+                    const API_CWContourData& cd = memo.cWSegContour[k];
+                    GS::ObjectState co;
+                    co.Add ("nCoords", (Int32) cd.polygon.nCoords);
+                    if (cd.coords != nullptr) {
+                        const auto& pts = co.AddList<GS::ObjectState> ("uv");
+                        for (Int32 q = 1; q <= cd.polygon.nCoords; ++q) {
+                            GS::ObjectState pt;
+                            pt.Add ("u", (*cd.coords)[q].x);
+                            pt.Add ("v", (*cd.coords)[q].y);
+                            pts (pt);
+                        }
+                    }
+                    cl (co);
+                }
+            }
+            if (memo.coords != nullptr) {
+                const Int32 n = (Int32) (BMhGetSize (reinterpret_cast<GSHandle> (memo.coords)) / sizeof (API_Coord));
+                const auto& cl = os.AddList<GS::ObjectState> ("coords");
+                for (Int32 k = 1; k < n; ++k) {
+                    GS::ObjectState c;
+                    c.Add ("x", (*memo.coords)[k].x);
+                    c.Add ("y", (*memo.coords)[k].y);
+                    cl (c);
+                }
+            }
+            if (memo.pends != nullptr) {
+                const Int32 n = (Int32) (BMhGetSize (reinterpret_cast<GSHandle> (memo.pends)) / sizeof (Int32));
+                const auto& pl = os.AddList<Int32> ("pends");
+                for (Int32 k = 0; k < n; ++k)
+                    pl ((*memo.pends)[k]);
+            }
+            if (memo.cWallSegments != nullptr) {
+                const UInt32 ns = (UInt32) (BMpGetSize (reinterpret_cast<GSPtr> (memo.cWallSegments)) / sizeof (API_CWSegmentType));
+                const auto& sl = os.AddList<GS::ObjectState> ("segments");
+                for (UInt32 k = 0; k < ns; ++k) {
+                    GS::ObjectState so;
+                    so.Add ("begX", memo.cWallSegments[k].begC.x);
+                    so.Add ("begY", memo.cWallSegments[k].begC.y);
+                    so.Add ("begZ", memo.cWallSegments[k].begC.z);
+                    so.Add ("endX", memo.cWallSegments[k].endC.x);
+                    so.Add ("endY", memo.cWallSegments[k].endC.y);
+                    so.Add ("endZ", memo.cWallSegments[k].endC.z);
+                    so.Add ("extX", memo.cWallSegments[k].extrusion.x);
+                    so.Add ("extY", memo.cWallSegments[k].extrusion.y);
+                    so.Add ("extZ", memo.cWallSegments[k].extrusion.z);
+                    sl (so);
+                }
+            }
+            ACAPI_DisposeElemMemoHdls (&memo);
+        }
+        list (os);
+    }
+    return response;
+}
+
+// SetCurtainWallSegmentELM (0.11.12.2): Kontur/Raster/Laenge/Hoehe einer BESTEHENDEN Fassade
+// aendern. Anlass: liegende Fassaden lassen sich per Create nicht anlegen (Archicad setzt angle 0
+// auf 90, planeMatrix -> APIERR_BADPARS, Ebene nachtraeglich setzen zerstoert das Element;
+// Live-Test AC29 2026-11-09). Weg: liegendes Muster per MoveElements(copy) duplizieren, dann hiermit
+// an den Raum anpassen. Raster wie DevKit Element_Test (CW-Memo), Kontur am Segment-Memo.
+GS::Optional<GS::UniString> SetCurtainWallSegmentCommand::GetInputParametersSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": {
+            "elementId": { "type": "object", "properties": { "guid": { "type": "string" } }, "required": ["guid"] },
+            "contour": {
+                "type": "array", "minItems": 3,
+                "items": { "type": "object", "properties": { "u": { "type": "number" }, "v": { "type": "number" } }, "required": ["u", "v"] },
+                "description": "Neue Segment-Kontur in Segment-Lokal-Koordinaten (u ab Basislinienstart, v quer dazu), Schlusspunkt nicht wiederholen."
+            },
+            "columnWidths": { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 1 },
+            "rowHeights": { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 1 },
+            "baseLine": {
+                "type": "array", "minItems": 2, "maxItems": 2,
+                "items": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" } }, "required": ["x", "y"] },
+                "description": "Neue Basislinie (Anfang, Ende) in Weltkoordinaten wie GetCurtainWallPlaneELM.coords. Bei liegenden Fassaden: Raumkante, die Extrusion laeuft nach links."
+            },
+            "height": { "type": "number", "exclusiveMinimum": 0, "description": "Neue curtainWall.height (bei liegenden Fassaden = Ausdehnung quer zur Basislinie)." }
+        },
+        "required": ["elementId"]
+    })");
+}
+
+GS::Optional<GS::UniString> SetCurtainWallSegmentCommand::GetResponseSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": {
+            "success": { "type": "boolean" },
+            "step": { "type": "string" },
+            "errorCode": { "type": "integer" },
+            "nSegments": { "type": "integer" },
+            "nPanels": { "type": "integer" },
+            "nFrames": { "type": "integer" },
+            "height": { "type": "number" },
+            "contourVertices": { "type": "integer" },
+            "error": { "type": "object" }
+        }
+    })");
+}
+
+static void ReplacePattern (API_CWSegmentPatternData& pat, const GS::Array<double>& sizes)
+{
+    pat.nPattern = (UInt32) sizes.GetSize ();
+    pat.endWithID = pat.nPattern - 1;
+    pat.logic = APICWSePL_FixedSizes;
+    double* p = reinterpret_cast<double*> (BMpAll (sizeof (double) * pat.nPattern));
+    for (UInt32 i = 0; i < pat.nPattern; ++i)
+        p[i] = sizes[i];
+    BMpKill (reinterpret_cast<GSPtr*> (&pat.pattern));
+    pat.pattern = p;
+}
+
+GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+    const GS::ObjectState* elementId = parameters.Get ("elementId");
+    if (elementId == nullptr)
+        return CreateErrorResponse (APIERR_BADPARS, "elementId fehlt");
+
+    GS::Array<API_Coord> contour;
+    {
+        GS::Array<GS::ObjectState> contourOS;
+        if (parameters.Get ("contour", contourOS)) {
+            for (const GS::ObjectState& c : contourOS) {
+                API_Coord pt = {};
+                c.Get ("u", pt.x);
+                c.Get ("v", pt.y);
+                contour.Push (pt);
+            }
+        }
+    }
+    GS::Array<double> columnWidths, rowHeights;
+    const bool hasCols = parameters.Get ("columnWidths", columnWidths) && !columnWidths.IsEmpty ();
+    const bool hasRows = parameters.Get ("rowHeights", rowHeights) && !rowHeights.IsEmpty ();
+    double height = 0.0;
+    GS::Array<API_Coord> polygon;
+    {
+        GS::Array<GS::ObjectState> polyOS;
+        if (parameters.Get ("baseLine", polyOS)) {
+            for (const GS::ObjectState& c : polyOS) {
+                API_Coord pt = {};
+                c.Get ("x", pt.x);
+                c.Get ("y", pt.y);
+                polygon.Push (pt);
+            }
+        }
+    }
+    const bool hasPolygon = polygon.GetSize () == 2;
+    const bool hasHeight = parameters.Get ("height", height);
+
+    API_Element cw = {};
+    cw.header.guid = GetGuidFromObjectState (*elementId);
+    GSErrCode err = ACAPI_Element_Get (&cw);
+    if (err != NoError || cw.header.type.typeID != API_CurtainWallID)
+        return CreateErrorResponse (err != NoError ? err : APIERR_BADELEMENTTYPE, "Fassade nicht gefunden");
+
+    const UInt64 cwMemoMask = APIMemoMask_Polygon | APIMemoMask_CWallSegments | APIMemoMask_CWSegContour |
+                              APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern | APIMemoMask_CWSegPanelPattern;
+    API_ElementMemo cwMemo = {};
+    err = ACAPI_Element_GetMemo (cw.header.guid, &cwMemo, cwMemoMask);
+    if (err != NoError)
+        return CreateErrorResponse (err, "GetMemo der Fassade fehlgeschlagen");
+    const UInt32 nSeg = cwMemo.cWallSegments != nullptr ? (UInt32) (BMpGetSize (reinterpret_cast<GSPtr> (cwMemo.cWallSegments)) / sizeof (API_CWSegmentType)) : 0;
+    if (nSeg != 1) {
+        ACAPI_DisposeElemMemoHdls (&cwMemo);
+        return CreateErrorResponse (APIERR_BADPARS, "nur Fassaden mit genau einem Segment");
+    }
+
+    GS::UniString step = "start";
+    err = ACAPI_CallUndoableCommand ("ELM_SAB SetCurtainWallSegmentELM", [&] () -> GSErrCode {
+        // 1) Fassade: Hoehe, Basislinienlaenge, Raster (wie DevKit Element_Test)
+        if (hasHeight || hasPolygon || hasCols || hasRows || !contour.IsEmpty ()) {
+            step = "curtainWall";
+            API_Element mask;
+            ACAPI_ELEMENT_MASK_CLEAR (mask);
+            UInt64 changeMask = 0;
+            if (hasHeight) {
+                cw.curtainWall.height = height;
+                ACAPI_ELEMENT_MASK_SET (mask, API_CurtainWallType, height);
+            }
+            if (hasPolygon && cwMemo.coords != nullptr) {
+                // Basislinie = offene Polylinie mit 2 Punkten (Index-1-Konvention), live: polyNCoords 2, pends [0,2]
+                (*cwMemo.coords)[1] = polygon[0];
+                (*cwMemo.coords)[2] = polygon[1];
+                changeMask |= APIMemoMask_Polygon;
+            }
+            if (!contour.IsEmpty ()) {
+                // Kontur ueber das CW-Memo, wie beim Create (am Segment-Element wirkt sie nicht, live 2026-11-09)
+                if (cwMemo.cWSegContour != nullptr)
+                    ACAPI_FreeCWContourPtr (&cwMemo.cWSegContour);
+                if (!FillSegmentContour (cwMemo, contour))
+                    return APIERR_MEMFULL;
+                changeMask |= APIMemoMask_CWSegContour;
+            }
+            if (hasCols || hasRows) {
+                const API_CWSegmentPatternCellData tmpl = cwMemo.cWSegPatternCells != nullptr ? cwMemo.cWSegPatternCells[0] : API_CWSegmentPatternCellData {};
+                if (hasCols)
+                    ReplacePattern (cwMemo.cWSegPrimaryPattern, columnWidths);
+                if (hasRows)
+                    ReplacePattern (cwMemo.cWSegSecondaryPattern, rowHeights);
+                const UInt32 nCells = cwMemo.cWSegPrimaryPattern.nPattern * cwMemo.cWSegSecondaryPattern.nPattern;
+                API_CWSegmentPatternCellData* cells = reinterpret_cast<API_CWSegmentPatternCellData*> (BMpAllClear (nCells * sizeof (API_CWSegmentPatternCellData)));
+                for (UInt32 i = 0; i < nCells; ++i)
+                    cells[i] = tmpl;
+                BMpKill (reinterpret_cast<GSPtr*> (&cwMemo.cWSegPatternCells));
+                cwMemo.cWSegPatternCells = cells;
+                changeMask |= APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern | APIMemoMask_CWSegPanelPattern;
+            }
+            const GSErrCode e1 = ACAPI_Element_Change (&cw, &mask, changeMask != 0 ? &cwMemo : nullptr, changeMask, true);
+            if (e1 != NoError)
+                return e1;
+        }
+        step = "done";
+        return NoError;
+    });
+    ACAPI_DisposeElemMemoHdls (&cwMemo);
+
+    GS::ObjectState response;
+    response.Add ("success", err == NoError);
+    response.Add ("step", step);
+    if (err != NoError)
+        response.Add ("errorCode", (Int32) err);
+    API_Element after = {};
+    after.header.guid = cw.header.guid;
+    if (ACAPI_Element_Get (&after) == NoError) {
+        response.Add ("nSegments", (Int32) after.curtainWall.nSegments);
+        response.Add ("nPanels", (Int32) after.curtainWall.nPanels);
+        response.Add ("nFrames", (Int32) after.curtainWall.nFrames);
+        response.Add ("height", after.curtainWall.height);
+    }
+    response.Add ("contourVertices", (Int32) contour.GetSize ());
     return response;
 }

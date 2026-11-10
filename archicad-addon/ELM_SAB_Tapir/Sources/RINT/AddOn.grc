@@ -16,6 +16,11 @@
 /* [  1] */        "ELMonkey Palette^E3^ES^EE^EI^ED^EL^EW^ET^EM"
 }
 
+'STR#' ID_ADDON_MENU_BODENFLIESE "Add-On Menu" {
+/* [   ] */        "ELMonkey SAB"
+/* [  1] */        "Bodenfliese aus Auswahl^E3^ES^EE^EI^ED^EL^EW^ET^EM"
+}
+
 'STR#' ID_ADDON_MENU_FOR_UPDATE "Add-On Menu" {
 /* [   ] */        "Tapir"
 /* [  1] */        "Check for Updates...^E3^ES^EE^EI^ED^EL^EW^ET^EM^32510"
