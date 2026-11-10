@@ -1,0 +1,42 @@
+Release-Inventur, Lauf 42809658361, Stand 2026-11-10 11:42 UTC
+Tag:          elm-sab-tapir-latest
+Vorabversion: true
+Publiziert:   2026-11-03T17:14:40Z
+Anzahl Assets: 28
+
+ELM_SAB_Tapir_AC27_Mac.zip            3657793 Bytes   2026-11-10T11:42:25Z
+ELM_SAB_Tapir_AC27_Win.apx            6872064 Bytes   2026-11-10T11:42:24Z
+ELM_SAB_Tapir_AC28_Mac.zip            3789667 Bytes   2026-11-10T11:42:23Z
+ELM_SAB_Tapir_AC28_Win.apx            7053312 Bytes   2026-11-10T11:42:22Z
+ELM_SAB_Tapir_AC29_Mac.zip            4102020 Bytes   2026-11-10T11:42:21Z
+ELM_SAB_Tapir_AC29_Win.apx            7841280 Bytes   2026-11-10T11:42:21Z
+ELM_SAB_Tapir_AC30_Mac.zip            4169855 Bytes   2026-11-10T11:42:20Z
+ELM_SAB_Tapir_AC30_Win.apx            7846912 Bytes   2026-11-10T11:42:19Z
+ELMonkey-Installer-Mac.command           4645 Bytes   2026-11-10T11:42:18Z
+ELMonkey-Installer-Windows.cmd            794 Bytes   2026-11-10T11:42:17Z
+ELMonkey-Installer-Windows.ps1           4614 Bytes   2026-11-10T11:42:17Z
+build-mac-AC27.log                     508454 Bytes   2026-11-10T11:42:16Z
+build-mac-AC28.log                     501550 Bytes   2026-11-10T11:42:15Z
+build-mac-AC29.log                     502522 Bytes   2026-11-10T11:42:14Z
+build-mac-AC30.log                     502764 Bytes   2026-11-10T11:42:14Z
+build-win-AC27.log                       3127 Bytes   2026-11-10T11:42:13Z
+build-win-AC28.log                       3127 Bytes   2026-11-10T11:42:13Z
+build-win-AC29.log                       4281 Bytes   2026-11-10T11:42:12Z
+build-win-AC30.log                       5119 Bytes   2026-11-10T11:42:12Z
+cmake-mac-AC27.log                       1016 Bytes   2026-11-10T11:42:11Z
+cmake-mac-AC28.log                       1016 Bytes   2026-11-10T11:42:11Z
+cmake-mac-AC29.log                       1016 Bytes   2026-11-10T11:42:10Z
+cmake-mac-AC30.log                       1016 Bytes   2026-11-10T11:42:10Z
+cmake-win-AC27.log                       1064 Bytes   2026-11-10T11:42:09Z
+cmake-win-AC28.log                       1064 Bytes   2026-11-10T11:42:09Z
+cmake-win-AC29.log                       1064 Bytes   2026-11-10T11:42:08Z
+cmake-win-AC30.log                       1064 Bytes   2026-11-10T11:42:08Z
+elmonkey-version.txt                       10 Bytes   2026-11-10T11:42:07Z
+
+Erwartet werden sechs Add-On-Dateien:
+  vorhanden: ELM_SAB_Tapir_AC27_Mac.zip
+  vorhanden: ELM_SAB_Tapir_AC27_Win.apx
+  vorhanden: ELM_SAB_Tapir_AC28_Mac.zip
+  vorhanden: ELM_SAB_Tapir_AC28_Win.apx
+  vorhanden: ELM_SAB_Tapir_AC29_Mac.zip
+  vorhanden: ELM_SAB_Tapir_AC29_Win.apx
