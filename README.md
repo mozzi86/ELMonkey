@@ -10,8 +10,8 @@
 |---|---|---|
 | **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.3.0, 54 Tests |
 | **Plattform-Monkey** – eigene, funktionsgleiche Kopie des Kerns in der Schwarz Plattform (`core/plattform_monkey`) | Plattform (privat) | ✅ gleichauf mit Kern 0.3.0 (abgeglichen 09.11.2026) |
-| **MCP-Server** `elmonkey-mcp` 0.2.2 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 8 Tests, live gegen Archicad gelesen |
-| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.12, CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
+| **MCP-Server** `elmonkey-mcp` 0.2.3 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 9 Tests, live gegen Archicad gelesen |
+| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.12.2 (Zwischenstand liegende Fassaden), CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
 | **Skill Archicad** – Arbeitswissen für Claude | [`skills/archicad/`](skills/archicad/) | ✅ umgezogen, wird nach `mozzi86/-archicad` gespiegelt |
 | **Client-Konfigurationen** (Claude Desktop/Code, Cursor, VS Code, Codex) | [`clients/`](clients/) | ✅ |
 | **Claude-Plugin** | [`plugin/`](plugin/) | ⏳ |
@@ -29,8 +29,8 @@
 Begriffe und dasselbe Austauschformat (z. B. `sab-oberflaechen/1`). Sie werden **immer angeglichen**: Eine Änderung an
 einem Monkey kommt im selben Zug in die beiden anderen — Kern und Plattform-Monkey bleiben Zeile für Zeile gleich
 (`kern`, `regeln`, `plattform`), neue Archicad-Befehle bekommen ihr Gegenstück bzw. ihren Suchbegriff im
-Python-Monkey und ihren Weg in die Plattform. Abgleich zuletzt: 09.11.2026 (Add-On 0.11.12 · Kern 0.3.0 ·
-MCP 0.2.2 · Plattform-Monkey = Kern 0.3.0).
+Python-Monkey und ihren Weg in die Plattform. Abgleich zuletzt: 10.11.2026 (Add-On 0.11.12.2 · Kern 0.3.0 ·
+MCP 0.2.3 · Plattform-Monkey = Kern 0.3.0).
 
 **EN** — The three monkeys are **functionally identical** (same find / pre-check / read-back, same codes, same
 exchange formats) and are **always kept in sync**: a change to one goes into the other two in the same step.
