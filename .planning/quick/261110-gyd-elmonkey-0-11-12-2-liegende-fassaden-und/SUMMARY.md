@@ -1,6 +1,6 @@
 ---
 slug: 261110-gyd
-status: incomplete
+status: complete
 date: 2026-11-10
 ---
 
@@ -9,7 +9,7 @@ date: 2026-11-10
 ## Ehrlicher Stand
 
 - Zwischenstand, übernommen aus zwei lokal gebauten Patches (0.11.12.1 und 0.11.12.2). Live erprobt nur auf AC29 Mac.
-- **Nicht gebaut:** Der CI-Build (AC27–30, Mac/Win, Windows /W4 /WX) steht aus. Darum `status: incomplete`.
+- **Gebaut (10.11.2026):** CI-Build AC27–30, Mac/Win (Windows /W4 /WX) 8/8 grün, erst auf einem Probezweig, dann auf main; Release `elm-sab-tapir-latest` trägt 0.11.12.2. Live erprobt bleibt nur AC29 Mac.
 - Nichts gepusht, kein Tag, kein Release.
 - Das Bibliothekselement „SAB Bodenfliese liegend“ (.gsm/HSF) liegt bewusst nicht im Repo; der Menübefehl braucht es im Projekt.
 
@@ -43,7 +43,6 @@ date: 2026-11-10
 
 ## Offene Risiken
 
-- MSVC-Warnungen in rund 700 neuen Zeilen möglich.
 - Zweites Menü mit Titel „ELMonkey SAB“ (ID 32050): Zusammenführung durch Archicad ungeprüft.
 - `SetCurtainWallSegmentELM` nur an Fassaden mit genau einem Segment; nach Kontur-Änderung greift das Raster nicht; `height` wirkt nicht.
 - `planeMatrix`/`planeOffset`/`angle` 0 beim Create ohne Wirkung.
