@@ -1,6 +1,6 @@
 [project]
 name = "elmonkey-mcp"
-version = "0.2.2"
+version = "0.2.3"
 description = "ELMonkey-MCP: ein Server, Add-ons je Quelle (Archicad, Kern) - Schwarz Architekturbuero"
 requires-python = ">=3.10"
 dependencies = ["mcp>=1.2,<2", "elmonkey-core"]

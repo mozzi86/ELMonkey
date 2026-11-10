@@ -63,6 +63,11 @@ SYNONYMS = {
     "oberflaeche": "surface", "oberfläche": "surface", "oberflaechen": "surface", "oberflächen": "surface",
     "textur": "texture surface", "texturen": "texture surface", "material": "surface", "materialien": "surface",
     "exportieren": "export", "export": "export", "ausgeben": "export",
+    # 0.11.12.2 liegende Fassaden (GetCurtainWallPlaneELM, SetCurtainWallSegmentELM)
+    "liegende": "plane", "liegender": "plane", "liegend": "plane", "fassadenebene": "curtain wall plane",
+    "neigung": "plane angle", "fassadenraster": "curtain wall segment", "spaltenbreiten": "segment",
+    "zeilenhöhen": "segment", "zeilenhoehen": "segment", "bodenfliese": "curtain wall plane segment",
+    "bodenfliesen": "curtain wall plane segment",
 }
 
 _cache: dict = {}
