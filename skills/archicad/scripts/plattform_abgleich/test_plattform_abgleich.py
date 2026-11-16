@@ -25,6 +25,8 @@ class FalschesArchicad:
         self.werte = {(G1, P_BS): "F30", (G2, P_BS): "", (G1, P_ST): "", (G2, P_ST): ""}
         self.reserviert, self.aufrufe = [], []
         self.schreiben_wirkt = True
+        self.extern = {G1: "0ExternWandGlobalId001"}
+        self.diff_befehl = True
 
     def __call__(self, body):
         cid = body["parameters"]["addOnCommandId"]
@@ -54,7 +56,23 @@ class FalschesArchicad:
                                        "floorIndex": 0, "layerIndex": 1} for e in p["elements"]]}
 
     def GetIFCIdsOfElements(self, p):
-        return {"ifcIds": [{"ifcId": "IFC" + e["elementId"]["guid"][:2]} for e in p["elements"]]}
+        # Antwortform wie live (0.11.12, AC29): elementIFCIds, je Eintrag ifcId + externalIFCId
+        return {"elementIFCIds": [{"elementId": e["elementId"], "ifcId": "IFC" + e["elementId"]["guid"][:2],
+                                   "externalIFCId": self.extern.get(e["elementId"]["guid"], "")}
+                                  for e in p["elements"]]}
+
+    def GetDiffDataELM(self, p):
+        if not self.diff_befehl:
+            return {"error": {"code": 2002, "message": "Command 'GetDiffDataELM' not found"}}
+        box = {G1: [0, 5.1, 0, 0.24, 0, 3], G2: [0, 5, 0, 4, -0.2, 0]}
+        els = [{"elementId": {"guid": g}, "type": self.typ[g], "ifcType": {"Wall": "IfcWall", "Slab": "IfcSlab"}[self.typ[g]],
+                "ifcGlobalId": "IFC" + g[:2], "externalIfcGlobalId": self.extern.get(g, ""),
+                "ifcAttributes": [{"name": "Name", "value": "Bauteil"}],
+                "ifcProperties": [{"pset": "Brandschutz", "name": "Klasse", "value": self.werte[(g, P_BS)]}],
+                "storyName": "EG", "renovationStatus": "Existing",
+                "geometry": {"source": "3dModel", "box": box[g], "bodies": 1}} for g in (G1, G2)]
+        return {"format": "elm-diff-daten/1", "readOnly": True, "elements": els, "total": 3,
+                "context": {"geometry3DModel": 2}}
 
     def GetPropertyValuesOfElements(self, p):
         zeilen = []
@@ -103,7 +121,7 @@ def test_lesen_nimmt_nur_bauteile_und_eigene_eigenschaften(welt):
                    "hinweis": aus["hinweis"]}
     stand = json.loads((welt.ordner / "archicad.json").read_text())
     e1 = next(e for e in stand["elemente"] if e["guid"] == G1)
-    assert e1["typ"] == "Wall" and e1["geschoss"] == "EG" and e1["ifcId"] == "IFC11" and e1["name"] == "E-11"
+    assert e1["typ"] == "Wall" and e1["geschoss"] == "EG" and e1["ifcId"] == "0ExternWandGlobalId001" and e1["name"] == "E-11"
     assert e1["eigenschaften"] == {"Brandschutz.Klasse": "F30", "Allgemeine Werte.Plattform-GUID": ""}
     assert "General.Element ID" not in stand["eigenschaften_katalog"]
     assert stand["eigenschaften_katalog"]["Mengen.Fläche"]["editierbar"] is False
@@ -180,3 +198,32 @@ def test_archicad_fehler_kommt_als_klartext():
     ac = pa.Archicad(lambda body: {"succeeded": False, "error": {"code": 4010, "message": "Command not found"}})
     with pytest.raises(pa.Fehler, match="Command not found"):
         ac.befehl("GibtEsNicht")
+
+
+# ─────────────────────────────────────────────────────────── Diff-Checker (Hülle um elmonkey.diff_plattform)
+
+def _dpf(guid, **k):
+    return {"guid": guid, "name": "Bauteil", "klasse": k.pop("klasse", "IfcWall"), "herkunft": "archicad",
+            "ausgeblendet": False, "eigenschaften": k.pop("eigenschaften", {}), **k}
+
+
+def test_diff_liest_archicad_direkt_und_meldet_nur_unterschiede(welt):
+    stand = {"format": pa.ab.FORMAT, "lauf": "ab-20261116-120000", "elemente": [
+        _dpf("0ExternWandGlobalId001", bbox=[0, 5, 0, 0.24, 0, 3], eigenschaften={"Brandschutz.Klasse": "F90"}),
+        _dpf("IFC22", klasse="IfcSlab", bbox=[0, 5, 0, 4, -0.2, 0]), _dpf("WEG-1")],
+        "basis": {"paare": {}, "werte": {}}}
+    (welt.ordner / "stand.json").write_text(json.dumps(stand), encoding="utf-8")
+    aus = pa.cmd_diff(welt.o(stand_link="", toleranz=0.003))
+    erg = json.loads((welt.ordner / "ergebnis.json").read_text(encoding="utf-8"))
+    assert "IFCFileOperation" not in welt.ac.aufrufe and "SetPropertyValuesOfElements" not in welt.ac.aufrufe
+    assert erg["basis"]["paare"] == {"0ExternWandGlobalId001": G1, "IFC22": G2}       # externe Kennung vor eigener
+    assert erg["diff"]["geometrie"][0]["seiten"] == {"x+": 0.1}
+    assert [w["plattform"] for w in erg["diff"]["weg"]] == ["WEG-1"] and erg["diff"]["neu"] == []
+    assert aus["geometrie"] == 1 and aus["lauf"] == "ab-20261116-120000"
+
+
+def test_diff_ohne_neuen_befehl_bricht_klar_ab(welt):
+    welt.ac.diff_befehl = False
+    (welt.ordner / "stand.json").write_text(json.dumps({"format": pa.ab.FORMAT, "elemente": []}), encoding="utf-8")
+    with pytest.raises(pa.Fehler, match="0.11.13"):
+        pa.cmd_diff(welt.o(stand_link="", toleranz=0.003))

@@ -12,10 +12,12 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
     plattform_abgleich.py hochladen       --ordner <dir> --ablage "<ergebnis_ablage>"
     plattform_abgleich.py oberflaechen    --ordner <dir>                     # Export + ZIP für die Plattform
     plattform_abgleich.py ifc             --ordner <dir> [--translator "<Name>"]
+    plattform_abgleich.py diff            --ordner <dir> --stand-link "<stand_link>" [--toleranz 0.003]
+                                          # nur die Unterschiede, ohne IFC-Datei (ELMonkey ≥ 0.11.13)
 
 Alles, was Archicad verändert, ist ohne `--ausfuehren` ein Trockenlauf. Gelöscht wird in Archicad nie.
 Dateien im Arbeitsordner: archicad.json, stand.json, plan.json, fragen.md, antworten.json, ergebnis.json,
-archicad_geschrieben.json.
+archicad_geschrieben.json, archicad_diff.json (Befehl diff).
 """
 from __future__ import annotations
 
@@ -29,9 +31,11 @@ from typing import Any, Callable, Optional
 
 try:
     from elmonkey import abgleich as ab
+    from elmonkey import diff_plattform as dp
 except ImportError:                                     # aus dem Repo heraus, ohne installiertes elmonkey-core
     sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "core"))
     from elmonkey import abgleich as ab
+    from elmonkey import diff_plattform as dp
 
 PORT = 19723
 #: Elementtypen, die als Bauteil zählen (2D, Bemaßung, Zonen-Stempel usw. bleiben draußen).
@@ -97,6 +101,14 @@ def eigenschaften_katalog(ac: Archicad, alle: bool = False) -> dict[str, dict]:
     return aus
 
 
+def _ifc_kennung(zeile: Any) -> Optional[str]:
+    """Kennung für die Paarung: `externalIFCId` (GlobalId eines per IFC gekommenen Bauteils) vor `ifcId`
+    (Archicads eigene). Antwortform live geprüft mit 0.11.12 / AC29: `elementIFCIds`, je Eintrag ifcId +
+    externalIFCId (übernommen aus dem Zweig elm-0.11.13-diff-checker, 16.11.2026)."""
+    z = zeile if isinstance(zeile, dict) else {}
+    return str(z.get("externalIFCId") or "").strip() or str(z.get("ifcId") or "").strip() or None
+
+
 def archicad_lesen(ac: Archicad, typen=TYPEN, alle_eigenschaften: bool = False) -> dict:
     """Offenes Projekt als Abgleich-Stand: je Bauteil GUID, IFC-Id, Typ, Element-ID, Geschoss, Eigenschaften."""
     info = ac.befehl("GetProjectInfo")
@@ -113,7 +125,7 @@ def archicad_lesen(ac: Archicad, typen=TYPEN, alle_eigenschaften: bool = False) 
         if not behalten:
             continue
         el = [{"elementId": i} for i, _ in behalten]
-        ifc = ac.befehl("GetIFCIdsOfElements", {"elements": el}).get("ifcIds") or []
+        ifc = ac.befehl("GetIFCIdsOfElements", {"elements": el}).get("elementIFCIds") or []
         werte = (ac.befehl("GetPropertyValuesOfElements", {"elements": el, "properties": prop_ids})
                  .get("propertyValuesForElements") or []) if prop_ids else []
         for n, (i, d) in enumerate(behalten):
@@ -123,7 +135,7 @@ def archicad_lesen(ac: Archicad, typen=TYPEN, alle_eigenschaften: bool = False) 
                 pv = (w or {}).get("propertyValue")
                 if pv is not None:                       # „nicht verfügbar“ = die Eigenschaft gilt für den Typ nicht
                     eig[name] = pv.get("value")
-            elemente.append({"guid": i.get("guid"), "ifcId": ((ifc[n] if n < len(ifc) else {}) or {}).get("ifcId") or None,
+            elemente.append({"guid": i.get("guid"), "ifcId": _ifc_kennung(ifc[n] if n < len(ifc) else None),
                              "typ": d.get("type"), "name": d.get("id"),
                              "geschoss": geschosse.get(d.get("floorIndex")), "eigenschaften": eig})
     return {"format": ab.FORMAT, "projekt": info.get("projectName"), "teamwork": bool(info.get("isTeamwork")),
@@ -344,6 +356,64 @@ def cmd_ifc(o) -> dict:
                                  "entsteht der Import-Vorschlag (neue Bauteile, Konflikte entscheidet die Freigabe)."}
 
 
+def stempel_lesen(ac: Archicad, guids: list[str]) -> dict[str, dict]:
+    """„…Plattform-GUID“ je Element aus den Archicad-Eigenschaften (der IFC-Übersetzer gibt ihn nicht immer aus)."""
+    katalog = {n: p for n, p in eigenschaften_katalog(ac, alle=False).items() if n.endswith("." + ab.PLATTFORM_GUID)}
+    aus: dict[str, dict] = {}
+    for name, p in katalog.items():
+        for teil in _pakete(guids):
+            werte = ac.befehl("GetPropertyValuesOfElements", {
+                "elements": [{"elementId": {"guid": g}} for g in teil],
+                "properties": [{"propertyId": p["propertyId"]}]}).get("propertyValuesForElements") or []
+            for g, zeile in zip(teil, werte):
+                v = (((zeile or {}).get("propertyValues") or [{}])[0] or {}).get("propertyValue") or {}
+                if str(v.get("value") or "").strip():
+                    aus.setdefault(g, {})[name] = v.get("value")
+    return aus
+
+
+def cmd_diff(o) -> dict:
+    """Nur die Unterschiede Archicad ↔ Plattform, ohne IFC-Datei — dünne Hülle um elmonkey.diff_plattform (dieselbe
+    Logik wie das MCP-Werkzeug elmonkey_diff_plattform). Liest Archicad über ELM_SAB.GetDiffDataELM, schreibt
+    archicad_diff.json + ergebnis.json. Ändert nichts, weder in Archicad noch in der Plattform."""
+    ordner = Path(o.ordner)
+    stand = herunterladen(o.stand_link) if o.stand_link else _lesen(ordner / "stand.json")
+    if stand.get("format") != ab.FORMAT:
+        raise Fehler(f"stand.json: Format „{stand.get('format')}“ — erwartet {ab.FORMAT}")
+    _schreiben(ordner / "stand.json", stand)
+    ac = Archicad(_http(o.port))
+    seiten, offset = [], 0
+    while True:
+        try:
+            s = ac.elm("GetDiffDataELM", {"offset": offset, "limit": PAKET})
+        except Fehler as e:
+            if not seiten:
+                raise Fehler(f"ELM_SAB.GetDiffDataELM fehlt oder scheitert ({str(e)[:120]}) — ELMonkey ab 0.11.13 "
+                             "installieren. Ohne ihn gibt es keinen Diff ohne IFC-Datei.") from e
+            raise
+        seiten.append(s)
+        if s.get("nextOffset") is None:
+            break
+        if int(s["nextOffset"]) <= offset:
+            raise Fehler(f"GetDiffDataELM: nextOffset {s['nextOffset']} geht nicht weiter")
+        offset = int(s["nextOffset"])
+    _schreiben(ordner / "archicad_diff.json", {"seiten": seiten})
+    namen = {g.get("archicadName"): g.get("name") for g in stand.get("geschosse") or []
+             if g.get("archicadName") and g.get("name")}
+    archicad = dp.archicad_bauteile(seiten, geschoss_namen=namen)
+    dp.stempel_eintragen(archicad, stempel_lesen(ac, [e["guid"] for e in archicad["elemente"]]))
+    erg = dp.vergleichen(archicad, stand, toleranz=o.toleranz)
+    _schreiben(ordner / "ergebnis.json", erg)
+    d = erg["diff"]
+    return {"lauf": erg.get("lauf"), **d["zahlen"], "hinweise": d["hinweise"],
+            "beispiele": {"neu": d["neu"][:5], "weg": d["weg"][:5], "eigenschaften": d["eigenschaften"][:5],
+                          "geometrie": d["geometrie"][:5]},
+            "gebaut_vorschlag": d["gebaut_vorschlag"][:50],
+            "naechster_schritt": "Zahlen dem Zeichner zeigen. ergebnis.json mit „hochladen“ ablegen, dann "
+                                 "archicad_abgleich_melden {projekt, lauf, gebaut} — erst Vorschau, nach dem Ja "
+                                 "bestaetigt=true (Geometrie geht als Vorschlag mit)."}
+
+
 def main(argv=None) -> int:
     a = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = a.add_subparsers(dest="befehl", required=True)
@@ -365,6 +435,8 @@ def main(argv=None) -> int:
     neu("hochladen", cmd_hochladen, ablage={"required": True})
     neu("oberflaechen", cmd_oberflaechen)
     neu("ifc", cmd_ifc, translator={"default": ""})
+    neu("diff", cmd_diff, stand_link={"default": ""},
+        toleranz={"type": float, "default": dp.TOLERANZ, "help": "Meter, Vorgabe 0.003"})
     o = a.parse_args(argv)
     try:
         print(json.dumps(o.fn(o), ensure_ascii=False, indent=1))
