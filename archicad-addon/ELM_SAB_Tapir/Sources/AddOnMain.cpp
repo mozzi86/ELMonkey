@@ -66,6 +66,7 @@
 #include "CreateCurtainWallCommand.hpp"
 #include "CaptureViewCommand.hpp"
 #include "ExportSurfacesCommand.hpp"
+#include "GetDiffDataCommandELM.hpp"
 #include "StoryVisibilityCommands.hpp"
 #include "SetObjectParametersForceCommand.hpp"
 #include "CreateWallOpeningsCommand.hpp"
@@ -1692,6 +1693,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<ExportSurfacesCommand> (
             elmSabCommands, "0.11.12",
             "ELM_SAB: Exportiert alle Oberflaechen des Projekts samt Texturbildern als Ordner im Format sab-oberflaechen/1 (oberflaechen.json + texturen/ + LIESMICH.md) - Farbe, Glanz, Transparenz, Kachelmass breite_m/hoehe_m, Drehung, Flags. Bilder aus eingebetteter Bibliothek/.lcf ueber IO::File; nicht lesbare stehen mit bild_fehlt drin. targetFolder optional (Standard <Benutzer>/Downloads). Liest nur, aendert nichts. Gleiches Format wie der Export des Plattform-Add-ons."
+        );
+        err |= RegisterCommand<GetDiffDataCommandELM> (
+            elmSabCommands, "0.11.13",
+            "ELM_SAB: Liest je Element die Daten fuer den Diff-Checker Archicad <-> Plattform, ohne IFC-Datei: GUID, IFC-GlobalId, IFC-Klasse, IFC-Attribute und -Eigenschaften (Vorschau des aktiven IFC-Uebersetzers), Geschoss, Umbau-Status, Element-ID, Ebene (+ ausgeblendet), Aufbau, Oberflaechen, Klassifizierung, Zone, Wirt von Tueren/Fenstern/Oeffnungen und die Box der Geometrie aus dem 3D-Modell des Elements (nach Verschneidungen, alle Koerper = eine Box; geometry.source 3dModel|calcBounds|none). Alle Elemente der Grundriss-Datenbank ohne Sichtbarkeits-/Umbaufilter, 2D-Werkzeuge ausgelassen, seitenweise (offset/limit, nextOffset). Liest nur; schaltet hoechstens die aktuelle Datenbank auf den Grundriss und im selben Aufruf zurueck (context.databaseSwitched). Verglichen wird im Python-Monkey (elmonkey.diff_plattform)."
         );
         err |= RegisterCommand<CaptureViewCommand> (
             elmSabCommands, "0.9.12",
