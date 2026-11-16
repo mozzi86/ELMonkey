@@ -510,26 +510,47 @@ Outcome ReadElement (const API_Guid& guid, Lookups& lookups, bool wantProperties
     out.Add ("type", GetElementTypeNonLocalizedName (typeID));
     out.Add ("ifcType", ifcType);
 
+    // Zwei Kennungen, immer beide ausgegeben (leer, wenn nicht vorhanden): ifcGlobalId = Archicads eigene
+    // (die der Export schreibt), externalIfcGlobalId = GlobalId eines per IFC gekommenen Bauteils. Der Kern
+    // paart mit der Plattform über die externe zuerst. Antwortform von TapirCommand.GetIFCIdsOfElements live
+    // geprüft mit 0.11.12 / AC29 (elementIFCIds, je Eintrag ifcId + externalIFCId) — dieselben API-Aufrufe wie hier.
+    GS::UniString ifcGlobalId;
+    GS::UniString externalIfcGlobalId;
 #ifdef ServerMainVers_2800
     {
+        // AC28+: GetGlobalId liefert laut DevKit den Wert, „der beim Export benutzt wird“; die externe Kennung
+        // gibt es nur über GetExternalGlobalId (APIERR_CANCEL, wenn das Bauteil nicht aus einem IFC kam).
         auto accessor = IFCAPI::GetObjectAccessor ();
         auto objectID = accessor.CreateElementObjectID (head);
         if (objectID.IsOk ()) {
-            auto globalId = accessor.GetGlobalId (objectID.Unwrap ());
+            auto unwrapped = objectID.Unwrap ();
+            auto globalId = accessor.GetGlobalId (unwrapped);
             if (globalId.IsOk ()) {
-                out.Add ("ifcGlobalId", globalId.Unwrap ());
+                ifcGlobalId = globalId.Unwrap ();
+            }
+            auto externalId = accessor.GetExternalGlobalId (unwrapped);
+            if (externalId.IsOk ()) {
+                externalIfcGlobalId = externalId.Unwrap ();
             }
         }
     }
 #else
     {
+        // AC27: beide als API_Guid (unkomprimierte GUID-Form, der Kern wandelt in 22 Zeichen); APINULLGuid = keine.
         API_Guid ifcId = APINULLGuid;
         API_Guid externalIfcId = APINULLGuid;
         if (ACAPI_Element_GetIFCIdentifier (guid, ifcId, externalIfcId) == NoError) {
-            out.Add ("ifcGlobalId", APIGuidToString (ifcId));   // AC27: unkomprimierte GUID, der Kern wandelt
+            if (ifcId != APINULLGuid) {
+                ifcGlobalId = APIGuidToString (ifcId);
+            }
+            if (externalIfcId != APINULLGuid) {
+                externalIfcGlobalId = APIGuidToString (externalIfcId);
+            }
         }
     }
 #endif
+    out.Add ("ifcGlobalId", ifcGlobalId);
+    out.Add ("externalIfcGlobalId", externalIfcGlobalId);
 
     {
         const auto& attrs = out.AddList<GS::ObjectState> ("ifcAttributes");
@@ -751,6 +772,7 @@ GS::ObjectState GetDiffDataCommandELM::Execute (const GS::ObjectState& parameter
     context.Add ("elmSabVersion", GS::UniString (ELM_SAB_VERSION));
     context.Add ("archicadVersion", kArchicadVersion);
     context.Add ("ifcGlobalIdForm", GS::UniString (kArchicadVersion >= 28 ? "ifc22" : "guid36"));
+    context.Add ("geometryHint", GS::UniString ("Ohne Koerper (geometryCalcBounds/None hoch): 3D-Fenster einmal oeffnen (alle Ebenen, Umbau-Filter alles zeigen) und erneut lesen - ob Get3DInfo ohne geoeffnetes 3D-Fenster Koerper liefert, ist nicht live belegt."));
     context.Add ("databaseSwitched", databaseSwitched);
     context.Add ("geometry3DModel", counters.geometry3DModel);
     context.Add ("geometryCalcBounds", counters.geometryCalcBounds);
