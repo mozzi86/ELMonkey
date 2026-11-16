@@ -79,7 +79,8 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
   „Pset.Name“ in der Plattform), dazu alles aus der Basis des letzten Abgleichs. Stempel und Technikfelder nie.
 - Mit Basis: wer sich vom letzten gemeinsamen Wert entfernt hat, gewinnt; beide verschieden → Frage.
   Ohne Basis (erster Abgleich): ein Wert füllt die leere Seite; zwei verschiedene Werte → Frage.
-- Geometrie wird **nicht** verglichen. Geänderte Geometrie kommt aus Archicad über den IFC-Import (Schritt 9).
+- Geometrie: im Skript-Ablauf **nicht** verglichen (geänderte Geometrie kommt über den IFC-Import, Schritt 9). Der
+  Diff-Checker unten vergleicht sie ohne IFC-Export.
 
 ## Bekannt / offen
 
@@ -87,3 +88,19 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 - Eigenschaftsnamen beider Seiten passen nur, wenn der IFC-Übersetzer die Archicad-Gruppen als gleichnamige Psets
   ausgibt. Passt das nicht, findet der Vergleich nichts (keine falschen Änderungen, aber auch kein Abgleich).
 - Werte kommen aus Archicad als Anzeigetext; „0,24“ und 0.24, „Ja“ und true gelten als gleich.
+
+## Diff-Checker: nur die Unterschiede, ohne IFC-Export <!-- 2026-11-16, noch NICHT live gelaufen -->
+
+Statt `archicad-lesen` + `planen` (nur Eigenschaften) und Komplett-IFC für die Geometrie: MCP-Werkzeug
+`elmonkey_diff_plattform` (ab ELMonkey-Add-on 0.11.13, MCP 0.3.0). Es liest jedes Element über
+`ELM_SAB.GetDiffDataELM` (ohne Umbau-Filter, ohne Ebenen-Filter, IFC-Klasse/Attribute/Eigenschaften über die IFC-API,
+Box aus dem 3D-Modell nach Verschneidungen), vergleicht mit dem `stand_link` und schreibt `ergebnis.json` im selben
+Format (`sab-archicad-abgleich/1`) plus `diff` (neu / weg / Eigenschaften / Geometrie je Seite mit Delta, Toleranz 3 mm).
+
+1. Schritt 2 oben (`archicad_abgleich_lesen`), dann `elmonkey_diff_plattform {stand: "<stand_link>"}`.
+2. Zahlen zeigen; `diff.geometrie_ungeprueft` und `diff.hinweise` immer mit nennen (z. B. Elemente auf ausgeblendeten
+   Ebenen haben keine belastbare Box).
+3. Weiter mit Schritt 8 (`hochladen`, `archicad_abgleich_melden` mit `gebaut` = `diff.gebaut_vorschlag`); Geometrie als
+   eigene Vorschläge (`modell_bauteile_aendern`).
+
+Details, Fallen und die ehrliche Einschätzung der Geometrie: [`reference/diff-plattform.md`](../reference/diff-plattform.md).
