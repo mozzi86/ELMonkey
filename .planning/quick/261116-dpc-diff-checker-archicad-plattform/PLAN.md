@@ -1,6 +1,6 @@
 ---
 slug: 261116-dpc
-status: planned
+status: complete
 ---
 # Diff-Checker Archicad ↔ Plattform ohne IFC-Export (ELM_SAB 0.11.13, Kern 0.4.0, MCP 0.3.0)
 
@@ -53,3 +53,14 @@ Kein Release, kein Tag, kein Spiegeln, keine Installation, kein Zugriff auf ein 
   READMEs, `docs/UMBAU.md`, `.planning/STATE.md`, SUMMARY, Handoff
   `.planning/handoffs/handoff_elmonkey_diff-plattform_2026-11-16.md`
 - **verify:** CI 8/8 grün auf `elm-diff-plattform`; PR gegen main offen, nicht gemergt.
+
+## Ergebnis (2026-11-16)
+
+- Zweig `elm-diff-plattform`, PR gegen main, nicht gemergt; kein Tag/Release/Spiegel/Installation.
+- CI AC27–30 × Mac/Win 8/8 grün für den Add-on-Stand `c2f0024` (Lauf 43856935846); danach nur README am Add-on.
+- Python lokal: Kern 123 passed / 2 skipped (53 neu), Skript 8 passed, MCP 14 passed (5 neu, Archicad-Attrappe).
+- **Kein Live-Lauf** gegen Archicad oder echte Plattform-Daten — am echten Modell nichts bewiesen.
+- Offen: Box `Get3DInfo` ↔ IFC-Box live prüfen; Elemente auf ausgeblendeten Ebenen nur „ungeprüft“; Plattform-Monkey
+  nachziehen (bbox/teil_von im Stand, basis.geometrie, Geometrie-Ops). Handoff:
+  `.planning/handoffs/handoff_elmonkey_diff-plattform_2026-11-16.md`.
+- Im Haupt-Arbeitsbaum lag ein fremder Stand (Zweig `elm-0.11.13-diff-checker`, dasselbe 10.11.-Paket) — nicht angefasst.

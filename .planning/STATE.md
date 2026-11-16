@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-16 | 261116-dpc | Diff-Checker Archicad ↔ Plattform ohne IFC-Export: ELM_SAB 0.11.13 `GetDiffDataELM` (CI 8/8 grün), Kern 0.4.0 `diff_plattform` (+ Paket `abgleich` vom 10.11.), MCP 0.3.0 `elmonkey_diff_plattform`; Zweig `elm-diff-plattform`, PR offen, nicht live geprüft |
 | 2026-11-10 | 261110-gyd | ELM_SAB 0.11.12.2 liegende Fassaden (GetCurtainWallPlaneELM, SetCurtainWallSegmentELM, Menü „Bodenfliese aus Auswahl“) + MCP 0.2.3; Zwischenstand der Kollegen, live nur AC29 Mac; CI-Build AC27–30 Mac/Win 8/8 grün, Release 10.11.; .gsm/HSF bewusst nicht im Repo |
 | 2026-11-09 | 261109-mqy | Drei Monkeys funktionsgleich + immer angeglichen in allen READMEs; Kern 0.3.0, MCP 0.2.2 lokal, Plattform-Monkey = Kern 0.3.0 |
 | 2026-11-09 | 261109-ii2 | ELM_SAB.ExportSurfaces 0.11.12: Oberflächen + Texturbilder als Ordner (sab-oberflaechen/1, Vorlage Bernd), MCP 0.2.2 Synonyme; Zweig elm-0.11.12-oberflaechen-export, live offen |
