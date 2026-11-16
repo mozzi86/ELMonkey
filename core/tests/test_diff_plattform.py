@@ -381,3 +381,81 @@ def test_archicad_kontext_und_geschossnamen():
     assert e["geschoss"] == "EG" and e["eigenschaften"]["Verortung.Geschoss"] == "EG"
     assert e["eigenschaften"]["SAB_Planung.Umbau-Status"] == "Bestand"
     assert a["kontext"]["datenbank_umgeschaltet"] is True and a["kontext"]["uebersprungen"] == {"documentation": 3}
+
+
+# ─────────────────────────────────────────────────────────── Zusammengeführt aus elm-0.11.13-diff-checker (16.11.)
+
+def test_paar_ueber_externe_kennung_vor_eigener():
+    """Kam ein Bauteil per IFC ins Archicad-Projekt, kennt die Plattform es unter der EXTERNEN GlobalId. Die zählt
+    vor Archicads eigener — auch wenn ein anderes Plattform-Bauteil die eigene Kennung trägt."""
+    x = ac_el(G_WAND, "IfcWall", box=BOX_WAND)
+    x["externalIfcGlobalId"] = "0ExternWandGlobalId001"
+    st = stand(pf_el("0ExternWandGlobalId001", "IfcWall", bbox=BOX_WAND),
+               pf_el(ab.ifc_guid(G_WAND), "IfcWall", bbox=BOX_WAND))
+    erg = lauf([seite(x)], st)
+    assert erg["basis"]["paare"] == {"0ExternWandGlobalId001": G_WAND}
+    assert [w["plattform"] for w in erg["diff"]["weg"]] == [ab.ifc_guid(G_WAND)]
+    a = dp.archicad_bauteile([seite(x)])["elemente"][0]
+    assert a["ifcId"] == "0ExternWandGlobalId001" and a["ifcIds"][:2] == ["0ExternWandGlobalId001", ab.ifc_guid(G_WAND)]
+
+
+def test_externe_kennung_auch_ueber_globalid_eigenschaft_und_ac27_form():
+    """AC27 liefert beide Kennungen als unkomprimierte GUID; leere externe Kennung = keine."""
+    extern36 = "22222222-3333-4444-5555-666666666601"
+    x = ac_el(G_WAND, "IfcWall", box=BOX_WAND)
+    x["ifcGlobalId"], x["externalIfcGlobalId"] = G_WAND, extern36
+    st = stand(pf_el("PF-INTERN", "IfcWall", gid=ab.ifc_guid(extern36), bbox=BOX_WAND))
+    assert lauf([seite(x)], st)["basis"]["paare"] == {"PF-INTERN": G_WAND}
+    y = ac_el(G_DECKE, "IfcSlab", typ="Slab", box=BOX_WAND)
+    y["externalIfcGlobalId"] = ""
+    assert dp.archicad_bauteile([seite(y)])["elemente"][0]["ifcId"] == ab.ifc_guid(G_DECKE)
+
+
+@pytest.mark.parametrize("a,b", [("$", None), (".TRUE.", True), (".FALSE.", "nein"), ("['A','B']", ["A", "B"]),
+                                 ("('A', 'B')", ("A", "B")), ("[0,24]", 0.24)])
+def test_schreibweisen_aus_dem_zweiten_zweig(a, b):
+    assert dp.gleich(a, b)
+    assert not dp.gleich("['A','B']", "A")
+
+
+def test_plattform_bbox_fehlt_mit_grund():
+    """Plattform ab 16.11.: Bauteil ohne Netz trägt bbox_fehlt mit Grund — der steht in der Begründung."""
+    p = pf_el(ab.ifc_guid(G_WAND), "IfcWall")
+    p["bbox_fehlt"] = "keine Geometrie im wirksamen Stand"
+    erg = lauf([seite(ac_el(G_WAND, "IfcWall", box=BOX_WAND))], stand(p))
+    assert erg["diff"]["geometrie_ungeprueft"][0]["grund"] == "Plattform: keine Geometrie im wirksamen Stand"
+
+
+def test_gruppe_der_plattform_box_aus_teilen_mit_teil_von():
+    """Plattform-Gruppe (Kopf ohne Netz) mit eigenständigen Teilen beliebiger Klasse: Box des Kopfs = Vereinigung;
+    die Teile bleiben Bauteile."""
+    kopf = pf_el("PF-GRUPPE", "IfcElementAssembly", herkunft="plattform")
+    kopf["bbox_fehlt"] = "Gruppe: Geometrie liegt in den Teilen (teil_von)"
+    t1 = pf_el("PF-T1", "IfcMember", herkunft="plattform", teil_von="PF-GRUPPE", bbox=[0, 1, 0, 0.1, 0, 3])
+    t2 = pf_el("PF-T2", "IfcMember", herkunft="plattform", teil_von="PF-GRUPPE", bbox=[2, 3, 0, 0.1, 0, 3])
+    x = ac_el(G_NACHGEBAUT, "IfcElementAssembly", typ="Object", box=[0, 3.2, 0, 0.1, 0, 3],
+              props={"Allgemeine Werte.Plattform-GUID": "PF-GRUPPE"})
+    erg = lauf([seite(x)], stand(kopf, t1, t2))
+    (g,) = erg["diff"]["geometrie"]
+    assert g["plattform"] == "PF-GRUPPE" and g["seiten"] == {"x+": 0.2} and g["plattform_box"] == [0, 3, 0, 0.1, 0, 3]
+    assert sorted(x["plattform"] for x in erg["diff"]["nur_plattform"]) == ["PF-T1", "PF-T2"]
+
+
+def test_hinweis_wenn_archicad_keinen_koerper_liefert():
+    x = ac_el(G_WAND, "IfcWall", box=BOX_WAND, quelle="calcBounds")
+    erg = lauf([seite(x, geometry3DModel=0, geometryCalcBounds=1, no3DModelCodes=[{"code": -2130313112, "count": 1}])],
+               stand(pf_el(ab.ifc_guid(G_WAND), "IfcWall", bbox=BOX_WAND)))
+    assert any("3D-Fenster einmal öffnen" in h for h in erg["diff"]["hinweise"])
+    assert erg["diff"]["kontext"]["ohne_3d_modell_codes"] == {"-2130313112": 1}
+
+
+def test_ausgeblendet_in_plattform_wird_gelistet():
+    pg = ab.ifc_guid(G_WAND)
+    erg = lauf([seite(ac_el(G_WAND, "IfcWall", box=BOX_WAND))], stand(pf_el(pg, "IfcWall", ausgeblendet=True)))
+    assert erg["diff"]["ausgeblendet_in_plattform"] == [{"plattform": pg, "archicad": G_WAND}]
+
+
+def test_stempel_eintragen():
+    a = dp.archicad_bauteile([seite(ac_el(G_WAND, "IfcWall"))])
+    assert dp.stempel_eintragen(a, {G_WAND.lower(): {"Allgemeine Werte.Plattform-GUID": "PF-1"}}) == 1
+    assert a["elemente"][0]["eigenschaften"]["Allgemeine Werte.Plattform-GUID"] == "PF-1"

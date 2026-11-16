@@ -106,10 +106,7 @@ def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_g
     namen = {g.get("archicadName"): g.get("name") for g in st.get("geschosse") or []
              if g.get("archicadName") and g.get("name")}
     ac = dp.archicad_bauteile(seiten, geschoss_namen=namen)
-    for g, eig in stempel_lesen(port, [e["guid"] for e in ac["elemente"]], rufen).items():
-        for e in ac["elemente"]:
-            if e["guid"] == g:
-                e["eigenschaften"].update(eig)
+    dp.stempel_eintragen(ac, stempel_lesen(port, [e["guid"] for e in ac["elemente"]], rufen))
     v = tuple(float(x) for x in (versatz or (0.0, 0.0, 0.0)))
     if len(v) != 3:
         raise ValueError("versatz = [dx, dy, dz] in Metern")
@@ -127,5 +124,6 @@ def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_g
             "naechster_schritt": "Zahlen dem Zeichner zeigen. ergebnis.json auf den Ablage-Link des Laufs laden "
                                  "(plattform_abgleich.py hochladen --ordner <Ordner> --ablage <ergebnis_ablage>), dann "
                                  "archicad_abgleich_melden {projekt, lauf, gebaut} — erst Vorschau, nach dem Ja "
-                                 "bestaetigt=true. Geometrie (diff.geometrie) übernimmt die Plattform-Meldung heute noch "
-                                 "nicht: als Geometrie-Ops (modell_bauteile_aendern) vorschlagen."}
+                                 "bestaetigt=true. Die Plattform macht aus diff.geometrie Geometrie-Vorschläge; "
+                                 "geometrie.nicht_automatisch und plattform_geaendert aus ihrer Antwort dem Zeichner "
+                                 "zeigen."}

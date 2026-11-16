@@ -72,8 +72,9 @@ def step_dekodieren(s: str) -> str:
     return s.replace("''", "'")
 
 
-_WAHR = {".t.", "t", "true", "ja", "wahr", "yes"}
-_FALSCH = {".f.", "f", "false", "nein", "falsch", "no"}
+_WAHR = {".t.", "t", "true", ".true.", "ja", "wahr", "yes"}
+_FALSCH = {".f.", "f", "false", ".false.", "nein", "falsch", "no"}
+_LISTE = re.compile(r"^\s*('(?:[^']|'')*'|\"[^\"]*\")(\s*,\s*('(?:[^']|'')*'|\"[^\"]*\"))+\s*$")
 
 
 def wert_norm(v: Any) -> Any:
@@ -97,7 +98,11 @@ def wert_norm(v: Any) -> Any:
     for _ in range(3):                                   # verschachtelt: (IFCLABEL('X')), ['X'] …
         alt = s
         if len(s) >= 2 and s[0] + s[-1] in ("[]", "()"):
-            s = s[1:-1].strip()
+            innen = s[1:-1].strip()
+            if "," not in innen or re.fullmatch(r"[+-]?\d+,\d+", innen):
+                s = innen                                # ['X'], (IFCLABEL('X')), [0,24]
+            elif _LISTE.match(innen):                    # ['A','B'] → ("A", "B"), wie eine echte Liste
+                return wert_norm([a or b for a, b in re.findall(r"'((?:[^']|'')*)'|\"([^\"]*)\"", innen)])
         m = re.match(r"^IFC[A-Z0-9_]*\s*\((.*)\)$", s, re.IGNORECASE)
         if m:
             s = m.group(1).strip()
@@ -106,7 +111,7 @@ def wert_norm(v: Any) -> Any:
         if s == alt:
             break
     s = re.sub(r"\s+", " ", s).strip()
-    if not s:
+    if not s or s in ("$", "*"):                         # STEP: $ = nicht gesetzt, * = abgeleitet
         return None
     k = s.lower()
     if k in _WAHR:
@@ -164,7 +169,7 @@ def _ifc22(v: Any) -> Optional[str]:
         return None
     if len(s) == 22 and "-" not in s:
         return s
-    return ab.ifc_guid(s)                                   # AC27 liefert die unkomprimierte GUID
+    return ab.ifc_guid(s) or s                              # AC27: unkomprimierte GUID; Unbekanntes bleibt, wie es ist
 
 
 def _box(v: Any) -> Optional[list[float]]:
@@ -186,6 +191,17 @@ def _box(v: Any) -> Optional[list[float]]:
     return None
 
 
+def ifc_kennungen(extern: Optional[str], eigen: Optional[str], guid: Any = None) -> list[str]:
+    """Kennungen zum Paaren mit der Plattform, in dieser Reihenfolge: externe GlobalId (Bauteil kam per IFC ins
+    Archicad-Projekt — so kennt es die Plattform), dann Archicads eigene, dann die komprimierte Element-GUID.
+    Antwortform von GetIFCIdsOfElements live geprüft (0.11.12 / AC29): je Eintrag ifcId + externalIFCId."""
+    aus: list[str] = []
+    for k in (extern, eigen, ab.ifc_guid(guid) if guid else None):
+        if k and k not in aus:
+            aus.append(k)
+    return aus
+
+
 def archicad_bauteile(seiten: Iterable[dict], *, geschoss_namen: Optional[dict] = None) -> dict:
     """Antwortseiten von GetDiffDataELM → {"elemente": [Abgleich-Bauteil], "kontext": {...}}.
 
@@ -204,6 +220,12 @@ def archicad_bauteile(seiten: Iterable[dict], *, geschoss_namen: Optional[dict] 
             if f in k:
                 kontext[f] = k[f]
         kontext["datenbank_umgeschaltet"] |= bool(k.get("databaseSwitched"))
+        for f, z in (("geometry3DModel", "geometrie_3d_modell"), ("geometryCalcBounds", "geometrie_roh"),
+                     ("geometryNone", "geometrie_keine")):
+            kontext[z] = kontext.get(z, 0) + int(k.get(f) or 0)
+        for c in k.get("no3DModelCodes") or []:
+            codes = kontext.setdefault("ohne_3d_modell_codes", {})
+            codes[str(c.get("code"))] = codes.get(str(c.get("code")), 0) + int(c.get("count") or 0)
         if k.get("databaseSwitched") and not k.get("databaseRestored", True):
             kontext["datenbank_zurueck"] = False
         for f, n in (seite.get("skipped") or {}).items():
@@ -235,7 +257,8 @@ def _archicad_bauteil(x: dict, geschoss_namen: dict) -> dict:
     geo = x.get("geometry") or {}
     quelle = geo.get("source") or "none"
     box = _box(geo.get("box"))
-    return {"guid": guid, "ifcId": _ifc22(x.get("ifcGlobalId")) or ab.ifc_guid(guid),
+    extern, eigen = _ifc22(x.get("externalIfcGlobalId")), _ifc22(x.get("ifcGlobalId")) or ab.ifc_guid(guid)
+    return {"guid": guid, "ifcId": extern or eigen, "ifcIds": ifc_kennungen(extern, eigen, guid),
             "typ": x.get("type"), "klasse": x.get("ifcType"),
             "name": attribute.get("Name") or x.get("elementIdText") or None,
             "geschoss": geschoss_namen.get(geschoss, geschoss) if geschoss else None,
@@ -292,7 +315,10 @@ def sortieren(elemente: list[dict]) -> dict[str, list[dict]]:
 
 
 def teile_zusammenfassen(bauteile: list[dict], teile: list[dict], geometrie: dict[str, list[float]]) -> dict:
-    """Box der Teile (IfcBuildingElementPart) in ihr Bauteil, wenn das Bauteil selbst keine Box hat.
+    """Box der Teile in ihr Bauteil, wenn das Bauteil selbst keine Box hat. Teile = IfcBuildingElementPart und
+    jedes Element mit ``teil_von`` (Plattform-Gruppen: Kopf ohne eigenes Netz, ``bbox_fehlt`` „Gruppe“). Seit der
+    Plattform vom 16.11.2026 sind Schichten aus IFC-Importen schon beim Import in ihr Bauteil eingerechnet —
+    dann kommt die Box direkt aus dem Stand und hier passiert nichts.
     → {"zugeordnet": n, "ohne_bauteil": [guid]}; ``geometrie`` (Plattform-GUID → Box) wird ergänzt."""
     je_guid = {ab.guid_norm(b.get("guid")): b for b in bauteile}
     je_ifc = {str((b.get("eigenschaften") or {}).get(F_GLOBALID) or ""): b for b in bauteile}
@@ -393,6 +419,19 @@ def _angleichen(p: dict, a: dict) -> dict:
     return {**a, "eigenschaften": ae}
 
 
+def stempel_eintragen(archicad: dict, stempel: dict[str, dict]) -> int:
+    """{Archicad-GUID: {„Gruppe.Plattform-GUID“: wert}} in die Bauteile von :func:`archicad_bauteile` eintragen
+    (die Eigenschaft gibt der IFC-Übersetzer nicht immer aus). → Anzahl ergänzter Bauteile."""
+    je = {ab.guid_norm(e.get("guid")): e for e in archicad.get("elemente") or []}
+    n = 0
+    for g, eig in (stempel or {}).items():
+        e = je.get(ab.guid_norm(g))
+        if e is not None and eig:
+            e.setdefault("eigenschaften", {}).update(eig)
+            n += 1
+    return n
+
+
 def stempel_paare(archicad: list[dict], basis_paare: dict) -> list[dict]:
     """Archicad-Bauteile mit Stempel „Plattform-GUID“, die noch nicht als Paar in der Basis stehen →
     [{plattformGuid, archicadGuid}] für ``archicad_abgleich_melden`` (gebaut)."""
@@ -431,14 +470,28 @@ def vergleichen(archicad: dict, stand: dict, *, gebaut: Optional[list[dict]] = N
         b = plattform_box(e)
         if b:
             pf_geo.setdefault(str(e.get("guid")), b)
-    teile = teile_zusammenfassen(pf["bauteile"], pf["teile"], pf_geo)
+    gruppen_teile = [e for e in pf["bauteile"] if _teil_von(e)]       # bleiben Bauteile, geben nur ihre Box ab
+    teile = teile_zusammenfassen(pf["bauteile"], pf["teile"] + gruppen_teile, pf_geo)
 
     # Paare über die IFC-GlobalId der Plattform (Bauteile kamen per IFC aus Archicad)
-    ac_je_ifc = {str(a.get("ifcId")): a for a in ac["bauteile"] if a.get("ifcId")}
+    # Paare über die IFC-Kennung (Bauteile kamen per IFC aus Archicad): je Archicad-Bauteil zuerst die externe
+    # GlobalId, dann die eigene — eine externe Kennung schlägt die eigene eines anderen Bauteils.
+    ac_je_ifc: dict[str, dict] = {}
+    for rang in range(3):
+        for a in ac["bauteile"]:
+            ids = a.get("ifcIds") or [a.get("ifcId")]
+            if rang < len(ids) and ids[rang]:
+                ac_je_ifc.setdefault(str(ids[rang]), a)
+    vergeben_ifc = {ab.guid_norm(a) for a in paare_basis.values()}
     for p in pf["bauteile"]:
-        gid = str((p.get("eigenschaften") or {}).get(F_GLOBALID) or "")
-        if gid in ac_je_ifc and str(p.get("guid")) not in paare_basis:
-            paare_basis[str(p.get("guid"))] = ac_je_ifc[gid].get("guid")
+        if str(p.get("guid")) in paare_basis:
+            continue
+        for k in (str(p.get("guid") or ""), str((p.get("eigenschaften") or {}).get(F_GLOBALID) or "")):
+            a = ac_je_ifc.get(k) if k else None
+            if a is not None and ab.guid_norm(a.get("guid")) not in vergeben_ifc:
+                paare_basis[str(p.get("guid"))] = a.get("guid")
+                vergeben_ifc.add(ab.guid_norm(a.get("guid")))
+                break
     neu_gestempelt = stempel_paare(ac["bauteile"], paare_basis)
     for x in neu_gestempelt:
         paare_basis.setdefault(x["plattformGuid"], x["archicadGuid"])
@@ -468,6 +521,7 @@ def vergleichen(archicad: dict, stand: dict, *, gebaut: Optional[list[dict]] = N
     # Geometrie je Paar
     ac_je_guid = {ab.guid_norm(a.get("guid")): a for a in ac["bauteile"]}
     geo_basis = {str(g): b for g, b in (basis.get("geometrie") or {}).items() if _box(b)}
+    pf_je_guid = {ab.guid_norm(p.get("guid")): p for p in pf["bauteile"]}
     geometrie, ungeprueft = [], []
     for pg, ag in plan["paare"].items():
         a = ac_je_guid.get(ab.guid_norm(ag))
@@ -483,7 +537,9 @@ def vergleichen(archicad: dict, stand: dict, *, gebaut: Optional[list[dict]] = N
         if ref is None and str(pg) in geo_basis:
             ref, quelle = geo_basis[str(pg)], "basis"
         if ref is None:
-            ungeprueft.append({"plattform": pg, "archicad": ag, "grund": "Plattform: keine Geometrie im Stand"})
+            p_e = pf_je_guid.get(ab.guid_norm(pg)) or {}
+            grund = p_e.get("bbox_fehlt") or "keine Geometrie im Stand (Plattform vor 16.11.2026?)"
+            ungeprueft.append({"plattform": pg, "archicad": ag, "grund": f"Plattform: {grund}"})
             continue
         d = seiten_delta(ab_box, ref, toleranz)
         if d:
@@ -533,8 +589,13 @@ def vergleichen(archicad: dict, stand: dict, *, gebaut: Optional[list[dict]] = N
     if neu_gestempelt:
         hinweise.append(f"{len(neu_gestempelt)} Archicad-Bauteile tragen den Stempel „Plattform-GUID“ und sind noch "
                         "kein gemerktes Paar — mit archicad_abgleich_melden als gebaut melden.")
+    hinweise += plan.get("hinweise") or []                         # z. B. „Plattform-GUID“ an mehreren Bauteilen
     if ungeprueft:
         hinweise.append(f"Geometrie von {len(ungeprueft)} Paaren nicht geprüft (Gründe in diff.geometrie_ungeprueft).")
+    k = archicad.get("kontext") or {}
+    if k.get("geometrie_roh", 0) + k.get("geometrie_keine", 0) and not k.get("geometrie_3d_modell", 0):
+        hinweise.append("Archicad hat für kein Element einen 3D-Körper geliefert — 3D-Fenster einmal öffnen (alle "
+                        "Ebenen, Umbau-Filter „alles zeigen“) und erneut lesen.")
 
     eigenschaften = []
     for x in erg["plattform"]["eigenschaften"]:
@@ -561,6 +622,9 @@ def vergleichen(archicad: dict, stand: dict, *, gebaut: Optional[list[dict]] = N
         "bauteilteile": {"plattform": len(pf["teile"]), **teile},
         "nicht_verglichen": {"archicad": len(ac["sonstige"]), "plattform": len(pf["sonstige"])},
         "gebaut_vorschlag": neu_gestempelt,
+        "ausgeblendet_in_plattform": [b for f in plan["fragen"] if f["art"] == "in_plattform_ausgeblendet"
+                                      for b in f["bauteile"]],
+        "plattform_geometrie_kopf": stand.get("geometrie") if isinstance(stand.get("geometrie"), dict) else None,
         "kontext": archicad.get("kontext") or {},
         "hinweise": hinweise,
     }
