@@ -64,6 +64,9 @@ SYNONYMS = {
     "textur": "texture surface", "texturen": "texture surface", "material": "surface", "materialien": "surface",
     "exportieren": "export", "export": "export", "ausgeben": "export",
     # 0.11.12.2 liegende Fassaden (GetCurtainWallPlaneELM, SetCurtainWallSegmentELM)
+    # 0.11.13 Diff-Checker Archicad <-> Plattform (GetDiffDataELM)
+    "abgleich": "diff", "abgleichen": "diff", "vergleich": "diff", "vergleichen": "diff", "unterschiede": "diff",
+    "unterschied": "diff", "differenz": "diff", "diffchecker": "diff", "plattformabgleich": "diff plattform",
     "liegende": "plane", "liegender": "plane", "liegend": "plane", "fassadenebene": "curtain wall plane",
     "neigung": "plane angle", "fassadenraster": "curtain wall segment", "spaltenbreiten": "segment",
     "zeilenhöhen": "segment", "zeilenhoehen": "segment", "bodenfliese": "curtain wall plane segment",
