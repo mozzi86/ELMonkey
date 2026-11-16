@@ -62,7 +62,7 @@ und Kalkulationsfilter (NOVA-AVA & Co.) matchen häufig auf `ifc_layer` mit Oper
 *equals*. Ein Umbenennen bricht solche Filter sofort und geräuschlos. **Vor jedem
 Ebenen-Rename klären, ob eine AVA-Filterbibliothek darauf zeigt.**
 
-Drei Dinge, die in der Praxis überraschen:
+Vier Dinge, die in der Praxis überraschen:
 
 - **Die Systemebene „Archicad-Ebene" tauchte in Tapir-Listen nie auf.** Wer sie als
   „fehlt / gelöscht" meldet, erzeugt falschen Alarm — sie ist da, sie wird nur nicht
@@ -79,6 +79,18 @@ Drei Dinge, die in der Praxis überraschen:
   den Befehl noch nicht (Fehler 4010). Indizes sind projektspezifisch — vor
   Wiederverwendung neu holen. Live THN 2026-09-06: A_21_AUSSPAR_WAND=567,
   A_22_AUSSPAR_DECKE=127, A_23_AUSSPAR_BODEN=117.
+- **Ebene per Property lesen geht nur über „Ebenenname", nicht über „Ebene".**
+  <!-- 2026-11-05 --> `API.GetPropertyValuesOfElements` mit den StaticBuiltIn-Properties
+  „Ebene" (Gruppe „Modelldarstellung") und „Ebene" (Gruppe „Allgemeine Parameter")
+  liefert je Element Fehler 6702 „Property definition not supported". Die
+  StaticBuiltIn-Property „Ebenenname" (Gruppe „Modelldarstellung") funktioniert und
+  antwortet `{type:"string", status:"normal", value:"<Ebenenname>"}`. Property-GUIDs sind
+  projektspezifisch — über `TapirCommand.GetAllProperties` nach `propertyName`
+  nachschlagen, nicht hartkodieren. Nutzen: Elemente im Bulk-Read nach Ebene filtern,
+  ohne Layer-Index-Mapping (siehe `layerIndex`-Punkt darüber). Für kleine Mengen
+  alternativ `ELM_SAB.GetElementEditState` (liefert je Element `layerName` und
+  `layerHidden`). Beleg: Live Futurelab_BI_Umbau_ARZ_OBL_V29, AC29 Build 5101,
+  ELMonkey 0.10.3, Teamwork.
 
 ## Ebenenkombinationen
 

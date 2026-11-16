@@ -267,6 +267,10 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Prozess/CPU. Drawing-Elemente sind übrigens auch bei AKTIVEM Layout nicht
   per GetElementsByType lesbar (0 Treffer, offizielle wie Tapir-Variante);
   der verlässliche Weg ist Selektion durch den User + `GetSelectedElements`.
+  **Korrektur 2026-11-11 (Futurelab, Tapir 1.7.2):** nach `ChangeWindow`
+  mit `windowType:"Layout"` + `databaseId` liefert Tapir `GetElementsByType
+  Drawing` die Zeichnungen des Layouts zuverlässig (12 Layouts, je 5–7
+  Treffer). Details siehe `recipes/zeichnungen-auf-layouts.md`. <!-- 2026-11-11 -->
   Und `API.GetTypesOfElements` kennt Drawings nicht (7203) — der Typ-Check
   läuft dort ins Leere. **Merksatz:** Ein Upstream-Befehl, der etwas ändert und
   NICHT in `ACAPI_CallUndoableCommand` läuft, ist ein Crash-Kandidat — beim

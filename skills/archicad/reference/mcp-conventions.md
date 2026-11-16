@@ -316,6 +316,38 @@ Flach (`classificationSystemId`/`classificationItemId` direkt neben `elementId`)
 
 **Wann den HTTP-Bypass NICHT nehmen:** Für normale, kleine Operationen (< ~100 Elemente, keine kaputten Tools) bleibt der MCP-Tool-Pfad der Default — er ist Discovery-geführt und versionsrobust. Der Bypass ist das Werkzeug für **Massendaten** und **die bekannten Schema-Drift-Tools**. Port immer aus dem Warm-up/Discovery beziehen, nie hardcoden (Ports sind volatil, siehe oben).
 
+## MCP-Schema ≠ installiertes Add-on (Tapir 1.7.2 unter ELMonkey) <!-- 2026-11-16, live AFWC -->
+
+`discovery_list_active_archicads` warnt bei ELMonkey-Installationen: „Installed Tapir version
+(1.7.2) is older than supported (2.0.0)“ (am 12.11. hieß es noch 1.8.0 — der MCP-Server zieht
+mit). Die Schemas aus `archicad_get_command_schema` beschreiben dann die **neuere** Tapir-Version,
+das installierte Add-on kennt aber nur 1.7.2. Folgen, live an AFWC (Teamwork, AC29):
+
+| Was | Antwort des Add-ons | Ausweg |
+|---|---|---|
+| `CreateBeams` mit `id` oder `layerIndex` | 4002 `additionalProperties … beamsData/0/id` | Ohne beide anlegen. Das Element landet auf der Ebene des Werkzeug-Standards (hier „A_80_MASKENBLOCK“!). Danach `SetDetailsOfElements {details:{layerIndex}}`. |
+| Element-ID setzen (`details.id`) | 4002 | `API.GetPropertyIds [{type:"BuiltIn", nonLocalizedName:"General_ElementID"}]`, dann `API.SetPropertyValuesOfElements` mit `propertyValue {type:"string", status:"normal", value}` (ohne `type`/`status` → 4002 `oneOf`). |
+| `GetDetailsOfElements` mit `filter`, `favorites_search_favorites` mit `query` | 4002 bzw. 4010 | Ohne Filter lesen, lokal filtern. |
+| `GetLayerOfElementDefaults`, `SearchFavorites`, `SetZoom`, `ZoomToElements`, `GetView3DImage` | 4010 (nicht registriert) | Ebenen-Index über Tapir `GetAttributesByType {attributeType:"Layer"}` (liefert `index`; die offizielle `API.GetLayerAttributes` liefert keinen). Zoomen geht nicht, siehe Bilder unten. |
+| `ChangeWindow {windowType:"FloorPlan", storyIndex}`, `SaveCurrentWindowAsImage {imageFilePath}`, `ChangeSelectionOfElements`, `Get3DBoundingBoxes`, `DeleteElements` | gehen | — |
+
+**Falle: Create-Befehle nie in einer Schleife mit Varianten „ausprobieren“.** Jede Variante, die
+durchgeht, legt ein Element an. Am 16.11. sind so zwei Probe-Träger entstanden, einer doppelt.
+Erst das Schema an einer einzigen Probe klären, nach jeder Probe zurücklesen und zählen,
+Duplikate sofort entfernen und der Nutzerin melden.
+
+**Bilder ohne Zoom-Befehl:** `SaveCurrentWindowAsImage` speichert den aktuellen Fensterausschnitt
+und liefert im Grundriss dessen `zoom`-Box (Modellmeter) mit. Daraus ergibt sich die Abbildung
+Modell → Pixel (Achsen gleich skaliert, y gespiegelt). Dünne Bauteile (22-mm-Traversen in
+Vorwänden) sieht man im gespeicherten Grundriss kaum; dann die Bauteile als SVG-Linien über das
+Bild legen und mit `qlmanage -t -s <px> -o . datei.svg` in PNG wandeln (PIL ist hier nicht
+installiert; `qlmanage` liefert ein quadratisches Bild, also per `viewBox` passend zuschneiden).
+Die Nutzerin wechselt nebenbei Fenster und Zoom: direkt vor dem Speichern `ChangeWindow` erneut
+aufrufen und die zurückgegebene `zoom`-Box verwenden, nicht eine ältere.
+
+**`HighlightElements` bleibt stehen**, bis man sie mit einer leeren Liste aufhebt. Nach dem Zeigen
+selbst wieder aufheben; die orange Markierung hat die Nutzerin am 10.11. gestört. <!-- 2026-11-10 -->
+
 ## Verhalten bei „nein" oder Mid-Batch-Fehler
 
 **User antwortet `nein` auf den Confirm-Dialog.** Wir stoppen den Auftrag sauber. Wir berichten, was wir *nicht* getan haben, und bieten an, die Operation zu verfeinern. Keine Teilausführung — wir machen entweder das volle Set oder gar nichts.

@@ -412,6 +412,8 @@ Wo keine eindeutige Heuristik greift (Theke/Entwurf/SEO/2D/3D-Sammelsurium),
 ehrlich auf die **Basisklasse „Wand"** klassifizieren statt zu raten.
 Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifizierbares Element.
 
+**Baustoff lesen/setzen:** Lesen geht über Tapir `GetDetailsOfElements` (`buildingMaterialId`), Setzen nur über `ELM_SAB.SetStructureOfElements` — Tapir `SetDetailsOfElements` quittiert, schreibt aber nicht. Rezept + „fehlt“-Fall: [`surfaces-materials.md`](surfaces-materials.md#wand-baustoff-ersetzen-basic-wände). <!-- 2026-11-12 -->
+
 ---
 
 ## Gotchas

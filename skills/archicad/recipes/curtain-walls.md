@@ -910,6 +910,40 @@ Bekannte Dialog-Auslöser bei CurtainWall-Arbeit: Attribute-Manager, Profil-Edit
 
 ---
 
+## Liegende Fassaden (Bodenfliesen, Abhangdecken) <!-- 2026-11-16, live Futurelab 09.–10.11. -->
+
+Anlass: Bodenfliesen im Raster 0,605 × 0,305 als liegende Fassade wie ein von Hand gezeichnetes
+Muster. Ergebnis der Live-Proben (alle bei x = −100 angelegt und wieder gelöscht):
+
+| Versuch | Ergebnis |
+|---|---|
+| `CreateCurtainWallFromAxes` mit `angle 0` | Fassade entsteht **senkrecht** (Rücklese angle 90). Der lokale Patch „0.10.4.1 angle 0“ ist überholt. |
+| `angle 0.01` | APIERR_GENERAL (Höhe ≈ 0) |
+| Create mit `planeMatrix` des Musters | APIERR_GENERAL |
+| `planeMatrix` nachträglich per `ACAPI_Element_Change` | Element danach **unlesbar** (4009), sofort löschen. Nicht wiederholen. |
+| `TapirCommand.MoveElements` mit `copy:true` vom Muster | **Geht.** Kopie liegt, gleiche Ebene. Muster vorher reservieren, sonst „not editable“. |
+| Raster über das CW-Memo (`cWSegPrimaryPattern/SecPattern/PatternCells`) | Geht (164 → 227 Paneele). |
+| `curtainWall.height` oder `cWSegContour` am Segment per Change | Meldet Erfolg, **ohne Wirkung**. Nach jeder CW-Änderung hat das Segment eine neue GUID. |
+
+**Weg, der funktioniert** (`ELM_SAB.SetCurtainWallSegmentELM` + `GetCurtainWallPlaneELM` aus dem
+lokalen Build ELMonkey 0.11.12.1 auf Mudis 0.11.12; Quellstand und Patch liegen in
+`ZZ_Austausch/ELMonkey 0.11.12.1 Liegende Fassaden 2026-11-09/`, noch nicht im Repo): Muster kopieren → `baseLine` **in Ebenen-Lokalkoordinaten**
+`[(0,0),(Länge,0)]` + Kontur über das CW-Memo setzen → zurücklesen. In Weltkoordinaten
+geschrieben landet die Fassade bei z ≈ +100, denn beim Schreiben ist die lokale y-Achse = −z.
+Beim **Lesen** liefert `GetCurtainWallPlaneELM` die Basislinie dagegen in Weltkoordinaten.
+Offen: Das Raster greift nach Kopie und Kontur nicht mehr, die Fugen bleiben die des Musters.
+
+**Fallen:**
+- Prüfung „Paneel-Mittelpunkt in Kontur“ meldet Fehlalarm bei L-förmigen Fliesenstücken an
+  Innenecken. Besser alle Paneel-Ecken prüfen (Toleranz 1 mm).
+- Fassaden haben **keine Deckschraffur**. Für die braune 2D-Darstellung der Bodenfliesen hat die
+  Nutzerin deshalb das GDL-Objekt „SAB Bodenfliese liegend“ bekommen (siehe
+  [`library-objects.md`](library-objects.md), GDL-Fallen). Die Oberkante dieses Objekts gilt als
+  OK FFB (siehe [`innenansichten-bemassung.md`](innenansichten-bemassung.md)).
+- Fallback ohne API: Zauberstab im 3D-Fenster (Leertaste auf die Deckenoberseite), etwa 3 min für 7 Räume.
+
+---
+
 ## Verwandte Recipes
 
 - [`wall-operations.md`](wall-operations.md) — Wand-Operationen. CurtainWalls und Wände sind in Archicad grundlegend verschiedene Elemente (verschiedene Werkzeuge, verschiedene Element-Typen, verschiedene Hierarchien) — aber Properties, Klassifikation und Delete-Pattern sind analog.

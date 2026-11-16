@@ -789,3 +789,22 @@ gegenlesen; erst dann den Batch fahren. Konkreter Live-Fall zu Gotcha 9
 (`dimensions`-Override-Caveat, oben) — dort steht das Muster, hier die
 Ausprägung an den Durchbruch-Symbolen. Details zu `SetObjectParametersForce`
 (0.9.16) und dem Undo-Scope-Diagnosemuster: [`../reference/mcp-extension.md`](../reference/mcp-extension.md).
+
+## GDL-Fallen beim Schreiben eigener Objekte <!-- 2026-11-16, live „SAB Bodenfliese liegend“ 10.11. -->
+
+Beim Bau des Objekts „SAB Bodenfliese liegend“ (Futurelab, 2D-Deckschraffur für liegende
+Bodenfassaden, eingebettet unter `SAB/SAB Bodenfliese liegend.gsm`):
+
+1. **Variablennamen unterscheiden keine Groß-/Kleinschreibung.** `tX` und `tx` sind dieselbe
+   Variable und überschreiben sich still.
+2. **Einzeiliges `IF … THEN a : b` gilt nur für `a`.** `b` läuft immer. Immer Block-IF schreiben
+   (`IF … THEN` / `ENDIF`).
+3. **Array-Parameter lassen sich per API nicht vergrößern.** Darum feste Arrays mit Reserve
+   (`px`/`py` mit 64 Einträgen) plus Zähler `nP`.
+4. **Frei ziehbare Eckpunkte im Grundriss:** je Punkt zwei Längen-Hotspot-Tripel (x und y, beide
+   auf `px[k]`/`py[k]`), Basis bei 0 mit Flag +128, Referenz bei −1. Damit zieht die Nutzerin
+   Ecken und den Raster-Startpunkt direkt im Objekt (von ihr am 10.11. bestätigt).
+5. **3D-Box des Objekts ist unzuverlässig** für Höhen (z. B. OK FFB). Höhen aus dem Ansichtsschnitt
+   lesen (`GetSectionElementsELM` mit `withBounds`).
+6. Neue `.gsm` erst im **Solo-Testprojekt** prüfen, dann in die eingebettete Bibliothek des
+   Teamwork-Projekts. Andere sehen sie erst, wenn die Nutzerin sendet.
