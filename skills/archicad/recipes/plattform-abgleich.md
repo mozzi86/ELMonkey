@@ -100,7 +100,9 @@ Format (`sab-archicad-abgleich/1`) plus `diff` (neu / weg / Eigenschaften / Geom
 1. Schritt 2 oben (`archicad_abgleich_lesen`), dann `elmonkey_diff_plattform {stand: "<stand_link>"}`.
 2. Zahlen zeigen; `diff.geometrie_ungeprueft` und `diff.hinweise` immer mit nennen (z. B. Elemente auf ausgeblendeten
    Ebenen haben keine belastbare Box).
-3. Weiter mit Schritt 8 (`hochladen`, `archicad_abgleich_melden` mit `gebaut` = `diff.gebaut_vorschlag`); Geometrie als
-   eigene Vorschläge (`modell_bauteile_aendern`).
+   Ohne MCP: `plattform_abgleich.py diff --ordner $O --stand-link "<stand_link>"` (dieselbe Logik).
+3. Weiter mit Schritt 8 (`hochladen`, `archicad_abgleich_melden` mit `gebaut` = `diff.gebaut_vorschlag`). Die Plattform
+   macht aus `diff.geometrie` Geometrie-Vorschläge im selben Vorschlag; `geometrie.nicht_automatisch` und
+   `plattform_geaendert` aus der Antwort dem Zeichner zeigen.
 
 Details, Fallen und die ehrliche Einschätzung der Geometrie: [`reference/diff-plattform.md`](../reference/diff-plattform.md).

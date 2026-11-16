@@ -8,7 +8,7 @@
 
 | Teil | Ordner | Stand |
 |---|---|---|
-| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe, Abgleich + Diff-Checker Archicad ↔ Plattform | [`core/`](core/) | ✅ 0.4.0 (Zweig, noch kein Release), 123 Tests |
+| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe, Abgleich + Diff-Checker Archicad ↔ Plattform | [`core/`](core/) | ✅ 0.4.0 (Zweig, noch kein Release), 136 Tests |
 | **Plattform-Monkey** – eigene, funktionsgleiche Kopie des Kerns in der Schwarz Plattform (`core/plattform_monkey`) | Plattform (privat) | ⏳ gleichauf mit Kern 0.3.0; `abgleich`/`diff_plattform` (0.4.0) noch nachzuziehen |
 | **MCP-Server** `elmonkey-mcp` 0.3.0 – ein Server, Add-ons `archicad` + `kern`, für jede KI; neu `elmonkey_diff_plattform` | [`mcp/`](mcp/) | ✅ 14 Tests; Diff-Werkzeug noch nicht live |
 | **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.13 (neu: `GetDiffDataELM` für den Diff-Checker, noch nicht live), CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |

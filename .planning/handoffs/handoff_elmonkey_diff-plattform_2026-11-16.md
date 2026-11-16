@@ -8,9 +8,11 @@ Doku: [`skills/archicad/reference/diff-plattform.md`](../../skills/archicad/refe
 | Teil | Stand |
 |---|---|
 | `ELM_SAB.GetDiffDataELM` (Add-on 0.11.13) | gebaut, CI 8/8 grün (AC27–30 × Mac/Win), **nicht live** |
-| `elmonkey.diff_plattform` (Kern 0.4.0) + `elmonkey.abgleich` (Paket 10.11.) | 53 + 18 Tests grün, synthetische Daten |
+| `elmonkey.diff_plattform` (Kern 0.4.0) + `elmonkey.abgleich` (Paket 10.11.) | 66 + 18 Tests grün, synthetische Daten |
+| Skript `plattform_abgleich.py` (+ Befehl `diff` als Hülle um den Kern) | 10 Tests grün (nachgestelltes Archicad) |
 | MCP `elmonkey_diff_plattform` (0.3.0) | 14 Tests grün (Archicad-Attrappe) |
-| Plattform-Monkey | nicht angefasst (anderes Repo) |
+| Plattform-Monkey | Gegenstück seit Plattform-PR #338 gemergt (Box im Stand, Geometrie-Vorschläge); hier nicht angefasst |
+| Zweig `elm-0.11.13-diff-checker` | zusammengeführt (siehe unten), wird **nicht** gemergt, bleibt stehen |
 
 ## Sofort als Nächstes (gemeinsam mit dem Nutzer)
 
@@ -23,14 +25,19 @@ Doku: [`skills/archicad/reference/diff-plattform.md`](../../skills/archicad/refe
    vergleichen (Fallen-Tabelle Zeile für Zeile).
 5. Danach PR mergen, Release, `uv tool install` des MCP, Spiegel.
 
-## Plattform-Monkey nachziehen
+## Plattform (Stand PR #338, 16.11.2026)
 
-`bauteil()` mit `bbox` (Archicad-Koordinaten) und `teil_von` für `IfcBuildingElementPart`; `basis_neu` behält
-`basis.geometrie`; `archicad_abgleich_melden` übersetzt `diff.geometrie` in Geometrie-Ops (oder ein eigenes Werkzeug);
-Kern 0.4.0 (`abgleich`, `diff_plattform`) in den Plattform-Monkey übernehmen.
+`stand.json` trägt je Element `bbox` (Archicad-Meter, mm), ersatzweise `bbox_fehlt` mit Grund, `teil_von` für Teile von
+Plattform-Gruppen und den Kopf `geometrie` (`hoeheNN`, `nullniveauNN`, Toleranz); IFC-Schichten sind schon beim Import
+in ihr Bauteil eingerechnet. `basis.json` führt `geometrie`; `archicad_abgleich_melden` macht aus `diff.geometrie`
+Vorschläge und meldet Nicht-Übertragbares unter `nicht_automatisch`. Der Kern nimmt die Box des Stands direkt.
+Nachzuziehen im Plattform-Monkey nur noch: Normalisierung `$`/`*`, `.TRUE.`/`.FALSE.`, `['A','B']` als Liste.
 
-## Achtung
+## Zusammengeführt aus `elm-0.11.13-diff-checker` (Commit `3d2eed0`)
 
-Im Haupt-Arbeitsbaum `~/.claude/repos/ELMonkey` lag beim Start ein fremder, ungespeicherter Stand auf Zweig
-`elm-0.11.13-diff-checker` (dasselbe 10.11.-Paket, ab 16.11. 12:10). Nicht angefasst — vor dem Merge klären, damit
-nicht zwei 0.11.13 entstehen.
+Übernommen: IFC-Kennung extern vor eigen (C++ gibt beide aus, Kern paart so, Skript liest `elementIFCIds` statt
+`ifcIds`), Hinweis „3D-Fenster nie offen“, `$`/`*`/`.TRUE.`/Listen mit Komma, Liste ausgeblendeter Paare, Hinweis bei
+doppeltem Stempel, Skript-Befehl `diff` als Hülle. Nicht übernommen: eigener Befehl `GetSolidBounds` und eigener Kern
+`elmonkey.diff` (doppelt zu `GetDiffDataELM`/`diff_plattform`), Rückfall auf `Get3DBoundingBoxes` im Skript (zweiter
+Lesepfad mit roher Box), `plattform.geometrie` im Ergebnis (die Plattform liest `diff.geometrie`). Der Zweig bleibt
+unverändert stehen und wird nicht gemergt.
