@@ -1,4 +1,4 @@
-# elmonkey-core 0.3.0
+# elmonkey-core 0.4.0
 
 > **Drei Monkeys, funktionsgleich:** Archicad-Monkey (Add-On), Python-Monkey (Kern + MCP) und Plattform-Monkey (Schwarz Plattform) arbeiten gleich und werden immer angeglichen — eine Änderung an einem kommt im selben Zug in die beiden anderen. Siehe [README im Wurzelordner](../README.md#drei-monkeys--funktionsgleich-immer-angeglichen).
 
@@ -8,6 +8,9 @@ Neutraler Kern des Python-Monkeys. Nur Standardbibliothek; IFC-Ausgabe über das
 
 - `elmonkey` – Kern: finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese.
 - `elmonkey.plattform` – Klebe-Logik für die Schwarz Plattform.
+- `elmonkey.abgleich` – Abgleich Archicad ↔ Plattform: paaren, Drei-Wege-Vergleich, Fragen bündeln, entscheiden.
+- `elmonkey.diff` – Diff-Checker: nur die Unterschiede (neu, weg, Eigenschaften, Geometrie je Seite mit 3 mm
+  Toleranz), ohne IFC-Datei. Normalisiert IFC-Schreibweisen, übergeht Mengen, trennt Räume und Öffnungen ab.
 - `elmonkey.katalog` – Bauteilkatalog-Maschine: Typen aus Schichten, Bauplan mit Ständerwerk und Verstärkungen,
   Bearbeiten mit Versionen, feste Typ-GUIDs. `elmonkey.katalog.ifc` schreibt IFC4/IFC4X3-Bibliotheken
   (braucht ifcopenshell).

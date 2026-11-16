@@ -68,6 +68,10 @@ SYNONYMS = {
     "neigung": "plane angle", "fassadenraster": "curtain wall segment", "spaltenbreiten": "segment",
     "zeilenhöhen": "segment", "zeilenhoehen": "segment", "bodenfliese": "curtain wall plane segment",
     "bodenfliesen": "curtain wall plane segment",
+    # 0.11.13 Diff-Checker Archicad <-> Plattform (GetSolidBounds)
+    "diff": "solid bounds", "diffchecker": "solid bounds", "abgleich": "solid bounds", "unterschiede": "solid bounds",
+    "koerperbox": "solid bounds", "körperbox": "solid bounds", "huellbox": "bounds", "hüllbox": "bounds",
+    "geschnitten": "solid", "verschneidung": "solid", "anschluss": "solid",
 }
 
 _cache: dict = {}

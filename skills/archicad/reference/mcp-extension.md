@@ -2183,6 +2183,21 @@ Fallen:
   Forum-Antwort im Thread „Wall Geometry Method: Polygonal":
   https://community.graphisoft.com/t5/Archicad-C-API/I-would-like-to-know-how-to-create-a-wall-using-Wall-Geometry/m-p/719915 (05.11.2026).
 
+## ELM_SAB 0.11.13 — GetSolidBounds (Körper-Box für den Diff-Checker) <!-- 2026-11-16, NICHT live erprobt -->
+
+- **`ELM_SAB.GetSolidBounds`** `{elements: [{elementId: {guid}}]}` → `solidBounds`, je Element
+  `{boundingBox3D: {xMin…zMax}, source, bodies}` oder `{error}`. Liest nur.
+- `source: "solid"`: Box aus den 3D-Körpern des Bauteils, also nach Anschlüssen und Verschneidungen — so, wie die
+  Geometrie im IFC herauskäme. `source: "calcBounds"`: Rückfall auf die rohe Hüllbox, weil das Bauteil keinen
+  Körper im 3D-Modell hat (Umbau-Filter, ausgeblendete Ebene). Diese Box ist **nicht vergleichbar**.
+- Warum: `TapirCommand.Get3DBoundingBoxes` nimmt für Wände die rohe Hüllbox. Im AFWC-Abgleich (16.11.) wichen
+  die Wände dadurch um 20–35 cm ab und sahen fast alle geändert aus.
+- Decke ohne Körper → `{error}`, kein Rückfall: `CalcBounds` stürzt bei Decken ab, die im aktiven Fenster nicht
+  gezeichnet sind (Tapir #686).
+- Offen bis zum ersten Live-Lauf: ob das 3D-Modell Körper liefert, wenn das 3D-Fenster in der Sitzung noch nie
+  offen war. Kommt überall `calcBounds` zurück, das 3D-Fenster einmal öffnen (alle Ebenen, Umbau-Filter „alles
+  zeigen“) und erneut lesen.
+
 ## ELM_SAB 0.11.12 — ExportSurfaces (Oberflächen + Texturbilder) <!-- 2026-11-09 -->
 
 - **`ELM_SAB.ExportSurfaces`** schreibt alle Oberflächen des Projekts als Ordner

@@ -85,6 +85,7 @@
 #include "LayerLevelCommandsELM.hpp"
 #include "ModelEditCommandsELM.hpp"
 #include "ConstructionPensCommandsELM.hpp"
+#include "GetSolidBoundsCommandELM.hpp"
 
 template <typename CommandType>
 GSErrCode RegisterCommand (CommandGroup& group, const GS::UniString& version, const GS::UniString& description)
@@ -1680,6 +1681,10 @@ GSErrCode Initialize (void)
         err |= RegisterCommand<GetColumnDetailsCommand> (
             elmSabCommands, "0.9.5",
             "ELM_SAB: Liest Stuetzen-Drehwinkel (axisRotationAngle), Ursprung, Kernmasse — Felder, die sonst nirgends lesbar sind."
+        );
+        err |= RegisterCommand<GetSolidBoundsCommandELM> (
+            elmSabCommands, "0.11.13",
+            "ELM_SAB: Box der 3D-Koerper je Bauteil, so wie nach Anschluessen/Verschneidungen im 3D-Modell (und im IFC) - Get3DBoundingBoxes liefert fuer Waende die rohe Huellbox (bis 35 cm daneben). source solid|calcBounds, bodies. Grundlage des Diff-Checkers Archicad <-> Plattform ohne IFC-Datei. Liest nur."
         );
         err |= RegisterCommand<SetColumnRotationCommand> (
             elmSabCommands, "0.9.6",
