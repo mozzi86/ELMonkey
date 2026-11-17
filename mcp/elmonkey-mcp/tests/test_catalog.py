@@ -86,6 +86,15 @@ def test_search_rasterursprung():
     assert c.search(e2, "Ursprung Fassadenraster")[0]["command"] == "SetCurtainWallSegmentELM"
 
 
+def test_search_ursprungspunkt():
+    from elmonkey_mcp.addons.archicad.catalog import SYNONYMS
+    assert SYNONYMS.get("ursprungspunkt") == "origin"
+    neu = ("ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen, Basislinienlaenge, "
+           "Hoehe. 0.11.15: gridOriginAtStart setzt den Ursprungspunkt des Rasters (gridOrigin) auf den Segmentanfang.")
+    e2 = [dict(e, description=neu) if e["command"] == "SetCurtainWallSegmentELM" else e for e in E]
+    assert c.search(e2, "Ursprungspunkt Fassade")[0]["command"] == "SetCurtainWallSegmentELM"
+
+
 def test_resolve():
     assert c.resolve(E, "elements_get_details_of_elements") == ("TapirCommand", "GetDetailsOfElements")
     assert c.resolve(E, "GetStories") == ("TapirCommand", "GetStories")

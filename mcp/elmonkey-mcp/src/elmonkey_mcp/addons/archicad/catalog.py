@@ -81,6 +81,8 @@ SYNONYMS = {
     "rundung": "polygon", "eckstueck": "polygon", "eckstück": "polygon",
     # 0.11.14 Rasterursprung (SetCurtainWallSegmentELM columnOrigin/rowOrigin)
     "ursprung": "origin", "rasterursprung": "origin", "raster": "pattern",
+    # 0.11.15 Ursprungspunkt des Rasters (SetCurtainWallSegmentELM gridOriginAtStart)
+    "ursprungspunkt": "origin",
 }
 
 _cache: dict = {}
