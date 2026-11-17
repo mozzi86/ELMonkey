@@ -25,6 +25,7 @@ in [`../reference/mcp-extension.md`](../reference/mcp-extension.md).
 11. [Gotchas](#gotchas)
 12. [Verwandte Recipes](#verwandte-recipes)
 13. [Überlappungen, Doppelungen und gerundete Ecken bereinigen](#überlappungen-doppelungen-und-gerundete-ecken-bereinigen)
+14. [Wände gegen den Bestandsplan abgleichen (Einpassung, Wandstärke)](#wände-gegen-den-bestandsplan-abgleichen-einpassung-wandstärke)
 
 ---
 
@@ -589,5 +590,43 @@ Live verifiziert am THN-Teamwork, ELMonkey 0.11.12.1, AC29.
      auslassen).
    - Befund am THN: von 574 Bestandsbögen waren nur etwa 100 direkt baubar, 208 ohne
      Modellwand, 132 mit Modellkante > 8 mm neben dem Bestand.
+   - **Bögen an Türöffnungen (Leibungen)** liegen mitten in der Wand, nicht am Wandende:
+     Dort ist kein Eckstück möglich, ohne die Türwand umzubauen. <!-- 2026-11-17 -->
+   - Ein Wandumriss aus ShapePrims kann durch Türen in mehrere Polygone zerfallen; dann
+     nur das Stück am Bogen betrachten. <!-- 2026-11-17 -->
+   - Die Vorschau zeigt nur die betroffene Wand. Vorher prüfen, ob diese Wand selbst eine
+     Doppelung in einer anderen Wand ist, sonst wird die Rundung an der falschen Wand
+     gebaut. <!-- 2026-11-17 -->
 7. **Python-Falle:** shapely `polygon.interiors` ist auch ohne
    Löcher „wahr“. Immer `len(poly.interiors) > 0` prüfen.
+
+## Wände gegen den Bestandsplan abgleichen (Einpassung, Wandstärke) <!-- 2026-11-17 -->
+
+Live am THN-Teamwork, AC29 Mac.
+
+1. **Systematischer Versatz eines Geschosses: zuerst die Einpassung prüfen, nicht die
+   Wände.** Weichen im Vergleich Modell ↔ Bestands-DXF fast alle Wände eines Geschosses
+   gleichsinnig ab, den Ausgleich über alle geraden Wände rechnen: je Wand Abweichung
+   quer zur Achse = n·t + w·((x−c)×n) (Verschiebung t, Drehung w um den Schwerpunkt c),
+   robust (Ausreißer > 6 mm raus, zweiter Durchgang).
+   - THN: 1. OG (−12,8/+5,5) mm und −0,18 mrad, 3. OG (+5,6/+6,3) mm und +0,12 mrad;
+     Rest danach im Median 0,3–0,4 mm. Im 1. OG lagen danach 381 statt 107 Wände exakt
+     auf dem Bestand (vorher 254 „verschieben“, danach 14).
+   - Die Einpassung (Transformation des Bestandsplans) korrigieren und sichern; das
+     Modell bleibt unberührt.
+2. **Gleichmäßige 4–8 mm „Versatz“ gegen den Bestand sind meist Putzlinien**, keine
+   falsch liegenden Wände: Im Bestand liegen dort zwei dicht benachbarte Linien. Nicht
+   verschieben. Abweichungen von 3–5 cm sind meist abgetreppte Bestandsformen
+   (Vorsprünge), keine Verschiebung.
+3. **Wandstärke auf Bestand: Schutzregeln**, sonst greift die Messung die falsche Linie.
+   - Eine Seite muss schon auf dem Bestand liegen (≤ 3 mm).
+   - Änderung ≤ 6 cm.
+   - Ergebnis < 2 cm verwerfen: Dann wurde eine Linie im Wandinneren erkannt (z. B.
+     Plattenlage einer Ständerwand).
+   - Klinker bleibt 11,5 cm (Bürovorgabe), auch wenn der Bestand 12,5 zeigt (Fuge/Putz).
+   - Bekleidung ≤ 3 cm bleibt.
+   - Keine neue Überlappung mit parallelen Nachbarwänden oder Polygonwänden
+     (Querwände sind Anschlüsse und dürfen mehr überlappen).
+   - Erst 5 Wände als Muster, dann Serie.
+   - **Verbundwände** (`structureType` Composite): `ModifyWalls {thickness}` wirkt
+     nicht, die Nachmessung setzt korrekt zurück. Stärke nur über den Verbund.

@@ -105,6 +105,7 @@ nicht versprechen.
 - `TapirCommand.ChangeSelectionOfElements` nimmt `addElementsToSelection` / `removeElementsFromSelection` (nicht `addElements`).
 - Ein ins Dock minimiertes Archicad-Fenster holt man per System Events zurück: `set value of attribute "AXMinimized" of window … to false`; nur „frontmost" reicht nicht.
 - Port→PID: `lsof -nP -iTCP:<port> -sTCP:LISTEN -t`.
+- **Sichtprüfung per API:** `TapirCommand.FitInWindow` zoomt immer auf alles, auch mit Auswahl; ein Zoom auf einen Bereich fehlt. `ELM_SAB.CaptureView` liefert dann nur die Gesamtansicht, für Detailprüfung ungeeignet. <!-- 2026-11-17 -->
 
 ## Das Anleitungsformat
 
