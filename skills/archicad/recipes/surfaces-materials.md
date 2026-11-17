@@ -618,6 +618,34 @@ Vollständige Live-verifizierten Patterns: `../reference/bulk-operations.md`.
 
 ---
 
+## Wand-Baustoff ersetzen (Basic-Wände) <!-- 2026-11-12 -->
+
+Live-Fall THN 12.11.2026: 1.741 Wände von gelöschtem „Vormauerziegel_650" auf „Klinker_625" gesetzt.
+
+1. **Lesen:** Tapir `GetDetailsOfElements` liefert `details.buildingMaterialId` je Wand
+   (ganze Wandliste in einem Aufruf ging bei 6.576 Wänden). Die eingebaute Property
+   `SurfaceAndMaterials_ComponentBuildingMaterialName` ist bei Basic-Wänden `notAvailable`.
+2. **„fehlt" = gelöschter Baustoff:** Archicad zeigt „fehlt", die API liefert
+   `buildingMaterialId = 00000000-0000-0000-0000-000000000000`. Der alte Baustoff steht
+   nicht mehr im Projekt — **aus dem letzten IFC rekonstruieren**: GlobalId =
+   `ifcopenshell.guid.compress(guid.replace("-","").lower())`, dann
+   `ifcopenshell.util.element.get_material(e).Name`. Nicht raten: Null-GUID-Wände können
+   unterschiedliche Herkunft haben; Wände, die neuer als das IFC sind, offen lassen.
+3. **Setzen — NICHT mit Tapir `SetDetailsOfElements`:** `typeSpecificDetails.buildingMaterialId`
+   wird mit `success:true` quittiert, aber **nicht geschrieben** (Rücklese bleibt Null-GUID).
+   Richtig ist **`ELM_SAB.SetStructureOfElements`** (`commandNamespace: "ELM_SAB"`):
+   `{"elements":[{"elementId":{"guid":…},"structureType":"basic","buildingMaterialName":"Klinker_625"}]}`
+   (alternativ `buildingMaterialIndex`; auch `composite`/`profile`). Reserviert und gibt in
+   Teamwork selbst frei (`reserve`, Standard true); 200er-Pakete liefen problemlos.
+   Fremd reservierte Elemente kommen einzeln als `RESERVED_BY_OTHER` zurück.
+4. **Rücklese** per `GetDetailsOfElements` (Ziel-GUID zählen), danach `TeamworkSend`.
+
+**HTTP-Falle:** Im `API.ExecuteAddOnCommand`-Envelope heißt der Schlüssel
+`addOnCommandId.commandNamespace` — mit Tippfehler `commonNamespace` kommt nur ein
+nichtssagender `Internal error 4000`, bei jedem Befehl und jeder Instanz.
+
+---
+
 ## Verwandte Recipes
 
 - [`wall-operations.md`](wall-operations.md) — Wand-Update allgemein; `elements_set_details_of_elements`-Muster.

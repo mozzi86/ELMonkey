@@ -69,6 +69,19 @@ Meldung. --> Deshalb als **Pflichtschritt jeder Update-Prozedur**: vor dem Archi
 den `Add-Ons/`-Ordner auf `*.bak`/Backup-Bundles prüfen (`ls`) und Sicherungen NUR
 außerhalb ablegen (z. B. `~/ELM_SAB_Backups/`).
 
+### Bundle-Wechsel am Mac im Teamwork-Betrieb <!-- 2026-11-17 -->
+
+1. Vor dem Beenden senden, empfangen, alles freigeben, altes Bundle sichern.
+2. `osascript … quit` kann mit -128 „abgebrochen“ zurückkommen, wenn Archicad gerade
+   „PLN-Snapshot wird hochgeladen“ zeigt (modaler Dialog, API-Code 4001). Dann warten:
+   Archicad beendet sich nach dem Upload selbst (die API meldet zuletzt 2004 „Program is
+   shutting down“).
+3. Altes Bundle nicht löschen, sondern aus dem Add-Ons-Ordner in den Sicherungsordner
+   verschieben (`mv`).
+4. Nach `open -a "Archicad 29"` öffnet Archicad das zuletzt offene Teamwork-Projekt
+   wieder; die API ist nach ca. 2 Minuten erreichbar. Version per `ELM_SAB.GetUIState` →
+   `elmSabVersion` zurücklesen.
+
 ## Erweiterungs-Entscheidungsbaum
 
 1. **Kombi aus vorhandenen Befehlen?** → Python, `tools/custom/functions.py` im
@@ -267,6 +280,10 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Prozess/CPU. Drawing-Elemente sind übrigens auch bei AKTIVEM Layout nicht
   per GetElementsByType lesbar (0 Treffer, offizielle wie Tapir-Variante);
   der verlässliche Weg ist Selektion durch den User + `GetSelectedElements`.
+  **Korrektur 2026-11-11 (Futurelab, Tapir 1.7.2):** nach `ChangeWindow`
+  mit `windowType:"Layout"` + `databaseId` liefert Tapir `GetElementsByType
+  Drawing` die Zeichnungen des Layouts zuverlässig (12 Layouts, je 5–7
+  Treffer). Details siehe `recipes/zeichnungen-auf-layouts.md`. <!-- 2026-11-11 -->
   Und `API.GetTypesOfElements` kennt Drawings nicht (7203) — der Typ-Check
   läuft dort ins Leere. **Merksatz:** Ein Upstream-Befehl, der etwas ändert und
   NICHT in `ACAPI_CallUndoableCommand` läuft, ist ein Crash-Kandidat — beim
@@ -2182,6 +2199,21 @@ Fallen:
   Weitergabe: Tapir-Issue https://github.com/ENZYME-APD/tapir-archicad-automation/issues/1914 (05.11.2026);
   Forum-Antwort im Thread „Wall Geometry Method: Polygonal":
   https://community.graphisoft.com/t5/Archicad-C-API/I-would-like-to-know-how-to-create-a-wall-using-Wall-Geometry/m-p/719915 (05.11.2026).
+
+## ELM_SAB 0.11.13 — GetSolidBounds (Körper-Box für den Diff-Checker) <!-- 2026-11-16, NICHT live erprobt -->
+
+- **`ELM_SAB.GetSolidBounds`** `{elements: [{elementId: {guid}}]}` → `solidBounds`, je Element
+  `{boundingBox3D: {xMin…zMax}, source, bodies}` oder `{error}`. Liest nur.
+- `source: "solid"`: Box aus den 3D-Körpern des Bauteils, also nach Anschlüssen und Verschneidungen — so, wie die
+  Geometrie im IFC herauskäme. `source: "calcBounds"`: Rückfall auf die rohe Hüllbox, weil das Bauteil keinen
+  Körper im 3D-Modell hat (Umbau-Filter, ausgeblendete Ebene). Diese Box ist **nicht vergleichbar**.
+- Warum: `TapirCommand.Get3DBoundingBoxes` nimmt für Wände die rohe Hüllbox. Im AFWC-Abgleich (16.11.) wichen
+  die Wände dadurch um 20–35 cm ab und sahen fast alle geändert aus.
+- Decke ohne Körper → `{error}`, kein Rückfall: `CalcBounds` stürzt bei Decken ab, die im aktiven Fenster nicht
+  gezeichnet sind (Tapir #686).
+- Offen bis zum ersten Live-Lauf: ob das 3D-Modell Körper liefert, wenn das 3D-Fenster in der Sitzung noch nie
+  offen war. Kommt überall `calcBounds` zurück, das 3D-Fenster einmal öffnen (alle Ebenen, Umbau-Filter „alles
+  zeigen“) und erneut lesen.
 
 ## ELM_SAB 0.11.12 — ExportSurfaces (Oberflächen + Texturbilder) <!-- 2026-11-09 -->
 

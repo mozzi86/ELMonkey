@@ -37,9 +37,24 @@ Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-El
 
 **Nicht abgedeckt:**
 - CurtainWall erstellen via **Tapir/MCP** (Capability-Gap in v29 — kein Create-Tool). Weg über `ELM_SAB.CreateCurtainWallFromAxes`, siehe eigenes Worked Example.
-- **Raster nachträglich ändern** — es gibt kein `ModifyCurtainWall`. Andere Spalten/Zeilen = neu bauen + altes löschen (Ausnahme von „Ersetzen = umbauen", weil kein Umbauweg existiert; Confirm trotzdem Pflicht).
+- ~~**Raster nachträglich ändern** — es gibt kein `ModifyCurtainWall`. Andere Spalten/Zeilen = neu bauen + altes löschen (Ausnahme von „Ersetzen = umbauen", weil kein Umbauweg existiert; Confirm trotzdem Pflicht).~~ **Überholt ab ELMonkey 0.11.12.1** <!-- 2026-11-17 --> für das Spaltenraster einer einsegmentigen Fassade, siehe „Spaltenraster nachträglich ändern“ unten. Zeilen/Kontur bleiben nur per Neubau änderbar.
 - Sub-Elemente eigenständig erstellen (entstehen mit Top-Level, kein separates Create).
 - CurtainWallJunction + CurtainWallAccessory Update-Details (in Default-Fassaden nicht vorhanden, siehe Gotchas § Junction und § Accessory).
+
+---
+
+## Spaltenraster nachträglich ändern (ELM_SAB.SetCurtainWallSegmentELM) <!-- 2026-11-17 -->
+
+Live THN 2026-11-17: 206 von 255 Fassaden auf 1,20 m Feldbreite gestellt.
+
+- `ELM_SAB.SetCurtainWallSegmentELM {elementId:{guid}, columnWidths:[…]}` ändert das Spaltenraster einer **bestehenden, einsegmentigen** Fassade; Höhe, Lage und Riegel bleiben. Der Befehl fehlt in 0.11.12 und 0.11.12.2 (Fehler 4010), er steckt nur im lokalen Stand 0.11.12.1.
+- Ein einzelner Wert `[1.2]` wiederholt sich über die Länge; Archicad legt den Rest ans Ende oder verteilt ihn auf beide Enden.
+- Volle Feldliste: Das Raster beginnt am **Segmentanfang**, nicht an der ersten Feldkante. Nach dem Setzen deshalb die Pfostenachsen in Weltlage gegen einen festen Bezugspunkt messen und erstes und letztes Feld um den gemessenen Rest gegengleich nachregeln; zwei Runden reichen (live 3/3 Musterfassaden auf 0 mm).
+- **Ursprungspunkt des Rasters** <!-- 2026-11-17 -->: Das Spaltenraster läuft ab dem **Ursprungspunkt** des Segments (`API_CWSegmentType.gridOrigin`, 3D-Punkt), nicht ab dem Segmentanfang. Bei bestehenden Fassaden liegt dieser Punkt irgendwo im Segment (THN-Beispiel 27BB6F2C: 0,986 m hinter dem Anfang); das Muster wird von dort aus gelegt und nach vorn umgebrochen, an diesem Punkt steht immer ein Pfosten. `gridOriginType` (0.11.14 `columnOrigin`) stand dort schon auf `start` und ändert daran nichts. Ungleiche Feldfolgen (z. B. 0,85 | 1,2 | 1,2 | 0,9 | 1,2 | 1,2 | 0,87) gehen nur, wenn der Ursprungspunkt auf den Segmentanfang gesetzt wird. Rückbau auf `[1.2]` stellt den alten Zustand exakt wieder her (Pfosten 0,986 / 2,186 / …). Messen immer gegen einen festen Weltbezug, nicht gegen die Bbox des geänderten Zustands (die verschiebt sich mit den Randfeldern).
+- `GetCurtainWallPlaneELM` liefert die Segmentkoordinaten **ohne** die planeMatrix-Verschiebung; nach `MoveElements` ist das nicht mehr die Weltlage. Lage immer aus `floorPlanPolygons` (Tapir `GetDetailsOfElements`) nehmen.
+- Glasebene im Grundriss = Querlage der langen Feld-Polygone. Der Schwerpunkt aller Polygone taugt nicht: Die Pfostenprofile verschieben ihn um etwa 5 cm, und er ändert sich mit dem Raster.
+- Fassade quer schieben: `TapirCommand.MoveElements` (`elementsWithMoveVectors`), in 6er-Paketen mit Senden je Paket; Archicad antwortet nach vielen Fassadenänderungen minutenlang nicht.
+- Nachmess-Skripte müssen damit umgehen, dass nach dem Schieben keine Bestandslinie mehr in Reichweite ist (sonst Abbruch mitten im Paket mit offenen Reservierungen).
 
 ---
 
@@ -907,6 +922,40 @@ Reaktion:
 5. Nach User-Bestätigung „fertig": Call wiederholen.
 
 Bekannte Dialog-Auslöser bei CurtainWall-Arbeit: Attribute-Manager, Profil-Editor, Building-Material-Editor, Element-Settings-Dialog, Klassifikations-System-Manager. Vor langen Bulk-Operationen vorbeugend fragen: „Bitte schließe alle offenen Dialoge in Archicad."
+
+---
+
+## Liegende Fassaden (Bodenfliesen, Abhangdecken) <!-- 2026-11-16, live Futurelab 09.–10.11. -->
+
+Anlass: Bodenfliesen im Raster 0,605 × 0,305 als liegende Fassade wie ein von Hand gezeichnetes
+Muster. Ergebnis der Live-Proben (alle bei x = −100 angelegt und wieder gelöscht):
+
+| Versuch | Ergebnis |
+|---|---|
+| `CreateCurtainWallFromAxes` mit `angle 0` | Fassade entsteht **senkrecht** (Rücklese angle 90). Der lokale Patch „0.10.4.1 angle 0“ ist überholt. |
+| `angle 0.01` | APIERR_GENERAL (Höhe ≈ 0) |
+| Create mit `planeMatrix` des Musters | APIERR_GENERAL |
+| `planeMatrix` nachträglich per `ACAPI_Element_Change` | Element danach **unlesbar** (4009), sofort löschen. Nicht wiederholen. |
+| `TapirCommand.MoveElements` mit `copy:true` vom Muster | **Geht.** Kopie liegt, gleiche Ebene. Muster vorher reservieren, sonst „not editable“. |
+| Raster über das CW-Memo (`cWSegPrimaryPattern/SecPattern/PatternCells`) | Geht (164 → 227 Paneele). |
+| `curtainWall.height` oder `cWSegContour` am Segment per Change | Meldet Erfolg, **ohne Wirkung**. Nach jeder CW-Änderung hat das Segment eine neue GUID. |
+
+**Weg, der funktioniert** (`ELM_SAB.SetCurtainWallSegmentELM` + `GetCurtainWallPlaneELM` aus dem
+lokalen Build ELMonkey 0.11.12.1 auf Mudis 0.11.12; Quellstand und Patch liegen in
+`ZZ_Austausch/ELMonkey 0.11.12.1 Liegende Fassaden 2026-11-09/`, noch nicht im Repo): Muster kopieren → `baseLine` **in Ebenen-Lokalkoordinaten**
+`[(0,0),(Länge,0)]` + Kontur über das CW-Memo setzen → zurücklesen. In Weltkoordinaten
+geschrieben landet die Fassade bei z ≈ +100, denn beim Schreiben ist die lokale y-Achse = −z.
+Beim **Lesen** liefert `GetCurtainWallPlaneELM` die Basislinie dagegen in Weltkoordinaten.
+Offen: Das Raster greift nach Kopie und Kontur nicht mehr, die Fugen bleiben die des Musters.
+
+**Fallen:**
+- Prüfung „Paneel-Mittelpunkt in Kontur“ meldet Fehlalarm bei L-förmigen Fliesenstücken an
+  Innenecken. Besser alle Paneel-Ecken prüfen (Toleranz 1 mm).
+- Fassaden haben **keine Deckschraffur**. Für die braune 2D-Darstellung der Bodenfliesen hat die
+  Nutzerin deshalb das GDL-Objekt „SAB Bodenfliese liegend“ bekommen (siehe
+  [`library-objects.md`](library-objects.md), GDL-Fallen). Die Oberkante dieses Objekts gilt als
+  OK FFB (siehe [`innenansichten-bemassung.md`](innenansichten-bemassung.md)).
+- Fallback ohne API: Zauberstab im 3D-Fenster (Leertaste auf die Deckenoberseite), etwa 3 min für 7 Räume.
 
 ---
 

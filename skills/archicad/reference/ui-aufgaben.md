@@ -99,6 +99,14 @@ Rückfrage „welcher Knopf ist gemeint?".
 Wenn der Nutzer UI-Zugang anbietet: den Screenshot-Teil dankend nehmen, die Klick-Automation
 nicht versprechen.
 
+### Fenster- und API-Kleinigkeiten <!-- 2026-11-17 -->
+
+- `ELM_SAB.Get2DGeometryOfElements` braucht den **Grundriss als aktives Fenster**; im 3D-Fenster kommt „ShapePrims fehlgeschlagen". Vorher `ELM_SAB.GetUIState` → `currentWindow.type == "FloorPlan"` prüfen und den Nutzer sonst um F2 bitten.
+- `TapirCommand.ChangeSelectionOfElements` nimmt `addElementsToSelection` / `removeElementsFromSelection` (nicht `addElements`).
+- Ein ins Dock minimiertes Archicad-Fenster holt man per System Events zurück: `set value of attribute "AXMinimized" of window … to false`; nur „frontmost" reicht nicht.
+- Port→PID: `lsof -nP -iTCP:<port> -sTCP:LISTEN -t`.
+- **Sichtprüfung per API:** `TapirCommand.FitInWindow` zoomt immer auf alles, auch mit Auswahl; ein Zoom auf einen Bereich fehlt. `ELM_SAB.CaptureView` liefert dann nur die Gesamtansicht, für Detailprüfung ungeeignet. <!-- 2026-11-17 -->
+
 ## Das Anleitungsformat
 
 Was sich bewährt hat, wenn ein UI-Schritt unvermeidlich ist:

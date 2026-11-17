@@ -24,6 +24,8 @@ in [`../reference/mcp-extension.md`](../reference/mcp-extension.md).
 10. [Bulk-Klassifizierung (Stub)](#bulk-klassifizierung-stub)
 11. [Gotchas](#gotchas)
 12. [Verwandte Recipes](#verwandte-recipes)
+13. [Überlappungen, Doppelungen und gerundete Ecken bereinigen](#überlappungen-doppelungen-und-gerundete-ecken-bereinigen)
+14. [Wände gegen den Bestandsplan abgleichen (Einpassung, Wandstärke)](#wände-gegen-den-bestandsplan-abgleichen-einpassung-wandstärke)
 
 ---
 
@@ -412,6 +414,8 @@ Wo keine eindeutige Heuristik greift (Theke/Entwurf/SEO/2D/3D-Sammelsurium),
 ehrlich auf die **Basisklasse „Wand"** klassifizieren statt zu raten.
 Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifizierbares Element.
 
+**Baustoff lesen/setzen:** Lesen geht über Tapir `GetDetailsOfElements` (`buildingMaterialId`), Setzen nur über `ELM_SAB.SetStructureOfElements` — Tapir `SetDetailsOfElements` quittiert, schreibt aber nicht. Rezept + „fehlt“-Fall: [`surfaces-materials.md`](surfaces-materials.md#wand-baustoff-ersetzen-basic-wände). <!-- 2026-11-12 -->
+
 ---
 
 ## Gotchas
@@ -480,6 +484,23 @@ Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifiz
     schon verschmälert ist, mit den **Kanten aus der Erstlesung** fortsetzen, nicht
     neu messen — die aktuelle Wand ist ja schon dünner. <!-- 2026-11-02 -->
 
+12. **`TapirCommand.ModifyWalls`: Felder direkt neben `elementId`.** Form
+    `{"elementId":{…},"offset":0,"begCoordinate":{…}}`; ein `details`-Objekt gibt 4002.
+    <!-- 2026-11-17 -->
+
+13. **Referenzlinie auf die Wandseite legen, ohne die Wand zu bewegen.** Bei Versatz ≠ 0
+    `offset:0` setzen und die Achse quer um den alten Versatz verschieben; bei Bezugslinie
+    Mitte `referenceLineLocation:"Outside"` setzen und die Achse nachführen. Immer beide
+    Wandkanten vorher und nachher messen und bei Abweichung über 1 mm zurücksetzen
+    (live THN: 201 + 757 Wände, 3 zurückgesetzt). <!-- 2026-11-17 -->
+
+14. **Stärke ändern mit fester Seite.** `thickness` setzen, Kanten messen, Achse quer
+    nachschieben, bis die feste Kante wieder stimmt. <!-- 2026-11-17 -->
+
+15. **„Failed to modify wall" (-2130312913) trotz eigener Reservierung = Ebene gesperrt.**
+    `ELM_SAB.GetElementEditState` zeigt `layerLocked: true`. Das betrifft dann meist alle
+    Ebenen (Ebenenkombination); der Nutzer muss umschalten. <!-- 2026-11-17 -->
+
 ---
 
 ## Verwandte Recipes
@@ -499,3 +520,113 @@ kNN über Referenzpunkte) + SAB_Brandschutz (multiEnum, nächste Referenzwand
 ≤ 2,5 m, gleiche Etage, sonst ehrlich leer). Ergebnis 4.500/4.500 + 2.171
 Brandschutz-Werte, 0 Fehler. Confirm-Schleife davor: Summary-Tabelle mit
 Pro-Klasse-Counts, `ja` startet. Details: reference/referenzmodell-abgleich.md.
+
+## Überlappungen, Doppelungen und gerundete Ecken bereinigen <!-- 2026-11-17 -->
+
+Live verifiziert am THN-Teamwork, ELMonkey 0.11.12.1, AC29.
+
+1. **Echter Wandumriss im Grundriss.** `ELM_SAB.Get2DGeometryOfElements` liefert je Wand
+   Primitive. Der echte Umriss nach Verschneidung ist das Primitiv `kind=poly`,
+   `closed=true`, `insideHatchBorder=true` (`subPolyEnds` beachten). Wände, die nicht
+   geschnitten werden (Brüstungen, Sturzbänder, Wände über/unter der Schnittebene),
+   liefern KEIN solches Polygon, nur Umrisslinien. Ersatz: kleinstes gedrehtes Rechteck
+   um alle Linienpunkte. Ohne diesen Ersatz fehlen diese Wände in jeder
+   Überlappungsprüfung (am THN 150 gerade Wände, dadurch 40 Höhenüberschneidungen
+   zunächst übersehen). Der Grundriss muss das aktive Fenster sein.
+2. **Überlappungen richtig deuten.** Von rund 1000 rechnerischen Überlappungen sind etwa
+   die Hälfte normale Wandanschlüsse (Ende läuft in die Querwand bis zur Referenzlinie)
+   und ein Viertel andere Ebenen (Beschriftung, Fugen, Baustelle). Echte Fälle: ganz
+   enthalten (≥ 95 %), parallel übereinander, mit Polygonwand, Stoß < 10 cm. Erst
+   klassifizieren, dann handeln.
+3. **Bereinigen, ohne den Gesamtumriss zu ändern.**
+   - (a) Gerade Wand am Ende kürzen (`ModifyWalls` `begCoordinate`/`endCoordinate`), nur
+     wenn der wegfallende Teil ungefähr der Überlappung entspricht, sonst ist es eine
+     seitliche Überlappung. Nie den Anfang einer Wand mit Tür/Fenster verschieben (Türen
+     hängen am Wandanfang, `centerOffset`), das Ende nur mit Abstand zur Tür.
+   - (b) Polygonwand = alte Fläche minus Nachbar neu bauen.
+   - (c) Rangregel: Dämmung und Leichtwand ohne Öffnungen weichen Mauerwerk/Beton.
+   - (d) Höhen: Steckt eine Wand im Grundriss ganz in einer Wand, die erst weiter oben
+     beginnt, Höhe der unteren per `ModifyWalls {height}` bis zur Unterkante kürzen.
+   - Nach jedem Schritt Umrisse neu lesen und Überlappung nachmessen, bei Abweichung
+     zurücksetzen. Je Wand nur eine Aktion pro Lauf, danach neu auslesen (der Plan
+     enthält sonst alte Koordinaten/GUIDs).
+4. **Polygonwand-Umriss ändern geht nicht, daher neu bauen mit Datenübernahme.**
+   `ELM_SAB.CreatePolygonWalls` (`polygonCoordinates` ohne Wiederholung des ersten
+   Punkts, `floorIndex`, `height`, `bottomOffset`, `layerIndex`, `buildingMaterialIndex`
+   bzw. `compositeIndex`; Attribut-Index aus Tapir `GetAttributesByType`). Danach:
+   - Geschossbindung oben per Tapir `ModifyWalls {relativeTopStory, topOffset}` nachziehen.
+   - Klassifizierung kopieren (`API.GetClassificationsOfElements` /
+     `SetClassificationsOfElements`) und eine vom Werkzeug-Standard geerbte
+     Klassifizierung ENTFERNEN, wenn die alte Wand keine hatte (`classificationId` nur
+     mit `classificationSystemId`, ohne `classificationItemId`).
+   - Alle benutzerdefinierten Eigenschaften mit `status=normal` kopieren, dazu die
+     eingebauten `Category_StructuralFunction`, `Category_Position`,
+     `Category_RenovationStatus`, `General_ElementID` (`API.GetPropertyIds`,
+     `type: BuiltIn`, `nonLocalizedName`).
+   - KI-Stempel setzen; Rücklese vergleichen (Höhe, Fußpunkt, Baustoff, Ebene, Stifte,
+     Sichtbarkeit); erst dann die alte Wand löschen.
+   - Auch gerade Wände ohne Öffnungen lassen sich so in Polygonwände umwandeln.
+   - `CreatePolygonWalls` schlägt bei manchen sehr schmalen/entarteten Umrissen fehl
+     (Code -2130313102): Fall auslassen.
+5. **Durchbrüche (Opening): Wirtswand lesen.** `GetDetailsOfElements` meldet „Not yet
+   supported element type“ und `API.Get3DBoundingBoxes` Fehler 6000, aber die Wirtswand
+   lässt sich lesen: Tapir `GetConnectedElements {elements: <Wände>,
+   connectedElementType: "Opening"}` (am THN 102 von 114 Durchbrüchen in 36 Wänden; der
+   Rest sitzt in Decken). Vor jedem Löschen/Kürzen einer Wand prüfen; zusätzlich
+   Türen/Fenster/Durchbrüche vor und nach jedem Löschen zählen.
+6. **Gerundete Ecken aus dem Bestands-DXF.** Bögen stehen als `ARC` und als
+   `LWPOLYLINE`-Bulge im DXF (auch in `INSERT`s); reine Linien-Auszüge enthalten sie
+   nicht. Je Bogen: Mittelpunkt, Radius, Endpunkte, scharfe Ecke q = Schnitt der
+   Tangenten.
+   - Zwickel (q + Bogen) liegt in der Wand: abrunden.
+   - Wandende gerade/abgeschrägt und der Bogen wölbt nach außen: Kreisabschnitt
+     (Sehne–Bogen) anfügen.
+   - Gerade Wand: Ende um das Eckstück kürzen und das Eckstück als Polygonwand mit
+     Bogenpunkten (8 Segmente je Viertelkreis) bauen. Polygonwand: mit Rundung neu bauen.
+   - Zwickel um einen 12-mm-Rand außerhalb der Tangenten erweitern, sonst bleiben
+     Splitter stehen, wenn die Modellkante wenige mm neben dem Bestand liegt.
+   - Vor dem Bauen Vorschau zeichnen: Gehrungs-Enden ergeben Pfeilformen (auslassen);
+     liegt das Modell etwa 1 cm neben dem Bestand, entstehen Stufen im Umriss (Geschoss
+     auslassen).
+   - Befund am THN: von 574 Bestandsbögen waren nur etwa 100 direkt baubar, 208 ohne
+     Modellwand, 132 mit Modellkante > 8 mm neben dem Bestand.
+   - **Bögen an Türöffnungen (Leibungen)** liegen mitten in der Wand, nicht am Wandende:
+     Dort ist kein Eckstück möglich, ohne die Türwand umzubauen. <!-- 2026-11-17 -->
+   - Ein Wandumriss aus ShapePrims kann durch Türen in mehrere Polygone zerfallen; dann
+     nur das Stück am Bogen betrachten. <!-- 2026-11-17 -->
+   - Die Vorschau zeigt nur die betroffene Wand. Vorher prüfen, ob diese Wand selbst eine
+     Doppelung in einer anderen Wand ist, sonst wird die Rundung an der falschen Wand
+     gebaut. <!-- 2026-11-17 -->
+7. **Python-Falle:** shapely `polygon.interiors` ist auch ohne
+   Löcher „wahr“. Immer `len(poly.interiors) > 0` prüfen.
+
+## Wände gegen den Bestandsplan abgleichen (Einpassung, Wandstärke) <!-- 2026-11-17 -->
+
+Live am THN-Teamwork, AC29 Mac.
+
+1. **Systematischer Versatz eines Geschosses: zuerst die Einpassung prüfen, nicht die
+   Wände.** Weichen im Vergleich Modell ↔ Bestands-DXF fast alle Wände eines Geschosses
+   gleichsinnig ab, den Ausgleich über alle geraden Wände rechnen: je Wand Abweichung
+   quer zur Achse = n·t + w·((x−c)×n) (Verschiebung t, Drehung w um den Schwerpunkt c),
+   robust (Ausreißer > 6 mm raus, zweiter Durchgang).
+   - THN: 1. OG (−12,8/+5,5) mm und −0,18 mrad, 3. OG (+5,6/+6,3) mm und +0,12 mrad;
+     Rest danach im Median 0,3–0,4 mm. Im 1. OG lagen danach 381 statt 107 Wände exakt
+     auf dem Bestand (vorher 254 „verschieben“, danach 14).
+   - Die Einpassung (Transformation des Bestandsplans) korrigieren und sichern; das
+     Modell bleibt unberührt.
+2. **Gleichmäßige 4–8 mm „Versatz“ gegen den Bestand sind meist Putzlinien**, keine
+   falsch liegenden Wände: Im Bestand liegen dort zwei dicht benachbarte Linien. Nicht
+   verschieben. Abweichungen von 3–5 cm sind meist abgetreppte Bestandsformen
+   (Vorsprünge), keine Verschiebung.
+3. **Wandstärke auf Bestand: Schutzregeln**, sonst greift die Messung die falsche Linie.
+   - Eine Seite muss schon auf dem Bestand liegen (≤ 3 mm).
+   - Änderung ≤ 6 cm.
+   - Ergebnis < 2 cm verwerfen: Dann wurde eine Linie im Wandinneren erkannt (z. B.
+     Plattenlage einer Ständerwand).
+   - Klinker bleibt 11,5 cm (Bürovorgabe), auch wenn der Bestand 12,5 zeigt (Fuge/Putz).
+   - Bekleidung ≤ 3 cm bleibt.
+   - Keine neue Überlappung mit parallelen Nachbarwänden oder Polygonwänden
+     (Querwände sind Anschlüsse und dürfen mehr überlappen).
+   - Erst 5 Wände als Muster, dann Serie.
+   - **Verbundwände** (`structureType` Composite): `ModifyWalls {thickness}` wirkt
+     nicht, die Nachmessung setzt korrekt zurück. Stärke nur über den Verbund.
