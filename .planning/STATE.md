@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-17 | 261117-r7u | ELM_SAB 0.11.14: SetCurtainWallSegmentELM columnOrigin/rowOrigin (Rasterursprung) mit Rücklese + MCP 0.2.6; Zweig elm-0.11.14-cw-rasterursprung, CI 8/8 grün (Lauf 44010592819), nicht gemergt, live offen |
 | 2026-11-17 | 261117-k7x | MCP 0.2.5: Suchbegriffe Wände bereinigen (empfangen, freigeben, Wirtswand, Höhe, Umriss); Versionsabweichung __init__/pyproject behoben; 10 Tests grün, nicht gepusht |
 | 2026-11-10 | 261110-gyd | ELM_SAB 0.11.12.2 liegende Fassaden (GetCurtainWallPlaneELM, SetCurtainWallSegmentELM, Menü „Bodenfliese aus Auswahl“) + MCP 0.2.3; Zwischenstand der Kollegen, live nur AC29 Mac; CI-Build AC27–30 Mac/Win 8/8 grün, Release 10.11.; .gsm/HSF bewusst nicht im Repo |
 | 2026-11-09 | 261109-mqy | Drei Monkeys funktionsgleich + immer angeglichen in allen READMEs; Kern 0.3.0, MCP 0.2.2 lokal, Plattform-Monkey = Kern 0.3.0 |
