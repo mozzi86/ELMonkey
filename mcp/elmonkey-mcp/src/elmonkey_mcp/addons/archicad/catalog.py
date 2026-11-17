@@ -79,6 +79,8 @@ SYNONYMS = {
     "hoehe": "height", "höhe": "height", "wandhoehe": "wall height", "wandhöhe": "wall height",
     "ueberlappung": "geometry", "überlappung": "geometry", "doppelung": "geometry",
     "rundung": "polygon", "eckstueck": "polygon", "eckstück": "polygon",
+    # 0.11.14 Rasterursprung (SetCurtainWallSegmentELM columnOrigin/rowOrigin)
+    "ursprung": "origin", "rasterursprung": "origin", "raster": "pattern",
 }
 
 _cache: dict = {}

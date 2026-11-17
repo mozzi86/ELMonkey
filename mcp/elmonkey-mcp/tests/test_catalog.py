@@ -74,6 +74,18 @@ def test_synonyms_waende_bereinigen():
         assert SYNONYMS.get(key) == ziel, key
 
 
+def test_search_rasterursprung():
+    from elmonkey_mcp.addons.archicad.catalog import SYNONYMS
+    assert SYNONYMS.get("ursprung") == "origin"
+    assert SYNONYMS.get("rasterursprung") == "origin"
+    assert SYNONYMS.get("raster") == "pattern"
+    neu = ("ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen, Basislinienlaenge, "
+           "Hoehe. 0.11.14: columnOrigin/rowOrigin setzen den Rasterursprung (start = Muster ab Segmentanfang).")
+    e2 = [dict(e, description=neu) if e["command"] == "SetCurtainWallSegmentELM" else e for e in E]
+    assert c.search(e2, "Rasterursprung der Fassade setzen")[0]["command"] == "SetCurtainWallSegmentELM"
+    assert c.search(e2, "Ursprung Fassadenraster")[0]["command"] == "SetCurtainWallSegmentELM"
+
+
 def test_resolve():
     assert c.resolve(E, "elements_get_details_of_elements") == ("TapirCommand", "GetDetailsOfElements")
     assert c.resolve(E, "GetStories") == ("TapirCommand", "GetStories")
