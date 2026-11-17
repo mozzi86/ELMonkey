@@ -37,9 +37,23 @@ Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-El
 
 **Nicht abgedeckt:**
 - CurtainWall erstellen via **Tapir/MCP** (Capability-Gap in v29 — kein Create-Tool). Weg über `ELM_SAB.CreateCurtainWallFromAxes`, siehe eigenes Worked Example.
-- **Raster nachträglich ändern** — es gibt kein `ModifyCurtainWall`. Andere Spalten/Zeilen = neu bauen + altes löschen (Ausnahme von „Ersetzen = umbauen", weil kein Umbauweg existiert; Confirm trotzdem Pflicht).
+- ~~**Raster nachträglich ändern** — es gibt kein `ModifyCurtainWall`. Andere Spalten/Zeilen = neu bauen + altes löschen (Ausnahme von „Ersetzen = umbauen", weil kein Umbauweg existiert; Confirm trotzdem Pflicht).~~ **Überholt ab ELMonkey 0.11.12.1** <!-- 2026-11-17 --> für das Spaltenraster einer einsegmentigen Fassade, siehe „Spaltenraster nachträglich ändern“ unten. Zeilen/Kontur bleiben nur per Neubau änderbar.
 - Sub-Elemente eigenständig erstellen (entstehen mit Top-Level, kein separates Create).
 - CurtainWallJunction + CurtainWallAccessory Update-Details (in Default-Fassaden nicht vorhanden, siehe Gotchas § Junction und § Accessory).
+
+---
+
+## Spaltenraster nachträglich ändern (ELM_SAB.SetCurtainWallSegmentELM) <!-- 2026-11-17 -->
+
+Live THN 2026-11-17: 206 von 255 Fassaden auf 1,20 m Feldbreite gestellt.
+
+- `ELM_SAB.SetCurtainWallSegmentELM {elementId:{guid}, columnWidths:[…]}` ändert das Spaltenraster einer **bestehenden, einsegmentigen** Fassade; Höhe, Lage und Riegel bleiben. Der Befehl fehlt in 0.11.12 und 0.11.12.2 (Fehler 4010), er steckt nur im lokalen Stand 0.11.12.1.
+- Ein einzelner Wert `[1.2]` wiederholt sich über die Länge; Archicad legt den Rest ans Ende oder verteilt ihn auf beide Enden.
+- Volle Feldliste: Das Raster beginnt am **Segmentanfang**, nicht an der ersten Feldkante. Nach dem Setzen deshalb die Pfostenachsen in Weltlage gegen einen festen Bezugspunkt messen und erstes und letztes Feld um den gemessenen Rest gegengleich nachregeln; zwei Runden reichen (live 3/3 Musterfassaden auf 0 mm).
+- `GetCurtainWallPlaneELM` liefert die Segmentkoordinaten **ohne** die planeMatrix-Verschiebung; nach `MoveElements` ist das nicht mehr die Weltlage. Lage immer aus `floorPlanPolygons` (Tapir `GetDetailsOfElements`) nehmen.
+- Glasebene im Grundriss = Querlage der langen Feld-Polygone. Der Schwerpunkt aller Polygone taugt nicht: Die Pfostenprofile verschieben ihn um etwa 5 cm, und er ändert sich mit dem Raster.
+- Fassade quer schieben: `TapirCommand.MoveElements` (`elementsWithMoveVectors`), in 6er-Paketen mit Senden je Paket; Archicad antwortet nach vielen Fassadenänderungen minutenlang nicht.
+- Nachmess-Skripte müssen damit umgehen, dass nach dem Schieben keine Bestandslinie mehr in Reichweite ist (sonst Abbruch mitten im Paket mit offenen Reservierungen).
 
 ---
 

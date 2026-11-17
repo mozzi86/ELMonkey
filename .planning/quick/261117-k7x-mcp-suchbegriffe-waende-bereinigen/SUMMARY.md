@@ -12,3 +12,7 @@ date: 2026-11-17
   Versionszeile, daher dort nichts geändert.
 
 Tests: `uv run --with pytest pytest -q` in `mcp/elmonkey-mcp`: 10 bestanden. Nicht gepusht.
+
+## Nachtrag: Skill-Kopie angeglichen
+
+Heutige Lerneinträge aus `mozzi86/-archicad` (Zweig `elm-0.10.4-fixes`, Commit 8e16d9a) nach `skills/archicad` übernommen: `recipes/wall-operations.md` (Überlappungen bereinigen, Polygonwand-Neubau, gerundete Ecken, Durchbruch-Wirtswand), `recipes/curtain-walls.md` (Spaltenraster nachträglich ändern), `reference/mcp-conventions.md` (Teamwork Receive, Pause-Abschluss), `reference/ui-aufgaben.md`, Halbsatz in `SKILL.md`. Nicht übernommen: Abschnitt „Holen aus Archicad“ und `recipes/archicad-nach-plattform.md` (Projekt- und Plattform-Namen im öffentlichen Repo noch nicht geklärt).

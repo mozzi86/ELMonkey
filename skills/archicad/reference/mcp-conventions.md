@@ -408,6 +408,9 @@ Anschluss an die Fehlerklassen-Zeile „Reserve meldet success, Write scheitert 
   `endCoordinate`) — Breite aus `API.Get3DBoundingBoxes` herleiten.
 - Objekte ohne Wandwirt zusätzlich in Unterzügen (Beams) suchen, bevor man sie als
   wirtlos einstuft (Querverweis auf „Host-Deckung messen" im Öffnungs-Rezept).
+- **Teamwork Receive und Pause-Abschluss** <!-- 2026-11-17 -->: Tapir `TeamworkReceive`
+  existiert (neben `TeamworkSend`). Pause-Abschluss = Send, Receive, `ReleaseElements`
+  für alle Typen, Send. (Live THN, ELMonkey 0.11.12.1, AC29.)
 
 ## Werkzeug-Hygiene für Hilfsskripte <!-- 2026-09-07 -->
 
