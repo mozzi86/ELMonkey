@@ -1708,11 +1708,11 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<GetCurtainWallPlaneCommand> (
             elmSabCommands, "0.11.12.2",
-            "ELM_SAB: Liest Neigung (angle, Grad), planeMatrix, planeOffset, Hoehe und flipped bestehender Fassaden - Vorlage fuer liegende Fassaden (Boden/Abhangdecke)."
+            "ELM_SAB: Liest Neigung (angle, Grad), planeMatrix, planeOffset, Hoehe und flipped bestehender Fassaden - Vorlage fuer liegende Fassaden (Boden/Abhangdecke). 0.11.15: je Segment gridOrigin (Ursprungspunkt des Rasters) und columnOrigin/rowOrigin."
         );
         err |= RegisterCommand<SetCurtainWallSegmentCommand> (
             elmSabCommands, "0.11.12.2",
-            "ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen (Zellen nach Vorlage der ersten Zelle), Basislinienlaenge, Hoehe. Fuer liegende Fassaden: Muster per MoveElements copy duplizieren, dann hiermit anpassen. 0.11.14: columnOrigin/rowOrigin setzen den Rasterursprung (start = Muster ab Segmentanfang), Ruecklese in der Antwort."
+            "ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen (Zellen nach Vorlage der ersten Zelle), Basislinienlaenge, Hoehe. Fuer liegende Fassaden: Muster per MoveElements copy duplizieren, dann hiermit anpassen. 0.11.14: columnOrigin/rowOrigin setzen den Rasterursprung-Typ (gridOriginType), Ruecklese in der Antwort. 0.11.15: gridOriginAtStart setzt den Ursprungspunkt des Rasters (gridOrigin) auf den Segmentanfang, Antwort liest gridOrigin und segmentBegin zurueck."
         );
 #ifdef ServerMainVers_2900
         err |= RegisterCommand<GetViewDesignOptionCombinationsCommandELM> (

@@ -13,7 +13,9 @@
 // mit der Hauptlinie 0.10.4 (Ebenen-Fixes) zusammengeführt.
 // 0.11.13 (16.11.2026): GetSolidBounds - Koerper-Box fuer den Diff-Checker Archicad <-> Plattform.
 // 0.11.14 (17.11.2026): SetCurtainWallSegmentELM columnOrigin/rowOrigin (Rasterursprung) mit Ruecklese.
-#define ELM_SAB_VERSION "0.11.14"
+// 0.11.15 (17.11.2026): SetCurtainWallSegmentELM gridOriginAtStart (Ursprungspunkt gridOrigin = Segmentanfang begC)
+// mit Ruecklese; GetCurtainWallPlaneELM meldet je Segment gridOrigin und columnOrigin/rowOrigin.
+#define ELM_SAB_VERSION "0.11.15"
 
 // Identifiziert den konkreten Build — die CI baut aus einem rollenden Tag, der Tag allein
 // ist also kein Beleg dafür, welcher Stand im Bundle steckt.
