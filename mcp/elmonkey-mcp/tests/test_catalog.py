@@ -95,6 +95,18 @@ def test_search_ursprungspunkt():
     assert c.search(e2, "Ursprungspunkt Fassade")[0]["command"] == "SetCurtainWallSegmentELM"
 
 
+def test_search_pfosten_riegel():
+    from elmonkey_mcp.addons.archicad.catalog import SYNONYMS
+    assert SYNONYMS.get("pfosten") == "frame"
+    assert SYNONYMS.get("riegel") == "frame"
+    neu = ("ELM_SAB: Liest alle Pfosten und Riegel (frames) einer Fassade: GUID, classID/classRole, segmentID, cellID, "
+           "contourID, Lauflaenge ab Segmentanfang; je Segment gridOrigin, Raster und Gitterlinien. Nur lesen.")
+    e2 = E + [{"name": "ELM_SAB.GetCurtainWallFramesELM", "namespace": "ELM_SAB", "command": "GetCurtainWallFramesELM",
+               "group": "ELM_SAB", "description": neu, "version": "", "inputSchema": None}]
+    assert c.search(e2, "Pfosten der Fassade lesen")[0]["command"] == "GetCurtainWallFramesELM"
+    assert c.search(e2, "Riegel Fassade")[0]["command"] == "GetCurtainWallFramesELM"
+
+
 def test_resolve():
     assert c.resolve(E, "elements_get_details_of_elements") == ("TapirCommand", "GetDetailsOfElements")
     assert c.resolve(E, "GetStories") == ("TapirCommand", "GetStories")

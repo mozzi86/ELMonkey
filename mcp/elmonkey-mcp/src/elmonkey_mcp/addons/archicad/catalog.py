@@ -83,6 +83,8 @@ SYNONYMS = {
     "ursprung": "origin", "rasterursprung": "origin", "raster": "pattern",
     # 0.11.15 Ursprungspunkt des Rasters (SetCurtainWallSegmentELM gridOriginAtStart)
     "ursprungspunkt": "origin",
+    # 0.11.16 Pfosten/Riegel lesen (GetCurtainWallFramesELM)
+    "pfosten": "frame", "riegel": "frame",
 }
 
 _cache: dict = {}
