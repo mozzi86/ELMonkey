@@ -46,6 +46,25 @@ public:
     virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
 };
 
+// GetCurtainWallFramesELM (0.11.16): liest alle Pfosten/Riegel (cWallFrames) einer Fassade mit Klasse,
+// Segment, Zelle, Lage und Lauflaenge ab Segmentanfang, dazu je Segment Ursprung, Raster und Gitterlinien.
+// Anlass: live 17.11.2026 blieb ein Pfosten 0,986 m vom Segmentanfang bei jeder Feldfolge stehen. Nur lesen.
+class GetCurtainWallFramesCommand : public ELMCommandBase
+{
+public:
+    GetCurtainWallFramesCommand () = default;
+
+    virtual GS::String GetName () const override
+    {
+        return "GetCurtainWallFramesELM";
+    }
+
+    virtual GS::Optional<GS::UniString> GetInputParametersSchema () const override;
+    virtual GS::Optional<GS::UniString> GetResponseSchema () const override;
+
+    virtual GS::ObjectState Execute (const GS::ObjectState& parameters, GS::ProcessControl& processControl) const override;
+};
+
 class SetCurtainWallSegmentCommand : public ELMCommandBase
 {
 public:

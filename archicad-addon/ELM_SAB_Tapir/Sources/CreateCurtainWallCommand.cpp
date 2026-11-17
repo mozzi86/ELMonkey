@@ -2,6 +2,7 @@
 #include "MigrationHelper.hpp"
 
 #include <cmath>
+#include <string>
 
 GS::Optional<GS::UniString> CreateCurtainWallCommand::GetInputParametersSchema () const
 {
@@ -571,7 +572,338 @@ GS::ObjectState GetCurtainWallPlaneCommand::Execute (const GS::ObjectState& para
     return response;
 }
 
-// SetCurtainWallSegmentELM (0.11.12.2, Rasterursprung-Typ ab 0.11.14, Ursprungspunkt ab 0.11.15): Kontur/Raster/Laenge/Hoehe einer BESTEHENDEN Fassade
+// ---------------------------------------------------------------------------
+// GetCurtainWallFramesELM (0.11.16) — alle Pfosten/Riegel einer Fassade lesen.
+// Anlass: live 2026-11-17 (AC29) blieb ein Pfosten 0,986 m vom Segmentanfang bei jeder Feldfolge stehen,
+// auch bei einer einzigen Spalte. Offen war, ob das der Rasterursprung oder ein einzeln gesetzter Pfosten
+// ist. Dafuer je Pfosten classID (Merged/Division/Corner/Boundary/Klasse/Customized), contourID, segmentID,
+// cellID, begRel/endRel und die Lauflaenge ab Segmentanfang; je Segment Ursprung, Raster (aus dem
+// Segment-Memo, nicht nur dem Schema der Fassade) und die Gitterlinien des Segments (cWSegGridMesh).
+// Nur lesen.
+// ---------------------------------------------------------------------------
+GS::Optional<GS::UniString> GetCurtainWallFramesCommand::GetInputParametersSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": {
+            "elements": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "elementId": { "type": "object", "properties": { "guid": { "type": "string" } }, "required": ["guid"] }
+                    },
+                    "required": ["elementId"]
+                }
+            },
+            "includeGridLines": { "type": "boolean", "description": "Gitterlinien je Segment (cWSegGridMesh) mitliefern. Default true." }
+        },
+        "required": ["elements"]
+    })");
+}
+
+GS::Optional<GS::UniString> GetCurtainWallFramesCommand::GetResponseSchema () const
+{
+    return GS::UniString (R"({
+        "type": "object",
+        "properties": {
+            "curtainWalls": {
+                "type": "array",
+                "items": { "type": "object" },
+                "description": "Je Fassade: success, elementId, nFrames, nSegments, schemeColumnPattern/schemeRowPattern (Schema der Fassade), segments (guid, category, begC, endC, gridOrigin, gridAngle, columnOrigin/rowOrigin, columnPattern/rowPattern aus dem Segment-Memo, gridOriginFromSegmentElement, mainAxisLines/secondaryAxisLines) und frames (guid, classID, classRole, className, objectType, segmentID, cellID, contourID, begRel/endRel, begC/endC, orientation, uBeg/uEnd = Lauflaenge ab Segmentanfang, direction, Flags)."
+            }
+        },
+        "required": ["curtainWalls"]
+    })");
+}
+
+static GS::UniString PatternLogicToString (API_CWSegmentPatternLogicID logic)
+{
+    switch (logic) {
+        case APICWSePL_FixedSizes:        return "fixedSizes";
+        case APICWSePL_BestDivision:      return "bestDivision";
+        case APICWSePL_NumberOfDivisions: return "numberOfDivisions";
+        default:                          return "unknown";
+    }
+}
+
+// Raster (primary = Spalten, secondary = Zeilen) als ObjectState. Laengen der Felder werden gegen die
+// tatsaechliche Blockgroesse begrenzt, damit ein inkonsistentes nPattern nicht ueber das Ende liest.
+static GS::ObjectState PatternToObjectState (const API_CWSegmentPatternData& pat)
+{
+    GS::ObjectState os;
+    os.Add ("logic", PatternLogicToString (pat.logic));
+    os.Add ("gridOriginType", GridOriginToString (pat.gridOriginType));
+    os.Add ("nPattern", (Int32) pat.nPattern);
+    os.Add ("endWithID", (Int32) pat.endWithID);
+    os.Add ("nDivisions", (Int32) pat.nDivisions);
+    os.Add ("infillPanelID", (Int32) pat.infillPanelID);
+    os.Add ("nFlexibleIDs", (Int32) pat.nFlexibleIDs);
+    const auto& pl = os.AddList<double> ("pattern");
+    if (pat.pattern != nullptr) {
+        const UInt32 cap = (UInt32) (BMpGetSize (reinterpret_cast<GSPtr> (pat.pattern)) / sizeof (double));
+        const UInt32 n = pat.nPattern < cap ? pat.nPattern : cap;
+        for (UInt32 i = 0; i < n; ++i)
+            pl (pat.pattern[i]);
+    }
+    const auto& fl = os.AddList<Int32> ("flexibleIDs");
+    if (pat.flexibleIDs != nullptr) {
+        const UInt32 cap = (UInt32) (BMpGetSize (reinterpret_cast<GSPtr> (pat.flexibleIDs)) / sizeof (UInt32));
+        const UInt32 n = pat.nFlexibleIDs < cap ? pat.nFlexibleIDs : cap;
+        for (UInt32 i = 0; i < n; ++i)
+            fl ((Int32) pat.flexibleIDs[i]);
+    }
+    return os;
+}
+
+// classID-Rolle nach DevKit APICWFrameClass_*: merged (geloescht/verschmolzen), division (Generik ohne Profil),
+// corner, boundary (Kontur), customized (einzeln geaenderter Rahmen), sonst classN = N-te eigene Klasse ab 0.
+static GS::UniString FrameClassRole (UInt32 classID)
+{
+    if (classID == (UInt32) APICWFrameClass_Merged)     return "merged";
+    if (classID == (UInt32) APICWFrameClass_Division)   return "division";
+    if (classID == (UInt32) APICWFrameClass_Corner)     return "corner";
+    if (classID == (UInt32) APICWFrameClass_Boundary)   return "boundary";
+    if (classID == (UInt32) APICWFrameClass_Customized) return "customized";
+    if (classID >= (UInt32) APICWFrameClass_FirstCustomClass)
+        return GS::UniString ("class") + GS::UniString (std::to_string (classID - (UInt32) APICWFrameClass_FirstCustomClass).c_str ());
+    return "unknown";
+}
+
+static GS::UniString FrameObjectTypeToString (API_CWFrameObjectTypeID t)
+{
+    switch (t) {
+        case APICWFrObjectType_Invisible:                 return "invisible";
+        case APICWFrObjectType_GDL:                       return "gdl";
+        case APICWFrObjectType_InvisibleConnectedTurning: return "invisibleConnectedTurning";
+        case APICWFrObjectType_InvisibleConnectedStill:   return "invisibleConnectedStill";
+        default:                                          return "unknown";
+    }
+}
+
+static GS::UniString UInt64ToString (UInt64 v)
+{
+    return GS::UniString (std::to_string ((unsigned long long) v).c_str ());
+}
+
+static GS::ObjectState Coord2DToObjectState (const API_Coord& c)
+{
+    GS::ObjectState os;
+    os.Add ("x", c.x);
+    os.Add ("y", c.y);
+    return os;
+}
+
+// Lauflaenge eines Punktes ab begC entlang der Segmentlinie (Grundriss, xy), Meter.
+static double RunLengthAlongSegment (const API_CWSegmentType& seg, const API_Coord3D& p)
+{
+    const double dx = seg.endC.x - seg.begC.x;
+    const double dy = seg.endC.y - seg.begC.y;
+    const double len = std::sqrt (dx * dx + dy * dy);
+    if (len < 1e-9)
+        return 0.0;
+    return ((p.x - seg.begC.x) * dx + (p.y - seg.begC.y) * dy) / len;
+}
+
+static void AddGridLines (GS::ObjectState& so, const char* name, const API_GridMesh& mesh, const GS::Array<API_GridMeshLine>& lines)
+{
+    const auto& ll = so.AddList<GS::ObjectState> (name);
+    for (const API_GridMeshLine& line : lines) {
+        GS::ObjectState lo;
+        lo.Add ("elemID", UInt64ToString (line.head.elemID));
+        lo.Add ("valid", line.head.valid);
+        lo.Add ("mainDir", line.mainDir);
+        lo.Add ("userData", (Int32) line.userData);
+        const API_GridMeshVertex* vb = mesh.meshVertices.GetPtr (line.begID);
+        const API_GridMeshVertex* ve = mesh.meshVertices.GetPtr (line.endID);
+        if (vb != nullptr) {
+            lo.Add ("begParam", Coord2DToObjectState (vb->surfaceParam));
+            lo.Add ("begCoord", Coord3DToObjectState (vb->coord));
+        }
+        if (ve != nullptr) {
+            lo.Add ("endParam", Coord2DToObjectState (ve->surfaceParam));
+            lo.Add ("endCoord", Coord3DToObjectState (ve->coord));
+        }
+        ll (lo);
+    }
+}
+
+GS::ObjectState GetCurtainWallFramesCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
+{
+    GS::Array<GS::ObjectState> elements;
+    parameters.Get ("elements", elements);
+    bool includeGridLines = true;
+    parameters.Get ("includeGridLines", includeGridLines);
+
+    GS::ObjectState response;
+    const auto& list = response.AddList<GS::ObjectState> ("curtainWalls");
+    for (const GS::ObjectState& item : elements) {
+        const GS::ObjectState* elementId = item.Get ("elementId");
+        if (elementId == nullptr) {
+            list (CreateFailedExecutionResult (APIERR_BADPARS, "elementId fehlt"));
+            continue;
+        }
+        API_Element element = {};
+        element.header.guid = GetGuidFromObjectState (*elementId);
+        const GSErrCode err = ACAPI_Element_Get (&element);
+        if (err != NoError) {
+            list (CreateFailedExecutionResult (err, "Element nicht gefunden"));
+            continue;
+        }
+        if (element.header.type.typeID != API_CurtainWallID) {
+            list (CreateFailedExecutionResult (APIERR_BADELEMENTTYPE, "keine Fassade"));
+            continue;
+        }
+
+        API_ElementMemo memo = {};
+        const GSErrCode memoErr = ACAPI_Element_GetMemo (element.header.guid, &memo,
+                                                         APIMemoMask_CWallSegments | APIMemoMask_CWallFrames |
+                                                         APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern);
+        if (memoErr != NoError) {
+            ACAPI_DisposeElemMemoHdls (&memo);
+            list (CreateFailedExecutionResult (memoErr, "GetMemo der Fassade fehlgeschlagen"));
+            continue;
+        }
+
+        GS::ObjectState os;
+        os.Add ("success", true);
+        {
+            GS::ObjectState idOS;
+            idOS.Add ("guid", APIGuidToString (element.header.guid));
+            os.Add ("elementId", idOS);
+        }
+        os.Add ("nFrames", (Int32) element.curtainWall.nFrames);
+        os.Add ("nPanels", (Int32) element.curtainWall.nPanels);
+        os.Add ("nSegments", (Int32) element.curtainWall.nSegments);
+        // DevKit ACAPinc.h (ACAPI_Element_GetMemo): im Memo der FASSADE stehen cWSegPrimaryPattern/
+        // cWSegSecondaryPattern als Standard-Schema; das Raster des einzelnen Segments steht im Memo des Segments.
+        os.Add ("schemeColumnPattern", PatternToObjectState (memo.cWSegPrimaryPattern));
+        os.Add ("schemeRowPattern", PatternToObjectState (memo.cWSegSecondaryPattern));
+
+        const UInt32 nSeg = memo.cWallSegments != nullptr ? (UInt32) (BMpGetSize (reinterpret_cast<GSPtr> (memo.cWallSegments)) / sizeof (API_CWSegmentType)) : 0;
+        {
+            const auto& sl = os.AddList<GS::ObjectState> ("segments");
+            for (UInt32 k = 0; k < nSeg; ++k) {
+                const API_CWSegmentType& seg = memo.cWallSegments[k];
+                GS::ObjectState so;
+                so.Add ("index", (Int32) k);
+                so.Add ("guid", APIGuidToString (seg.head.guid));
+                so.Add ("category", seg.category == APICWSeC_Custom ? "custom" : (seg.category == APICWSeC_System ? "system" : "unknown"));
+                so.Add ("segmentType", seg.segmentType == APICWSeT_Line ? "line" : (seg.segmentType == APICWSeT_Arc ? "arc" : "invalid"));
+                so.Add ("begC", Coord3DToObjectState (seg.begC));
+                so.Add ("endC", Coord3DToObjectState (seg.endC));
+                so.Add ("gridOrigin", Coord3DToObjectState (seg.gridOrigin));
+                so.Add ("gridAngle", seg.gridAngle);
+                so.Add ("extrusion", Coord3DToObjectState (API_Coord3D { seg.extrusion.x, seg.extrusion.y, seg.extrusion.z }));
+                so.Add ("contourNum", (Int32) seg.contourNum);
+                so.Add ("patternCellNum", (Int32) seg.patternCellNum);
+                {
+                    const double dx = seg.endC.x - seg.begC.x;
+                    const double dy = seg.endC.y - seg.begC.y;
+                    so.Add ("length", std::sqrt (dx * dx + dy * dy));
+                }
+                so.Add ("gridOriginRunLength", RunLengthAlongSegment (seg, seg.gridOrigin));
+
+                // Segment als eigenes Element (API_CurtainWallSegmentID): Ursprung dort gegenlesen.
+                {
+                    API_Element segElem = {};
+                    segElem.header.guid = seg.head.guid;
+                    const GSErrCode segErr = ACAPI_Element_Get (&segElem);
+                    so.Add ("segmentElementErrorCode", (Int32) segErr);
+                    if (segErr == NoError && segElem.header.type.typeID == API_CurtainWallSegmentID)
+                        so.Add ("gridOriginFromSegmentElement", Coord3DToObjectState (segElem.cwSegment.gridOrigin));
+                }
+
+                // Raster und Gitterlinien des Segments aus dem Segment-Memo (wie DevKit Element_Test TestCurtainWallPanelsOrder).
+                API_ElementMemo segMemo = {};
+                UInt64 segMask = APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern;
+                if (includeGridLines)
+                    segMask |= APIMemoMask_CWSegGridMesh;
+                const GSErrCode segMemoErr = ACAPI_Element_GetMemo (seg.head.guid, &segMemo, segMask);
+                so.Add ("segmentMemoErrorCode", (Int32) segMemoErr);
+                if (segMemoErr == NoError) {
+                    so.Add ("columnOrigin", GridOriginToString (segMemo.cWSegPrimaryPattern.gridOriginType));
+                    so.Add ("rowOrigin", GridOriginToString (segMemo.cWSegSecondaryPattern.gridOriginType));
+                    so.Add ("columnPattern", PatternToObjectState (segMemo.cWSegPrimaryPattern));
+                    so.Add ("rowPattern", PatternToObjectState (segMemo.cWSegSecondaryPattern));
+                    if (includeGridLines && segMemo.cWSegGridMesh != nullptr) {
+                        const API_GridMesh& mesh = *segMemo.cWSegGridMesh;
+                        AddGridLines (so, "mainAxisLines", mesh, mesh.meshLinesMainAxis);
+                        AddGridLines (so, "secondaryAxisLines", mesh, mesh.meshLinesSecondaryAxis);
+                    }
+                }
+                ACAPI_DisposeElemMemoHdls (&segMemo);
+                sl (so);
+            }
+        }
+
+        {
+            UInt32 nFr = memo.cWallFrames != nullptr ? (UInt32) (BMpGetSize (reinterpret_cast<GSPtr> (memo.cWallFrames)) / sizeof (API_CWFrameType)) : 0;
+            if (element.curtainWall.nFrames < nFr)
+                nFr = element.curtainWall.nFrames;
+            const auto& fl = os.AddList<GS::ObjectState> ("frames");
+            for (UInt32 i = 0; i < nFr; ++i) {
+                const API_CWFrameType& fr = memo.cWallFrames[i];
+                GS::ObjectState fo;
+                fo.Add ("index", (Int32) i);
+                fo.Add ("guid", APIGuidToString (fr.head.guid));
+                fo.Add ("classID", UInt64ToString ((UInt64) fr.classID));
+                fo.Add ("classRole", FrameClassRole (fr.classID));
+                fo.Add ("className", GS::UniString (fr.className));
+                fo.Add ("objectType", FrameObjectTypeToString (fr.objectType));
+                fo.Add ("segmentID", (Int32) fr.segmentID);
+                fo.Add ("cellID", UInt64ToString (fr.cellID));
+                // Zerlegung wie DevKit Element_Test (Zellen-ID = Hauptachsen-Linie << 16 | Nebenachsen-Linie),
+                // dort fuer Paneele belegt, fuer Rahmen nur als Hinweis.
+                fo.Add ("cellMainLineID", UInt64ToString (fr.cellID >> 16));
+                fo.Add ("cellSecondaryLineID", UInt64ToString (fr.cellID & 0xFFFF));
+                fo.Add ("contourID", (Int32) fr.contourID);
+                fo.Add ("begRel", Coord2DToObjectState (fr.begRel));
+                fo.Add ("endRel", Coord2DToObjectState (fr.endRel));
+                fo.Add ("begC", Coord3DToObjectState (fr.begC));
+                fo.Add ("endC", Coord3DToObjectState (fr.endC));
+                fo.Add ("orientation", Coord3DToObjectState (fr.orientation));
+                fo.Add ("angle", fr.angle);
+                fo.Add ("a1", fr.a1);
+                fo.Add ("a2", fr.a2);
+                fo.Add ("b1", fr.b1);
+                fo.Add ("b2", fr.b2);
+                fo.Add ("d", fr.d);
+                fo.Add ("w", fr.w);
+                fo.Add ("connPriority", (Int32) fr.connPriority);
+                fo.Add ("hasSymbol", fr.hasSymbol);
+                fo.Add ("deleteFlag", fr.deleteFlag);
+                fo.Add ("defaultSubElem", fr.defaultSubElem);
+                fo.Add ("libInd", (Int32) fr.libInd);
+                fo.Add ("joinedFramesAtBeg", (Int32) fr.joinedCWFramesBegCNum);
+                fo.Add ("joinedFramesAtEnd", (Int32) fr.joinedCWFramesEndCNum);
+                fo.Add ("assocPanels", (Int32) fr.assocCWPanelsNum);
+                fo.Add ("auxPanelDirs", (Int32) fr.auxPanelDirsNum);
+                {
+                    const double dx = fr.endC.x - fr.begC.x;
+                    const double dy = fr.endC.y - fr.begC.y;
+                    const double dz = fr.endC.z - fr.begC.z;
+                    const double horiz = std::sqrt (dx * dx + dy * dy);
+                    fo.Add ("length", std::sqrt (dx * dx + dy * dy + dz * dz));
+                    // Hinweis fuer senkrechte Fassaden: vertical = Pfosten, horizontal = Riegel (liegende Fassaden: nur horizontal).
+                    fo.Add ("direction", std::fabs (dz) > horiz ? "vertical" : "horizontal");
+                }
+                if (fr.segmentID < nSeg) {
+                    const API_CWSegmentType& seg = memo.cWallSegments[fr.segmentID];
+                    fo.Add ("uBeg", RunLengthAlongSegment (seg, fr.begC));
+                    fo.Add ("uEnd", RunLengthAlongSegment (seg, fr.endC));
+                }
+                fl (fo);
+            }
+        }
+        ACAPI_DisposeElemMemoHdls (&memo);
+        list (os);
+    }
+    return response;
+}
+
+// SetCurtainWallSegmentELM (0.11.12.2, Rasterursprung-Typ ab 0.11.14, Ursprungspunkt ab 0.11.15, Segment-Element-Weg
+// und freier gridOrigin ab 0.11.16): Kontur/Raster/Laenge/Hoehe einer BESTEHENDEN Fassade
 // aendern. Anlass: liegende Fassaden lassen sich per Create nicht anlegen (Archicad setzt angle 0
 // auf 90, planeMatrix -> APIERR_BADPARS, Ebene nachtraeglich setzen zerstoert das Element;
 // Live-Test AC29 2026-11-09). Weg: liegendes Muster per MoveElements(copy) duplizieren, dann hiermit
@@ -603,7 +935,15 @@ GS::Optional<GS::UniString> SetCurtainWallSegmentCommand::GetInputParametersSche
                 "type": "string", "enum": ["start", "startFromCenter", "alignToCenter", "end"],
                 "description": "Rasterursprung des Zeilenrasters (secondary pattern, gridOriginType), Werte wie columnOrigin. Ohne Angabe bleibt der bisherige Ursprung. Ab 0.11.14."
             },
-            "gridOriginAtStart": { "type": "boolean", "description": "true: Ursprungspunkt des Rasters (Segment gridOrigin) auf den Segmentanfang begC setzen, damit columnWidths ab dem Segmentanfang gelten. Ab 0.11.15." }
+            "gridOriginAtStart": { "type": "boolean", "description": "true: Ursprungspunkt des Rasters (Segment gridOrigin) auf den Segmentanfang begC setzen, damit columnWidths ab dem Segmentanfang gelten. Ab 0.11.15; live 17.11. ueber das Fassaden-Memo wirkungslos, ab 0.11.16 zusaetzlich am Segment-Element (gridOriginVia)." },
+            "gridOrigin": {
+                "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } }, "required": ["x", "y", "z"],
+                "description": "Beliebiger Ursprungspunkt des Rasters, gleiches Koordinatensystem wie die Ruecklese gridOrigin (GetCurtainWallPlaneELM/GetCurtainWallFramesELM). Nicht zusammen mit gridOriginAtStart. Ab 0.11.16."
+            },
+            "gridOriginVia": {
+                "type": "string", "enum": ["auto", "memo", "segment", "both"],
+                "description": "Weg fuer gridOrigin/gridOriginAtStart: memo = Fassaden-Memo cWallSegments (0.11.15), segment = Segment-Element (API_CurtainWallSegmentID, Maske API_CWSegmentType.gridOrigin), both = beide nacheinander, auto (Default) = erst memo, segment nur wenn die Ruecklese den Zielpunkt nicht zeigt. Ab 0.11.16."
+            }
         },
         "required": ["elementId"]
     })");
@@ -632,9 +972,42 @@ GS::Optional<GS::UniString> SetCurtainWallSegmentCommand::GetResponseSchema () c
                 "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } },
                 "description": "Segmentanfang begC nach der Aenderung, aus dem Memo zurueckgelesen (Vergleich mit gridOrigin). Ab 0.11.15."
             },
+            "gridOriginTarget": {
+                "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } },
+                "description": "Angestrebter Ursprungspunkt (begC bei gridOriginAtStart, sonst gridOrigin). Ab 0.11.16."
+            },
+            "gridOriginReached": { "type": "boolean", "description": "Ruecklese gridOrigin (Fassaden-Memo oder Segment-Element) liegt innerhalb 0,1 mm am Ziel. Ab 0.11.16." },
+            "gridOriginFromSegmentElement": {
+                "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } },
+                "description": "gridOrigin frisch vom Segment-Element (ACAPI_Element_Get auf die Segment-GUID) nach allen Aenderungen. Ab 0.11.16."
+            },
+            "memoPath": { "type": "object", "description": "Weg Fassaden-Memo: ran, step, errorCode, gridOriginAfter (Ruecklese direkt danach). Ab 0.11.16." },
+            "segmentPath": { "type": "object", "description": "Weg Segment-Element: ran, skipped (Grund), step, errorCode, segmentGuid, gridOriginAfter (Memo-Ruecklese) und gridOriginAfterSegmentElement. Ab 0.11.16." },
             "error": { "type": "object" }
         }
     })");
+}
+
+// 0.11.16: erstes Segment einer Fassade frisch aus dem Memo (Kopie; Memo wird sofort freigegeben).
+static GSErrCode ReadFirstCWSegment (const API_Guid& cwGuid, API_CWSegmentType& seg)
+{
+    API_ElementMemo m = {};
+    GSErrCode e = ACAPI_Element_GetMemo (cwGuid, &m, APIMemoMask_CWallSegments);
+    if (e == NoError) {
+        const UInt32 n = m.cWallSegments != nullptr ? (UInt32) (BMpGetSize (reinterpret_cast<GSPtr> (m.cWallSegments)) / sizeof (API_CWSegmentType)) : 0;
+        if (n >= 1)
+            seg = m.cWallSegments[0];
+        else
+            e = APIERR_GENERAL;
+    }
+    ACAPI_DisposeElemMemoHdls (&m);
+    return e;
+}
+
+// 0.11.16: Punktvergleich fuer die Ruecklese, Toleranz 0,1 mm.
+static bool SameCoord3D (const API_Coord3D& a, const API_Coord3D& b)
+{
+    return std::fabs (a.x - b.x) < 1e-4 && std::fabs (a.y - b.y) < 1e-4 && std::fabs (a.z - b.z) < 1e-4;
 }
 
 static void ReplacePattern (API_CWSegmentPatternData& pat, const GS::Array<double>& sizes)
@@ -712,6 +1085,30 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
     bool gridOriginAtStart = false;
     parameters.Get ("gridOriginAtStart", gridOriginAtStart);
 
+    // 0.11.16: Live 2026-11-17 blieb gridOrigin nach dem Memo-Weg (0.11.15) bei {0,0,0}, obwohl Change NoError
+    // meldete. Darum zusaetzlich der Weg ueber das Segment-Element (API_CurtainWallSegmentID) und ein frei
+    // waehlbarer Ursprungspunkt. Je Weg werden step/errorCode und die Ruecklese direkt danach gemeldet.
+    API_Coord3D explicitOrigin = {};
+    bool hasExplicitOrigin = false;
+    {
+        const GS::ObjectState* originOS = parameters.Get ("gridOrigin");
+        if (originOS != nullptr) {
+            if (!originOS->Get ("x", explicitOrigin.x) || !originOS->Get ("y", explicitOrigin.y) || !originOS->Get ("z", explicitOrigin.z))
+                return CreateErrorResponse (APIERR_BADPARS, "gridOrigin braucht x, y und z");
+            hasExplicitOrigin = true;
+        }
+    }
+    if (hasExplicitOrigin && gridOriginAtStart)
+        return CreateErrorResponse (APIERR_BADPARS, "gridOrigin und gridOriginAtStart nicht zusammen angeben");
+    GS::UniString originVia = "auto";
+    parameters.Get ("gridOriginVia", originVia);
+    if (originVia != "auto" && originVia != "memo" && originVia != "segment" && originVia != "both")
+        return CreateErrorResponse (APIERR_BADPARS, "gridOriginVia unbekannt (erlaubt: auto, memo, segment, both)");
+    const bool wantOrigin = gridOriginAtStart || hasExplicitOrigin;
+    const bool viaMemo = wantOrigin && (originVia == "auto" || originVia == "memo" || originVia == "both");
+    const bool viaSegmentForced = wantOrigin && (originVia == "segment" || originVia == "both");
+    const bool viaSegmentAuto = wantOrigin && originVia == "auto";
+
     API_Element cw = {};
     cw.header.guid = GetGuidFromObjectState (*elementId);
     GSErrCode err = ACAPI_Element_Get (&cw);
@@ -729,11 +1126,28 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
         ACAPI_DisposeElemMemoHdls (&cwMemo);
         return CreateErrorResponse (APIERR_BADPARS, "nur Fassaden mit genau einem Segment");
     }
+    // Bei gridOriginAtStart wird das Ziel im Segment-Weg auf den frisch gelesenen begC nachgefuehrt (falls baseLine mitgeaendert wurde).
+    API_Coord3D originTarget = hasExplicitOrigin ? explicitOrigin : cwMemo.cWallSegments[0].begC;
+
+    // Ergebnis je Weg (0.11.16)
+    GS::UniString memoStep = "notRun";
+    GSErrCode memoErr = NoError;
+    bool memoAfterValid = false;
+    API_Coord3D memoAfter = {};
+    bool segRan = false;
+    GS::UniString segStep = "notRun";
+    GS::UniString segSkipped;
+    GSErrCode segErr = NoError;
+    API_Guid segGuid = APINULLGuid;
+    bool segAfterValid = false;
+    API_Coord3D segAfter = {};
+    bool segElemAfterValid = false;
+    API_Coord3D segElemAfter = {};
 
     GS::UniString step = "start";
     err = ACAPI_CallUndoableCommand ("ELM_SAB SetCurtainWallSegmentELM", [&] () -> GSErrCode {
         // 1) Fassade: Hoehe, Basislinienlaenge, Raster (wie DevKit Element_Test)
-        if (hasHeight || hasPolygon || hasCols || hasRows || hasColumnOrigin || hasRowOrigin || gridOriginAtStart || !contour.IsEmpty ()) {
+        if (hasHeight || hasPolygon || hasCols || hasRows || hasColumnOrigin || hasRowOrigin || viaMemo || !contour.IsEmpty ()) {
             step = "curtainWall";
             API_Element mask;
             ACAPI_ELEMENT_MASK_CLEAR (mask);
@@ -779,14 +1193,81 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
                     cwMemo.cWSegSecondaryPattern.gridOriginType = rowOrigin;
                 changeMask |= APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern | APIMemoMask_CWSegPanelPattern;
             }
-            if (gridOriginAtStart) {
-                // Genau ein Segment (oben geprueft); der Memo wurde mit APIMemoMask_CWallSegments gelesen.
-                cwMemo.cWallSegments[0].gridOrigin = cwMemo.cWallSegments[0].begC;
+            if (viaMemo) {
+                // Memo-Weg (0.11.15). Genau ein Segment (oben geprueft); der Memo wurde mit APIMemoMask_CWallSegments
+                // gelesen. Live 2026-11-17: Change meldet NoError, die Ruecklese bleibt aber bei {0,0,0}.
+                cwMemo.cWallSegments[0].gridOrigin = originTarget;
                 changeMask |= APIMemoMask_CWallSegments;
+                memoStep = "change";
             }
             const GSErrCode e1 = ACAPI_Element_Change (&cw, &mask, changeMask != 0 ? &cwMemo : nullptr, changeMask, true);
+            if (viaMemo)
+                memoErr = e1;
             if (e1 != NoError)
                 return e1;
+            if (viaMemo) {
+                memoStep = "readBack";
+                API_CWSegmentType s = {};
+                if (ReadFirstCWSegment (cw.header.guid, s) == NoError) {
+                    memoAfter = s.gridOrigin;
+                    memoAfterValid = true;
+                    memoStep = "done";
+                }
+            }
+        }
+
+        // 2) Segment-Element-Weg (0.11.16): Segment-GUID nach Schritt 1 frisch aus dem Memo (Archicad kann die
+        // Segmente beim Change neu anlegen), dann ACAPI_Element_Get/Change auf API_CurtainWallSegmentID mit Maske
+        // API_CWSegmentType.gridOrigin - Muster wie DevKit Element_Test (Do_CurtainWall_Edit) fuer Rahmen/Paneele.
+        bool runSegment = viaSegmentForced;
+        if (viaSegmentAuto) {
+            if (memoAfterValid && SameCoord3D (memoAfter, originTarget))
+                segSkipped = "memo-Weg hat gewirkt";
+            else
+                runSegment = true;
+        }
+        if (runSegment) {
+            segRan = true;
+            step = "segmentElement";
+            API_CWSegmentType s = {};
+            segStep = "readSegment";
+            segErr = ReadFirstCWSegment (cw.header.guid, s);
+            if (segErr == NoError) {
+                segGuid = s.head.guid;
+                if (gridOriginAtStart)
+                    originTarget = s.begC;
+                API_Element segElem = {};
+                segElem.header.guid = segGuid;
+                segStep = "getSegment";
+                segErr = ACAPI_Element_Get (&segElem);
+                if (segErr == NoError && segElem.header.type.typeID != API_CurtainWallSegmentID)
+                    segErr = APIERR_BADELEMENTTYPE;
+                if (segErr == NoError) {
+                    API_Element segMask;
+                    ACAPI_ELEMENT_MASK_CLEAR (segMask);
+                    ACAPI_ELEMENT_MASK_SET (segMask, API_CWSegmentType, gridOrigin);
+                    segElem.cwSegment.gridOrigin = originTarget;
+                    segStep = "changeSegment";
+                    segErr = ACAPI_Element_Change (&segElem, &segMask, nullptr, 0, true);
+                }
+                if (segErr == NoError) {
+                    segStep = "readBack";
+                    API_CWSegmentType s2 = {};
+                    if (ReadFirstCWSegment (cw.header.guid, s2) == NoError) {
+                        segAfter = s2.gridOrigin;
+                        segAfterValid = true;
+                    }
+                    API_Element segBack = {};
+                    segBack.header.guid = segGuid;
+                    if (ACAPI_Element_Get (&segBack) == NoError && segBack.header.type.typeID == API_CurtainWallSegmentID) {
+                        segElemAfter = segBack.cwSegment.gridOrigin;
+                        segElemAfterValid = true;
+                    }
+                    segStep = "done";
+                }
+            }
+            // Ein Fehler am Segment-Weg bricht den Befehl nicht ab: die uebrigen Aenderungen bleiben,
+            // der Code steht in segmentPath.errorCode.
         }
         step = "done";
         return NoError;
@@ -809,6 +1290,9 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
     response.Add ("contourVertices", (Int32) contour.GetSize ());
 
     // Ruecklese des Rasterursprungs: Memo nach der Aenderung neu lesen, nicht den Sollwert melden.
+    bool finalMemoValid = false;
+    API_Coord3D finalMemoOrigin = {};
+    API_Guid finalSegGuid = APINULLGuid;
     API_ElementMemo afterMemo = {};
     if (ACAPI_Element_GetMemo (cw.header.guid, &afterMemo, APIMemoMask_CWallSegments | APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern) == NoError) {
         response.Add ("columnOrigin", GridOriginToString (afterMemo.cWSegPrimaryPattern.gridOriginType));
@@ -818,8 +1302,51 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
         if (nSegAfter >= 1) {
             response.Add ("gridOrigin", Coord3DToObjectState (afterMemo.cWallSegments[0].gridOrigin));
             response.Add ("segmentBegin", Coord3DToObjectState (afterMemo.cWallSegments[0].begC));
+            finalMemoOrigin = afterMemo.cWallSegments[0].gridOrigin;
+            finalMemoValid = true;
+            finalSegGuid = afterMemo.cWallSegments[0].head.guid;
         }
-        ACAPI_DisposeElemMemoHdls (&afterMemo);
+    }
+    ACAPI_DisposeElemMemoHdls (&afterMemo);
+
+    // 0.11.16: Ursprung auch am Segment-Element frisch gegenlesen und je Weg berichten.
+    if (wantOrigin) {
+        response.Add ("gridOriginTarget", Coord3DToObjectState (originTarget));
+        bool finalSegValid = false;
+        API_Coord3D finalSegOrigin = {};
+        if (finalSegGuid != APINULLGuid) {
+            API_Element segBack = {};
+            segBack.header.guid = finalSegGuid;
+            if (ACAPI_Element_Get (&segBack) == NoError && segBack.header.type.typeID == API_CurtainWallSegmentID) {
+                finalSegOrigin = segBack.cwSegment.gridOrigin;
+                finalSegValid = true;
+                response.Add ("gridOriginFromSegmentElement", Coord3DToObjectState (finalSegOrigin));
+            }
+        }
+        response.Add ("gridOriginReached", (finalMemoValid && SameCoord3D (finalMemoOrigin, originTarget)) ||
+                                           (finalSegValid && SameCoord3D (finalSegOrigin, originTarget)));
+
+        GS::ObjectState memoOS;
+        memoOS.Add ("ran", viaMemo);
+        memoOS.Add ("step", memoStep);
+        memoOS.Add ("errorCode", (Int32) memoErr);
+        if (memoAfterValid)
+            memoOS.Add ("gridOriginAfter", Coord3DToObjectState (memoAfter));
+        response.Add ("memoPath", memoOS);
+
+        GS::ObjectState segOS;
+        segOS.Add ("ran", segRan);
+        if (!segSkipped.IsEmpty ())
+            segOS.Add ("skipped", segSkipped);
+        segOS.Add ("step", segStep);
+        segOS.Add ("errorCode", (Int32) segErr);
+        if (segGuid != APINULLGuid)
+            segOS.Add ("segmentGuid", APIGuidToString (segGuid));
+        if (segAfterValid)
+            segOS.Add ("gridOriginAfter", Coord3DToObjectState (segAfter));
+        if (segElemAfterValid)
+            segOS.Add ("gridOriginAfterSegmentElement", Coord3DToObjectState (segElemAfter));
+        response.Add ("segmentPath", segOS);
     }
     return response;
 }

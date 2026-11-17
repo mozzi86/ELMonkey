@@ -15,7 +15,9 @@
 // 0.11.14 (17.11.2026): SetCurtainWallSegmentELM columnOrigin/rowOrigin (Rasterursprung) mit Ruecklese.
 // 0.11.15 (17.11.2026): SetCurtainWallSegmentELM gridOriginAtStart (Ursprungspunkt gridOrigin = Segmentanfang begC)
 // mit Ruecklese; GetCurtainWallPlaneELM meldet je Segment gridOrigin und columnOrigin/rowOrigin.
-#define ELM_SAB_VERSION "0.11.15"
+// 0.11.16 (17.11.2026): GetCurtainWallFramesELM (Pfosten/Riegel lesen); SetCurtainWallSegmentELM gridOrigin {x,y,z}
+// und gridOriginVia (Weg ueber das Segment-Element), Ruecklese je Weg.
+#define ELM_SAB_VERSION "0.11.16"
 
 // Identifiziert den konkreten Build — die CI baut aus einem rollenden Tag, der Tag allein
 // ist also kein Beleg dafür, welcher Stand im Bundle steckt.

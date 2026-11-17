@@ -1712,7 +1712,11 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<SetCurtainWallSegmentCommand> (
             elmSabCommands, "0.11.12.2",
-            "ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen (Zellen nach Vorlage der ersten Zelle), Basislinienlaenge, Hoehe. Fuer liegende Fassaden: Muster per MoveElements copy duplizieren, dann hiermit anpassen. 0.11.14: columnOrigin/rowOrigin setzen den Rasterursprung-Typ (gridOriginType), Ruecklese in der Antwort. 0.11.15: gridOriginAtStart setzt den Ursprungspunkt des Rasters (gridOrigin) auf den Segmentanfang, Antwort liest gridOrigin und segmentBegin zurueck."
+            "ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen (Zellen nach Vorlage der ersten Zelle), Basislinienlaenge, Hoehe. Fuer liegende Fassaden: Muster per MoveElements copy duplizieren, dann hiermit anpassen. 0.11.14: columnOrigin/rowOrigin setzen den Rasterursprung-Typ (gridOriginType), Ruecklese in der Antwort. 0.11.15: gridOriginAtStart setzt den Ursprungspunkt des Rasters (gridOrigin) auf den Segmentanfang, Antwort liest gridOrigin und segmentBegin zurueck. 0.11.16: gridOrigin {x,y,z} setzt einen beliebigen Ursprungspunkt; gridOriginVia (auto/memo/segment/both) waehlt den Weg (Fassaden-Memo oder Segment-Element), die Antwort meldet je Weg step/errorCode und Ruecklese (memoPath, segmentPath, gridOriginReached)."
+        );
+        err |= RegisterCommand<GetCurtainWallFramesCommand> (
+            elmSabCommands, "0.11.16",
+            "ELM_SAB: Liest alle Pfosten und Riegel (frames) einer Fassade: GUID, classID/classRole (merged, division, corner, boundary, customized, classN), className, objectType, segmentID, cellID, contourID, begRel/endRel, begC/endC, Lauflaenge ab Segmentanfang (uBeg/uEnd), Richtung, Flags; je Segment gridOrigin, begC/endC, gridAngle, Raster (logic, nPattern, pattern, endWithID, flexibleIDs) aus Fassaden-Schema und Segment-Memo sowie die Gitterlinien. Nur lesen."
         );
 #ifdef ServerMainVers_2900
         err |= RegisterCommand<GetViewDesignOptionCombinationsCommandELM> (
