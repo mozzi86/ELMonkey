@@ -61,6 +61,19 @@ def test_search_liegende_fassade():
     assert "GetCurtainWallPlaneELM" in found and "SetCurtainWallSegmentELM" in found
 
 
+def test_synonyms_waende_bereinigen():
+    from elmonkey_mcp.addons.archicad.catalog import SYNONYMS
+    erwartet = {
+        "empfangen": "receive", "freigeben": "release", "freigabe": "release", "wirtswand": "connected",
+        "wirt": "connected", "verbunden": "connected", "verbundene": "connected", "umriss": "geometry",
+        "grundrissumriss": "geometry", "hoehe": "height", "höhe": "height", "wandhoehe": "wall height",
+        "wandhöhe": "wall height", "ueberlappung": "geometry", "überlappung": "geometry", "doppelung": "geometry",
+        "rundung": "polygon", "eckstueck": "polygon", "eckstück": "polygon",
+    }
+    for key, ziel in erwartet.items():
+        assert SYNONYMS.get(key) == ziel, key
+
+
 def test_resolve():
     assert c.resolve(E, "elements_get_details_of_elements") == ("TapirCommand", "GetDetailsOfElements")
     assert c.resolve(E, "GetStories") == ("TapirCommand", "GetStories")

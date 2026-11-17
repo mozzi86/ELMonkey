@@ -72,6 +72,13 @@ SYNONYMS = {
     "diff": "solid bounds", "diffchecker": "solid bounds", "abgleich": "solid bounds", "unterschiede": "solid bounds",
     "koerperbox": "solid bounds", "körperbox": "solid bounds", "huellbox": "bounds", "hüllbox": "bounds",
     "geschnitten": "solid", "verschneidung": "solid", "anschluss": "solid",
+    # 2026-11-17 Wände bereinigen (GetConnectedElements, TeamworkReceive, ReleaseElements, ModifyWalls height)
+    "empfangen": "receive", "freigeben": "release", "freigabe": "release",
+    "wirtswand": "connected", "wirt": "connected", "verbunden": "connected", "verbundene": "connected",
+    "umriss": "geometry", "grundrissumriss": "geometry",
+    "hoehe": "height", "höhe": "height", "wandhoehe": "wall height", "wandhöhe": "wall height",
+    "ueberlappung": "geometry", "überlappung": "geometry", "doppelung": "geometry",
+    "rundung": "polygon", "eckstueck": "polygon", "eckstück": "polygon",
 }
 
 _cache: dict = {}
