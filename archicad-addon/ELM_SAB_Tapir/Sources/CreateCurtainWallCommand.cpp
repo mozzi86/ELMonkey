@@ -528,7 +528,7 @@ GS::ObjectState GetCurtainWallPlaneCommand::Execute (const GS::ObjectState& para
     return response;
 }
 
-// SetCurtainWallSegmentELM (0.11.12.2): Kontur/Raster/Laenge/Hoehe einer BESTEHENDEN Fassade
+// SetCurtainWallSegmentELM (0.11.12.2, Rasterursprung ab 0.11.14): Kontur/Raster/Laenge/Hoehe einer BESTEHENDEN Fassade
 // aendern. Anlass: liegende Fassaden lassen sich per Create nicht anlegen (Archicad setzt angle 0
 // auf 90, planeMatrix -> APIERR_BADPARS, Ebene nachtraeglich setzen zerstoert das Element;
 // Live-Test AC29 2026-11-09). Weg: liegendes Muster per MoveElements(copy) duplizieren, dann hiermit
@@ -551,7 +551,15 @@ GS::Optional<GS::UniString> SetCurtainWallSegmentCommand::GetInputParametersSche
                 "items": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" } }, "required": ["x", "y"] },
                 "description": "Neue Basislinie (Anfang, Ende) in Weltkoordinaten wie GetCurtainWallPlaneELM.coords. Bei liegenden Fassaden: Raumkante, die Extrusion laeuft nach links."
             },
-            "height": { "type": "number", "exclusiveMinimum": 0, "description": "Neue curtainWall.height (bei liegenden Fassaden = Ausdehnung quer zur Basislinie)." }
+            "height": { "type": "number", "exclusiveMinimum": 0, "description": "Neue curtainWall.height (bei liegenden Fassaden = Ausdehnung quer zur Basislinie)." },
+            "columnOrigin": {
+                "type": "string", "enum": ["start", "startFromCenter", "alignToCenter", "end"],
+                "description": "Rasterursprung des Spaltenrasters (primary pattern, gridOriginType): start = Muster beginnt am Segmentanfang (fuer exakte Feldfolgen), startFromCenter = Muster beginnt in der Segmentmitte, alignToCenter = Muster mittig ausgerichtet, end = Muster endet am Segmentende. Ohne Angabe bleibt der bisherige Ursprung. Ab 0.11.14."
+            },
+            "rowOrigin": {
+                "type": "string", "enum": ["start", "startFromCenter", "alignToCenter", "end"],
+                "description": "Rasterursprung des Zeilenrasters (secondary pattern, gridOriginType), Werte wie columnOrigin. Ohne Angabe bleibt der bisherige Ursprung. Ab 0.11.14."
+            }
         },
         "required": ["elementId"]
     })");
@@ -570,9 +578,34 @@ GS::Optional<GS::UniString> SetCurtainWallSegmentCommand::GetResponseSchema () c
             "nFrames": { "type": "integer" },
             "height": { "type": "number" },
             "contourVertices": { "type": "integer" },
+            "columnOrigin": { "type": "string", "description": "Rasterursprung des Spaltenrasters nach der Aenderung, aus dem Memo zurueckgelesen (start/startFromCenter/alignToCenter/end/unknown)." },
+            "rowOrigin": { "type": "string", "description": "Rasterursprung des Zeilenrasters nach der Aenderung, aus dem Memo zurueckgelesen." },
             "error": { "type": "object" }
         }
     })");
+}
+
+// 0.11.14: Rasterursprung (gridOriginType) als Text <-> DevKit-Enum. Bestehende Fassaden haben
+// teils einen mittigen Ursprung; dann laesst sich eine ungleiche Feldfolge ab dem Segmentanfang
+// nicht treffen (live 2026-11-17). Mit "start" beginnt das Muster am Segmentanfang.
+static bool ParseGridOrigin (const GS::UniString& text, API_CWSegmentGridOrigPosTypeID& origin)
+{
+    if (text == "start")           { origin = APICWSeGridOrigin_StartWithPattern; return true; }
+    if (text == "startFromCenter") { origin = APICWSeGridOrigin_StartFromCenter;  return true; }
+    if (text == "alignToCenter")   { origin = APICWSeGridOrigin_AlignToCenter;    return true; }
+    if (text == "end")             { origin = APICWSeGridOrigin_EndWithPattern;   return true; }
+    return false;
+}
+
+static GS::UniString GridOriginToString (API_CWSegmentGridOrigPosTypeID origin)
+{
+    switch (origin) {
+        case APICWSeGridOrigin_StartWithPattern: return "start";
+        case APICWSeGridOrigin_StartFromCenter:  return "startFromCenter";
+        case APICWSeGridOrigin_AlignToCenter:    return "alignToCenter";
+        case APICWSeGridOrigin_EndWithPattern:   return "end";
+        default:                                 return "unknown";
+    }
 }
 
 static void ReplacePattern (API_CWSegmentPatternData& pat, const GS::Array<double>& sizes)
@@ -624,6 +657,27 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
     const bool hasPolygon = polygon.GetSize () == 2;
     const bool hasHeight = parameters.Get ("height", height);
 
+    API_CWSegmentGridOrigPosTypeID columnOrigin = APICWSeGridOrigin_StartWithPattern;
+    API_CWSegmentGridOrigPosTypeID rowOrigin = APICWSeGridOrigin_StartWithPattern;
+    bool hasColumnOrigin = false;
+    bool hasRowOrigin = false;
+    {
+        GS::UniString text;
+        if (parameters.Get ("columnOrigin", text)) {
+            if (!ParseGridOrigin (text, columnOrigin))
+                return CreateErrorResponse (APIERR_BADPARS, "columnOrigin unbekannt (erlaubt: start, startFromCenter, alignToCenter, end)");
+            hasColumnOrigin = true;
+        }
+    }
+    {
+        GS::UniString text;
+        if (parameters.Get ("rowOrigin", text)) {
+            if (!ParseGridOrigin (text, rowOrigin))
+                return CreateErrorResponse (APIERR_BADPARS, "rowOrigin unbekannt (erlaubt: start, startFromCenter, alignToCenter, end)");
+            hasRowOrigin = true;
+        }
+    }
+
     API_Element cw = {};
     cw.header.guid = GetGuidFromObjectState (*elementId);
     GSErrCode err = ACAPI_Element_Get (&cw);
@@ -645,7 +699,7 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
     GS::UniString step = "start";
     err = ACAPI_CallUndoableCommand ("ELM_SAB SetCurtainWallSegmentELM", [&] () -> GSErrCode {
         // 1) Fassade: Hoehe, Basislinienlaenge, Raster (wie DevKit Element_Test)
-        if (hasHeight || hasPolygon || hasCols || hasRows || !contour.IsEmpty ()) {
+        if (hasHeight || hasPolygon || hasCols || hasRows || hasColumnOrigin || hasRowOrigin || !contour.IsEmpty ()) {
             step = "curtainWall";
             API_Element mask;
             ACAPI_ELEMENT_MASK_CLEAR (mask);
@@ -682,6 +736,15 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
                 cwMemo.cWSegPatternCells = cells;
                 changeMask |= APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern | APIMemoMask_CWSegPanelPattern;
             }
+            if (hasColumnOrigin || hasRowOrigin) {
+                // Nur der Ursprung: nPattern bleibt, die Zellen passen also weiter und gehen unveraendert
+                // mit zurueck. Die drei Raster-Masken immer gemeinsam schicken, wie oben und im DevKit Element_Test.
+                if (hasColumnOrigin)
+                    cwMemo.cWSegPrimaryPattern.gridOriginType = columnOrigin;
+                if (hasRowOrigin)
+                    cwMemo.cWSegSecondaryPattern.gridOriginType = rowOrigin;
+                changeMask |= APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern | APIMemoMask_CWSegPanelPattern;
+            }
             const GSErrCode e1 = ACAPI_Element_Change (&cw, &mask, changeMask != 0 ? &cwMemo : nullptr, changeMask, true);
             if (e1 != NoError)
                 return e1;
@@ -705,5 +768,13 @@ GS::ObjectState SetCurtainWallSegmentCommand::Execute (const GS::ObjectState& pa
         response.Add ("height", after.curtainWall.height);
     }
     response.Add ("contourVertices", (Int32) contour.GetSize ());
+
+    // Ruecklese des Rasterursprungs: Memo nach der Aenderung neu lesen, nicht den Sollwert melden.
+    API_ElementMemo afterMemo = {};
+    if (ACAPI_Element_GetMemo (cw.header.guid, &afterMemo, APIMemoMask_CWSegPrimaryPattern | APIMemoMask_CWSegSecPattern) == NoError) {
+        response.Add ("columnOrigin", GridOriginToString (afterMemo.cWSegPrimaryPattern.gridOriginType));
+        response.Add ("rowOrigin", GridOriginToString (afterMemo.cWSegSecondaryPattern.gridOriginType));
+        ACAPI_DisposeElemMemoHdls (&afterMemo);
+    }
     return response;
 }

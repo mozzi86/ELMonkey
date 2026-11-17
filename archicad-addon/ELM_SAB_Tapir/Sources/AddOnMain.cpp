@@ -1712,7 +1712,7 @@ GSErrCode Initialize (void)
         );
         err |= RegisterCommand<SetCurtainWallSegmentCommand> (
             elmSabCommands, "0.11.12.2",
-            "ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen (Zellen nach Vorlage der ersten Zelle), Basislinienlaenge, Hoehe. Fuer liegende Fassaden: Muster per MoveElements copy duplizieren, dann hiermit anpassen."
+            "ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen (Zellen nach Vorlage der ersten Zelle), Basislinienlaenge, Hoehe. Fuer liegende Fassaden: Muster per MoveElements copy duplizieren, dann hiermit anpassen. 0.11.14: columnOrigin/rowOrigin setzen den Rasterursprung (start = Muster ab Segmentanfang), Ruecklese in der Antwort."
         );
 #ifdef ServerMainVers_2900
         err |= RegisterCommand<GetViewDesignOptionCombinationsCommandELM> (

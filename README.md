@@ -11,7 +11,7 @@
 | **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.4.0 (dazu `abgleich` und `diff`: Abgleich und Diff-Checker Archicad ↔ Plattform), 94 Tests |
 | **Plattform-Monkey** – eigene, funktionsgleiche Kopie des Kerns in der Schwarz Plattform (`core/plattform_monkey`) | Plattform (privat) | ⚠ `kern`/`regeln`/`plattform` gleichauf mit 0.3.0; **`diff` (Geometrie im Stand, `plattform.geometrie`) fehlt dort noch** |
 | **MCP-Server** `elmonkey-mcp` 0.2.4 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 9 Tests, live gegen Archicad gelesen |
-| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.13 (dazu `GetSolidBounds` für den Diff-Checker; noch nicht gebaut), CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
+| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.14 (0.11.13: `GetSolidBounds` für den Diff-Checker; 0.11.14: Rasterursprung in `SetCurtainWallSegmentELM`; beide noch nicht live erprobt), CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
 | **Skill Archicad** – Arbeitswissen für Claude | [`skills/archicad/`](skills/archicad/) | ✅ umgezogen, wird nach `mozzi86/-archicad` gespiegelt |
 | **Client-Konfigurationen** (Claude Desktop/Code, Cursor, VS Code, Codex) | [`clients/`](clients/) | ✅ |
 | **Claude-Plugin** | [`plugin/`](plugin/) | ⏳ |
