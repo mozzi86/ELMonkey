@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-17 | 261117-v2c | Skill: 0.11.16 live getestet – Pfosten lesen ok, Rasterursprung per API nicht änderbar (gridOriginReached false), Neubau nötig; Zweig elm-0.11.14-cw-rasterursprung, nicht gemergt |
 | 2026-11-17 | 261117-f3p | ELM_SAB 0.11.16: GetCurtainWallFramesELM (Pfosten/Riegel mit classRole, segmentID, cellID, contourID, uBeg/uEnd; je Segment gridOrigin aus Memo und Segment-Element, Raster aus Segment-Memo, Gitterlinien); SetCurtainWallSegmentELM gridOrigin {x,y,z} + gridOriginVia (Segment-Element-Weg) mit memoPath/segmentPath; MCP 0.2.8; Skill: 0.11.15 live wirkungslos; Zweig elm-0.11.14-cw-rasterursprung, CI 8/8 grün (Lauf 44042489903), nicht gemergt, live offen |
 | 2026-11-17 | 261117-g0s | ELM_SAB 0.11.15: SetCurtainWallSegmentELM gridOriginAtStart (gridOrigin = begC) mit Rücklese gridOrigin/segmentBegin, GetCurtainWallPlaneELM je Segment gridOrigin + columnOrigin/rowOrigin; MCP 0.2.7; Skill berichtigt (columnOrigin reicht nicht); Zweig elm-0.11.14-cw-rasterursprung, CI 8/8 grün (Lauf 44039561318), nicht gemergt, live offen |
 | 2026-11-17 | 261117-r7u | ELM_SAB 0.11.14: SetCurtainWallSegmentELM columnOrigin/rowOrigin (Rasterursprung) mit Rücklese + MCP 0.2.6; Zweig elm-0.11.14-cw-rasterursprung, CI 8/8 grün (Lauf 44010592819), nicht gemergt, live offen |
