@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-17 | 261117-g0s | ELM_SAB 0.11.15: SetCurtainWallSegmentELM gridOriginAtStart (gridOrigin = begC) mit Rücklese gridOrigin/segmentBegin, GetCurtainWallPlaneELM je Segment gridOrigin + columnOrigin/rowOrigin; MCP 0.2.7; Skill berichtigt (columnOrigin reicht nicht); Zweig elm-0.11.14-cw-rasterursprung, CI 8/8 grün (Lauf 44039561318), nicht gemergt, live offen |
 | 2026-11-17 | 261117-r7u | ELM_SAB 0.11.14: SetCurtainWallSegmentELM columnOrigin/rowOrigin (Rasterursprung) mit Rücklese + MCP 0.2.6; Zweig elm-0.11.14-cw-rasterursprung, CI 8/8 grün (Lauf 44010592819), nicht gemergt, live offen |
 | 2026-11-17 | 261117-l3t | Skill: Lernstand 17.11. Teil 3 (Einpassung vor Wandkorrektur, Wandstärke-Schutzregeln, Putzlinien, gerundete Ecken an Leibungen, Fassaden-Ursprungspunkt gridOrigin, Bundle-Wechsel Mac, FitInWindow/CaptureView); main, gepusht |
 | 2026-11-17 | 261117-k7x | MCP 0.2.5: Suchbegriffe Wände bereinigen (empfangen, freigeben, Wirtswand, Höhe, Umriss); Versionsabweichung __init__/pyproject behoben; 10 Tests grün, nicht gepusht |
