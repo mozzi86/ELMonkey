@@ -69,6 +69,19 @@ Meldung. --> Deshalb als **Pflichtschritt jeder Update-Prozedur**: vor dem Archi
 den `Add-Ons/`-Ordner auf `*.bak`/Backup-Bundles prüfen (`ls`) und Sicherungen NUR
 außerhalb ablegen (z. B. `~/ELM_SAB_Backups/`).
 
+### Bundle-Wechsel am Mac im Teamwork-Betrieb <!-- 2026-11-17 -->
+
+1. Vor dem Beenden senden, empfangen, alles freigeben, altes Bundle sichern.
+2. `osascript … quit` kann mit -128 „abgebrochen“ zurückkommen, wenn Archicad gerade
+   „PLN-Snapshot wird hochgeladen“ zeigt (modaler Dialog, API-Code 4001). Dann warten:
+   Archicad beendet sich nach dem Upload selbst (die API meldet zuletzt 2004 „Program is
+   shutting down“).
+3. Altes Bundle nicht löschen, sondern aus dem Add-Ons-Ordner in den Sicherungsordner
+   verschieben (`mv`).
+4. Nach `open -a "Archicad 29"` öffnet Archicad das zuletzt offene Teamwork-Projekt
+   wieder; die API ist nach ca. 2 Minuten erreichbar. Version per `ELM_SAB.GetUIState` →
+   `elmSabVersion` zurücklesen.
+
 ## Erweiterungs-Entscheidungsbaum
 
 1. **Kombi aus vorhandenen Befehlen?** → Python, `tools/custom/functions.py` im
