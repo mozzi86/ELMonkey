@@ -8,10 +8,10 @@
 
 | Teil | Ordner | Stand |
 |---|---|---|
-| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.4.0 (dazu `abgleich` und `diff`: Abgleich und Diff-Checker Archicad ↔ Plattform), 94 Tests |
-| **Plattform-Monkey** – eigene, funktionsgleiche Kopie des Kerns in der Schwarz Plattform (`core/plattform_monkey`) | Plattform (privat) | ⚠ `kern`/`regeln`/`plattform` gleichauf mit 0.3.0; **`diff` (Geometrie im Stand, `plattform.geometrie`) fehlt dort noch** |
-| **MCP-Server** `elmonkey-mcp` 0.2.4 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 9 Tests, live gegen Archicad gelesen |
-| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.13 (dazu `GetSolidBounds` für den Diff-Checker; noch nicht gebaut), CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
+| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe, Abgleich + Diff-Checker Archicad ↔ Plattform | [`core/`](core/) | ✅ 0.4.0, 146 Tests; Diff-Checker = `diff_plattform`, daneben liegt noch die ältere Fassung `diff` |
+| **Plattform-Monkey** – eigene, funktionsgleiche Kopie des Kerns in der Schwarz Plattform (`core/plattform_monkey`) | Plattform (privat) | ⏳ gleichauf mit Kern 0.3.0; `abgleich`/`diff_plattform` (0.4.0) noch nachzuziehen |
+| **MCP-Server** `elmonkey-mcp` 0.3.0 – ein Server, Add-ons `archicad` + `kern`, für jede KI; neu `elmonkey_diff_plattform` | [`mcp/`](mcp/) | ✅ 15 Tests; Diff-Werkzeug noch nicht live |
+| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.13 (neu: `GetDiffDataELM` für den Diff-Checker und `GetSolidBounds`, beide noch nicht live), CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
 | **Skill Archicad** – Arbeitswissen für Claude | [`skills/archicad/`](skills/archicad/) | ✅ umgezogen, wird nach `mozzi86/-archicad` gespiegelt |
 | **Client-Konfigurationen** (Claude Desktop/Code, Cursor, VS Code, Codex) | [`clients/`](clients/) | ✅ |
 | **Claude-Plugin** | [`plugin/`](plugin/) | ⏳ |
@@ -29,9 +29,8 @@
 Begriffe und dasselbe Austauschformat (z. B. `sab-oberflaechen/1`). Sie werden **immer angeglichen**: Eine Änderung an
 einem Monkey kommt im selben Zug in die beiden anderen — Kern und Plattform-Monkey bleiben Zeile für Zeile gleich
 (`kern`, `regeln`, `plattform`), neue Archicad-Befehle bekommen ihr Gegenstück bzw. ihren Suchbegriff im
-Python-Monkey und ihren Weg in die Plattform. Abgleich zuletzt: 10.11.2026 (Add-On 0.11.12.2 · Kern 0.3.0 ·
-MCP 0.2.3 · Plattform-Monkey = Kern 0.3.0). Seit 16.11.2026 voraus: Add-On 0.11.13, Kern 0.4.0, MCP 0.2.4
-(Diff-Checker) — der Plattform-Monkey zieht mit `bbox` im Abgleich-Stand und `plattform.geometrie` nach.
+Python-Monkey und ihren Weg in die Plattform. Abgleich zuletzt: 17.11.2026 (Add-On 0.11.13 · Kern 0.4.0 ·
+MCP 0.3.0 · Plattform-Monkey = Kern 0.3.0, Diff-Checker dort noch nachzuziehen).
 
 **EN** — The three monkeys are **functionally identical** (same find / pre-check / read-back, same codes, same
 exchange formats) and are **always kept in sync**: a change to one goes into the other two in the same step.
