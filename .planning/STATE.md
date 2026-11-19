@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-19 | 261119-wfq | Plattform-Abgleich `zerlegen()`: Kanten mit >2 Dreiecken per Fächer-Trennung (`mannigfaltig()`) auflösen — live BFW07: 6 „Failed to create morph“ gebaut, Rücklese exakt; 172 Tests grün; Zweig `fix-aggregation-eltern`, nicht gepusht |
 | 2026-11-19 | 261119-w9h | Plattform-Abgleich `bauen`: Verbünde als Kopf + Unterteile (`--verbund einzeln`, Standard; `zusammen` = alt), `ifc_teile()`, optionaler Stempel „Plattform-Verbund“, `kopf` in gebaut/ruecklese; Trockenlauf BFW07: 308 zu bauen (35 Verbünde, 302 Unterteile), 0 ausgelassen; 170 Tests grün; Zweig `fix-aggregation-eltern`, nicht gepusht |
 | 2026-11-19 | 261119-tox | Plattform-Abgleich live-tauglich („Projekt synchronisieren“): Custom-Eigenschaften, Lesen je Typ, SSL-Fallback, Stempeln ohne Reservierung, neuer Befehl `bauen` (Morphs aus Plattform-IFC); Live-Trockenlauf BFW07 deckungsgleich mit Handlauf (432 Bauteile); Rezept + SKILL.md; 173 Tests grün; Zweig `elm-diff-plattform`, nicht gepusht |
 | 2026-11-17 | 261117-l3t | Skill: Lernstand 17.11. Teil 3 (Einpassung vor Wandkorrektur, Wandstärke-Schutzregeln, Putzlinien, gerundete Ecken an Leibungen, Fassaden-Ursprungspunkt gridOrigin, Bundle-Wechsel Mac, FitInWindow/CaptureView); main, gepusht |
