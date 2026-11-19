@@ -327,9 +327,38 @@ def _attribute(s: str) -> list[str]:
     return aus
 
 
-def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
-    """{GUID (lang): [(Punkte, Dreiecke 0-basiert)]} aus den IFCTRIANGULATEDFACESET der Datei. Unterteile
-    (IfcRelAggregates) werden dem Elternteil zugeschlagen. Nur GUIDs mit mindestens einem Netz."""
+_X2 = re.compile(r"\\X2\\((?:[0-9A-Fa-f]{4})+)\\X0\\")
+_IFC_NAMEN = ("IfcPipeSegment", "IfcCovering", "IfcPlate", "IfcDuctSegment", "IfcBuildingElementProxy", "IfcSlab",
+              "IfcWall", "IfcPipeFitting", "IfcDuctFitting", "IfcFlowSegment")
+
+
+def step_text(s: str) -> str:
+    """STEP-Zeichenkette lesen: Anführungszeichen weg, \\X2\\…\\X0\\ → Unicode, '' → '; „$“ → leer."""
+    s = s.strip()
+    if s in ("$", "*", ""):
+        return ""
+    if len(s) >= 2 and s[0] == s[-1] == "'":
+        s = s[1:-1]
+    s = _X2.sub(lambda m: "".join(chr(int(m.group(1)[i:i + 4], 16)) for i in range(0, len(m.group(1)), 4)), s)
+    return s.replace("''", "'")
+
+
+def ifc_klasse(step_typ: str) -> str:
+    """STEP-Typ (IFCPIPESEGMENT) → IFC-Schreibweise (IfcPipeSegment) über sab_zuordnung.json + feste Liste."""
+    try:
+        bekannt = list(zuordnung_laden())
+    except Exception:  # noqa: BLE001 — Zuordnung ist hier nur Schreibhilfe
+        bekannt = []
+    for k in bekannt + list(_IFC_NAMEN):
+        if k.upper() == step_typ.upper():
+            return k
+    return "Ifc" + step_typ[3:].capitalize() if step_typ.upper().startswith("IFC") else step_typ
+
+
+def ifc_teile(pfad) -> tuple[dict, dict, dict]:
+    """(eigene, kinder, info): eigene = {GUID (lang): [(Punkte, Dreiecke 0-basiert)]} nur eigene Netze der
+    IFCTRIANGULATEDFACESET (nur GUIDs mit Netz); kinder = {Kopf-GUID: [Unterteil-GUIDs]} aus IfcRelAggregates;
+    info = {GUID: {"name", "klasse"}}."""
     zeilen: dict[int, tuple[str, str]] = {}
     with open(pfad, encoding="latin-1") as f:
         for z in f:
@@ -341,7 +370,7 @@ def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
         return [int(x) for x in _REF.findall(a)]
 
     nr2g: dict[int, str] = {}
-    kinder: dict[int, list[int]] = collections.defaultdict(list)
+    kinder_nr: dict[int, list[int]] = collections.defaultdict(list)
     for i, (t, a) in zeilen.items():
         m = re.match(r"'([^']{22})',", a)
         if m and all(c in _IFC_ZEICHEN for c in m.group(1)) and not t.startswith("IFCREL") \
@@ -354,7 +383,7 @@ def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
             attr = _attribute(a)
             eltern = refs(attr[4]) if len(attr) > 5 else []
             if eltern:
-                kinder[eltern[0]].extend(refs(attr[5]))
+                kinder_nr[eltern[0]].extend(refs(attr[5]))
 
     def netze(i: int) -> list[tuple[list, list]]:
         aus: list[tuple[list, list]] = []
@@ -368,12 +397,45 @@ def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
                         F = [[int(x) - 1 for x in f.split(",")]
                              for f in re.findall(r"\((\d+,\d+,\d+)\)", fa[fa.index("(("):])]
                         aus.append((P, F))
-        for k in kinder.get(i, []):
-            aus += netze(k)
         return aus
 
-    ergebnis = {g: netze(i) for i, g in nr2g.items()}
-    return {g: n for g, n in ergebnis.items() if n}
+    eigene: dict[str, list] = {}
+    info: dict[str, dict] = {}
+    for i, g in nr2g.items():
+        n = netze(i)
+        if n:
+            eigene[g] = n
+        t, a = zeilen[i]
+        at = _attribute(a)
+        info[g] = {"name": step_text(at[2]) if len(at) > 2 else "", "klasse": ifc_klasse(t)}
+    kinder: dict[str, list[str]] = {}
+    for i, ks in kinder_nr.items():
+        if i in nr2g:
+            kinder[nr2g[i]] = [nr2g[k] for k in ks if k in nr2g]
+    return eigene, kinder, info
+
+
+def _zusammen(eigene: dict, kinder: dict) -> dict[str, list]:
+    """Eigene Netze + die aller Nachfahren (Zyklen-sicher). Nur GUIDs mit mindestens einem Netz."""
+    def sammeln(g: str, besucht: set) -> list:
+        if g in besucht:
+            return []
+        besucht.add(g)
+        aus = list(eigene.get(g, []))
+        for k in kinder.get(g, []):
+            aus += sammeln(k, besucht)
+        return aus
+
+    alle = set(eigene) | set(kinder)
+    erg = {g: sammeln(g, set()) for g in alle}
+    return {g: n for g, n in erg.items() if n}
+
+
+def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
+    """{GUID (lang): [(Punkte, Dreiecke 0-basiert)]} — Unterteile (IfcRelAggregates) werden dem Elternteil
+    zugeschlagen. Nur GUIDs mit mindestens einem Netz."""
+    eigene, kinder, _ = ifc_teile(pfad)
+    return _zusammen(eigene, kinder)
 
 
 def zerlegen(P: list, F: list) -> list[tuple[list, list]]:
@@ -454,34 +516,90 @@ def geschoss_index(stories: list[dict], z: float) -> int:
     return max(passend, key=lambda s: s["level"])["index"]
 
 
-def bauplan(bauliste: dict, netze: dict, register: dict, zuordnung: dict, klassen: dict, stories: list[dict],
-            nur=None, ohne=()) -> tuple[list[dict], list[dict]]:
-    """Rein, ohne Archicad: (plan, ausgelassen). klassen = {Klassen-id: Item-GUID}."""
+def bauplan(bauliste: dict, netze, register: dict, zuordnung: dict, klassen: dict, stories: list[dict],
+            nur=None, ohne=(), verbund: str = "einzeln") -> tuple[list[dict], list[dict]]:
+    """Rein, ohne Archicad: (plan, ausgelassen). klassen = {Klassen-id: Item-GUID}. netze = Ergebnis von
+    ifc_teile() (Tupel) oder ein Dict {GUID: Netze} (= nur eigene Netze, keine Unterteile).
+    verbund „einzeln“: Kopf + jedes Unterteil als eigener Morph; „zusammen“: ein Morph je Verbund."""
+    if verbund not in ("einzeln", "zusammen"):
+        raise Fehler(f"verbund muss „einzeln“ oder „zusammen“ sein, nicht „{verbund}“.")
+    if isinstance(netze, tuple):
+        eigene, kinder, info = netze
+    else:
+        eigene, kinder, info = netze, {}, {}
+    eigene = {k.upper(): v for k, v in eigene.items()}
+    kinder = {k.upper(): [x.upper() for x in v] for k, v in kinder.items()}
+    info = {k.upper(): v for k, v in info.items()}
     reg = {str(x["guid"]).upper(): x for x in register.get("neu") or []}
-    netze = {k.upper(): v for k, v in netze.items()}
+    zu_ci = {k.lower(): v for k, v in zuordnung.items()}
     nur_g = {g.upper() for g in nur} if nur else None
     ohne_g = {g.upper() for g in ohne}
+    kopf_g = {b["plattformGuid"].upper() for b in bauliste.get("bauteile") or []}
+    if verbund == "zusammen":
+        eigene, kinder = _zusammen(eigene, kinder), {}
+
+    def nachfahren(g: str) -> list[str]:
+        aus: list[str] = []
+        besucht = {g}
+
+        def lauf(x: str) -> None:
+            for k in kinder.get(x, []):
+                if k in besucht or k in kopf_g:
+                    continue
+                besucht.add(k)
+                aus.append(k)
+                lauf(k)
+
+        lauf(g)
+        return aus
+
     plan: list[dict] = []
     aus: list[dict] = []
-    for b in bauliste.get("bauteile") or []:
-        g = b["plattformGuid"]
-        if (nur_g is not None and g.upper() not in nur_g) or g.upper() in ohne_g:
-            continue
-        ns = netze.get(g.upper()) or []
-        klasse = zuordnung.get(b["ifc"]["klasse"])
-        status_roh = (reg.get(g.upper()) or {}).get("status")
-        status = status_archicad(status_roh)
-        if not ns:
-            aus.append({"plattformGuid": g, "name": b["name"], "grund": "keine Geometrie im IFC"})
-            continue
-        if klasse not in klassen or not status:
-            aus.append({"plattformGuid": g, "name": b["name"],
-                        "grund": f"Klasse/Status fehlt ({b['ifc']['klasse']}, {status_roh})"})
-            continue
+
+    def eintrag(g, name, ebene, klasse, status, ns, kopf):
         body, box = morph_body(ns)
-        plan.append({"g": g, "name": b["name"], "ebene": b["ebene"], "klasse": klasse, "status": status,
+        plan.append({"g": g, "name": name, "ebene": ebene, "klasse": klasse, "status": status, "kopf": kopf,
                      "soll": box, "morph": {"basePoint": {"x": 0, "y": 0, "z": 0}, "body": body,
                                             "floorIndex": geschoss_index(stories, box[2])}})
+
+    for b in bauliste.get("bauteile") or []:
+        g = b["plattformGuid"]
+        gu = g.upper()
+        subs = nachfahren(gu) if verbund == "einzeln" else []
+        if gu in ohne_g:
+            continue
+        if nur_g is not None and gu not in nur_g and not any(s in nur_g for s in subs):
+            continue
+        klasse = zuordnung.get(b["ifc"]["klasse"])
+        status_roh = (reg.get(gu) or {}).get("status")
+        status = status_archicad(status_roh)
+        kopf_ok = gu in nur_g if nur_g is not None else True
+        gebaut_vorher = len(plan)
+        ausg_vorher = len(aus)
+        ns = eigene.get(gu) or []
+        if ns and kopf_ok:
+            if klasse not in klassen or not status:
+                aus.append({"plattformGuid": g, "name": b["name"],
+                            "grund": f"Klasse/Status fehlt ({b['ifc']['klasse']}, {status_roh})"})
+            else:
+                eintrag(g, b["name"], b["ebene"], klasse, status, ns, None)
+        for s in subs:
+            if s in ohne_g or (nur_g is not None and not kopf_ok and s not in nur_g):
+                continue
+            sns = eigene.get(s) or []
+            if not sns:
+                continue
+            si = info.get(s) or {}
+            sname = f"{b['name']} / {si.get('name') or s}"
+            sk = zu_ci.get((si.get("klasse") or "").lower())
+            sk = sk if sk in klassen else klasse
+            if sk not in klassen or not status:
+                aus.append({"plattformGuid": s, "kopf": g, "name": sname,
+                            "grund": f"Klasse/Status fehlt ({si.get('klasse') or b['ifc']['klasse']}, {status_roh})"})
+                continue
+            eintrag(s, sname, b["ebene"], sk, status, sns, g)
+        if len(plan) == gebaut_vorher and len(aus) == ausg_vorher:
+            aus.append({"plattformGuid": g, "name": b["name"], "grund": "keine Geometrie im IFC"})
     return plan, aus
 
 

@@ -383,3 +383,62 @@ def test_ifc_netze_aggregation_ohne_ownerhistory(tmp_path):
     netze = pa.ifc_netze(p)
     assert len(netze[pa.guid_lang(k[1])]) == 2               # Kopf S2: Körper von P1 und S1
     assert len(netze[pa.guid_lang(k[2])]) == 1               # P1 bekommt keine Geschwister angehängt
+
+
+# ───────────────────────────────────────────── Verbünde: Kopf + Unterteile
+
+def _verbund_ifc(pfad: Path, gk: str, ga: str, gb: str) -> None:
+    pts = "(" + ",".join("(%s.,%s.,%s.)" % e for e in _ECKEN) + ")"
+    fl = "(" + ",".join("(%d,%d,%d)" % tuple(i + 1 for i in f) for f in _WUERFEL) + ")"
+    zeilen = [
+        "ISO-10303-21;", "DATA;",
+        f"#1=IFCCARTESIANPOINTLIST3D({pts});",
+        f"#2=IFCTRIANGULATEDFACESET(#1,$,$,{fl},$);",
+        "#3=IFCSHAPEREPRESENTATION(#90,'Body','Tessellation',(#2));",
+        "#4=IFCPRODUCTDEFINITIONSHAPE($,$,(#3));",
+        f"#5=IFCBUILDINGELEMENTPROXY('{gk}',$,'Kopf',$,$,$,$,$);",
+        f"#6=IFCPIPESEGMENT('{ga}',$,'Kind A',$,$,$,#4,$);",
+        f"#7=IFCCOVERING('{gb}',$,'K\\X2\\00E4\\X0\\lte',$,$,$,#4,$);",
+        f"#8=IFCRELAGGREGATES('{'0' * 21}9',$,$,$,#5,(#6,#7));",
+        "ENDSEC;", "END-ISO-10303-21;"]
+    pfad.write_text("\n".join(zeilen), encoding="latin-1")
+
+
+def _verbund_setup(tmp_path):
+    k = ["0" * 21 + c for c in "ABC"]
+    _verbund_ifc(tmp_path / "v.ifc", *k)
+    gk, ga, gb = (pa.guid_lang(x) for x in k)
+    bauliste = {"bauteile": [_bauteil(gk, "IfcBuildingElementProxy", "Kopf")]}
+    register = {"neu": [{"guid": gk, "status": "Neubau"}]}
+    return gk, ga, gb, bauliste, register
+
+
+def test_ifc_teile_eigene_kinder_info(tmp_path):
+    gk, ga, gb, _, _ = _verbund_setup(tmp_path)
+    eigene, kinder, info = pa.ifc_teile(tmp_path / "v.ifc")
+    assert set(eigene) == {ga, gb} and gk not in eigene
+    assert all(len(v) == 1 for v in eigene.values())
+    assert kinder == {gk: [ga, gb]}
+    assert info[gb]["name"] == "Kälte"
+    assert info[ga]["klasse"] == "IfcPipeSegment" and info[gb]["klasse"] == "IfcCovering"
+    assert len(pa.ifc_netze(tmp_path / "v.ifc")[gk]) == 2
+
+
+def test_bauplan_verbund_einzeln_zusammen_filter(tmp_path):
+    gk, ga, gb, bauliste, register = _verbund_setup(tmp_path)
+    teile = pa.ifc_teile(tmp_path / "v.ifc")
+    z = {"IfcBuildingElementProxy": "Decke", "IfcPipeSegment": "Rohr"}
+    kl = {"Decke": "k1", "Rohr": "k2"}
+    plan, aus = pa.bauplan(bauliste, teile, register, z, kl, STORIES)
+    assert aus == [] and len(plan) == 2
+    assert all(p["kopf"] == gk and p["ebene"] == "E1" and p["status"] == "New" for p in plan)
+    por = {p["g"]: p for p in plan}
+    assert por[ga]["klasse"] == "Rohr" and por[gb]["klasse"] == "Decke"
+    assert por[ga]["name"] == "Kopf / Kind A" and por[gb]["name"] == "Kopf / Kälte"
+    plan_z, _ = pa.bauplan(bauliste, teile, register, z, kl, STORIES, verbund="zusammen")
+    assert len(plan_z) == 1 and plan_z[0]["g"] == gk and plan_z[0]["kopf"] is None
+    assert pa.bauplan(bauliste, teile, register, z, kl, STORIES, ohne=(gk,))[0] == []
+    assert [p["g"] for p in pa.bauplan(bauliste, teile, register, z, kl, STORIES, ohne=(ga,))[0]] == [gb]
+    assert [p["g"] for p in pa.bauplan(bauliste, teile, register, z, kl, STORIES, nur={gb})[0]] == [gb]
+    with pytest.raises(pa.Fehler):
+        pa.bauplan(bauliste, teile, register, z, kl, STORIES, verbund="x")
