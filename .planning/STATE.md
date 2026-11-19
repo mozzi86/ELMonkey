@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-19 | 261119-tox | Plattform-Abgleich live-tauglich („Projekt synchronisieren“): Custom-Eigenschaften, Lesen je Typ, SSL-Fallback, Stempeln ohne Reservierung, neuer Befehl `bauen` (Morphs aus Plattform-IFC); Live-Trockenlauf BFW07 deckungsgleich mit Handlauf (432 Bauteile); Rezept + SKILL.md; 173 Tests grün; Zweig `elm-diff-plattform`, nicht gepusht |
 | 2026-11-17 | 261117-l3t | Skill: Lernstand 17.11. Teil 3 (Einpassung vor Wandkorrektur, Wandstärke-Schutzregeln, Putzlinien, gerundete Ecken an Leibungen, Fassaden-Ursprungspunkt gridOrigin, Bundle-Wechsel Mac, FitInWindow/CaptureView); main, gepusht |
 | 2026-11-17 | 261117-k7x | MCP 0.2.5: Suchbegriffe Wände bereinigen (empfangen, freigeben, Wirtswand, Höhe, Umriss); Versionsabweichung __init__/pyproject behoben; 10 Tests grün, nicht gepusht |
 | 2026-11-16 | 261116-dpc | Diff-Checker Archicad ↔ Plattform ohne IFC-Export: ELM_SAB 0.11.13 `GetDiffDataELM` (CI 8/8 grün), Kern 0.4.0 `diff_plattform` (+ Paket `abgleich` vom 10.11.), MCP 0.3.0 `elmonkey_diff_plattform`; Zweig `elm-diff-plattform`, PR offen, nicht live geprüft |
