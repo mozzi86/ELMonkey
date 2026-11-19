@@ -370,3 +370,16 @@ def test_sab_klassen_live_antwortform_kinder_am_item_und_details_schluessel():
     sid, klassen = pa.sab_klassen(ac)
     assert sid == guid(1)
     assert klassen == {"ELEMENTE": guid(10), "Komponente der TGA": guid(11), "Lüftungskanal": guid(12)}
+
+
+def test_ifc_netze_aggregation_ohne_ownerhistory(tmp_path):
+    """Plattform-IFC (live BFW07 19.11.2026): OwnerHistory ist „$“ — dann ist der ERSTE Verweis das Elternteil.
+    Vorher hingen die Kinder am ersten Geschwister, Verbünde (Kopf ohne Körper) blieben leer."""
+    k = ["0" * 21 + c for c in "123"]
+    _mini_ifc(tmp_path / "m.ifc", *k)
+    p = tmp_path / "m.ifc"
+    p.write_text(p.read_text(encoding="latin-1").replace(",#91,$,$,#6,(#7));", ",$,$,$,#6,(#7,#5));"),
+                 encoding="latin-1")
+    netze = pa.ifc_netze(p)
+    assert len(netze[pa.guid_lang(k[1])]) == 2               # Kopf S2: Körper von P1 und S1
+    assert len(netze[pa.guid_lang(k[2])]) == 1               # P1 bekommt keine Geschwister angehängt

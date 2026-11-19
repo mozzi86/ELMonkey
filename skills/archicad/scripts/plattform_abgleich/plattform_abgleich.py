@@ -304,6 +304,29 @@ def guid_lang(g22: str) -> str:
     return str(uuid.UUID(int=n)).upper()
 
 
+def _attribute(s: str) -> list[str]:
+    """STEP-Attribute der obersten Ebene trennen (Klammern und Zeichenketten beachten)."""
+    aus, cur, tiefe, q = [], [], 0, False
+    for ch in s:
+        if q:
+            cur.append(ch)
+            if ch == "'":
+                q = False
+            continue
+        if ch == "'":
+            q = True
+        elif ch == "(":
+            tiefe += 1
+        elif ch == ")":
+            tiefe -= 1
+        elif ch == "," and tiefe == 0:
+            aus.append("".join(cur)); cur = []
+            continue
+        cur.append(ch)
+    aus.append("".join(cur))
+    return aus
+
+
 def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
     """{GUID (lang): [(Punkte, Dreiecke 0-basiert)]} aus den IFCTRIANGULATEDFACESET der Datei. Unterteile
     (IfcRelAggregates) werden dem Elternteil zugeschlagen. Nur GUIDs mit mindestens einem Netz."""
@@ -325,9 +348,13 @@ def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
                 and t not in ("IFCPROPERTYSET", "IFCELEMENTQUANTITY"):
             nr2g[i] = guid_lang(m.group(1))
         if t == "IFCRELAGGREGATES":
-            r = refs(a)
-            for kind in r[2:]:                          # r[0] = Besitzer, r[1] = Elternteil
-                kinder[r[1]].append(kind)
+            # IfcRelAggregates(GlobalId, OwnerHistory, Name, Description, RelatingObject, RelatedObjects):
+            # nach Attributen trennen, nicht nach Verweis-Reihenfolge — OwnerHistory ist im Plattform-IFC „$“
+            # (live BFW07 19.11.2026: sonst hingen die Kinder am ersten Geschwister, 35 Verbünde ohne Körper).
+            attr = _attribute(a)
+            eltern = refs(attr[4]) if len(attr) > 5 else []
+            if eltern:
+                kinder[eltern[0]].extend(refs(attr[5]))
 
     def netze(i: int) -> list[tuple[list, list]]:
         aus: list[tuple[list, list]] = []
