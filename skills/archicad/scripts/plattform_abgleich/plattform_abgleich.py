@@ -22,8 +22,13 @@ archicad_geschrieben.json, archicad_diff.json (Befehl diff).
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
+import ssl
+import subprocess
 import sys
+import time
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -63,17 +68,37 @@ def _http(port: int) -> Callable[[dict], dict]:
 
 
 class Archicad:
-    """Dünne Hülle um die JSON-Schnittstelle. `senden` ist austauschbar (Tests)."""
+    """Dünne Hülle um die JSON-Schnittstelle. `senden` und `schlafen` sind austauschbar (Tests)."""
 
-    def __init__(self, senden: Callable[[dict], dict]):
+    SPERRE_VERSUCHE = 60                                    # 60 × 15 s = 15 min
+
+    def __init__(self, senden: Callable[[dict], dict], schlafen: Callable[[float], Any] = time.sleep):
         self._senden = senden
+        self._schlafen = schlafen
+
+    def _rufen(self, name: str, body: dict) -> dict:
+        """Sendet; bei Fehler 4001 (Archicad beschäftigt: Eingabe/Dialog) alle 15 s erneut, höchstens 15 min.
+        „no open project“ ist kein Warten wert."""
+        for _ in range(self.SPERRE_VERSUCHE):
+            r = self._senden(body)
+            if r.get("succeeded"):
+                return r
+            fehler = r.get("error") or {}
+            if fehler.get("code") == 4001 and "open project" not in json.dumps(r, ensure_ascii=False):
+                self._schlafen(15)
+                continue
+            raise Fehler(f"{name}: {json.dumps(fehler or r, ensure_ascii=False)[:500]}")
+        raise Fehler(f"{name}: Archicad blieb 15 min gesperrt")
+
+    def api(self, name: str, params: Optional[dict] = None) -> dict:
+        """Eingebauten Befehl (API.*) direkt senden, gibt `result` zurück."""
+        r = self._rufen(name, {"command": name, "parameters": params or {}})
+        return r.get("result") or {}
 
     def befehl(self, name: str, params: Optional[dict] = None, ns: str = "TapirCommand") -> dict:
-        r = self._senden({"command": "API.ExecuteAddOnCommand", "parameters": {
+        r = self._rufen(f"{ns}.{name}", {"command": "API.ExecuteAddOnCommand", "parameters": {
             "addOnCommandId": {"commandNamespace": ns, "commandName": name},
             "addOnCommandParameters": params or {}}})
-        if not r.get("succeeded"):
-            raise Fehler(f"{ns}.{name}: {json.dumps(r.get('error') or r, ensure_ascii=False)[:500]}")
         antwort = (r.get("result") or {}).get("addOnCommandResponse") or {}
         if antwort.get("success") is False or ("error" in antwort and len(antwort) == 1):
             raise Fehler(f"{ns}.{name}: {json.dumps(antwort.get('error'), ensure_ascii=False)[:500]}")
@@ -96,7 +121,9 @@ def eigenschaften_katalog(ac: Archicad, alle: bool = False) -> dict[str, dict]:
     """{„Gruppe.Name“: Definition} — Vorgabe nur eigene (benutzerdefinierte) Eigenschaften, die sind der Fachinhalt."""
     aus: dict[str, dict] = {}
     for p in ac.befehl("GetAllProperties").get("properties") or []:
-        if alle or p.get("propertyType") == "UserDefined":
+        # Tapir 1.7.2 meldet benutzerdefinierte Eigenschaften als „Custom“ (live BFW07 19.11.2026: 230 Custom,
+        # 0 UserDefined — vorher 0 Eigenschaften und damit keine Paare); ältere Stände sagen „UserDefined“.
+        if alle or p.get("propertyType") in ("UserDefined", "Custom"):
             aus.setdefault(_schluessel(p), p)
     return aus
 
@@ -113,15 +140,20 @@ def archicad_lesen(ac: Archicad, typen=TYPEN, alle_eigenschaften: bool = False) 
     """Offenes Projekt als Abgleich-Stand: je Bauteil GUID, IFC-Id, Typ, Element-ID, Geschoss, Eigenschaften."""
     info = ac.befehl("GetProjectInfo")
     geschosse = {s.get("index"): s.get("name") for s in ac.befehl("GetStories").get("stories") or []}
-    ids = [e["elementId"] for e in ac.befehl("GetAllElements").get("elements") or []]
     katalog = eigenschaften_katalog(ac, alle_eigenschaften)
     namen = sorted(katalog)
     prop_ids = [{"propertyId": katalog[n]["propertyId"]} for n in namen]
     elemente: list[dict] = []
-    for teil in _pakete(ids):
+    # Je Typ abfragen: GetDetailsOfElements.type heißt nicht wie die TYPEN-Namen (live wurden 89.823 Elemente
+    # inkl. 2D gezählt) — der Typ ist deshalb der abgefragte.
+    ids: list[tuple[str, dict]] = []
+    for t in typen:
+        ids += [(t, e["elementId"]) for e in ac.api("API.GetElementsByType", {"elementType": t}).get("elements") or []]
+    for teil_t in _pakete(ids):
+        teil = [i for _, i in teil_t]
         details = ac.befehl("GetDetailsOfElements", {"elements": [{"elementId": i} for i in teil]})
-        behalten = [(i, d) for i, d in zip(teil, details.get("detailsOfElements") or [])
-                    if isinstance(d, dict) and d.get("type") in typen]
+        behalten = [(i, {**(d if isinstance(d, dict) else {}), "type": t}) for (t, i), d
+                    in zip(teil_t, details.get("detailsOfElements") or [])]
         if not behalten:
             continue
         el = [{"elementId": i} for i, _ in behalten]
@@ -146,7 +178,7 @@ def archicad_lesen(ac: Archicad, typen=TYPEN, alle_eigenschaften: bool = False) 
 
 
 def eigenschaften_schreiben(ac: Archicad, eintraege: list[dict], katalog: dict[str, dict], *, teamwork: bool,
-                            ausfuehren: bool) -> dict:
+                            ausfuehren: bool, reservieren: bool = True) -> dict:
     """[{archicad, feld, wert}] nach Archicad. Was Archicad nicht als Eigenschaft kennt oder nicht editierbar ist,
     wird gemeldet, nicht geraten. Mit `ausfuehren`: reservieren (Teamwork), setzen, zurücklesen."""
     geht, geht_nicht = [], []
@@ -162,16 +194,18 @@ def eigenschaften_schreiben(ac: Archicad, eintraege: list[dict], katalog: dict[s
            "fehler": []}
     if not ausfuehren or not geht:
         return aus
-    if teamwork:
+    if teamwork and reservieren:
         guids = sorted({x["archicad"] for x in geht})
         for teil in _pakete(guids):
             r = ac.befehl("ReserveElements", {"elements": [{"elementId": {"guid": g}} for g in teil]})
             if r.get("conflicts"):
                 aus["fehler"].append({"grund": "Teamwork: von anderen reserviert", "anzahl": len(r["conflicts"])})
     for teil in _pakete(geht):
-        ac.befehl("SetPropertyValuesOfElements", {"elementPropertyValues": [
+        # Natives API verlangt die volle Wertform {type,status,value}; die Kurzform liefert nur einen 4002
+        ac.api("API.SetPropertyValuesOfElements", {"elementPropertyValues": [
             {"elementId": {"guid": x["archicad"]}, "propertyId": katalog[x["feld"]]["propertyId"],
-             "propertyValue": {"value": "" if x["wert"] is None else str(x["wert"])}} for x in teil]})
+             "propertyValue": {"type": "string", "status": "normal",
+                               "value": "" if x["wert"] is None else str(x["wert"])}} for x in teil]})
     # Rücklese — die Antwort des Schreibens zählt nicht
     je_feld: dict[str, list[dict]] = {}
     for x in geht:
@@ -209,8 +243,18 @@ def _nur_https(link: str) -> str:
 
 
 def herunterladen(link: str) -> Any:
-    with urllib.request.urlopen(_nur_https(link), timeout=900) as r:
-        return json.loads(r.read().decode("utf-8"))
+    link = _nur_https(link)
+    try:
+        with urllib.request.urlopen(link, timeout=900) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, ssl.SSLError) as e:
+        if "CERTIFICATE_VERIFY_FAILED" not in str(e):
+            raise
+    # python.org-Python auf macOS kennt die Systemzertifikate nicht → curl (Argumentliste, nie über die Shell)
+    r = subprocess.run(["curl", "-sS", "--fail", link], capture_output=True, timeout=900)
+    if r.returncode != 0:
+        raise Fehler(f"curl scheitert ({r.returncode}): {r.stderr.decode('utf-8', 'replace')[:300]}")
+    return json.loads(r.stdout.decode("utf-8"))
 
 
 def ablegen(link: str, daten: bytes, typ: str) -> None:
@@ -298,6 +342,24 @@ def cmd_archicad_schreiben(o) -> dict:
                        "automatisch — die Liste „loeschen_von_hand“ geht an den Zeichner."}
 
 
+def klassifiziert(ac: Archicad, guids: list[str]) -> set[str]:
+    """GUIDs, die in irgendeinem Klassifizierungssystem eine Klasse tragen. Eigenschaften an unklassifizierten
+    Elementen lehnt Archicad mit 6703 ab."""
+    systeme = [{"classificationSystemId": s["classificationSystemId"]}
+               for s in ac.api("API.GetAllClassificationSystems").get("classificationSystems") or []]
+    aus: set[str] = set()
+    if not systeme:
+        return aus
+    for teil in _pakete(list(guids)):
+        r = ac.api("API.GetClassificationsOfElements", {
+            "elements": [{"elementId": {"guid": g}} for g in teil], "classificationSystemIds": systeme})
+        for g, c in zip(teil, r.get("elementClassifications") or []):
+            if any(((x or {}).get("classificationId") or {}).get("classificationItemId", {}).get("guid")
+                   for x in (c or {}).get("classificationIds") or []):
+                aus.add(g)
+    return aus
+
+
 def cmd_stempeln(o) -> dict:
     """Frisch gebaute Bauteile mit „Plattform-GUID“ + „KI generiert“ versehen: gebaut.json =
     [{plattformGuid, archicadGuid}] — dieselbe Liste geht an archicad_abgleich_melden."""
@@ -312,12 +374,18 @@ def cmd_stempeln(o) -> dict:
     ki = next((n for n in katalog if n.endswith("." + KI_NAME)), None)
     eintraege = [{"archicad": x["archicadGuid"], "feld": stempel, "wert": x["plattformGuid"]} for x in gebaut]
     if ki:
-        eintraege += [{"archicad": x["archicadGuid"], "feld": ki, "wert": "ja"} for x in gebaut]
-    aus = eigenschaften_schreiben(ac, eintraege, katalog,
+        eintraege += [{"archicad": x["archicadGuid"], "feld": ki,
+                       "wert": "KI generiert " + datetime.date.today().isoformat()} for x in gebaut]
+    klass = klassifiziert(ac, sorted({x["archicadGuid"] for x in gebaut}))
+    ohne_klasse = [{"archicad": x["archicadGuid"], "plattformGuid": x["plattformGuid"],
+                    "grund": "nicht klassifiziert (6703)"} for x in gebaut if x["archicadGuid"] not in klass]
+    # Reservieren löst in Teamwork beim Nutzer einen Sendeversuch aus; frisch gebaute gehören uns ohnehin.
+    aus = eigenschaften_schreiben(ac, [x for x in eintraege if x["archicad"] in klass], katalog,
                                   teamwork=bool(ac.befehl("GetProjectInfo").get("isTeamwork")),
-                                  ausfuehren=o.ausfuehren)
+                                  ausfuehren=o.ausfuehren, reservieren=False)
+    nicht = ohne_klasse + aus["nicht_moeglich"]
     return {"ausgefuehrt": aus["ausgefuehrt"], "bauteile": len(gebaut), "geschrieben": len(aus["geschrieben"]),
-            "fehler": aus["fehler"][:10], "nicht_moeglich": aus["nicht_moeglich"][:10]}
+            "fehler": aus["fehler"][:10], "nicht_moeglich": nicht[:10], "nicht_klassifiziert": len(ohne_klasse)}
 
 
 def cmd_hochladen(o) -> dict:

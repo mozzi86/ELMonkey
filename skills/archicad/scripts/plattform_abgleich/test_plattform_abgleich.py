@@ -29,10 +29,27 @@ class FalschesArchicad:
         self.diff_befehl = True
 
     def __call__(self, body):
+        if body["command"] != "API.ExecuteAddOnCommand":          # eingebauter Befehl (API.*) direkt
+            name = body["command"].replace(".", "_")
+            self.aufrufe.append(name)
+            return {"succeeded": True, "result": getattr(self, name)(body["parameters"])}
         cid = body["parameters"]["addOnCommandId"]
         name, p = cid["commandName"], body["parameters"]["addOnCommandParameters"]
         self.aufrufe.append(name)
         return {"succeeded": True, "result": {"addOnCommandResponse": getattr(self, name)(p)}}
+
+    def API_GetElementsByType(self, p):
+        return {"elements": [{"elementId": {"guid": g}} for g, t in self.typ.items() if t == p["elementType"]]}
+
+    def API_GetAllClassificationSystems(self, p):
+        return {"classificationSystems": [{"classificationSystemId": {"guid": "sys"}}]}
+
+    def API_GetClassificationsOfElements(self, p):
+        return {"elementClassifications": [{"classificationIds": [
+            {"classificationId": {"classificationItemId": {"guid": "klasse"}}}]} for _ in p["elements"]]}
+
+    def API_SetPropertyValuesOfElements(self, p):
+        return self.SetPropertyValuesOfElements(p)
 
     def GetProjectInfo(self, p):
         return {"projectName": "P001 Teamwork", "isTeamwork": True, "projectLocation": "bimcloud://…"}
@@ -184,7 +201,8 @@ def test_stempeln_setzt_plattform_guid_und_ki(welt):
     welt.ac.werte[(G1, P_KI)] = ""
     aus = pa.cmd_stempeln(welt.o(gebaut=str(gebaut), ausfuehren=True))
     assert aus["geschrieben"] == 2
-    assert welt.ac.werte[(G1, P_ST)] == "PF-NEU" and welt.ac.werte[(G1, P_KI)] == "ja"
+    assert welt.ac.werte[(G1, P_ST)] == "PF-NEU" and welt.ac.werte[(G1, P_KI)].startswith("KI generiert ")
+    assert welt.ac.reserviert == []                          # Stempeln reserviert nicht
 
 
 def test_links_nur_https(welt):
