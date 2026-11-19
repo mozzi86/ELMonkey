@@ -1,4 +1,6 @@
-# Abgleich Archicad ↔ Schwarz Plattform (bidirektional) <!-- 2026-11-10, noch NICHT live gelaufen -->
+# Abgleich Archicad ↔ Schwarz Plattform (bidirektional) <!-- 2026-11-10, live BFW07 19.11.2026 -->
+
+Auslöser: „Projekt synchronisieren“, „Plattform und Archicad abgleichen“.
 
 Gleicht das **offene Archicad-Projekt** (BIMcloud/Teamwork) mit dem **wirksamen Stand der Plattform** ab und führt
 beide zusammen:
@@ -52,13 +54,18 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 6. **Archicad: Eigenschaften** — `plattform_abgleich.py archicad-schreiben --ordner $O` (Trockenlauf), nach dem Ja
    `--ausfuehren`. Das Skript liest zurück; „nicht möglich“ (Eigenschaft fehlt in Archicad oder ist ein Ausdruck)
    dem Zeichner nennen.
-7. **Archicad: neue Bauteile bauen** — GUIDs aus `ergebnis.json` → `archicad.neu_bauen`, in Paketen ≤ 200:
-   Konnektor `archicad_abgleich_bauliste {projekt, guids}` → je Bauteil Werkzeug, Geschoss, Ebene, Parameter
-   (Archicad-Meter). Bauen wie im Verfahren `sab-archicad-auftrag` (Stuetze → Stütze, Traeger → Träger, Decke,
-   Objekt, Morph), zurücklesen. Bauteile mit `status: fehler` nicht raten. Gebaute Paare nach `$O/gebaut.json`
-   `[{"plattformGuid": "…", "archicadGuid": "…"}]`, dann
-   `plattform_abgleich.py stempeln --ordner $O --gebaut $O/gebaut.json --ausfuehren`.
-   Fehlt die Eigenschaft „Plattform-GUID“ im Projekt: mit dem Zeichner anlegen (Gruppe „Allgemeine Werte“, Text).
+7. **Archicad: neue Bauteile bauen** — mit echter Geometrie, nicht als Hülle: Konnektor `modell_exportieren
+   {modellarten: ["plattform"]}` liefert das Plattform-IFC (Archicad-Koordinaten); Konnektor
+   `archicad_abgleich_bauliste {projekt, guids}` (nur ~20 GUIDs je Aufruf) liefert Ebene, Name, IFC-Klasse nach
+   `$O/bauliste.json`; das Register liefert den Umbau-Status (`$O/register.json`). Dann als Trockenlauf
+   `plattform_abgleich.py bauen --ordner $O --ifc <plattform.ifc> --bauliste $O/bauliste.json --register $O/register.json
+   [--zuordnung …] [--nur GUID,…] [--ohne GUID,…] [--vorhanden v.json]`, Zahlen (zu bauen, ausgelassen, Ebenen,
+   Klassen) dem Zeichner zeigen, nach dem Ja dasselbe mit `--ausfuehren`. Je Bauteil ein Morph, Ebene, Geschoss aus der
+   Unterkante, Klasse (`sab_zuordnung.json`), Umbau-Status, Stempel „Plattform-GUID“ + „KI generiert <Datum>“ und
+   Rücklese (`ruecklese.json`, Paare in `gebaut.json`). `bauen` stempelt selbst; `stempeln --gebaut …` nur noch für von
+   Hand gebaute Bauteile (es reserviert nicht, unklassifizierte meldet es als „nicht klassifiziert (6703)“).
+   `ausgelassen.json` (keine Geometrie, Klasse/Status fehlt) dem Zeichner nennen. Fehlt die Eigenschaft
+   „Plattform-GUID“ im Projekt: mit dem Zeichner anlegen (Gruppe „Allgemeine Werte“, Text).
 8. **Plattform: Ergebnis melden** — `plattform_abgleich.py hochladen --ordner $O --ablage "<ergebnis_ablage>"`,
    dann Konnektor `archicad_abgleich_melden {projekt, lauf, gebaut}` (Vorschau) → nach dem Ja `bestaetigt=true`.
    Es entsteht EIN Vorschlag; freigegeben wird in der App.
@@ -84,10 +91,27 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 
 ## Bekannt / offen
 
-- Noch nicht gegen ein laufendes Archicad geprüft (Stand 10.11.2026) — erster Lauf an einer Projektkopie.
+- Live gelaufen am 19.11.2026 (BFW07), Erkenntnisse im Abschnitt „Live-Lauf BFW07 19.11.2026“ unten.
 - Eigenschaftsnamen beider Seiten passen nur, wenn der IFC-Übersetzer die Archicad-Gruppen als gleichnamige Psets
   ausgibt. Passt das nicht, findet der Vergleich nichts (keine falschen Änderungen, aber auch kein Abgleich).
 - Werte kommen aus Archicad als Anzeigetext; „0,24“ und 0.24, „Ja“ und true gelten als gleich.
+
+## Live-Lauf BFW07 19.11.2026 <!-- 2026-11-19 -->
+
+- Die Bauliste liefert nur die konvexe Hülle (vereinfacht, 395 von 432 unbrauchbar) → die echte Form kommt über
+  `modell_exportieren` + `bauen`.
+- Die Bauliste gibt nur ~20 GUIDs je Aufruf her.
+- Ebenen-Bauteile (nur in Skizzen-Ebenen) und Vorschläge kennt der Abgleich nicht.
+- Paare melden: in `ergebnis.json` `basis.paare` um `gebaut.json` ergänzen, hochladen, `archicad_abgleich_melden`
+  (Vorschau, dann `bestaetigt`).
+- Cmd+S/Senden in Teamwork scheitert an fremder Reservierung der Ebenen-Einstellungen — die neue Ebene erst senden,
+  wenn sie freigegeben ist.
+- Eigenschaften an unklassifizierten Elementen scheitern mit 6703.
+- Tapir 1.7.2 meldet eigene Eigenschaften als „Custom“ (nicht „UserDefined“).
+- `GetDetailsOfElements.type` entspricht nicht den Typnamen → Elemente je Typ über `API.GetElementsByType` holen.
+- SSL-Fehler mit dem python.org-Python auf macOS → `herunterladen` fällt auf curl zurück.
+- `SetLayerOfElements` mit `reserve: false`, sonst löst jedes Paket beim Nutzer einen Sendeversuch aus.
+- Messwerte: `archicad-lesen` 5–11 min bei 90.000 Elementen, `bauen` 431 Morphs ≈ 25 min.
 
 ## Diff-Checker: nur die Unterschiede, ohne IFC-Export <!-- 2026-11-16, noch NICHT live gelaufen -->
 
