@@ -244,6 +244,71 @@ def test_zerlegen_trennt_koerper_die_nur_eine_kante_teilen():
         assert len(Fk) == 12 and len(Pk) == 8
 
 
+def _voxel_netz(zellen):
+    """Oberflaeche aus Einheitszellen (Gitterpunkte teilen sich einen Index), Flaechen nach aussen."""
+    zellen = set(zellen)
+    idx: dict = {}
+    P: list = []
+    F: list = []
+
+    def pt(p):
+        if p not in idx:
+            idx[p] = len(P)
+            P.append(list(p))
+        return idx[p]
+
+    for c in sorted(zellen):
+        for a in range(3):
+            for s in (1, -1):
+                nb = list(c)
+                nb[a] += s
+                if tuple(nb) in zellen:
+                    continue
+                u, v = (a + 1) % 3, (a + 2) % 3
+                ecken = []
+                for du, dv in ((0, 0), (1, 0), (1, 1), (0, 1)):
+                    p = list(c)
+                    p[a] += 1 if s == 1 else 0
+                    p[u] += du
+                    p[v] += dv
+                    ecken.append(pt(tuple(p)))
+                if s == -1:
+                    ecken.reverse()
+                F.append([ecken[0], ecken[1], ecken[2]])
+                F.append([ecken[0], ecken[2], ecken[3]])
+    return P, F
+
+
+def _kanten_zaehler(F):
+    z: dict = {}
+    for f in F:
+        for a in range(3):
+            k = tuple(sorted((f[a], f[(a + 1) % 3])))
+            z[k] = z.get(k, 0) + 1
+    return z
+
+
+def test_zerlegen_loest_mehrfachkante_auf():
+    zellen = [(0, 0, 0), (1, 1, 0), (0, 0, 1), (1, 0, 1), (0, 1, 1), (1, 1, 1)]
+    P, F = _voxel_netz(zellen)
+    assert max(_kanten_zaehler(F).values()) == 4          # Fixture: eine Kante mit 4 Dreiecken
+    koerper = pa.zerlegen(P, F)
+    assert len(koerper) == 1
+    Pk, Fk = koerper[0]
+    assert max(_kanten_zaehler(Fk).values()) <= 2
+    assert len(Fk) == len(F)
+    assert len(Pk) == len(P) + 2
+    assert abs(pa.volumen(Pk, Fk)) == pytest.approx(6.0)
+
+
+def test_mannigfaltig_laesst_wuerfel_unveraendert():
+    P, F = _wuerfel()
+    koerper = pa.zerlegen(P, F)
+    assert len(koerper) == 1 and len(koerper[0][1]) == 12 and len(koerper[0][0]) == 8
+    P2, F2 = pa.mannigfaltig(P, F)
+    assert len(P2) == 8 and [list(f) for f in F2] == [list(f) for f in F]
+
+
 def test_morph_body_dreht_innenliegende_flaechen_um():
     P, F = _wuerfel(innen=True)
     assert pa.volumen(P, F) < 0

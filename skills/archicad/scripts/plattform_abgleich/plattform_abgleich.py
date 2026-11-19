@@ -439,10 +439,9 @@ def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
     return _zusammen(eigene, kinder)
 
 
-def zerlegen(P: list, F: list) -> list[tuple[list, list]]:
-    """Netz in Einzelkörper trennen: Dreiecke hängen nur über Kanten mit genau 2 Nachbarn zusammen. Verschweißte
-    Teilstücke (Kante mit 4 Nachbarn) werden so getrennt und bekommen eigene Punkte — Archicad nimmt nur saubere
-    Körper. Entartete Dreiecke (zwei gleiche Punkte) fallen weg."""
+def _komponenten(P: list, F: list) -> list[tuple[list, list]]:
+    """Netz in zusammenhängende Teile trennen: Dreiecke hängen nur über Kanten mit genau 2 Nachbarn zusammen.
+    Jeder Teil bekommt eigene, neu nummerierte Punkte. Entartete Dreiecke (zwei gleiche Punkte) fallen weg."""
     F = [f for f in F if len({tuple(P[i]) for i in f}) == 3]
     kanten: dict[tuple, list[int]] = collections.defaultdict(list)
     for n, f in enumerate(F):
@@ -474,6 +473,71 @@ def zerlegen(P: list, F: list) -> list[tuple[list, list]]:
                     Pk.append(P[i])
             Fk.append([idx[i] for i in f])
         aus.append((Pk, Fk))
+    return aus
+
+
+def mannigfaltig(P: list, F: list) -> tuple[list, list]:
+    """Mehrfachkanten (Kante mit mehr als 2 Dreiecken) auflösen, indem der Dreiecksfächer je Eckpunkt getrennt wird.
+
+    2026-11-19 live BFW07: 6 Plattform-Teile (Zuluftstutzen Ø160, Steigrohr Ø315, Kondensat-Fallrohr …) scheiterten
+    mit "Failed to create morph" (Solid und Surface), weil nach dem Trennen noch eine Kante mit 4 Dreiecken übrig
+    blieb (Rohrprofil läuft zweimal durch einen Punkt). Fächer je Eckpunkt trennen löst es: live alle 6 gebaut,
+    Rücklese exakt.
+
+    Je Eckpunkt werden die anliegenden Dreiecke über Kanten mit genau 2 Dreiecken verbunden; jede weitere
+    Fächergruppe bekommt eine Punktkopie. Alle Nachbarschaftsabfragen laufen auf den unveränderten Originalflächen
+    (F0), Ersetzungen gehen in eine getrennte Ausgabeliste — so können frühere Ersetzungen spätere Kantenabfragen
+    nicht verfehlen lassen. Eingabelisten werden nicht verändert."""
+    F0 = [list(f) for f in F]
+    kanten: dict[tuple, list[int]] = {}
+    an_punkt: dict[int, list[int]] = {}
+    for n, f in enumerate(F0):
+        for a in range(3):
+            kanten.setdefault(tuple(sorted((f[a], f[(a + 1) % 3]))), []).append(n)
+            an_punkt.setdefault(f[a], []).append(n)
+    P2 = [list(p) for p in P]
+    F2 = [list(f) for f in F0]
+    for v, fl in an_punkt.items():
+        wurzel = {n: n for n in fl}
+
+        def finde(x: int) -> int:
+            while wurzel[x] != x:
+                wurzel[x] = wurzel[wurzel[x]]
+                x = wurzel[x]
+            return x
+
+        for n in fl:
+            for x in F0[n]:
+                if x == v:
+                    continue
+                paar = kanten.get(tuple(sorted((v, x))), ())
+                if len(paar) == 2:
+                    wurzel[finde(paar[0])] = finde(paar[1])
+        neu: dict[int, int] = {}
+        for n in fl:
+            w = finde(n)
+            if not neu:
+                neu[w] = v
+            elif w not in neu:
+                neu[w] = len(P2)
+                P2.append(list(P[v]))
+            if neu[w] != v:
+                F2[n] = [neu[w] if i == v else i for i in F2[n]]
+    return P2, F2
+
+
+def zerlegen(P: list, F: list) -> list[tuple[list, list]]:
+    """Netz in Einzelkörper trennen: Dreiecke hängen nur über Kanten mit genau 2 Nachbarn zusammen. Verschweißte
+    Teilstücke (Kante mit 4 Nachbarn) werden so getrennt und bekommen eigene Punkte — Archicad nimmt nur saubere
+    Körper. Entartete Dreiecke (zwei gleiche Punkte) fallen weg. Bleibt in einem Teil noch eine Mehrfachkante
+    (Teil hängt über andere Kanten zusammen), wird der Fächer je Eckpunkt getrennt (mannigfaltig) und neu zerlegt."""
+    aus: list[tuple[list, list]] = []
+    for Pk, Fk in _komponenten(P, F):
+        P2, F2 = mannigfaltig(Pk, Fk)
+        if len(P2) != len(Pk):
+            aus.extend(_komponenten(P2, F2))
+        else:
+            aus.append((Pk, Fk))
     return aus
 
 
