@@ -10,7 +10,7 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
     plattform_abgleich.py archicad-schreiben --ordner <dir> [--ausfuehren]      # Eigenschaften nach Archicad
     plattform_abgleich.py stempeln        --ordner <dir> --gebaut gebaut.json [--ausfuehren]
     plattform_abgleich.py bauen           --ordner <dir> --ifc plattform.ifc --bauliste bauliste.json --register register.json
-                                          [--zuordnung z.json] [--nur GUID,..] [--ohne GUID,..] [--vorhanden v.json] [--ausfuehren]
+                                          [--zuordnung z.json] [--nur GUID,..] [--ohne GUID,..] [--vorhanden v.json] [--verbund einzeln|zusammen] [--ausfuehren]
     plattform_abgleich.py hochladen       --ordner <dir> --ablage "<ergebnis_ablage>"
     plattform_abgleich.py oberflaechen    --ordner <dir>                     # Export + ZIP für die Plattform
     plattform_abgleich.py ifc             --ordner <dir> [--translator "<Name>"]
@@ -54,6 +54,7 @@ TYPEN = ("Wall", "Column", "Beam", "Slab", "Roof", "Shell", "Morph", "Object", "
          "Stair", "Railing", "CurtainWall", "Mesh", "Zone", "Opening", "Lamp")
 PAKET = 400                                             # Elemente je Aufruf
 STEMPEL_GRUPPE, STEMPEL_NAME, KI_NAME = "Allgemeine Werte", ab.PLATTFORM_GUID, "KI generiert"
+VERBUND_NAME = "Plattform-Verbund"
 
 
 class Fehler(RuntimeError):
@@ -645,19 +646,22 @@ def _string(v: Any) -> dict:
 
 
 def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: dict, *, nur, ohne, vorhanden: dict,
-          ausfuehren: bool, projekt_soll: Optional[str] = None) -> dict:
+          ausfuehren: bool, projekt_soll: Optional[str] = None, verbund: str = "einzeln") -> dict:
     """Plattform-Bauteile als Morphs (echte Geometrie) nach Archicad: Ebene, Geschoss, Klasse, Umbau-Status,
     Stempel, Rücklese. Ohne `ausfuehren` nur Trockenlauf — es wird nichts Schreibendes gesendet."""
     ordner = Path(ordner)
     projekt = ac.befehl("GetProjectInfo").get("projectName")
     stories = ac.befehl("GetStories").get("stories") or []
     system_id, klassen = sab_klassen(ac)
-    plan, ausgelassen = bauplan(bauliste, ifc_netze(ifc), register, zuordnung, klassen, stories, nur, ohne)
+    plan, ausgelassen = bauplan(bauliste, ifc_teile(ifc), register, zuordnung, klassen, stories, nur, ohne,
+                                verbund=verbund)
     _schreiben(ordner / "ausgelassen.json", ausgelassen)
     zaehl = {"ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
              "klassen": dict(collections.Counter(p["klasse"] for p in plan)),
              "status": dict(collections.Counter(p["status"] for p in plan)),
-             "dreiecke": sum(len(p["morph"]["body"]["polygons"]) for p in plan)}
+             "dreiecke": sum(len(p["morph"]["body"]["polygons"]) for p in plan),
+             "verbuende": len({p["kopf"] for p in plan if p.get("kopf")}),
+             "unterteile": sum(1 for p in plan if p.get("kopf"))}
     if not ausfuehren:
         return {"trockenlauf": True, "projekt": projekt, "zu_bauen": len(plan), "ausgelassen": len(ausgelassen),
                 **zaehl}
@@ -670,6 +674,12 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
     if len(ids) < 3 or any("propertyId" not in x for x in ids):
         raise Fehler(f"Eigenschaften fehlen im Projekt (Plattform-GUID, KI generiert, Umbau-Status): {ids}")
     pg, ki, ps = (x["propertyId"] for x in ids)
+    try:
+        vid = ac.api("API.GetPropertyIds", {"properties": [
+            {"type": "UserDefined", "localizedName": [STEMPEL_GRUPPE, VERBUND_NAME]}]}).get("properties") or []
+    except Fehler:
+        vid = []
+    pv_id = (vid[0] or {}).get("propertyId") if vid else None
     tag = "KI generiert " + datetime.date.today().isoformat()
     sys_id = {"guid": system_id}
     gebaut: list[dict] = []
@@ -680,7 +690,8 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
         antw = iter(ac.befehl("CreateMorphs", {"morphsData": [p["morph"] for p in neu_]}).get("elements") or []
                     if neu_ else [])
         r = [{"elementId": {"guid": vorhanden[p["g"]]}} if p["g"] in vorhanden else next(antw, {}) for p in ch]
-        _schreiben(ordner / "angelegt.json", gebaut + [{"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"]}
+        _schreiben(ordner / "angelegt.json", gebaut + [{"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"],
+                                                        "kopf": p.get("kopf")}
                                                        for p, e in zip(ch, r) if "elementId" in e])
         ok = [(p, e) for p, e in zip(ch, r) if "elementId" in e]
         fehler += [{"plattformGuid": p["g"], "name": p["name"], "grund": str(e)[:200]}
@@ -699,6 +710,8 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
         for p, e in ok:
             ev += [{"elementId": e["elementId"], "propertyId": pg, "propertyValue": _string(p["g"])},
                    {"elementId": e["elementId"], "propertyId": ki, "propertyValue": _string(tag)},
+                   *([{"elementId": e["elementId"], "propertyId": pv_id, "propertyValue": _string(p["kopf"])}]
+                     if pv_id and p.get("kopf") else []),
                    {"elementId": e["elementId"], "propertyId": ps, "propertyValue": {
                        "type": "singleEnum", "status": "normal",
                        "value": {"type": "nonLocalizedValue", "nonLocalizedValue": p["status"]}}}]
@@ -706,7 +719,8 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
         els = [e for _, e in ok]
         boxen = ac.api("API.Get3DBoundingBoxes", {"elements": els}).get("boundingBoxes3D") or []
         pv = ac.api("API.GetPropertyValuesOfElements", {
-            "elements": els, "properties": [{"propertyId": pg}, {"propertyId": ki}, {"propertyId": ps}]}
+            "elements": els, "properties": [{"propertyId": pg}, {"propertyId": ki}, {"propertyId": ps}]
+                          + ([{"propertyId": pv_id}] if pv_id else [])}
                     ).get("propertyValuesForElements") or []
         cl = ac.api("API.GetClassificationsOfElements", {
             "elements": els, "classificationSystemIds": [{"classificationSystemId": sys_id}]}
@@ -718,21 +732,28 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
             ist = [bx[k] for k in ("xMin", "yMin", "zMin", "xMax", "yMax", "zMax")] if bx else None
             abw = max(abs(a - b) for a, b in zip(ist, p["soll"])) if ist else None
             w = [(x or {}).get("propertyValue", {}).get("value")
-                 for x in ((pv[n] if n < len(pv) else {}).get("propertyValues") or [])] + [None] * 3
+                 for x in ((pv[n] if n < len(pv) else {}).get("propertyValues") or [])] + [None] * 4
             cids = (cl[n] if n < len(cl) else {}).get("classificationIds") or [{}]
             kg = ((cids[0] or {}).get("classificationId") or {}).get("classificationItemId", {}).get("guid")
             d = det[n] if n < len(det) else {}
             stimmt = (abw is not None and abw <= 0.002 and w[0] == p["g"] and w[1] == tag
-                      and (w[2] or {}).get("nonLocalizedValue") == p["status"] and kg == klassen[p["klasse"]])
-            gebaut.append({"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"]})
+                      and (w[2] or {}).get("nonLocalizedValue") == p["status"] and kg == klassen[p["klasse"]]
+                      and (not (pv_id and p.get("kopf")) or w[3] == p["kopf"]))
+            gebaut.append({"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"],
+                           "kopf": p.get("kopf")})
             rueck.append({"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"], "name": p["name"],
+                          "kopf": p.get("kopf"),
                           "stimmt": bool(stimmt), "abweichung_m": abw,
                           "geschlossen": ((d.get("details") or {}).get("body") or {}).get("isClosed"),
                           "geschoss": d.get("floorIndex"), "ebene": p["ebene"], "klasse": id2klasse.get(kg),
                           "status": (w[2] or {}).get("nonLocalizedValue")})
         _schreiben(ordner / "gebaut.json", gebaut)
         _schreiben(ordner / "ruecklese.json", {"rueck": rueck, "fehler": fehler})
+    hinweis = ({"hinweis": "Plattform-Verbund fehlt – Kopf nur in gebaut.json"}
+               if not pv_id and any(p.get("kopf") for p in plan) else {})
     return {"trockenlauf": False, "projekt": projekt, "gebaut": len(gebaut),
+            "verbuende": len({x["kopf"] for x in gebaut if x.get("kopf")}),
+            "unterteile": sum(1 for x in gebaut if x.get("kopf")), **hinweis,
             "stimmt": sum(1 for x in rueck if x["stimmt"]), "fehler": fehler[:10],
             "geschlossen": dict(collections.Counter(x["geschlossen"] for x in rueck)),
             "naechster_schritt": "Paare aus gebaut.json in ergebnis.json basis.paare ergänzen, hochladen, "
@@ -856,7 +877,7 @@ def cmd_bauen(o) -> dict:
     aus = bauen(Archicad(_http(o.port)), ordner, o.ifc, _lesen(Path(o.bauliste)), _lesen(Path(o.register)),
                 zuordnung_laden(o.zuordnung or ZUORDNUNG), nur=liste(o.nur) or None, ohne=liste(o.ohne),
                 vorhanden=_lesen(Path(o.vorhanden)) if o.vorhanden else {}, ausfuehren=o.ausfuehren,
-                projekt_soll=soll)
+                projekt_soll=soll, verbund=o.verbund)
     if aus.get("trockenlauf"):
         aus["hinweis"] = "Trockenlauf — nichts geschrieben. Nach dem Ja des Zeichners mit --ausfuehren wiederholen."
     return aus
@@ -976,6 +997,7 @@ def main(argv=None) -> int:
     neu("stempeln", cmd_stempeln, gebaut={"required": True}, ausfuehren={"action": "store_true"})
     neu("bauen", cmd_bauen, ifc={"required": True}, bauliste={"required": True}, register={"required": True},
         zuordnung={"default": ""}, nur={"default": ""}, ohne={"default": ""}, vorhanden={"default": ""},
+        verbund={"choices": ["einzeln", "zusammen"], "default": "einzeln"},
         ausfuehren={"action": "store_true"})
     neu("hochladen", cmd_hochladen, ablage={"required": True})
     neu("oberflaechen", cmd_oberflaechen)
