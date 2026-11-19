@@ -472,7 +472,8 @@ def sab_klassen(ac: Archicad, name: str = SAB_SYSTEM) -> tuple[str, dict[str, st
         for k in knoten or []:
             item = k.get("classificationItem") or k
             items.append(item)
-            sammeln(k.get("children"))
+            # live AC29/Tapir 1.7.2 (19.11.2026): Kinder hängen am Item, nicht am Hüllobjekt
+            sammeln(item.get("children") or k.get("children"))
 
     sammeln(baum.get("classificationItems"))
     klassen: dict[str, str] = {}
@@ -486,7 +487,8 @@ def sab_klassen(ac: Archicad, name: str = SAB_SYSTEM) -> tuple[str, dict[str, st
     for teil in _pakete(ohne_id):
         r = ac.api("API.GetDetailsOfClassificationItems",
                    {"classificationItemIds": [{"classificationItemId": {"guid": g}} for g in teil]})
-        for g, d in zip(teil, r.get("classificationItemDetails") or []):
+        # live: Antwortschlüssel ist „classificationItems“ (ältere Fassungen: „classificationItemDetails“)
+        for g, d in zip(teil, r.get("classificationItems") or r.get("classificationItemDetails") or []):
             klasse_id = ((d or {}).get("classificationItem") or d or {}).get("id")
             if klasse_id:
                 klassen[klasse_id] = g

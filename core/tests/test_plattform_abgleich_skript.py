@@ -348,3 +348,25 @@ def test_bauen_trockenlauf_sendet_nichts_schreibendes(tmp_path):
     for schreibend in ("CreateMorphs", "SetLayerOfElements", "API.SetClassificationsOfElements",
                        "API.SetPropertyValuesOfElements"):
         assert schreibend not in f.namen()
+
+
+def test_sab_klassen_live_antwortform_kinder_am_item_und_details_schluessel():
+    """Antwortform live BFW07 19.11.2026 (AC29, Tapir 1.7.2): Kinder hängen am classificationItem, die Ids kommen
+    erst über GetDetailsOfClassificationItems unter dem Schlüssel „classificationItems“."""
+    baum = {"classificationItems": [{"classificationItem": {
+        "classificationItemId": {"guid": guid(10)},
+        "children": [{"classificationItem": {"classificationItemId": {"guid": guid(11)},
+                                             "children": [{"classificationItem": {
+                                                 "classificationItemId": {"guid": guid(12)}}}]}}]}}]}
+    namen = {guid(10): "ELEMENTE", guid(11): "Komponente der TGA", guid(12): "Lüftungskanal"}
+    ac = pa.Archicad(FakeSenden({
+        "API.GetAllClassificationSystems": {"classificationSystems": [
+            {"name": "SAB_Klassifizierung_29", "classificationSystemId": {"guid": guid(1)}}]},
+        "API.GetAllClassificationsInSystem": baum,
+        "API.GetDetailsOfClassificationItems": lambda p: {"classificationItems": [
+            {"classificationItem": {"id": namen[x["classificationItemId"]["guid"]]}}
+            for x in p["classificationItemIds"]]},
+    }))
+    sid, klassen = pa.sab_klassen(ac)
+    assert sid == guid(1)
+    assert klassen == {"ELEMENTE": guid(10), "Komponente der TGA": guid(11), "Lüftungskanal": guid(12)}
