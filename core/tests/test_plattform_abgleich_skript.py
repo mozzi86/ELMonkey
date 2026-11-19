@@ -210,3 +210,141 @@ def test_stempeln_ohne_reservierung_volle_wertform_und_6703(tmp_path, monkeypatc
     gruende = [x["grund"] for x in aus["nicht_moeglich"]]
     assert gruende == ["nicht klassifiziert (6703)"]
     assert aus["nicht_moeglich"][0]["plattformGuid"] == "PG-2"
+
+
+# ───────────────────────────────────────────── IFC → Morph (bauen)
+
+#: Würfel, Flächen nach außen (positives Volumen); Punkte 0-3 unten, 4-7 oben
+_WUERFEL = [(0, 3, 2), (0, 2, 1), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5),
+            (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)]
+_ECKEN = [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)]
+
+
+def _wuerfel(versatz=(0, 0, 0), innen=False):
+    P = [[a + versatz[0], b + versatz[1], c + versatz[2]] for a, b, c in _ECKEN]
+    F = [list(reversed(f)) if innen else list(f) for f in _WUERFEL]
+    return P, F
+
+
+def test_zerlegen_trennt_koerper_die_nur_eine_kante_teilen():
+    A, FA = _wuerfel()
+    B, FB = _wuerfel((1, 1, 0))                       # teilt die senkrechte Kante A2-A6
+    P = A + [p for i, p in enumerate(B) if i not in (0, 4)]
+    karte = {0: 2, 4: 6}
+    nxt = 8
+    for i in range(8):
+        if i not in karte:
+            karte[i] = nxt
+            nxt += 1
+    F = [list(f) for f in FA] + [[karte[i] for i in f] for f in FB]
+    F.append([0, 0, 1])                               # entartet: zwei gleiche Punkte
+    koerper = pa.zerlegen(P, F)
+    assert len(koerper) == 2
+    for Pk, Fk in koerper:
+        assert len(Fk) == 12 and len(Pk) == 8
+
+
+def test_morph_body_dreht_innenliegende_flaechen_um():
+    P, F = _wuerfel(innen=True)
+    assert pa.volumen(P, F) < 0
+    body, box = pa.morph_body([(P, F)])
+    V = [[v["x"], v["y"], v["z"]] for v in body["vertices"]]
+    Fo = [p["vertexIds"] for p in body["polygons"]]
+    assert pa.volumen(V, Fo) > 0
+    assert body["bodyType"] == "Solid" and set(body["vertices"][0]) == {"x", "y", "z"}
+    assert box == [0, 0, 0, 1, 1, 1]
+
+
+def test_zuordnung_und_status(tmp_path):
+    z = pa.zuordnung_laden(pa.ZUORDNUNG)
+    assert z["IfcPlate"] == "Bauelement - beliebig" and not any(k.startswith("_") or "?" in k for k in z)
+    d = tmp_path / "z.json"
+    d.write_text(json.dumps({"_hinweis": "x", "IfcWall?": "Wand"}))
+    assert pa.zuordnung_laden(d) == {"IfcWall": "Wand"}
+    assert [pa.status_archicad(x) for x in ("Abbruch", "Bestand", "Neubau", "?", None)] == [
+        "ToBeDemolished", "Existing", "New", None, None]
+
+
+STORIES = [{"index": -1, "level": -3.0}, {"index": 0, "level": 0.0}, {"index": 1, "level": 3.0}]
+
+
+def test_geschoss_index():
+    assert pa.geschoss_index(STORIES, 3.5) == 1
+    assert pa.geschoss_index(STORIES, 2.9999) == 0
+    assert pa.geschoss_index(STORIES, -9) == -1
+
+
+def _bauteil(g, klasse="IfcSlab", name="B", ebene="E1"):
+    return {"plattformGuid": g, "name": name, "ebene": ebene, "ifc": {"klasse": klasse}}
+
+
+def test_bauplan_ausgelassen_und_filter():
+    ga, gb, gc, gd = (pa.guid_lang("0" * 21 + c) for c in "1234")
+    netze = {ga: [_wuerfel((0, 0, 3))], gb: [_wuerfel()], gd: [_wuerfel()]}
+    bauliste = {"bauteile": [_bauteil(ga), _bauteil(gb, "IfcUnbekannt"), _bauteil(gc), _bauteil(gd)]}
+    register = {"neu": [{"guid": ga.lower(), "status": "Neubau"}, {"guid": gb, "status": "Bestand"},
+                        {"guid": gc, "status": "Neubau"}, {"guid": gd, "status": None}]}
+    klassen = {"Decke": "k-decke"}
+    plan, aus = pa.bauplan(bauliste, netze, register, {"IfcSlab": "Decke"}, klassen, STORIES)
+    assert [p["g"] for p in plan] == [ga]
+    p = plan[0]
+    assert (p["klasse"], p["status"], p["ebene"]) == ("Decke", "New", "E1")
+    assert p["soll"] == [0, 0, 3, 1, 1, 4] and p["morph"]["floorIndex"] == 1
+    assert p["morph"]["basePoint"] == {"x": 0, "y": 0, "z": 0}
+    gruende = {a["plattformGuid"]: a["grund"] for a in aus}
+    assert gruende[gc] == "keine Geometrie im IFC"
+    assert gruende[gb].startswith("Klasse/Status fehlt (IfcUnbekannt") and gruende[gd].startswith("Klasse/Status fehlt")
+    # Filter
+    plan2, aus2 = pa.bauplan(bauliste, netze, register, {"IfcSlab": "Decke"}, klassen, STORIES, nur={gb})
+    assert plan2 == [] and [a["plattformGuid"] for a in aus2] == [gb]
+    plan3, _ = pa.bauplan(bauliste, netze, register, {"IfcSlab": "Decke"}, klassen, STORIES, ohne=(ga,))
+    assert plan3 == []
+
+
+def _mini_ifc(pfad: Path, g1: str, g2: str, g3: str) -> None:
+    pts = "(" + ",".join("(%s.,%s.,%s.)" % e for e in _ECKEN) + ")"
+    fl = "(" + ",".join("(%d,%d,%d)" % tuple(i + 1 for i in f) for f in _WUERFEL) + ")"
+    zeilen = [
+        "ISO-10303-21;", "DATA;",
+        f"#1=IFCCARTESIANPOINTLIST3D({pts});",
+        f"#2=IFCTRIANGULATEDFACESET(#1,$,$,{fl},$);",
+        "#3=IFCSHAPEREPRESENTATION(#90,'Body','Tessellation',(#2));",
+        "#4=IFCPRODUCTDEFINITIONSHAPE($,$,(#3));",
+        f"#5=IFCSLAB('{g1}',$,'S1',$,$,$,#4,$);",
+        f"#6=IFCSLAB('{g2}',$,'S2',$,$,$,$,$);",
+        f"#7=IFCPLATE('{g3}',$,'P1',$,$,$,#4,$);",
+        f"#8=IFCRELAGGREGATES('{'0' * 21}9',#91,$,$,#6,(#7));",
+        "ENDSEC;", "END-ISO-10303-21;"]
+    pfad.write_text("\n".join(zeilen), encoding="latin-1")
+
+
+def test_ifc_netze_mit_unterteil(tmp_path):
+    k = ["0" * 21 + c for c in "123"]
+    _mini_ifc(tmp_path / "m.ifc", *k)
+    netze = pa.ifc_netze(tmp_path / "m.ifc")
+    assert set(netze) == {pa.guid_lang(k[0]), pa.guid_lang(k[1]), pa.guid_lang(k[2])}
+    assert len(netze[pa.guid_lang(k[1])]) == 1             # S2 hat nur über das Unterteil P1 ein Netz
+    assert len(netze[pa.guid_lang(k[0])][0][1]) == 12
+
+
+def test_bauen_trockenlauf_sendet_nichts_schreibendes(tmp_path):
+    k = ["0" * 21 + c for c in "123"]
+    _mini_ifc(tmp_path / "m.ifc", *k)
+    g1, g2 = pa.guid_lang(k[0]), pa.guid_lang(k[1])
+    bauliste = {"bauteile": [_bauteil(g1, name="S1"), _bauteil(g2, name="S2"), _bauteil(pa.guid_lang("0" * 21 + "7"))]}
+    register = {"neu": [{"guid": g1, "status": "Neubau"}, {"guid": g2, "status": "Abbruch"}]}
+    f = FakeSenden({
+        "GetProjectInfo": {"projectName": "P"},
+        "GetStories": {"stories": STORIES},
+        "API.GetAllClassificationSystems": {"classificationSystems": [
+            {"classificationSystemId": {"guid": "sys"}, "name": pa.SAB_SYSTEM}]},
+        "API.GetAllClassificationsInSystem": {"classificationItems": [
+            {"classificationItem": {"classificationItemId": {"guid": "k-decke"}, "id": "Decke"}, "children": []}]},
+    })
+    aus = pa.bauen(pa.Archicad(f), tmp_path, tmp_path / "m.ifc", bauliste, register, {"IfcSlab": "Decke"},
+                   nur=None, ohne=(), vorhanden={}, ausfuehren=False)
+    assert aus["trockenlauf"] is True and aus["zu_bauen"] == 2 and aus["ausgelassen"] == 1
+    assert json.loads((tmp_path / "ausgelassen.json").read_text())[0]["grund"] == "keine Geometrie im IFC"
+    for schreibend in ("CreateMorphs", "SetLayerOfElements", "API.SetClassificationsOfElements",
+                       "API.SetPropertyValuesOfElements"):
+        assert schreibend not in f.namen()

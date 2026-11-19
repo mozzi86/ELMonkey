@@ -9,6 +9,8 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
     plattform_abgleich.py entscheiden     --ordner <dir> [--antworten antworten.json]
     plattform_abgleich.py archicad-schreiben --ordner <dir> [--ausfuehren]      # Eigenschaften nach Archicad
     plattform_abgleich.py stempeln        --ordner <dir> --gebaut gebaut.json [--ausfuehren]
+    plattform_abgleich.py bauen           --ordner <dir> --ifc plattform.ifc --bauliste bauliste.json --register register.json
+                                          [--zuordnung z.json] [--nur GUID,..] [--ohne GUID,..] [--vorhanden v.json] [--ausfuehren]
     plattform_abgleich.py hochladen       --ordner <dir> --ablage "<ergebnis_ablage>"
     plattform_abgleich.py oberflaechen    --ordner <dir>                     # Export + ZIP für die Plattform
     plattform_abgleich.py ifc             --ordner <dir> [--translator "<Name>"]
@@ -17,19 +19,23 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
 
 Alles, was Archicad verändert, ist ohne `--ausfuehren` ein Trockenlauf. Gelöscht wird in Archicad nie.
 Dateien im Arbeitsordner: archicad.json, stand.json, plan.json, fragen.md, antworten.json, ergebnis.json,
-archicad_geschrieben.json, archicad_diff.json (Befehl diff).
+archicad_geschrieben.json, archicad_diff.json (Befehl diff); Befehl bauen: ausgelassen.json (immer),
+angelegt.json / gebaut.json / ruecklese.json (je Paket fortgeschrieben, nur mit --ausfuehren).
 """
 from __future__ import annotations
 
 import argparse
+import collections
 import datetime
 import json
+import re
 import ssl
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -279,6 +285,313 @@ def fragen_text(plan: dict) -> str:
     return "\n".join(zeilen) + "\n"
 
 
+# ─────────────────────────────────────────────────────────── IFC → Morph (Befehl bauen)
+
+BAU_PAKET = 25
+SAB_SYSTEM = "SAB_Klassifizierung_29"
+STATUS = {"Abbruch": "ToBeDemolished", "Bestand": "Existing", "Neubau": "New"}
+ZUORDNUNG = Path(__file__).with_name("sab_zuordnung.json")
+_IFC_ZEICHEN = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
+_STEP = re.compile(r"#(\d+)=\s*([A-Z0-9]+)\((.*)\);\s*$")
+_REF = re.compile(r"#(\d+)")
+
+
+def guid_lang(g22: str) -> str:
+    """IFC-GlobalId (22 Zeichen, Base64-Alphabet von IFC) → UUID in Großbuchstaben."""
+    n = 0
+    for c in g22:
+        n = n * 64 + _IFC_ZEICHEN.index(c)
+    return str(uuid.UUID(int=n)).upper()
+
+
+def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
+    """{GUID (lang): [(Punkte, Dreiecke 0-basiert)]} aus den IFCTRIANGULATEDFACESET der Datei. Unterteile
+    (IfcRelAggregates) werden dem Elternteil zugeschlagen. Nur GUIDs mit mindestens einem Netz."""
+    zeilen: dict[int, tuple[str, str]] = {}
+    with open(pfad, encoding="latin-1") as f:
+        for z in f:
+            m = _STEP.match(z)
+            if m:
+                zeilen[int(m.group(1))] = (m.group(2), m.group(3))
+
+    def refs(a: str) -> list[int]:
+        return [int(x) for x in _REF.findall(a)]
+
+    nr2g: dict[int, str] = {}
+    kinder: dict[int, list[int]] = collections.defaultdict(list)
+    for i, (t, a) in zeilen.items():
+        m = re.match(r"'([^']{22})',", a)
+        if m and all(c in _IFC_ZEICHEN for c in m.group(1)) and not t.startswith("IFCREL") \
+                and t not in ("IFCPROPERTYSET", "IFCELEMENTQUANTITY"):
+            nr2g[i] = guid_lang(m.group(1))
+        if t == "IFCRELAGGREGATES":
+            r = refs(a)
+            for kind in r[2:]:                          # r[0] = Besitzer, r[1] = Elternteil
+                kinder[r[1]].append(kind)
+
+    def netze(i: int) -> list[tuple[list, list]]:
+        aus: list[tuple[list, list]] = []
+        for pd in [x for x in refs(zeilen[i][1]) if zeilen.get(x, ("",))[0] == "IFCPRODUCTDEFINITIONSHAPE"]:
+            for sr in refs(zeilen[pd][1]):
+                for it in refs(zeilen.get(sr, ("", ""))[1]):
+                    if zeilen.get(it, ("",))[0] == "IFCTRIANGULATEDFACESET":
+                        fa = zeilen[it][1]
+                        P = [[float(x) for x in p.split(",")]
+                             for p in re.findall(r"\(([-0-9.Ee+,]+)\)", zeilen[refs(fa)[0]][1])]
+                        F = [[int(x) - 1 for x in f.split(",")]
+                             for f in re.findall(r"\((\d+,\d+,\d+)\)", fa[fa.index("(("):])]
+                        aus.append((P, F))
+        for k in kinder.get(i, []):
+            aus += netze(k)
+        return aus
+
+    ergebnis = {g: netze(i) for i, g in nr2g.items()}
+    return {g: n for g, n in ergebnis.items() if n}
+
+
+def zerlegen(P: list, F: list) -> list[tuple[list, list]]:
+    """Netz in Einzelkörper trennen: Dreiecke hängen nur über Kanten mit genau 2 Nachbarn zusammen. Verschweißte
+    Teilstücke (Kante mit 4 Nachbarn) werden so getrennt und bekommen eigene Punkte — Archicad nimmt nur saubere
+    Körper. Entartete Dreiecke (zwei gleiche Punkte) fallen weg."""
+    F = [f for f in F if len({tuple(P[i]) for i in f}) == 3]
+    kanten: dict[tuple, list[int]] = collections.defaultdict(list)
+    for n, f in enumerate(F):
+        for a in range(3):
+            kanten[tuple(sorted((f[a], f[(a + 1) % 3])))].append(n)
+    wurzel = list(range(len(F)))
+
+    def finde(x: int) -> int:
+        while wurzel[x] != x:
+            wurzel[x] = wurzel[wurzel[x]]
+            x = wurzel[x]
+        return x
+
+    for fs in kanten.values():
+        if len(fs) == 2:
+            wurzel[finde(fs[0])] = finde(fs[1])
+    gruppen: dict[int, list] = collections.defaultdict(list)
+    for n in range(len(F)):
+        gruppen[finde(n)].append(F[n])
+    aus = []
+    for fs in gruppen.values():
+        idx: dict[int, int] = {}
+        Pk: list = []
+        Fk: list = []
+        for f in fs:
+            for i in f:
+                if i not in idx:
+                    idx[i] = len(Pk)
+                    Pk.append(P[i])
+            Fk.append([idx[i] for i in f])
+        aus.append((Pk, Fk))
+    return aus
+
+
+def volumen(P: list, F: list) -> float:
+    """Vorzeichenbehaftetes Volumen (positiv = Flächen zeigen nach außen)."""
+    return sum(P[a][0] * (P[b][1] * P[c][2] - P[b][2] * P[c][1])
+               - P[a][1] * (P[b][0] * P[c][2] - P[b][2] * P[c][0])
+               + P[a][2] * (P[b][0] * P[c][1] - P[b][1] * P[c][0]) for a, b, c in F) / 6
+
+
+def morph_body(netze: list[tuple[list, list]]) -> tuple[dict, list]:
+    """Archicad-Morph-Körper (Solid) aus Netzen; Körper mit negativem Volumen werden umgedreht.
+    Rückgabe (body, box [xmin, ymin, zmin, xmax, ymax, zmax])."""
+    V: list[dict] = []
+    Pg: list[dict] = []
+    for P, F in netze:
+        for Pk, Fk in zerlegen(P, F):
+            o = len(V)
+            V += [{"x": p[0], "y": p[1], "z": p[2]} for p in Pk]
+            if volumen(Pk, Fk) < 0:
+                Fk = [[a, c, b] for a, b, c in Fk]
+            Pg += [{"vertexIds": [a + o, b + o, c + o]} for a, b, c in Fk]
+    xs, ys, zs = [v["x"] for v in V], [v["y"] for v in V], [v["z"] for v in V]
+    box = [min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)] if V else []
+    return {"bodyType": "Solid", "vertices": V, "polygons": Pg}, box
+
+
+def zuordnung_laden(pfad=ZUORDNUNG) -> dict[str, str]:
+    """IFC-Klasse → SAB-Klasse; „?“ am Schlüssel (Vorschlag) und „_“-Schlüssel (Hinweise) fallen weg."""
+    roh = json.loads(Path(pfad).read_text(encoding="utf-8"))
+    return {k.rstrip("?"): v for k, v in roh.items() if not k.startswith("_")}
+
+
+def status_archicad(text: Optional[str]) -> Optional[str]:
+    return STATUS.get(text or "")
+
+
+def geschoss_index(stories: list[dict], z: float) -> int:
+    """Höchstes Geschoss mit level ≤ Unterkante, sonst das unterste."""
+    passend = [s for s in stories if s["level"] <= z + 1e-6] or [min(stories, key=lambda s: s["level"])]
+    return max(passend, key=lambda s: s["level"])["index"]
+
+
+def bauplan(bauliste: dict, netze: dict, register: dict, zuordnung: dict, klassen: dict, stories: list[dict],
+            nur=None, ohne=()) -> tuple[list[dict], list[dict]]:
+    """Rein, ohne Archicad: (plan, ausgelassen). klassen = {Klassen-id: Item-GUID}."""
+    reg = {str(x["guid"]).upper(): x for x in register.get("neu") or []}
+    netze = {k.upper(): v for k, v in netze.items()}
+    nur_g = {g.upper() for g in nur} if nur else None
+    ohne_g = {g.upper() for g in ohne}
+    plan: list[dict] = []
+    aus: list[dict] = []
+    for b in bauliste.get("bauteile") or []:
+        g = b["plattformGuid"]
+        if (nur_g is not None and g.upper() not in nur_g) or g.upper() in ohne_g:
+            continue
+        ns = netze.get(g.upper()) or []
+        klasse = zuordnung.get(b["ifc"]["klasse"])
+        status_roh = (reg.get(g.upper()) or {}).get("status")
+        status = status_archicad(status_roh)
+        if not ns:
+            aus.append({"plattformGuid": g, "name": b["name"], "grund": "keine Geometrie im IFC"})
+            continue
+        if klasse not in klassen or not status:
+            aus.append({"plattformGuid": g, "name": b["name"],
+                        "grund": f"Klasse/Status fehlt ({b['ifc']['klasse']}, {status_roh})"})
+            continue
+        body, box = morph_body(ns)
+        plan.append({"g": g, "name": b["name"], "ebene": b["ebene"], "klasse": klasse, "status": status,
+                     "soll": box, "morph": {"basePoint": {"x": 0, "y": 0, "z": 0}, "body": body,
+                                            "floorIndex": geschoss_index(stories, box[2])}})
+    return plan, aus
+
+
+def sab_klassen(ac: Archicad, name: str = SAB_SYSTEM) -> tuple[str, dict[str, str]]:
+    """(System-GUID, {Klassen-id: Item-GUID}) des Klassifizierungssystems `name`."""
+    system = next((s for s in ac.api("API.GetAllClassificationSystems").get("classificationSystems") or []
+                   if s.get("name") == name), None)
+    if not system:
+        raise Fehler(f"Klassifizierungssystem „{name}“ gibt es im Projekt nicht.")
+    sid = system["classificationSystemId"]["guid"]
+    baum = ac.api("API.GetAllClassificationsInSystem", {"classificationSystemId": {"guid": sid}})
+    items: list[dict] = []
+
+    def sammeln(knoten: list) -> None:
+        for k in knoten or []:
+            item = k.get("classificationItem") or k
+            items.append(item)
+            sammeln(k.get("children"))
+
+    sammeln(baum.get("classificationItems"))
+    klassen: dict[str, str] = {}
+    ohne_id: list[str] = []
+    for item in items:
+        g = (item.get("classificationItemId") or {}).get("guid")
+        if g and item.get("id"):
+            klassen[item["id"]] = g
+        elif g:
+            ohne_id.append(g)
+    for teil in _pakete(ohne_id):
+        r = ac.api("API.GetDetailsOfClassificationItems",
+                   {"classificationItemIds": [{"classificationItemId": {"guid": g}} for g in teil]})
+        for g, d in zip(teil, r.get("classificationItemDetails") or []):
+            klasse_id = ((d or {}).get("classificationItem") or d or {}).get("id")
+            if klasse_id:
+                klassen[klasse_id] = g
+    return sid, klassen
+
+
+def _string(v: Any) -> dict:
+    return {"type": "string", "status": "normal", "value": v}
+
+
+def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: dict, *, nur, ohne, vorhanden: dict,
+          ausfuehren: bool, projekt_soll: Optional[str] = None) -> dict:
+    """Plattform-Bauteile als Morphs (echte Geometrie) nach Archicad: Ebene, Geschoss, Klasse, Umbau-Status,
+    Stempel, Rücklese. Ohne `ausfuehren` nur Trockenlauf — es wird nichts Schreibendes gesendet."""
+    ordner = Path(ordner)
+    projekt = ac.befehl("GetProjectInfo").get("projectName")
+    stories = ac.befehl("GetStories").get("stories") or []
+    system_id, klassen = sab_klassen(ac)
+    plan, ausgelassen = bauplan(bauliste, ifc_netze(ifc), register, zuordnung, klassen, stories, nur, ohne)
+    _schreiben(ordner / "ausgelassen.json", ausgelassen)
+    zaehl = {"ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
+             "klassen": dict(collections.Counter(p["klasse"] for p in plan)),
+             "status": dict(collections.Counter(p["status"] for p in plan)),
+             "dreiecke": sum(len(p["morph"]["body"]["polygons"]) for p in plan)}
+    if not ausfuehren:
+        return {"trockenlauf": True, "projekt": projekt, "zu_bauen": len(plan), "ausgelassen": len(ausgelassen),
+                **zaehl}
+    if projekt_soll and projekt_soll != projekt:
+        raise Fehler(f"In Archicad ist „{projekt}“ offen, gelesen wurde „{projekt_soll}“ — nichts gebaut.")
+    ids = ac.api("API.GetPropertyIds", {"properties": [
+        {"type": "UserDefined", "localizedName": [STEMPEL_GRUPPE, STEMPEL_NAME]},
+        {"type": "UserDefined", "localizedName": [STEMPEL_GRUPPE, KI_NAME]},
+        {"type": "BuiltIn", "nonLocalizedName": "Category_RenovationStatus"}]}).get("properties") or []
+    if len(ids) < 3 or any("propertyId" not in x for x in ids):
+        raise Fehler(f"Eigenschaften fehlen im Projekt (Plattform-GUID, KI generiert, Umbau-Status): {ids}")
+    pg, ki, ps = (x["propertyId"] for x in ids)
+    tag = "KI generiert " + datetime.date.today().isoformat()
+    sys_id = {"guid": system_id}
+    gebaut: list[dict] = []
+    rueck: list[dict] = []
+    fehler: list[dict] = []
+    for ch in _pakete(plan, BAU_PAKET):
+        neu_ = [p for p in ch if p["g"] not in vorhanden]
+        antw = iter(ac.befehl("CreateMorphs", {"morphsData": [p["morph"] for p in neu_]}).get("elements") or []
+                    if neu_ else [])
+        r = [{"elementId": {"guid": vorhanden[p["g"]]}} if p["g"] in vorhanden else next(antw, {}) for p in ch]
+        _schreiben(ordner / "angelegt.json", gebaut + [{"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"]}
+                                                       for p, e in zip(ch, r) if "elementId" in e])
+        ok = [(p, e) for p, e in zip(ch, r) if "elementId" in e]
+        fehler += [{"plattformGuid": p["g"], "name": p["name"], "grund": str(e)[:200]}
+                   for p, e in zip(ch, r) if "elementId" not in e]
+        if not ok:
+            continue
+        for eb in sorted({p["ebene"] for p, _ in ok}):
+            # reserve:false — sonst löst jedes Paket beim Nutzer in Teamwork einen Sendeversuch aus
+            ac.elm("SetLayerOfElements", {"elements": [e for p, e in ok if p["ebene"] == eb],
+                                          "layerName": eb, "reserve": False})
+        ac.api("API.SetClassificationsOfElements", {"elementClassifications": [
+            {"elementId": e["elementId"], "classificationId": {
+                "classificationSystemId": sys_id, "classificationItemId": {"guid": klassen[p["klasse"]]}}}
+            for p, e in ok]})
+        ev: list[dict] = []
+        for p, e in ok:
+            ev += [{"elementId": e["elementId"], "propertyId": pg, "propertyValue": _string(p["g"])},
+                   {"elementId": e["elementId"], "propertyId": ki, "propertyValue": _string(tag)},
+                   {"elementId": e["elementId"], "propertyId": ps, "propertyValue": {
+                       "type": "singleEnum", "status": "normal",
+                       "value": {"type": "nonLocalizedValue", "nonLocalizedValue": p["status"]}}}]
+        ac.api("API.SetPropertyValuesOfElements", {"elementPropertyValues": ev})
+        els = [e for _, e in ok]
+        boxen = ac.api("API.Get3DBoundingBoxes", {"elements": els}).get("boundingBoxes3D") or []
+        pv = ac.api("API.GetPropertyValuesOfElements", {
+            "elements": els, "properties": [{"propertyId": pg}, {"propertyId": ki}, {"propertyId": ps}]}
+                    ).get("propertyValuesForElements") or []
+        cl = ac.api("API.GetClassificationsOfElements", {
+            "elements": els, "classificationSystemIds": [{"classificationSystemId": sys_id}]}
+                    ).get("elementClassifications") or []
+        det = ac.befehl("GetDetailsOfElements", {"elements": els}).get("detailsOfElements") or []
+        id2klasse = {g: k for k, g in klassen.items()}
+        for n, (p, e) in enumerate(ok):
+            bx = ((boxen[n] if n < len(boxen) else {}) or {}).get("boundingBox3D")
+            ist = [bx[k] for k in ("xMin", "yMin", "zMin", "xMax", "yMax", "zMax")] if bx else None
+            abw = max(abs(a - b) for a, b in zip(ist, p["soll"])) if ist else None
+            w = [(x or {}).get("propertyValue", {}).get("value")
+                 for x in ((pv[n] if n < len(pv) else {}).get("propertyValues") or [])] + [None] * 3
+            cids = (cl[n] if n < len(cl) else {}).get("classificationIds") or [{}]
+            kg = ((cids[0] or {}).get("classificationId") or {}).get("classificationItemId", {}).get("guid")
+            d = det[n] if n < len(det) else {}
+            stimmt = (abw is not None and abw <= 0.002 and w[0] == p["g"] and w[1] == tag
+                      and (w[2] or {}).get("nonLocalizedValue") == p["status"] and kg == klassen[p["klasse"]])
+            gebaut.append({"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"]})
+            rueck.append({"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"], "name": p["name"],
+                          "stimmt": bool(stimmt), "abweichung_m": abw,
+                          "geschlossen": ((d.get("details") or {}).get("body") or {}).get("isClosed"),
+                          "geschoss": d.get("floorIndex"), "ebene": p["ebene"], "klasse": id2klasse.get(kg),
+                          "status": (w[2] or {}).get("nonLocalizedValue")})
+        _schreiben(ordner / "gebaut.json", gebaut)
+        _schreiben(ordner / "ruecklese.json", {"rueck": rueck, "fehler": fehler})
+    return {"trockenlauf": False, "projekt": projekt, "gebaut": len(gebaut),
+            "stimmt": sum(1 for x in rueck if x["stimmt"]), "fehler": fehler[:10],
+            "geschlossen": dict(collections.Counter(x["geschlossen"] for x in rueck)),
+            "naechster_schritt": "Paare aus gebaut.json in ergebnis.json basis.paare ergänzen, hochladen, "
+                                 "archicad_abgleich_melden {projekt, lauf, gebaut}"}
+
+
 # ─────────────────────────────────────────────────────────── Befehle
 
 def cmd_archicad_lesen(o) -> dict:
@@ -386,6 +699,20 @@ def cmd_stempeln(o) -> dict:
     nicht = ohne_klasse + aus["nicht_moeglich"]
     return {"ausgefuehrt": aus["ausgefuehrt"], "bauteile": len(gebaut), "geschrieben": len(aus["geschrieben"]),
             "fehler": aus["fehler"][:10], "nicht_moeglich": nicht[:10], "nicht_klassifiziert": len(ohne_klasse)}
+
+
+def cmd_bauen(o) -> dict:
+    ordner = Path(o.ordner)
+    liste = lambda t: [x.strip() for x in t.split(",") if x.strip()]          # noqa: E731
+    archicad = ordner / "archicad.json"
+    soll = _lesen(archicad).get("projekt") if archicad.is_file() else None
+    aus = bauen(Archicad(_http(o.port)), ordner, o.ifc, _lesen(Path(o.bauliste)), _lesen(Path(o.register)),
+                zuordnung_laden(o.zuordnung or ZUORDNUNG), nur=liste(o.nur) or None, ohne=liste(o.ohne),
+                vorhanden=_lesen(Path(o.vorhanden)) if o.vorhanden else {}, ausfuehren=o.ausfuehren,
+                projekt_soll=soll)
+    if aus.get("trockenlauf"):
+        aus["hinweis"] = "Trockenlauf — nichts geschrieben. Nach dem Ja des Zeichners mit --ausfuehren wiederholen."
+    return aus
 
 
 def cmd_hochladen(o) -> dict:
@@ -500,6 +827,9 @@ def main(argv=None) -> int:
     neu("entscheiden", cmd_entscheiden, antworten={"default": ""})
     neu("archicad-schreiben", cmd_archicad_schreiben, ausfuehren={"action": "store_true"})
     neu("stempeln", cmd_stempeln, gebaut={"required": True}, ausfuehren={"action": "store_true"})
+    neu("bauen", cmd_bauen, ifc={"required": True}, bauliste={"required": True}, register={"required": True},
+        zuordnung={"default": ""}, nur={"default": ""}, ohne={"default": ""}, vorhanden={"default": ""},
+        ausfuehren={"action": "store_true"})
     neu("hochladen", cmd_hochladen, ablage={"required": True})
     neu("oberflaechen", cmd_oberflaechen)
     neu("ifc", cmd_ifc, translator={"default": ""})
