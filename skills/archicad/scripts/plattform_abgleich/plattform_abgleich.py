@@ -9,8 +9,8 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
     plattform_abgleich.py entscheiden     --ordner <dir> [--antworten antworten.json]
     plattform_abgleich.py archicad-schreiben --ordner <dir> [--ausfuehren]      # Eigenschaften nach Archicad
     plattform_abgleich.py stempeln        --ordner <dir> --gebaut gebaut.json [--ausfuehren]
-    plattform_abgleich.py bauen           --ordner <dir> --ifc plattform.ifc --bauliste bauliste.json --register register.json
-                                          [--zuordnung z.json] [--nur GUID,..] [--ohne GUID,..] [--vorhanden v.json] [--verbund einzeln|zusammen] [--ausfuehren]
+    plattform_abgleich.py bauen           --ordner <dir> --bauliste <datei|link> [weitere …] --register register.json
+                                          [--ifc plattform.ifc] [--trotzdem] [--zuordnung z.json] [--nur GUID,..] [--ohne GUID,..] [--vorhanden v.json] [--verbund einzeln|zusammen] [--ausfuehren]
     plattform_abgleich.py hochladen       --ordner <dir> --ablage "<ergebnis_ablage>"
     plattform_abgleich.py oberflaechen    --ordner <dir>                     # Export + ZIP für die Plattform
     plattform_abgleich.py ifc             --ordner <dir> [--translator "<Name>"]
@@ -19,7 +19,7 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
 
 Alles, was Archicad verändert, ist ohne `--ausfuehren` ein Trockenlauf. Gelöscht wird in Archicad nie.
 Dateien im Arbeitsordner: archicad.json, stand.json, plan.json, fragen.md, antworten.json, ergebnis.json,
-archicad_geschrieben.json, archicad_diff.json (Befehl diff); Befehl bauen: ausgelassen.json (immer),
+archicad_geschrieben.json, archicad_diff.json (Befehl diff); Befehl bauen: ausgelassen.json + netz_pruefen.json (immer),
 angelegt.json / gebaut.json / ruecklese.json (je Paket fortgeschrieben, nur mit --ausfuehren).
 """
 from __future__ import annotations
@@ -288,6 +288,65 @@ def herunterladen(link: str) -> Any:
     if r.returncode != 0:
         raise Fehler(f"curl scheitert ({r.returncode}): {r.stderr.decode('utf-8', 'replace')[:300]}")
     return json.loads(r.stdout.decode("utf-8"))
+
+
+def bauliste_laden(quellen) -> dict:
+    """Eine oder mehrere Baulisten (Datei oder https-Link) zu einer zusammenführen. Format „sab-bauliste/…“ oder das
+    alte (ohne format-Feld). Gleiche plattformGuid (Groß/Klein egal): die spätere Quelle gewinnt, Reihenfolge =
+    erstes Auftreten. GUIDs, die irgendwo als Bauteil vorliegen, gelten nicht mehr als nicht bearbeitet."""
+    if isinstance(quellen, (str, Path)):
+        quellen = [quellen]
+    if not quellen:
+        raise Fehler("Keine Bauliste angegeben.")
+    bauteile: dict[str, dict] = {}
+    nicht: dict[str, str] = {}
+    nicht_wirksam: dict[str, Any] = {}
+    letzte: dict = {}
+    for q in quellen:
+        q = str(q)
+        d = herunterladen(q) if q.startswith("http") else _lesen(Path(q))
+        if not isinstance(d, dict):
+            raise Fehler(f"Bauliste {q[:60]}: kein JSON-Objekt.")
+        fmt = d.get("format")
+        if fmt is not None and not str(fmt).startswith("sab-bauliste/"):
+            raise Fehler(f"Bauliste {q[:60]}: Format „{fmt}“ unbekannt (erwartet sab-bauliste/…).")
+        letzte = d
+        for b in d.get("bauteile") or []:
+            bauteile[str(b["plattformGuid"]).upper()] = b
+        gr = d.get("nicht_bearbeitet_grund") or {}
+        for g in d.get("nicht_bearbeitet") or []:
+            nicht.setdefault(str(g).upper(), gr.get(g) or gr.get(str(g).upper()) or "")
+        for g in d.get("nicht_im_wirksamen_stand") or []:
+            nicht_wirksam.setdefault(str(g).upper(), (d.get("nicht_im_wirksamen_stand_grund") or {}).get(g, ""))
+    for g in list(nicht):
+        if g in bauteile:
+            del nicht[g]
+    return {"format": letzte.get("format"), "projekt": letzte.get("projekt"), "rahmen": letzte.get("rahmen"),
+            "erzeugt": letzte.get("erzeugt"), "bauteile": list(bauteile.values()),
+            "nicht_bearbeitet": list(nicht), "nicht_bearbeitet_grund": nicht,
+            "nicht_im_wirksamen_stand": list(nicht_wirksam), "nicht_im_wirksamen_stand_grund": nicht_wirksam,
+            "quellen": len(quellen)}
+
+
+def bauliste_netze(bauliste: dict) -> dict[str, list[tuple[list, list]]]:
+    """{GUID groß: [(punkte, dreiecke), …]} aus parameter.koerper — nur Bauteile mit echten Netzen."""
+    aus: dict[str, list[tuple[list, list]]] = {}
+    for b in bauliste.get("bauteile") or []:
+        ks = (b.get("parameter") or {}).get("koerper") or []
+        if ks:
+            aus[str(b["plattformGuid"]).upper()] = [(k["punkte"], k["dreiecke"]) for k in ks]
+    return aus
+
+
+def nicht_bearbeitet_pruefen(bauliste: dict, trotzdem: bool = False) -> None:
+    """Abbruch (vor jedem Archicad-Aufruf), wenn die Plattform GUIDs der Anfrage nicht bearbeitet hat."""
+    nicht = bauliste.get("nicht_bearbeitet") or []
+    if not nicht or trotzdem:
+        return
+    gr = bauliste.get("nicht_bearbeitet_grund") or {}
+    liste = ", ".join(f"{g} ({gr.get(g) or gr.get(str(g).upper()) or 'ohne Grund'})" for g in nicht)
+    raise Fehler(f"{len(nicht)} Bauteile hat die Plattform nicht bearbeitet – Bauliste für diese GUIDs neu abrufen "
+                 f"(archicad_abgleich_bauliste) oder --trotzdem: {liste}")
 
 
 def ablegen(link: str, daten: bytes, typ: str) -> None:
@@ -610,11 +669,17 @@ def geschoss_index(stories: list[dict], z: float) -> int:
 def bauplan(bauliste: dict, netze, register: dict, zuordnung: dict, klassen: dict, stories: list[dict],
             nur=None, ohne=(), verbund: str = "einzeln") -> tuple[list[dict], list[dict]]:
     """Rein, ohne Archicad: (plan, ausgelassen). klassen = {Klassen-id: Item-GUID}. netze = Ergebnis von
-    ifc_teile() (Tupel) oder ein Dict {GUID: Netze} (= nur eigene Netze, keine Unterteile).
-    verbund „einzeln“: Kopf + jedes Unterteil als eigener Morph; „zusammen“: ein Morph je Verbund."""
+    ifc_teile() (Tupel), ein Dict {GUID: Netze} (= nur eigene Netze, keine Unterteile) oder None (kein IFC).
+    Quellen je Bauteil in dieser Reihenfolge: status „fehler“ → ausgelassen; (a) IFC mit verbund „einzeln“ und
+    Unterteilen mit Geometrie → Kopf + Unterteile mit eigener GUID (Entscheidung Mudi 19.11.2026); (b) Netze der
+    Bauliste (parameter.koerper) → EIN Morph über alle Körper; (c) IFC-Netz des Kopfes; (d) sonst ausgelassen
+    („nur Hülle“). verbund „einzeln“: Kopf + jedes Unterteil als eigener Morph; „zusammen“: ein Morph je Verbund."""
     if verbund not in ("einzeln", "zusammen"):
         raise Fehler(f"verbund muss „einzeln“ oder „zusammen“ sein, nicht „{verbund}“.")
-    if isinstance(netze, tuple):
+    mit_ifc = netze is not None
+    if netze is None:
+        eigene, kinder, info = {}, {}, {}
+    elif isinstance(netze, tuple):
         eigene, kinder, info = netze
     else:
         eigene, kinder, info = netze, {}, {}
@@ -626,6 +691,7 @@ def bauplan(bauliste: dict, netze, register: dict, zuordnung: dict, klassen: dic
     nur_g = {g.upper() for g in nur} if nur else None
     ohne_g = {g.upper() for g in ohne}
     kopf_g = {b["plattformGuid"].upper() for b in bauliste.get("bauteile") or []}
+    b_netze = bauliste_netze(bauliste)
     if verbund == "zusammen":
         eigene, kinder = _zusammen(eigene, kinder), {}
 
@@ -647,9 +713,13 @@ def bauplan(bauliste: dict, netze, register: dict, zuordnung: dict, klassen: dic
     plan: list[dict] = []
     aus: list[dict] = []
 
-    def eintrag(g, name, ebene, klasse, status, ns, kopf):
+    def eintrag(g, name, ebene, klasse, status, ns, kopf, quelle="ifc", kennzahlen=None):
         body, box = morph_body(ns)
+        if not box:
+            aus.append({"plattformGuid": g, "name": name, "grund": "Netz ohne Dreiecke"})
+            return
         plan.append({"g": g, "name": name, "ebene": ebene, "klasse": klasse, "status": status, "kopf": kopf,
+                     "quelle": quelle, "netz_kennzahlen": kennzahlen or {},
                      "soll": box, "morph": {"basePoint": {"x": 0, "y": 0, "z": 0}, "body": body,
                                             "floorIndex": geschoss_index(stories, box[2])}})
 
@@ -667,6 +737,19 @@ def bauplan(bauliste: dict, netze, register: dict, zuordnung: dict, klassen: dic
         kopf_ok = gu in nur_g if nur_g is not None else True
         gebaut_vorher = len(plan)
         ausg_vorher = len(aus)
+        if b.get("status") == "fehler":
+            aus.append({"plattformGuid": g, "name": b["name"],
+                        "grund": "status fehler: " + (b.get("meldung") or "ohne Meldung")})
+            continue
+        ifc_unter = any(eigene.get(s) for s in subs)
+        if not ifc_unter and gu in b_netze and kopf_ok:
+            if klasse not in klassen or not status:
+                aus.append({"plattformGuid": g, "name": b["name"],
+                            "grund": f"Klasse/Status fehlt ({b['ifc']['klasse']}, {status_roh})"})
+            else:
+                eintrag(g, b["name"], b["ebene"], klasse, status, b_netze[gu], None, "bauliste",
+                        b.get("netz_kennzahlen"))
+            continue
         ns = eigene.get(gu) or []
         if ns and kopf_ok:
             if klasse not in klassen or not status:
@@ -690,8 +773,29 @@ def bauplan(bauliste: dict, netze, register: dict, zuordnung: dict, klassen: dic
                 continue
             eintrag(s, sname, b["ebene"], sk, status, sns, g)
         if len(plan) == gebaut_vorher and len(aus) == ausg_vorher:
-            aus.append({"plattformGuid": g, "name": b["name"], "grund": "keine Geometrie im IFC"})
+            aus.append({"plattformGuid": g, "name": b["name"],
+                        "grund": "keine Geometrie im IFC" if mit_ifc
+                        else f"nur Hülle (geometrie={b.get('geometrie') or '?'})"})
     return plan, aus
+
+
+def netz_pruefung(plan: list[dict]) -> dict:
+    """Quellen-Zählung und Netz-Kennzahlen (nur Bauliste-Netze) für Trockenlauf/Ergebnis."""
+    q = collections.Counter(p.get("quelle") or "ifc" for p in plan)
+    nm = of = 0
+    pruefen: list[dict] = []
+    for p in plan:
+        if p.get("quelle") != "bauliste":
+            continue
+        k = p.get("netz_kennzahlen") or {}
+        a, o = int(k.get("nicht_mannigfaltige_kanten") or 0), int(k.get("offene_kanten") or 0)
+        nm, of = nm + a, of + o
+        if a > 0 or o > 0:
+            pruefen.append({"plattformGuid": p["g"], "name": p["name"],
+                            "nicht_mannigfaltige_kanten": a, "offene_kanten": o})
+    return {"quelle": {"bauliste": q.get("bauliste", 0), "ifc": q.get("ifc", 0)},
+            "netz_kennzahlen": {"nicht_mannigfaltige_kanten": nm, "offene_kanten": of},
+            "netz_pruefen": pruefen}
 
 
 def sab_klassen(ac: Archicad, name: str = SAB_SYSTEM) -> tuple[str, dict[str, str]]:
@@ -743,10 +847,12 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
     projekt = ac.befehl("GetProjectInfo").get("projectName")
     stories = ac.befehl("GetStories").get("stories") or []
     system_id, klassen = sab_klassen(ac)
-    plan, ausgelassen = bauplan(bauliste, ifc_teile(ifc), register, zuordnung, klassen, stories, nur, ohne,
+    plan, ausgelassen = bauplan(bauliste, ifc_teile(ifc) if ifc else None, register, zuordnung, klassen, stories, nur, ohne,
                                 verbund=verbund)
     _schreiben(ordner / "ausgelassen.json", ausgelassen)
-    zaehl = {"ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
+    pruef = netz_pruefung(plan)
+    _schreiben(ordner / "netz_pruefen.json", pruef["netz_pruefen"])
+    zaehl = {**pruef, "ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
              "klassen": dict(collections.Counter(p["klasse"] for p in plan)),
              "status": dict(collections.Counter(p["status"] for p in plan)),
              "dreiecke": sum(len(p["morph"]["body"]["polygons"]) for p in plan),
@@ -964,7 +1070,9 @@ def cmd_bauen(o) -> dict:
     liste = lambda t: [x.strip() for x in t.split(",") if x.strip()]          # noqa: E731
     archicad = ordner / "archicad.json"
     soll = _lesen(archicad).get("projekt") if archicad.is_file() else None
-    aus = bauen(Archicad(_http(o.port)), ordner, o.ifc, _lesen(Path(o.bauliste)), _lesen(Path(o.register)),
+    bauliste = bauliste_laden(o.bauliste)
+    nicht_bearbeitet_pruefen(bauliste, o.trotzdem)           # vor jedem Archicad-Aufruf
+    aus = bauen(Archicad(_http(o.port)), ordner, o.ifc or None, bauliste, _lesen(Path(o.register)),
                 zuordnung_laden(o.zuordnung or ZUORDNUNG), nur=liste(o.nur) or None, ohne=liste(o.ohne),
                 vorhanden=_lesen(Path(o.vorhanden)) if o.vorhanden else {}, ausfuehren=o.ausfuehren,
                 projekt_soll=soll, verbund=o.verbund)
@@ -1085,7 +1193,9 @@ def main(argv=None) -> int:
     neu("entscheiden", cmd_entscheiden, antworten={"default": ""})
     neu("archicad-schreiben", cmd_archicad_schreiben, ausfuehren={"action": "store_true"})
     neu("stempeln", cmd_stempeln, gebaut={"required": True}, ausfuehren={"action": "store_true"})
-    neu("bauen", cmd_bauen, ifc={"required": True}, bauliste={"required": True}, register={"required": True},
+    neu("bauen", cmd_bauen, ifc={"default": ""}, bauliste={"required": True, "nargs": "+"},
+        trotzdem={"action": "store_true", "help": "trotz nicht bearbeiteter GUIDs bauen"},
+        register={"required": True},
         zuordnung={"default": ""}, nur={"default": ""}, ohne={"default": ""}, vorhanden={"default": ""},
         verbund={"choices": ["einzeln", "zusammen"], "default": "einzeln"},
         ausfuehren={"action": "store_true"})

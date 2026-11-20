@@ -619,6 +619,158 @@ def test_cli_verbund_vorgabe_einzeln(monkeypatch, tmp_path, capsys):
     assert gesehen == ["einzeln", "zusammen"]
 
 
+# ───────────────────────────────────────── Neue Bauliste (sab-bauliste/1) mit echten Netzen
+
+def _neu_bauteil(g, koerper=None, geometrie="netz", status="offen", meldung=None, kennzahlen=None,
+                 klasse="IfcSlab", name="N", ebene="E1"):
+    ks = [{"punkte": P, "dreiecke": F} for P, F in (koerper if koerper is not None else [_wuerfel()])]
+    return {"plattformGuid": g, "name": name, "ebene": ebene, "ifc": {"klasse": klasse, "predefined": None},
+            "werkzeug": "Morph", "parameter": {"koerper": ks}, "geometrie": geometrie, "status": status,
+            "meldung": meldung, "netz_kennzahlen": kennzahlen or {}}
+
+
+def _liste(*bauteile, nicht=(), gruende=None):
+    return {"format": "sab-bauliste/1", "projekt": "P", "bauteile": list(bauteile),
+            "nicht_bearbeitet": list(nicht), "nicht_bearbeitet_grund": gruende or {}}
+
+
+def test_bauliste_laden_zusammenfuehren_spaetere_gewinnt(tmp_path):
+    g1, g2, g3 = (pa.guid_lang("0" * 21 + c) for c in "123")
+    (tmp_path / "a.json").write_text(json.dumps(_liste(_neu_bauteil(g1, name="alt"), _neu_bauteil(g2),
+                                                       nicht=[g3], gruende={g3: "zu groß"})))
+    (tmp_path / "b.json").write_text(json.dumps(_liste(_neu_bauteil(g1.lower(), name="neu"), _neu_bauteil(g3))))
+    b = pa.bauliste_laden([str(tmp_path / "a.json"), str(tmp_path / "b.json")])
+    assert [x["name"] for x in b["bauteile"]] == ["neu", "N", "N"] and len(b["bauteile"]) == 3
+    assert b["nicht_bearbeitet"] == []          # g3 nachgeholt
+    assert b["quellen"] == 2
+    einzeln = pa.bauliste_laden(str(tmp_path / "a.json"))
+    assert einzeln["nicht_bearbeitet"] == [g3.upper()] and einzeln["nicht_bearbeitet_grund"][g3.upper()] == "zu groß"
+
+
+def test_bauliste_laden_link_altes_und_fremdes_format(tmp_path, monkeypatch):
+    g1 = pa.guid_lang("0" * 21 + "1")
+    gesehen = []
+    monkeypatch.setattr(pa, "herunterladen", lambda l: gesehen.append(l) or _liste(_neu_bauteil(g1)))
+    assert len(pa.bauliste_laden(["https://x/y?sig=1"])["bauteile"]) == 1 and gesehen == ["https://x/y?sig=1"]
+    monkeypatch.undo()
+    with pytest.raises(pa.Fehler):
+        pa.bauliste_laden(["http://x/y"])
+    (tmp_path / "alt.json").write_text(json.dumps({"bauteile": [_bauteil(g1)]}))
+    assert len(pa.bauliste_laden([str(tmp_path / "alt.json")])["bauteile"]) == 1
+    (tmp_path / "fremd.json").write_text(json.dumps({"format": "anderes/1", "bauteile": []}))
+    with pytest.raises(pa.Fehler):
+        pa.bauliste_laden([str(tmp_path / "fremd.json")])
+
+
+def test_bauliste_netze_nur_mit_koerper():
+    g1, g2 = (pa.guid_lang("0" * 21 + c) for c in "12")
+    b = _liste(_neu_bauteil(g1, koerper=[_wuerfel(), _wuerfel((3, 0, 0))]), _neu_bauteil(g2, koerper=[]))
+    n = pa.bauliste_netze(b)
+    assert list(n) == [g1.upper()] and len(n[g1.upper()]) == 2
+
+
+def test_nicht_bearbeitet_pruefen():
+    g = pa.guid_lang("0" * 21 + "1")
+    b = {"nicht_bearbeitet": [g], "nicht_bearbeitet_grund": {g: "zu groß"}}
+    with pytest.raises(pa.Fehler) as e:
+        pa.nicht_bearbeitet_pruefen(b)
+    assert g in str(e.value) and "zu groß" in str(e.value) and "archicad_abgleich_bauliste" in str(e.value)
+    pa.nicht_bearbeitet_pruefen(b, trotzdem=True)
+    pa.nicht_bearbeitet_pruefen({"nicht_bearbeitet": []})
+
+
+_Z = {"IfcSlab": "Decke", "IfcBuildingElementProxy": "Decke", "IfcPipeSegment": "Rohr"}
+_K = {"Decke": "k1", "Rohr": "k2"}
+
+
+def test_bauplan_aus_bauliste_ohne_ifc():
+    g = pa.guid_lang("0" * 21 + "1")
+    kz = {"nicht_mannigfaltige_kanten": 1, "offene_kanten": 0}
+    bl = _liste(_neu_bauteil(g, koerper=[_wuerfel(), _wuerfel((3, 0, 0))], kennzahlen=kz))
+    plan, aus = pa.bauplan(bl, None, {"neu": [{"guid": g, "status": "Neubau"}]}, _Z, _K, STORIES)
+    assert aus == [] and len(plan) == 1
+    p = plan[0]
+    assert p["quelle"] == "bauliste" and p["kopf"] is None and p["netz_kennzahlen"] == kz
+    assert len(p["morph"]["body"]["polygons"]) == 24 and p["soll"] == [0, 0, 0, 4, 1, 1]
+    pr = pa.netz_pruefung(plan)
+    assert pr["quelle"] == {"bauliste": 1, "ifc": 0}
+    assert pr["netz_kennzahlen"] == {"nicht_mannigfaltige_kanten": 1, "offene_kanten": 0}
+    assert pr["netz_pruefen"] == [{"plattformGuid": g, "name": "N", "nicht_mannigfaltige_kanten": 1,
+                                   "offene_kanten": 0}]
+
+
+def test_bauplan_status_fehler_und_huelle():
+    g1, g2, g3 = (pa.guid_lang("0" * 21 + c) for c in "123")
+    bl = _liste(_neu_bauteil(g1, status="fehler", meldung="kaputt"),
+                _neu_bauteil(g2, koerper=[], geometrie="huelle"),
+                _neu_bauteil(g3, koerper=[], geometrie="werkzeug"))
+    reg = {"neu": [{"guid": x, "status": "Neubau"} for x in (g1, g2, g3)]}
+    plan, aus = pa.bauplan(bl, None, reg, _Z, _K, STORIES)
+    assert plan == []
+    gr = {a["plattformGuid"]: a["grund"] for a in aus}
+    assert gr == {g1: "status fehler: kaputt", g2: "nur Hülle (geometrie=huelle)", g3: "nur Hülle (geometrie=werkzeug)"}
+    # status fehler auch mit IFC-Netz
+    plan2, aus2 = pa.bauplan(bl, {g1: [_wuerfel()]}, reg, _Z, _K, STORIES)
+    assert plan2 == [] and {a["plattformGuid"]: a["grund"] for a in aus2}[g1] == "status fehler: kaputt"
+    assert {a["plattformGuid"]: a["grund"] for a in aus2}[g2] == "keine Geometrie im IFC"
+
+
+def test_bauplan_ifc_unterteile_gewinnen_gegen_bauliste_koerper(tmp_path):
+    gk, ga, gb, _, register = _verbund_setup(tmp_path)
+    bl = _liste(_neu_bauteil(gk, klasse="IfcBuildingElementProxy", name="Kopf",
+                             koerper=[_wuerfel(), _wuerfel((3, 0, 0))]))
+    teile = pa.ifc_teile(tmp_path / "v.ifc")
+    plan, _ = pa.bauplan(bl, teile, register, _Z, _K, STORIES)
+    assert {p["g"] for p in plan} == {ga, gb} and all(p["kopf"] == gk and p["quelle"] == "ifc" for p in plan)
+    plan_z, _ = pa.bauplan(bl, teile, register, _Z, _K, STORIES, verbund="zusammen")
+    assert len(plan_z) == 1 and plan_z[0]["quelle"] == "bauliste" and plan_z[0]["g"] == gk
+
+
+def test_bauplan_ifc_netz_ohne_koerper_wie_bisher(tmp_path):
+    g = pa.guid_lang("0" * 21 + "1")
+    bl = _liste(_neu_bauteil(g, koerper=[], geometrie="huelle"))
+    plan, aus = pa.bauplan(bl, {g: [_wuerfel()]}, {"neu": [{"guid": g, "status": "Neubau"}]}, _Z, _K, STORIES)
+    assert aus == [] and plan[0]["quelle"] == "ifc"
+
+
+def test_bauen_trockenlauf_ohne_ifc_mit_kennzahlen(tmp_path):
+    g1, g2 = (pa.guid_lang("0" * 21 + c) for c in "12")
+    bl = _liste(_neu_bauteil(g1, kennzahlen={"nicht_mannigfaltige_kanten": 2, "offene_kanten": 3}),
+                _neu_bauteil(g2, koerper=[], geometrie="huelle"))
+    reg = {"neu": [{"guid": g1, "status": "Neubau"}, {"guid": g2, "status": "Neubau"}]}
+    f = FakeSenden({
+        "GetProjectInfo": {"projectName": "P"},
+        "GetStories": {"stories": STORIES},
+        "API.GetAllClassificationSystems": {"classificationSystems": [
+            {"classificationSystemId": {"guid": "sys"}, "name": pa.SAB_SYSTEM}]},
+        "API.GetAllClassificationsInSystem": {"classificationItems": [
+            {"classificationItem": {"classificationItemId": {"guid": "k-decke"}, "id": "Decke"}, "children": []}]},
+    })
+    aus = pa.bauen(pa.Archicad(f), tmp_path, None, bl, reg, {"IfcSlab": "Decke"},
+                   nur=None, ohne=(), vorhanden={}, ausfuehren=False)
+    assert aus["zu_bauen"] == 1 and aus["ausgelassen"] == 1
+    assert aus["quelle"] == {"bauliste": 1, "ifc": 0}
+    assert aus["netz_kennzahlen"] == {"nicht_mannigfaltige_kanten": 2, "offene_kanten": 3}
+    assert len(aus["netz_pruefen"]) == 1
+    assert json.loads((tmp_path / "netz_pruefen.json").read_text())[0]["plattformGuid"] == g1
+    assert "CreateMorphs" not in f.namen()
+
+
+def test_cli_nicht_bearbeitet_bricht_vor_archicad_ab(tmp_path, capsys, monkeypatch):
+    g1, g2 = (pa.guid_lang("0" * 21 + c) for c in "12")
+    (tmp_path / "a.json").write_text(json.dumps(_liste(_neu_bauteil(g1))))
+    (tmp_path / "b.json").write_text(json.dumps(_liste(_neu_bauteil(g1), nicht=[g2], gruende={g2: "x"})))
+    (tmp_path / "r.json").write_text("{}")
+
+    def nie(port):
+        raise AssertionError("Archicad darf nicht angesprochen werden")
+
+    monkeypatch.setattr(pa, "_http", nie)
+    rc = pa.main(["bauen", "--ordner", str(tmp_path), "--bauliste", str(tmp_path / "a.json"),
+                  str(tmp_path / "b.json"), "--register", str(tmp_path / "r.json")])
+    assert rc == 1 and g2.upper() in capsys.readouterr().err
+
+
 # ───────────────────────────────────────── Spiegel-Layout (skill/scripts/_kern/elmonkey)
 
 def _saubere_env() -> dict:
