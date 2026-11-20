@@ -17,7 +17,8 @@ def _el(guid, box, props=None):
     return {"elementId": {"guid": guid}, "type": "Wall", "ifcType": "IfcWall", "ifcGlobalId": ab.ifc_guid(guid),
             "ifcAttributes": [{"name": "Name", "value": "Wand"}],
             "ifcProperties": [{"pset": "Pset_WallCommon", "name": "IsExternal", "value": "True"}] + list(props or []),
-            "storyName": "EG", "renovationStatus": "Existing", "geometry": {"source": "3dModel", "box": box}}
+            "storyName": "EG", "renovationStatus": "Existing", "layer": "10 Wand",
+            "geometry": {"source": "3dModel", "box": box}}
 
 
 class Attrappe:
@@ -95,9 +96,10 @@ QUADRAT = {"vertices": [{"x": 0, "y": 0, "z": 0}, {"x": 1, "y": 0, "z": 0}, {"x"
 class NetzAttrappe(Attrappe):
     """G1 in Archicad verlängert (Plattform = Basis), G3 neu in Archicad."""
 
-    def __init__(self, projekt_danach="Haus"):
+    def __init__(self, projekt_danach="Haus", ausgeblendet=False):
         super().__init__()
         self.projekt_danach = projekt_danach
+        self.hidden = ausgeblendet
 
     def __call__(self, port, ns, name, params=None, timeout=600.0):
         if name == "GetProjectInfo" and any(n == "GetDiffDataELM" for _, n, _ in self.aufrufe):
@@ -109,7 +111,18 @@ class NetzAttrappe(Attrappe):
                     "context": {}}
         if name == "Get3DGeometryOfElements":
             self.aufrufe.append((ns, name, dict(params)))
-            return {"geometries3D": [{"bodies": [QUADRAT]} for _ in params["elements"]]}
+            return {"geometries3D": [{"bodies": [] if self.hidden else [QUADRAT]} for _ in params["elements"]]}
+        if name == "GetLayers":
+            self.aufrufe.append((ns, name, {}))
+            return {"layers": [{"index": 7, "name": "10 Wand", "hidden": self.hidden}]}
+        if name == "SetLayerAttributes":
+            self.aufrufe.append((ns, name, dict(params)))
+            (x,) = params["layers"]
+            self.hidden = x["hidden"]
+            return {"results": [{"layerIndex": 7, "layerName": "10 Wand", "hidden": self.hidden, "success": True}]}
+        if name in ("GetSubelementsOfHierarchicalElements", "GetDesignOptionForElements"):
+            self.aufrufe.append((ns, name, dict(params)))
+            return {"subelements": [{} for _ in params["elements"]], "designOptionForElements": []}
         return super().__call__(port, ns, name, params, timeout)
 
 
@@ -150,3 +163,19 @@ def test_diff_netze_projekt_gewechselt_liest_keine_geometrie(tmp_path):
     with pytest.raises(ValueError, match="Anderes"):
         diff.diff_lauf(19723, str(_stand_mit_basis(tmp_path)), ordner=str(tmp_path / "lauf"), netze=True, rufen=a)
     assert not any(n == "Get3DGeometryOfElements" for _, n, _ in a.aufrufe)
+
+
+def test_diff_netze_blendet_ebene_kurz_ein(tmp_path):
+    a = NetzAttrappe(ausgeblendet=True)
+    aus = diff.diff_lauf(19723, str(_stand_mit_basis(tmp_path)), ordner=str(tmp_path / "lauf"), netze=True, rufen=a)
+    assert aus["netze"]["ebenen_eingeblendet"] == ["10 Wand"] and aus["netze"]["ebenen_zurueckgesetzt"] == "ok"
+    assert aus["netze"]["neu"] == 1 and aus["netze"]["geaendert"] == 1 and a.hidden is True
+    assert [p["layers"][0]["hidden"] for _, n, p in a.aufrufe if n == "SetLayerAttributes"] == [False, True]
+
+
+def test_diff_netze_ohne_einblenden_aendert_nichts(tmp_path):
+    a = NetzAttrappe(ausgeblendet=True)
+    aus = diff.diff_lauf(19723, str(_stand_mit_basis(tmp_path)), ordner=str(tmp_path / "lauf"), netze=True,
+                         netze_ebenen_einblenden=False, rufen=a)
+    assert not any(n in ("SetLayerAttributes", "GetLayers") for _, n, _ in a.aufrufe)
+    assert aus["netze"]["ohne_koerper"] == {"Wall": 2} and a.hidden is True

@@ -1,7 +1,9 @@
 """Diff-Checker Archicad ↔ Plattform: ELM_SAB.GetDiffDataELM seitenweise lesen, mit stand.json vergleichen
 (elmonkey.diff_plattform), ergebnis.json als Datei schreiben. Mit ``netze=True`` zusätzlich die Körper der neuen und
 in Archicad geänderten Bauteile → archicad_netze.json.gz (elmonkey.netze, Format sab-archicad-netze/1; ersetzt den
-Gesamt-IFC-Export). Liest Archicad nur; schreibt nur in den Arbeitsordner.
+Gesamt-IFC-Export). Liest Archicad nur — einzige Ausnahme nur mit netze=True (und netze_ebenen_einblenden, Vorgabe):
+ausgeblendete Ebenen der gewählten Bauteile kurz einblenden, danach genau diese zurück + Rücklese. Schreibt nur in den
+Arbeitsordner.
 """
 from __future__ import annotations
 
@@ -98,7 +100,8 @@ def _ordner(ordner: Optional[str], lauf: Optional[str]) -> Path:
 def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_geometrie: Optional[str] = None,
               gebaut: Optional[list[dict]] = None, ordner: Optional[str] = None,
               versatz: Optional[list[float]] = None, toleranz: float = dp.TOLERANZ, limit: int = 500,
-              netze: bool = False, netze_paket: int = nz.PAKET, rufen: Callable = call) -> dict:
+              netze: bool = False, netze_paket: int = nz.PAKET, netze_ebenen_einblenden: bool = True,
+              rufen: Callable = call) -> dict:
     """Der ganze Lauf; Rückgabe = kurze Zusammenfassung, das Ergebnis liegt als Datei im Arbeitsordner."""
     st = _https_oder_datei(stand)
     if st.get("format") != dp.FORMAT:
@@ -125,19 +128,22 @@ def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_g
     if netze:
         try:
             tapir = lambda name, p: rufen(port, "TapirCommand", name, p, timeout=1800)   # noqa: E731
+            elm = lambda name, p: rufen(port, "ELM_SAB", name, p, timeout=1800)          # noqa: E731
             hinweise: list[str] = []
-            datei = nz.erzeugen(erg, archicad, nz.tapir_holen(tapir),
-                                rufen(port, "TapirCommand", "GetProjectInfo", {}).get("projectName"), paket=netze_paket,
-                                diff_daten=nz.elm_diff_daten(lambda name, p: rufen(port, "ELM_SAB", name, p,
-                                                                                   timeout=1800)),
-                                ifc_typen=nz.tapir_ifc_typen(tapir), unterelemente=nz.tapir_unterelemente(tapir),
-                                hinweise=hinweise)
-        except nz.NetzFehler as e:
+            bericht: dict = {}
+            info = rufen(port, "TapirCommand", "GetProjectInfo", {})
+            ebenen = nz.Ebenen(elm, tapir, bool(info.get("isTeamwork"))) if netze_ebenen_einblenden else None
+            datei = nz.erzeugen(erg, archicad, nz.tapir_holen(tapir), info.get("projectName"), paket=netze_paket,
+                                diff_daten=nz.elm_diff_daten(elm), ifc_typen=nz.tapir_ifc_typen(tapir),
+                                unterelemente=nz.tapir_unterelemente(tapir),
+                                design_option=nz.tapir_design_option(tapir), ebenen=ebenen,
+                                hinweise=hinweise, bericht=bericht)
+        except (nz.NetzFehler, nz.EbenenFehler) as e:
             raise ValueError(str(e)) from e
         (o / nz.DATEI).write_bytes(nz.gz_bytes(datei))
         netz_aus = {"datei": str(o / nz.DATEI), **datei["zahlen"],
                     "fehler_beispiele": [f for f in datei["fehler"] if not f.get("nur_hinweis")][:10],
-                    "hinweise": hinweise + ([nz.OHNE_KOERPER] if datei["zahlen"]["ohne_koerper"] else [])}
+                    **bericht, "hinweise": hinweise}
     return {"netze": netz_aus,"ergebnis": str(o / "ergebnis.json"), "archicad_daten": str(o / "archicad.json"),
             "lauf": erg.get("lauf"), "zahlen": d["zahlen"], "hinweise": d["hinweise"], "kontext": d["kontext"],
             "beispiele": {"neu": d["neu"][:10], "weg": d["weg"][:10], "eigenschaften": d["eigenschaften"][:10],

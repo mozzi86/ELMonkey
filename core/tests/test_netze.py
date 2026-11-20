@@ -186,7 +186,8 @@ def test_metadaten_aus_beiden_quellen_ohne_mengen():
     m = nz.metadaten({"projekt": "P", "seiten": [seite]})[G_NEU.upper()]
     assert m == {"typ": "Wall", "ifc": {"klasse": "IfcWall", "globalId": ab.ifc_guid(G_NEU)}, "name": "Wand-684",
                  "geschoss": "EG", "ebene": "10 Wand innen",
-                 "eigenschaften": {"IFC.Name": "Wand-684", "IFC.Klasse": "IfcWall", "Verortung.Geschoss": "EG"}}
+                 "eigenschaften": {"IFC.Name": "Wand-684", "IFC.Klasse": "IfcWall", "Verortung.Geschoss": "EG"},
+                 "umbau": None}
 
 
 def _koerper(dx=0.0):
@@ -210,11 +211,12 @@ def test_netze_lesen_pakete_fehler_und_datei():
     assert aufrufe == [[G_NEU, G_NEU2], [G_AC]]
     assert [b["archicadGuid"] for b in bt] == [G_NEU, G_AC]
     assert bt[0]["box"] == [0, 0, 0, 1, 1, 0] and bt[1]["plattformGuid"] == "P-AC"
-    assert fe[0] == {"archicadGuid": G_NEU2, "art": "neu", "typ": None, "grund": "4012 ausgeblendet"}
+    assert fe[0] == {"archicadGuid": G_NEU2, "art": "neu", "typ": None, "umbau": None, "grund": "4012 ausgeblendet"}
     assert fe[1]["archicadGuid"] == G_AC and fe[1]["nur_hinweis"]
     d = nz.netze_datei("Projekt", "ab-1", bt, fe, erzeugt="2026-11-20T00:00:00+00:00")
     assert d["format"] == "sab-archicad-netze/1" and d["rahmen"] == {"system": "archicad", "einheit": "m"}
-    assert d["zahlen"] == {"neu": 1, "geaendert": 1, "dreiecke": 4, "fehler": 1, "ohne_koerper": {}}
+    assert d["zahlen"] == {"neu": 1, "geaendert": 1, "dreiecke": 4, "fehler": 1, "ohne_koerper": {},
+                          "ohne_koerper_umbau": {}}
     assert json.loads(gzip.decompress(nz.gz_bytes(d))) == d
     assert nz.gz_bytes(d) == nz.gz_bytes(d)
 

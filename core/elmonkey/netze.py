@@ -362,7 +362,8 @@ def metadaten(archicad: dict) -> dict[str, dict]:
         aus[ab.guid_norm(e.get("guid"))] = {
             "typ": e.get("typ"), "ifc": {"klasse": klasse, "globalId": e.get("ifcId")},
             "name": e.get("name"), "geschoss": e.get("geschoss"),
-            "ebene": e.get("ebene") or (e.get("archicad") or {}).get("ebene"), "eigenschaften": eig}
+            "ebene": e.get("ebene") or (e.get("archicad") or {}).get("ebene"), "eigenschaften": eig,
+            "umbau": (e.get("archicad") or {}).get("umbau") or eig.get(dp.F_STATUS)}
     return aus
 
 
@@ -451,7 +452,8 @@ def netze_lesen(holen: Callable[[list[str]], list[dict]], gewaehlt: list[dict], 
                                         max_dreiecke))
             except NetzFehler as e:
                 fehler.append({"archicadGuid": w["archicadGuid"], "art": w["art"],
-                               "typ": (meta.get(w["archicadGuid"]) or {}).get("typ"), "grund": str(e)})
+                               "typ": (meta.get(w["archicadGuid"]) or {}).get("typ"),
+                               "umbau": (meta.get(w["archicadGuid"]) or {}).get("umbau"), "grund": str(e)})
             if w["archicadGuid"] not in meta:
                 fehler.append({"archicadGuid": w["archicadGuid"], "art": w["art"],
                                "grund": "nicht in archicad.json (Metadaten fehlen)", "nur_hinweis": True})
@@ -468,17 +470,62 @@ def netze_datei(projekt: Optional[str], lauf: Optional[str], bauteile: list[dict
                        "geaendert": sum(1 for b in bauteile if b["art"] == "geaendert"),
                        "dreiecke": sum(len(k["dreiecke"]) for b in bauteile for k in b["koerper"]),
                        "fehler": sum(1 for f in fehler if not f.get("nur_hinweis")),
-                       "ohne_koerper": ohne_koerper(fehler)}}
+                       "ohne_koerper": ohne_koerper(fehler),
+                       "ohne_koerper_umbau": ohne_koerper(fehler, "umbau")}}
 
 
-def ohne_koerper(fehler: list[dict]) -> dict[str, int]:
-    """Je Archicad-Typ: wie viele Bauteile kamen ohne 3D-Körper (meist 3D-Ansicht gefiltert)."""
+def _ohne(f: dict) -> bool:
+    return str(f.get("grund") or "").startswith("kein 3D-Körper")
+
+
+def ohne_koerper(fehler: list[dict], feld: str = "typ") -> dict[str, int]:
+    """Je Archicad-Typ (bzw. je Umbau-Status, ``feld="umbau"``): wie viele Bauteile kamen ohne 3D-Körper."""
     aus: dict[str, int] = {}
     for f in fehler:
-        if str(f.get("grund") or "").startswith("kein 3D-Körper"):
-            t = str(f.get("typ") or "?")
+        if _ohne(f):
+            t = str(f.get(feld) or "?")
             aus[t] = aus.get(t, 0) + 1
     return dict(sorted(aus.items()))
+
+
+def ohne_koerper_hinweise(fehler: list[dict]) -> list[str]:
+    """Hinweise für den Zeichner (live BFW 20.11.2026, alle Ebenen sichtbar): Abbruch blendet der Umbau-Filter in 3D
+    aus; der Rest liegt meist in einer nicht aktiven Design-Option und geht bewusst nicht mit."""
+    ohne = [f for f in fehler if _ohne(f)]
+    if not ohne:
+        return []
+    abbruch = [f for f in ohne if dp.status_norm(f.get("umbau")) == "abbruch"]
+    rest = [f for f in ohne if f not in abbruch]
+    aus = []
+    if abbruch:
+        aus.append(f"{len(abbruch)} Abbruch-Bauteile ohne Körper → Umbau-Filter auf „alles anzeigen“ stellen "
+                   "(Dokument → Umbau → Umbau-Filter), dann netze erneut.")
+    if rest:
+        do = [f for f in rest if f.get("designOption")]
+        t = (f"{len(rest)} übrige Bauteile ohne Körper — evtl. inaktive Design-Option, wird bewusst nicht übertragen"
+             + (f" ({len(do)} sicher in einer Design-Option: "
+                + ", ".join(sorted({f['designOption'] for f in do})[:5]) + ")" if do else "")
+             + ". Sonst: ausgeblendete Ebene oder 3D-Filter (⌥⌘F5, Schnittebenen aus).")
+        aus.append(t)
+    return aus
+
+
+def design_optionen_eintragen(fehler: list[dict], design_option: Callable[[list[str]], list[dict]]) -> None:
+    """Bauteile ohne Körper (nicht Abbruch): Design-Option nachlesen (``TapirCommand.GetDesignOptionForElements``,
+    ab AC29) und als ``designOption`` „Satz / Name“ eintragen. Scheitert der Befehl: nichts eintragen."""
+    offen = [f for f in fehler if _ohne(f) and dp.status_norm(f.get("umbau")) != "abbruch"]
+    if not offen:
+        return
+    try:
+        antw = design_option([f["archicadGuid"] for f in offen]) or []
+    except Exception:                                         # noqa: BLE001 — AC < 29 o. ä.: nur kein Eintrag
+        return
+    je = {ab.guid_norm(((x or {}).get("elementId") or {}).get("guid")): x for x in antw if isinstance(x, dict)}
+    for f in offen:
+        x = je.get(ab.guid_norm(f["archicadGuid"])) or {}
+        if x.get("type") == "LinkedToDesignOption":
+            d = x.get("designOption") or {}
+            f["designOption"] = " / ".join(str(v) for v in (d.get("ownerSetName"), d.get("name")) if v) or "?"
 
 
 def gz_bytes(datei: dict) -> bytes:
@@ -503,13 +550,15 @@ def ifc_ergaenzen(meta: dict[str, dict], guids: list[str], *,
                   ifc_typen: Optional[Callable[[list[str]], list[dict]]] = None,
                   paket: int = 200) -> list[str]:
     """Fehlende IFC-Klasse (sonst wird in der Plattform alles Proxy), GlobalId, Ebene, Geschoss, Name, Typ für die
-    gewählten GUIDs nachlesen — nur lesend. ``archicad.json`` aus ``archicad-lesen`` kennt keine IFC-Klasse.
+    gewählten GUIDs nachlesen — nur lesend. ``archicad.json`` aus ``archicad-lesen`` kennt keine IFC-Klasse und keine
+    Ebene; gelesen wird jede GUID, der eins von beiden fehlt.
 
     ``diff_daten(guids)`` = eine Antwortseite von ``ELM_SAB.GetDiffDataELM {elements: […]}`` (ab 0.11.13).
     Scheitert das (älteres Add-on), ``ifc_typen(guids)`` = ``elementIFCTypes`` von
     ``TapirCommand.GetIFCTypeOfElements`` (nur die Klasse). Füllt nur leere Felder. → Hinweise."""
     hinweise: list[str] = []
-    fehlt = [g for g in guids if _leer(((meta.get(g) or {}).get("ifc") or {}).get("klasse"))]
+    fehlt = [g for g in guids if _leer(((meta.get(g) or {}).get("ifc") or {}).get("klasse"))
+             or _leer((meta.get(g) or {}).get("ebene"))]           # die Ebene braucht das Einblenden
     if not fehlt:
         return hinweise
     rest = list(fehlt)
@@ -530,6 +579,8 @@ def ifc_ergaenzen(meta: dict[str, dict], guids: list[str], *,
                     for feld in ("typ", "name", "geschoss", "ebene"):
                         if _leer(m.get(feld)) and not _leer(e.get(feld)):
                             m[feld] = e.get(feld)
+                    if _leer(m.get("umbau")) and not _leer((e.get("archicad") or {}).get("umbau")):
+                        m["umbau"] = e["archicad"]["umbau"]
         except Exception as e:                                  # noqa: BLE001 — Rückfall, Grund geht in die Hinweise
             hinweise.append(f"ELM_SAB.GetDiffDataELM mit elements scheitert ({str(e)[:120]}) — IFC-Klasse über "
                             "TapirCommand.GetIFCTypeOfElements (ohne GlobalId/Ebene).")
@@ -550,25 +601,134 @@ def ifc_ergaenzen(meta: dict[str, dict], guids: list[str], *,
     return hinweise
 
 
+class EbenenFehler(RuntimeError):
+    """Ebenen konnten nicht zurückgesetzt werden — laut melden, nie verschlucken."""
+
+
+class Ebenen:
+    """Kurz einblenden, danach zurück (Entscheidung Mudi 20.11.2026): Bauteile auf ausgeblendeten Ebenen liefern keinen
+    3D-Körper. Lesen: ``ELM_SAB.GetLayers`` (index, name, hidden). Setzen: ``ELM_SAB.SetLayerAttributes`` {layers:
+    [{layerIndex, hidden}]} — ändert nur das Ausblenden-Flag, ein Undo-Schritt, liest je Ebene zurück. Teamwork:
+    ``TapirCommand.GetLockableObjectSetStatus {objectSetName: "LayerSettingsDialog"}`` — nur bei „Editable“ (eigene
+    Reservierung), „Free“ oder „NotExist“ wird eingeblendet; selbst reserviert wird nie.
+    ``elm``/``befehl``: (name, params) → Antwort von ELM_SAB bzw. TapirCommand."""
+
+    MENGE = "LayerSettingsDialog"
+
+    def __init__(self, elm: Callable[[str, dict], dict], befehl: Callable[[str, dict], dict], teamwork: bool):
+        self.elm, self.befehl, self.teamwork = elm, befehl, teamwork
+
+    def lesen(self) -> dict[str, dict]:
+        """Name → {index, hidden}."""
+        return {str(l.get("name")): {"index": int(l.get("index")), "hidden": bool(l.get("hidden"))}
+                for l in self.elm("GetLayers", {}).get("layers") or [] if l.get("name") is not None}
+
+    def darf(self) -> Optional[str]:
+        """None = darf einblenden; sonst der Grund, warum nicht."""
+        if not self.teamwork:
+            return None
+        try:
+            r = self.befehl("GetLockableObjectSetStatus", {"objectSetName": self.MENGE})
+        except Exception as e:                                # noqa: BLE001
+            return f"Teamwork-Status der Ebenen-Einstellungen nicht lesbar ({str(e)[:100]})"
+        st = r.get("status")
+        if st in ("Editable", "Free", "NotExist"):
+            return None
+        wer = ", ".join(str(c.get("userName") or c.get("userId")) for c in r.get("conflicts") or [])
+        return f"Ebenen-Einstellungen in Teamwork: {st}" + (f" (reserviert von {wer})" if wer else "")
+
+    def setzen(self, indizes: list[int], hidden: bool) -> list[int]:
+        """Setzt nur das Ausblenden-Flag; → Indizes, bei denen Archicad (mit Rücklese) Erfolg meldet."""
+        r = self.elm("SetLayerAttributes", {"layers": [{"layerIndex": i, "hidden": hidden} for i in indizes]})
+        return [int(x["layerIndex"]) for x in r.get("results") or []
+                if x.get("success") and x.get("layerIndex") is not None and bool(x.get("hidden")) == hidden]
+
+
 def erzeugen(ergebnis: dict, archicad: dict, holen: Callable[[list[str]], list[dict]], projekt_ist: Optional[str],
              paket: int = PAKET, erzeugt: Optional[str] = None, *,
              diff_daten: Optional[Callable[[list[str]], dict]] = None,
              ifc_typen: Optional[Callable[[list[str]], list[dict]]] = None,
              unterelemente: Optional[Callable[[list[str]], list[dict]]] = None,
-             hinweise: Optional[list[str]] = None) -> dict:
-    """Der ganze Schritt für Skript und MCP: Projekt prüfen (sonst nichts lesen), auswählen, fehlende IFC-Klassen
-    nachlesen (:func:`ifc_ergaenzen`), Körper lesen, Datei-Dict. ``archicad`` = archicad.json (``archicad-lesen``:
-    elemente; Diff: seiten) mit ``projekt``. ``hinweise`` (Liste) bekommt, was der Zeichner wissen muss."""
+             design_option: Optional[Callable[[list[str]], list[dict]]] = None,
+             ebenen: Optional[Ebenen] = None,
+             hinweise: Optional[list[str]] = None, bericht: Optional[dict] = None) -> dict:
+    """Der ganze Schritt für Skript und MCP: Projekt prüfen (sonst nichts lesen), auswählen, fehlende IFC-Klassen,
+    Ebenen und Umbau-Status nachlesen (:func:`ifc_ergaenzen`), mit ``ebenen`` die ausgeblendeten Ebenen der gewählten
+    Bauteile kurz einblenden, Körper lesen, im ``finally`` genau diese Ebenen wieder ausblenden und zurücklesen,
+    Design-Option der Bauteile ohne Körper nachlesen, Datei-Dict.
+
+    ``archicad`` = archicad.json (``archicad-lesen``: elemente; Diff: seiten) mit ``projekt``. ``hinweise`` (Liste)
+    bekommt, was der Zeichner wissen muss; ``bericht`` (Dict) ``ebenen_eingeblendet`` [Namen] und
+    ``ebenen_zurueckgesetzt`` ok|fehler (nur wenn etwas eingeblendet wurde). Scheitert das Zurücksetzen nach
+    erfolgreichem Lesen: :class:`EbenenFehler`; scheitert schon das Lesen, hängt der Text an dessen Ausnahme."""
+    hinweise = hinweise if hinweise is not None else []
+    bericht = bericht if bericht is not None else {}
     projekt_pruefen(archicad.get("projekt"), projekt_ist)
     gewaehlt = auswahl(ergebnis)
     meta = metadaten(archicad)
     if gewaehlt:
-        h = ifc_ergaenzen(meta, [w["archicadGuid"] for w in gewaehlt], diff_daten=diff_daten, ifc_typen=ifc_typen)
-        if hinweise is not None:
-            hinweise += h
-    bauteile, fehler = (netze_lesen(holen, gewaehlt, meta, paket, unterelemente=unterelemente) if gewaehlt
-                        else ([], []))
+        hinweise += ifc_ergaenzen(meta, [w["archicadGuid"] for w in gewaehlt], diff_daten=diff_daten,
+                                  ifc_typen=ifc_typen)
+    eingeblendet: dict[str, int] = {}
+    bericht["ebenen_eingeblendet"] = []
+    if ebenen is not None and gewaehlt:
+        namen = {(meta.get(w["archicadGuid"]) or {}).get("ebene") for w in gewaehlt} - {None, ""}
+        stand = ebenen.lesen()
+        aus = sorted(n for n in namen if (stand.get(n) or {}).get("hidden"))
+        if aus:
+            grund = ebenen.darf()
+            if grund:
+                hinweise.append(f"{len(aus)} ausgeblendete Ebenen NICHT eingeblendet — {grund}. Bauteile darauf "
+                                "liefern keinen Körper.")
+            else:
+                try:
+                    ok = set(ebenen.setzen([stand[n]["index"] for n in aus], False))
+                except Exception:                             # noqa: BLE001 — Teilerfolg möglich: alle zurück
+                    eingeblendet = {n: stand[n]["index"] for n in aus}
+                    _zuruecksetzen(ebenen, eingeblendet, bericht, None)
+                    raise
+                eingeblendet = {n: stand[n]["index"] for n in aus if stand[n]["index"] in ok}
+                if len(eingeblendet) < len(aus):
+                    hinweise.append(f"{len(aus) - len(eingeblendet)} Ebenen ließen sich nicht einblenden: "
+                                    + ", ".join(n for n in aus if n not in eingeblendet))
+        bericht["ebenen_eingeblendet"] = sorted(eingeblendet)
+    lese_fehler: Optional[BaseException] = None
+    try:
+        bauteile, fehler = (netze_lesen(holen, gewaehlt, meta, paket, unterelemente=unterelemente) if gewaehlt
+                            else ([], []))
+    except BaseException as e:                                # noqa: BLE001 — erst zurücksetzen, dann weiterreichen
+        lese_fehler = e
+        raise
+    finally:
+        if eingeblendet:
+            _zuruecksetzen(ebenen, eingeblendet, bericht, lese_fehler)  # type: ignore[arg-type]
+    if design_option is not None:
+        design_optionen_eintragen(fehler, design_option)
+    hinweise += ohne_koerper_hinweise(fehler)
     return netze_datei(archicad.get("projekt"), ergebnis.get("lauf"), bauteile, fehler, erzeugt)
+
+
+def _zuruecksetzen(ebenen: Ebenen, eingeblendet: dict[str, int], bericht: dict,
+                   lese_fehler: Optional[BaseException]) -> None:
+    """Genau die eingeblendeten Ebenen wieder ausblenden und zurücklesen. Bleibt eine sichtbar: laut melden
+    (:class:`EbenenFehler`, oder als Notiz an die Ausnahme des Lesens, die dann weiterläuft)."""
+    offen = sorted(eingeblendet)
+    grund = ""
+    try:
+        ebenen.setzen(list(eingeblendet.values()), True)
+        stand = ebenen.lesen()
+        offen = sorted(n for n in eingeblendet if not (stand.get(n) or {}).get("hidden"))
+    except Exception as e:                                    # noqa: BLE001 — wird unten laut gemeldet
+        grund = f" ({str(e)[:160]})"
+    bericht["ebenen_zurueckgesetzt"] = "ok" if not offen else "fehler"
+    if offen:
+        bericht["ebenen_noch_eingeblendet"] = offen
+        text = (f"EBENEN NICHT ZURÜCKGESETZT{grund}: {', '.join(offen)} — noch eingeblendet, in Archicad von Hand "
+                "ausblenden (Ebenen-Einstellungen)!")
+        if lese_fehler is None:
+            raise EbenenFehler(text)
+        if hasattr(lese_fehler, "add_note"):
+            lese_fehler.add_note(text)
 
 
 def elm_diff_daten(elm: Callable[[str, dict], dict]) -> Callable[[list[str]], dict]:
@@ -586,6 +746,14 @@ def tapir_unterelemente(befehl: Callable[[str, dict], dict]) -> Callable[[list[s
         r = befehl("GetSubelementsOfHierarchicalElements", {"elements": [{"elementId": {"guid": g}} for g in guids]})
         return r.get("subelements") or []
     return unterelemente
+
+
+def tapir_design_option(befehl: Callable[[str, dict], dict]) -> Callable[[list[str]], list[dict]]:
+    """``befehl(name, params)`` → TapirCommand-Antwort; daraus ``design_option(guids)`` (GetDesignOptionForElements)."""
+    def design_option(guids: list[str]) -> list[dict]:
+        r = befehl("GetDesignOptionForElements", {"elements": [{"elementId": {"guid": g}} for g in guids]})
+        return r.get("designOptionForElements") or []
+    return design_option
 
 
 def tapir_ifc_typen(befehl: Callable[[str, dict], dict]) -> Callable[[list[str]], list[dict]]:

@@ -67,12 +67,17 @@ def register(mcp) -> None:
                           "(Format sab-archicad-abgleich/1 + diff: neu/weg/Eigenschaften/Geometrie je Seite, Toleranz "
                           "3 mm) in den Arbeitsordner. netze=true: zusaetzlich die Koerper der neuen und in Archicad "
                           "geaenderten Bauteile (TapirCommand.Get3DGeometryOfElements, trianguliert) als "
-                          "archicad_netze.json.gz (sab-archicad-netze/1) — ersetzt den Gesamt-IFC-Export. "
+                          "archicad_netze.json.gz (sab-archicad-netze/1) — ersetzt den Gesamt-IFC-Export. Nur mit "
+                          "netze=true und netze_ebenen_einblenden (Vorgabe true) blendet es die ausgeblendeten Ebenen "
+                          "der gewaehlten Bauteile kurz ein und danach genau diese wieder aus (Ruecklese, "
+                          "Teamwork: nur ohne fremde Reservierung der Ebenen-Einstellungen); sonst nur lesend. "
                           "Antwort: Pfad, Zahlen, Beispiele, Hinweise.")
     def elmonkey_diff_plattform(stand: str, basis: str | None = None, plattform_geometrie: str | None = None,
                                 gebaut: list[dict] | None = None, ordner: str | None = None,
                                 versatz: list[float] | None = None, toleranz: float = 0.003,
-                                netze: bool = False, port: int | None = None) -> dict:
+                                netze: bool = False, netze_ebenen_einblenden: bool = True,
+                                port: int | None = None) -> dict:
         from .diff import diff_lauf
         return diff_lauf(int(port or _default_port()), stand, basis=basis, plattform_geometrie=plattform_geometrie,
-                         gebaut=gebaut, ordner=ordner, versatz=versatz, toleranz=toleranz, netze=netze)
+                         gebaut=gebaut, ordner=ordner, versatz=versatz, toleranz=toleranz, netze=netze,
+                         netze_ebenen_einblenden=netze_ebenen_einblenden)
