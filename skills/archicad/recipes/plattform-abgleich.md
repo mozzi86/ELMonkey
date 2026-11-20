@@ -95,6 +95,7 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 - Eigenschaftsnamen beider Seiten passen nur, wenn der IFC-Übersetzer die Archicad-Gruppen als gleichnamige Psets
   ausgibt. Passt das nicht, findet der Vergleich nichts (keine falschen Änderungen, aber auch kein Abgleich).
 - Werte kommen aus Archicad als Anzeigetext; „0,24“ und 0.24, „Ja“ und true gelten als gleich.
+- Das Skript braucht den Kern `elmonkey`; Reihenfolge: installiertes elmonkey-core, dann `core/` im ELMonkey-Repo, dann im Spiegel mozzi86/-archicad unter `scripts/_kern/elmonkey`. `_kern` schreibt der Workflow skill-spiegeln bei jedem Spiegeln (Herkunft in `scripts/_kern/HERKUNFT.txt`), nicht von Hand ändern. Meldung „Modul 'elmonkey' nicht gefunden“ → elmonkey-core installieren oder Skill neu spiegeln/installieren. <!-- 2026-11-20 -->
 
 ## Live-Lauf BFW07 19.11.2026 <!-- 2026-11-19 -->
 

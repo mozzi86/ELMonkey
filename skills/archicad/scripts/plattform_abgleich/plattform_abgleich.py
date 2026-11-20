@@ -40,13 +40,39 @@ import zipfile
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-try:
-    from elmonkey import abgleich as ab
-    from elmonkey import diff_plattform as dp
-except ImportError:                                     # aus dem Repo heraus, ohne installiertes elmonkey-core
-    sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "core"))
-    from elmonkey import abgleich as ab
-    from elmonkey import diff_plattform as dp
+# Der Kern `elmonkey` kommt aus drei Quellen, in dieser Reihenfolge: installiertes elmonkey-core,
+# core/ im ELMonkey-Repo, scripts/_kern im gespiegelten Skill (schreibt der Workflow skill-spiegeln).
+def _kern_laden():
+    try:
+        from elmonkey import abgleich as _ab
+        from elmonkey import diff_plattform as _dp
+        return _ab, _dp
+    except ImportError:
+        pass
+    eltern = Path(__file__).resolve().parents
+    kandidaten = []
+    if len(eltern) > 4:
+        kandidaten.append(eltern[4] / "core")
+    if len(eltern) > 1:
+        kandidaten.append(eltern[1] / "_kern")
+    kandidaten = [k for k in kandidaten if (k / "elmonkey").is_dir()]
+    for k in kandidaten:
+        sys.path.insert(0, str(k))
+        try:
+            from elmonkey import abgleich as _ab
+            from elmonkey import diff_plattform as _dp
+            return _ab, _dp
+        except ImportError:
+            sys.path.remove(str(k))
+            for name in [n for n in sys.modules if n == "elmonkey" or n.startswith("elmonkey.")]:
+                del sys.modules[name]
+    sys.exit("plattform_abgleich: Modul 'elmonkey' nicht gefunden. elmonkey-core installieren "
+             "(aus mozzi86/ELMonkey core/) oder den Skill neu spiegeln bzw. neu installieren - im Spiegel muss "
+             "scripts/_kern/elmonkey liegen (schreibt der Workflow skill-spiegeln). Geprüft: "
+             + (", ".join(str(k) for k in kandidaten) or "keine Kandidaten"))
+
+
+ab, dp = _kern_laden()
 
 PORT = 19723
 #: Elementtypen, die als Bauteil zählen (2D, Bemaßung, Zonen-Stempel usw. bleiben draußen).
