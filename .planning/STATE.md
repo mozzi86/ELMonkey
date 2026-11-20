@@ -37,6 +37,7 @@ Commits dieser Session: 9 atomic (DWG-IFC Lageplan + KG-300 + 3× Phase-6-Live-P
 
 | Datum | Slug | Ergebnis |
 |-------|------|----------|
+| 2026-11-20 | 261120-dbc | `bauen` nutzt die neue Bauliste mit echten Netzen (sab-bauliste/1, Links/mehrere Dateien, nicht_bearbeitet-Sperre, netz_pruefen), IFC nur noch für Verbund-Unterteile; Stichprobe BFW07 51/51 planbar, 34 deckungsgleich mit IFC, 17 Heizungs-Verbünde aus der Bauliste offen (Rohr+Dämmung verschweißt) → IFC-Unterteile; 184 Tests grün |
 | 2026-11-20 | 261120-bsp | Kern im Spiegel: Workflow skill-spiegeln kopiert core/elmonkey nach scripts/_kern (+ HERKUNFT.txt, Trigger core/elmonkey/**); plattform_abgleich.py lädt Kern installiert → Repo-core → _kern, sonst deutscher Hinweis; 174 Tests grün; PR #3 |
 | 2026-11-19 | 261119-wfq | Plattform-Abgleich `zerlegen()`: Kanten mit >2 Dreiecken per Fächer-Trennung (`mannigfaltig()`) auflösen — live BFW07: 6 „Failed to create morph“ gebaut, Rücklese exakt; 172 Tests grün; Zweig `fix-aggregation-eltern`, nicht gepusht |
 | 2026-11-19 | 261119-w9h | Plattform-Abgleich `bauen`: Verbünde als Kopf + Unterteile (`--verbund einzeln`, Standard; `zusammen` = alt), `ifc_teile()`, optionaler Stempel „Plattform-Verbund“, `kopf` in gebaut/ruecklese; Trockenlauf BFW07: 308 zu bauen (35 Verbünde, 302 Unterteile), 0 ausgelassen; 170 Tests grün; Zweig `fix-aggregation-eltern`, nicht gepusht |
