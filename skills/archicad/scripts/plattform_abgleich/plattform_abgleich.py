@@ -374,7 +374,8 @@ def fragen_text(plan: dict) -> str:
 # ─────────────────────────────────────────────────────────── IFC → Morph (Befehl bauen)
 
 BAU_PAKET = 25
-SAB_SYSTEM = "SAB_Klassifizierung_29"
+SAB_SYSTEME = ("SAB_Klassifizierung_29", "Graphisoft Klassifizierung")
+SAB_SYSTEM = SAB_SYSTEME[0]
 STATUS = {"Abbruch": "ToBeDemolished", "Bestand": "Existing", "Neubau": "New"}
 ZUORDNUNG = Path(__file__).with_name("sab_zuordnung.json")
 _IFC_ZEICHEN = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
@@ -798,12 +799,15 @@ def netz_pruefung(plan: list[dict]) -> dict:
             "netz_pruefen": pruefen}
 
 
-def sab_klassen(ac: Archicad, name: str = SAB_SYSTEM) -> tuple[str, dict[str, str]]:
-    """(System-GUID, {Klassen-id: Item-GUID}) des Klassifizierungssystems `name`."""
-    system = next((s for s in ac.api("API.GetAllClassificationSystems").get("classificationSystems") or []
-                   if s.get("name") == name), None)
+def sab_klassen(ac: Archicad, name: Optional[str] = None) -> tuple[str, dict[str, str], str]:
+    """(System-GUID, {Klassen-id: Item-GUID}, Systemname). Ohne `name` das erste vorhandene aus SAB_SYSTEME."""
+    vorhanden = ac.api("API.GetAllClassificationSystems").get("classificationSystems") or []
+    gesucht = (name,) if name else SAB_SYSTEME
+    system = next((s for g in gesucht for s in vorhanden if s.get("name") == g), None)
     if not system:
-        raise Fehler(f"Klassifizierungssystem „{name}“ gibt es im Projekt nicht.")
+        raise Fehler("Klassifizierungssystem " + " / ".join(f"„{g}“" for g in gesucht)
+                     + " gibt es im Projekt nicht. Vorhanden: "
+                     + (", ".join(f"„{s.get('name')}“" for s in vorhanden) or "keine"))
     sid = system["classificationSystemId"]["guid"]
     baum = ac.api("API.GetAllClassificationsInSystem", {"classificationSystemId": {"guid": sid}})
     items: list[dict] = []
@@ -832,7 +836,7 @@ def sab_klassen(ac: Archicad, name: str = SAB_SYSTEM) -> tuple[str, dict[str, st
             klasse_id = ((d or {}).get("classificationItem") or d or {}).get("id")
             if klasse_id:
                 klassen[klasse_id] = g
-    return sid, klassen
+    return sid, klassen, system["name"]
 
 
 def _string(v: Any) -> dict:
@@ -840,19 +844,20 @@ def _string(v: Any) -> dict:
 
 
 def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: dict, *, nur, ohne, vorhanden: dict,
-          ausfuehren: bool, projekt_soll: Optional[str] = None, verbund: str = "einzeln") -> dict:
+          ausfuehren: bool, projekt_soll: Optional[str] = None, verbund: str = "einzeln",
+          system: Optional[str] = None) -> dict:
     """Plattform-Bauteile als Morphs (echte Geometrie) nach Archicad: Ebene, Geschoss, Klasse, Umbau-Status,
     Stempel, Rücklese. Ohne `ausfuehren` nur Trockenlauf — es wird nichts Schreibendes gesendet."""
     ordner = Path(ordner)
     projekt = ac.befehl("GetProjectInfo").get("projectName")
     stories = ac.befehl("GetStories").get("stories") or []
-    system_id, klassen = sab_klassen(ac)
+    system_id, klassen, sys_name = sab_klassen(ac, system)
     plan, ausgelassen = bauplan(bauliste, ifc_teile(ifc) if ifc else None, register, zuordnung, klassen, stories, nur, ohne,
                                 verbund=verbund)
     _schreiben(ordner / "ausgelassen.json", ausgelassen)
     pruef = netz_pruefung(plan)
     _schreiben(ordner / "netz_pruefen.json", pruef["netz_pruefen"])
-    zaehl = {**pruef, "ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
+    zaehl = {**pruef, "klassifizierung": sys_name, "ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
              "klassen": dict(collections.Counter(p["klasse"] for p in plan)),
              "status": dict(collections.Counter(p["status"] for p in plan)),
              "dreiecke": sum(len(p["morph"]["body"]["polygons"]) for p in plan),
@@ -947,7 +952,7 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
         _schreiben(ordner / "ruecklese.json", {"rueck": rueck, "fehler": fehler})
     hinweis = ({"hinweis": "Plattform-Verbund fehlt – Kopf nur in gebaut.json"}
                if not pv_id and any(p.get("kopf") for p in plan) else {})
-    return {"trockenlauf": False, "projekt": projekt, "gebaut": len(gebaut),
+    return {"trockenlauf": False, "projekt": projekt, "klassifizierung": sys_name, "gebaut": len(gebaut),
             "verbuende": len({x["kopf"] for x in gebaut if x.get("kopf")}),
             "unterteile": sum(1 for x in gebaut if x.get("kopf")), **hinweis,
             "stimmt": sum(1 for x in rueck if x["stimmt"]), "fehler": fehler[:10],
@@ -1075,7 +1080,7 @@ def cmd_bauen(o) -> dict:
     aus = bauen(Archicad(_http(o.port)), ordner, o.ifc or None, bauliste, _lesen(Path(o.register)),
                 zuordnung_laden(o.zuordnung or ZUORDNUNG), nur=liste(o.nur) or None, ohne=liste(o.ohne),
                 vorhanden=_lesen(Path(o.vorhanden)) if o.vorhanden else {}, ausfuehren=o.ausfuehren,
-                projekt_soll=soll, verbund=o.verbund)
+                projekt_soll=soll, verbund=o.verbund, system=o.system or None)
     if aus.get("trockenlauf"):
         aus["hinweis"] = "Trockenlauf — nichts geschrieben. Nach dem Ja des Zeichners mit --ausfuehren wiederholen."
     return aus
@@ -1198,6 +1203,7 @@ def main(argv=None) -> int:
         register={"required": True},
         zuordnung={"default": ""}, nur={"default": ""}, ohne={"default": ""}, vorhanden={"default": ""},
         verbund={"choices": ["einzeln", "zusammen"], "default": "einzeln"},
+        system={"default": "", "help": "Klassifizierungssystem erzwingen (sonst automatisch)"},
         ausfuehren={"action": "store_true"})
     neu("hochladen", cmd_hochladen, ablage={"required": True})
     neu("oberflaechen", cmd_oberflaechen)

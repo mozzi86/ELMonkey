@@ -1,8 +1,8 @@
-{"_hinweis":"IFC-Klasse der Plattform -> Klasse in SAB_Klassifizierung_29 (BFW07, 19.11.2026, Entscheidung Mudi: nach Art). Mit ? markierte sind Vorschlag, noch nicht bestaetigt.",
+{"_hinweis":"IFC-Klasse der Plattform -> Klasse in SAB_Klassifizierung_29 (BFW07, 19.11.2026, Entscheidung Mudi: nach Art). Mit ? markierte sind Vorschlag, noch nicht bestaetigt. UNA 20.11.2026: Wall/Window/DiscreteAccessory freigegeben (Mudi); System auch ‚Graphisoft Klassifizierung‘.",
  "IfcDuctSegment":"Lüftungskanal","IfcPipeSegment":"Rohr","IfcPipeFitting":"Rohrverbinder","IfcAirTerminal":"Luftauslass",
  "IfcSpaceHeater":"Heizkörper","IfcUnitaryEquipment":"Einbaufertige Anlage","IfcLightFixture":"Leuchte","IfcDamper":"Regelklappe",
  "IfcFilter":"Filter","IfcFan":"Ventilator","IfcElectricMotor":"Elektromotor","IfcCoil":"Heiz-Kühlelemente",
  "IfcDuctSilencer":"Lüftungskanalschalldämpfer","IfcAirToAirHeatRecovery":"Wärmerückgewinner","IfcCondenser":"Kondensator",
- "IfcCompressor":"Kompressor","IfcElectricDistributionBoard":"Elektrischer Verteilungsregler","IfcCovering":"Bekleidung / Belag","IfcSlab":"Decke",
+ "IfcCompressor":"Kompressor","IfcElectricDistributionBoard":"Elektrischer Verteilungsregler","IfcCovering":"Bekleidung / Belag","IfcSlab":"Decke","IfcWall":"Wand","IfcWindow":"Fenster","IfcDiscreteAccessory":"Zusatzgerät / Einbauteil",
  "IfcVibrationIsolator?":"Bauelement - beliebig","IfcPlate?":"Bauelement - beliebig","IfcMember?":"Bauelement - beliebig",
  "IfcMechanicalFastener?":"Elementbestandteil","IfcElementAssembly?":"Bauelement - beliebig"}
