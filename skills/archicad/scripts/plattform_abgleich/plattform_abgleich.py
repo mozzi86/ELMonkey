@@ -1151,29 +1151,38 @@ def archicad_datei(ordner: Path) -> Path:
 
 def cmd_netze(o) -> dict:
     """Neue und in Archicad geänderte Bauteile mit echten Körpern → archicad_netze.json.gz (sab-archicad-netze/1).
-    Liest Archicad nur (GetProjectInfo, fehlende IFC-Klassen über GetDiffDataELM {elements} bzw.
-    GetIFCTypeOfElements, Get3DGeometryOfElements); anderes Projekt offen → nichts gelesen."""
+    Liest Archicad (GetProjectInfo, fehlende IFC-Klassen/Ebenen über GetDiffDataELM {elements} bzw.
+    GetIFCTypeOfElements, Get3DGeometryOfElements, Segmente, Design-Option); anderes Projekt offen → nichts gelesen.
+    Einzige Änderung: ausgeblendete Ebenen der gewählten Bauteile kurz einblenden (ELM_SAB.SetLayerAttributes) und
+    danach genau diese wieder ausblenden + zurücklesen — nicht mit --ebenen-nicht-einblenden; Teamwork: nur wenn
+    die Ebenen-Einstellungen niemand anderes reserviert hat."""
     ordner = Path(o.ordner)
     erg = _lesen(ordner / "ergebnis.json")
     quelle = archicad_datei(ordner)
     archicad = _lesen(quelle)
     ac = Archicad(_http(o.port))
     hinweise: list[str] = []
+    bericht: dict = {}
+    info = ac.befehl("GetProjectInfo")
+    ebenen = None if o.ebenen_nicht_einblenden else nz.Ebenen(ac.elm, ac.befehl, bool(info.get("isTeamwork")))
     try:
-        datei = nz.erzeugen(erg, archicad, nz.tapir_holen(ac.befehl),
-                            ac.befehl("GetProjectInfo").get("projectName"), paket=o.paket,
+        datei = nz.erzeugen(erg, archicad, nz.tapir_holen(ac.befehl), info.get("projectName"), paket=o.paket,
                             diff_daten=nz.elm_diff_daten(ac.elm), ifc_typen=nz.tapir_ifc_typen(ac.befehl),
-                            hinweise=hinweise)
-    except nz.NetzFehler as e:
+                            unterelemente=nz.tapir_unterelemente(ac.befehl),
+                            design_option=nz.tapir_design_option(ac.befehl),
+                            umbau_lesen=nz.api_umbau_lesen(ac.api), ebenen=ebenen,
+                            hinweise=hinweise, bericht=bericht)
+    except (nz.NetzFehler, nz.EbenenFehler) as e:
         raise Fehler(str(e)) from e
+    except Fehler as e:
+        notizen = getattr(e, "__notes__", None)
+        raise Fehler(str(e) + (" — " + " ".join(notizen) if notizen else "")) from e
     ziel = ordner / nz.DATEI
     ziel.write_bytes(nz.gz_bytes(datei))
     return {"datei": str(ziel), "quelle": quelle.name, "projekt": datei["projekt"], "lauf": datei["lauf"],
             **datei["zahlen"], "mb": round(ziel.stat().st_size / 1e6, 2),
             "fehler_beispiele": [f for f in datei["fehler"] if not f.get("nur_hinweis")][:10],
-            "hinweise": hinweise + ([nz.OHNE_KOERPER + " — betrifft " + ", ".join(
-                f"{n} {t}" for t, n in datei["zahlen"]["ohne_koerper"].items())] if datei["zahlen"]["ohne_koerper"]
-                else []),
+            **bericht, "hinweise": hinweise,
             "naechster_schritt": "hochladen --ordner <Ordner> --ablage <ergebnis_ablage> --netze-ablage <netze_ablage> "
                                  "(beide Links aus archicad_abgleich_lesen), dann archicad_abgleich_melden."}
 
@@ -1294,7 +1303,9 @@ def main(argv=None) -> int:
         ausfuehren={"action": "store_true"})
     neu("hochladen", cmd_hochladen, ablage={"required": True},
         netze_ablage={"default": "", "help": "Link netze_ablage aus archicad_abgleich_lesen (archicad_netze.json.gz)"})
-    neu("netze", cmd_netze, paket={"type": int, "default": nz.PAKET, "help": "GUIDs je Get3DGeometryOfElements"})
+    neu("netze", cmd_netze, paket={"type": int, "default": nz.PAKET, "help": "GUIDs je Get3DGeometryOfElements"},
+        ebenen_nicht_einblenden={"action": "store_true",
+                                 "help": "ausgeblendete Ebenen nicht kurz einblenden (Bauteile darauf ohne Körper)"})
     neu("oberflaechen", cmd_oberflaechen)
     neu("ifc", cmd_ifc, translator={"default": ""})
     neu("diff", cmd_diff, stand_link={"default": ""},

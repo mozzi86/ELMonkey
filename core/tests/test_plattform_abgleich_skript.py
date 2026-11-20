@@ -921,26 +921,59 @@ def _netz_ordner(tmp_path, projekt="Haus"):
          "eigenschaften": {"A.b": n}} for n in (1, 2, 3, 4)]})
 
 
-def _netz_ac(projekt="Haus"):
+class _Ebenen:
+    """Ebenen-Zustand im Fake: GetLayers / SetLayerAttributes (ELM_SAB), mit Rücklese."""
+
+    def __init__(self, **hidden):
+        self.stand = {name.replace("_", " "): {"index": i + 5, "hidden": h} for i, (name, h) in enumerate(hidden.items())}
+        self.verweigern: set = set()
+
+    def get(self, params):
+        return {"layers": [{"index": v["index"], "name": n, "hidden": v["hidden"]} for n, v in self.stand.items()]}
+
+    def set(self, params):
+        res = []
+        for x in params["layers"]:
+            n = next(k for k, v in self.stand.items() if v["index"] == x["layerIndex"])
+            if (n, x["hidden"]) not in self.verweigern:
+                self.stand[n]["hidden"] = x["hidden"]
+            res.append({"layerIndex": x["layerIndex"], "layerName": n, "hidden": self.stand[n]["hidden"],
+                        "success": self.stand[n]["hidden"] == x["hidden"]})
+        return {"results": res}
+
+
+def _netz_ac(projekt="Haus", teamwork=False, ebenen=None):
     def geo(params):
         return {"geometries3D": [{"error": {"code": 4012, "message": "Ebene ausgeblendet"}}
                                  if e["elementId"]["guid"] == guid(2) else {"bodies": [_QUADRAT]}
                                  for e in params["elements"]]}
+
     def diff_daten(params):
         return {"format": "elm-diff-daten/1", "readOnly": True, "context": {}, "elements": [
             {"elementId": e["elementId"], "type": "Wall", "ifcType": "IfcWall", "ifcGlobalId": "ELM" + e["elementId"]["guid"][-2:],
-             "storyName": "EG", "layer": "10 Wand"} for e in params["elements"]]}
-    return FakeSenden({"GetProjectInfo": {"projectName": projekt}, "Get3DGeometryOfElements": geo,
-                       "GetDiffDataELM": diff_daten})
+             "storyName": "EG", "layer": "10 Wand", "renovationStatus": "New"} for e in params["elements"]]}
+    eb = ebenen or _Ebenen(**{"10_Wand": False})
+    fake = FakeSenden({"GetProjectInfo": {"projectName": projekt, "isTeamwork": teamwork},
+                       "Get3DGeometryOfElements": geo, "GetDiffDataELM": diff_daten,
+                       "GetLayers": eb.get, "SetLayerAttributes": eb.set,
+                       "GetDesignOptionForElements": lambda p: {"designOptionForElements": [
+                           {"elementId": e["elementId"], "type": "NotLinkedToAnyDesignOption"} for e in p["elements"]]}})
+    fake.ebenen = eb
+    return fake
+
+
+def _o(tmp_path, paket=50, **k):
+    return types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=paket, ebenen_nicht_einblenden=False, **k)
 
 
 def test_netze_befehl_mit_fake_archicad(tmp_path, monkeypatch):
     _netz_ordner(tmp_path)
     fake = _netz_ac()
     monkeypatch.setattr(pa, "_http", lambda port: fake)
-    aus = pa.cmd_netze(types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=2))
+    aus = pa.cmd_netze(_o(tmp_path, paket=2))
     assert aus["neu"] == 1 and aus["geaendert"] == 1 and aus["fehler"] == 1 and aus["dreiecke"] == 4
-    assert fake.namen() == ["GetProjectInfo", "GetDiffDataELM", "Get3DGeometryOfElements", "Get3DGeometryOfElements"]
+    assert fake.namen() == ["GetProjectInfo", "GetDiffDataELM", "GetLayers", "Get3DGeometryOfElements",
+                            "Get3DGeometryOfElements"]          # Ebene sichtbar → nichts eingeblendet
     (dd,) = fake.params("GetDiffDataELM")                  # alle drei ohne Klasse, ein Paket, nur lesend
     assert [e["elementId"]["guid"] for e in dd["elements"]] == [guid(1), guid(2), guid(3)]
     assert dd["includeIfcProperties"] is False and dd["includeSurfaces"] is False
@@ -951,11 +984,12 @@ def test_netze_befehl_mit_fake_archicad(tmp_path, monkeypatch):
     b1, b3 = d["bauteile"]
     assert b1["archicadGuid"] == guid(1) and b1["art"] == "neu" and b1["plattformGuid"] is None
     assert b1["name"] == "W-1" and b1["ifc"] == {"klasse": "IfcWall", "globalId": "IFC1"}   # GlobalId war schon da
-    assert b1["ebene"] == "10 Wand" and b1["eigenschaften"] == {"A.b": 1}
+    assert b1["ebene"] == "10 Wand" and b1["eigenschaften"] == {"A.b": 1} and "umbau" not in b1
     assert b3["art"] == "geaendert" and b3["plattformGuid"] == "PF-3" and b3["box"] == [0, 0, 0, 1, 1, 0]
     assert len(b3["koerper"][0]["dreiecke"]) == 2
-    assert d["fehler"] == [{"archicadGuid": guid(2), "art": "neu", "typ": "Wall", "grund": "4012 Ebene ausgeblendet"}]
-    assert aus["hinweise"] == [] and aus["ohne_koerper"] == {}
+    assert d["fehler"] == [{"archicadGuid": guid(2), "art": "neu", "typ": "Wall", "umbau": "New",
+                            "grund": "4012 Ebene ausgeblendet"}]
+    assert aus["hinweise"] == [] and aus["ohne_koerper"] == {} and aus["ebenen_eingeblendet"] == []
 
 
 def test_netze_altes_addon_rueckfall_getifctypeofelements(tmp_path, monkeypatch):
@@ -964,11 +998,114 @@ def test_netze_altes_addon_rueckfall_getifctypeofelements(tmp_path, monkeypatch)
     fake.antworten["GetDiffDataELM"] = Roh({"succeeded": False, "error": {"code": 4010, "message": "unbekannt"}})
     fake.antworten["GetIFCTypeOfElements"] = lambda p: {"elementIFCTypes": [{"ifcType": "IfcWall"} for _ in p["elements"]]}
     fake.antworten["Get3DGeometryOfElements"] = lambda p: {"geometries3D": [{"bodies": []} for _ in p["elements"]]}
+    fake.antworten["GetSubelementsOfHierarchicalElements"] = lambda p: {"subelements": [{} for _ in p["elements"]]}
     monkeypatch.setattr(pa, "_http", lambda port: fake)
-    aus = pa.cmd_netze(types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=50))
+    aus = pa.cmd_netze(_o(tmp_path))
     assert "GetIFCTypeOfElements" in aus["hinweise"][0]
-    assert aus["ohne_koerper"] == {"Wall": 3} and "⌥⌘F5" in aus["hinweise"][-1] and "3 Wall" in aus["hinweise"][-1]
-    assert not any(n.startswith(("Set", "Reserve", "Create", "Delete")) for n in fake.namen())
+    assert aus["ohne_koerper"] == {"Wall": 3} and aus["ohne_koerper_umbau"] == {"?": 3}
+    assert "3 übrige Bauteile ohne Körper" in aus["hinweise"][-1] and "Design-Option" in aus["hinweise"][-1]
+    assert not any(n.startswith(("Reserve", "Create", "Delete")) for n in fake.namen())
+    assert "SetLayerAttributes" not in fake.namen()       # ohne bekannte Ebene nichts einzublenden
+    assert fake.namen().count("GetSubelementsOfHierarchicalElements") == 1
+
+
+def _ohne_koerper_ac(**ebenen):
+    fake = _netz_ac(ebenen=_Ebenen(**ebenen))
+    fake.antworten["Get3DGeometryOfElements"] = lambda p: {"geometries3D": [
+        {"bodies": [_QUADRAT]} if not fake.ebenen.stand["10 Wand"]["hidden"] else {"bodies": []}
+        for _ in p["elements"]]}
+    fake.antworten["GetSubelementsOfHierarchicalElements"] = lambda p: {"subelements": [{} for _ in p["elements"]]}
+    return fake
+
+
+def test_netze_blendet_ebene_kurz_ein_und_wieder_aus(tmp_path, monkeypatch):
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": True, "99_Fremd": True})
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    aus = pa.cmd_netze(_o(tmp_path))
+    assert aus["ebenen_eingeblendet"] == ["10 Wand"] and aus["ebenen_zurueckgesetzt"] == "ok"
+    assert aus["fehler"] == 0 and aus["neu"] == 2              # Körper kamen, weil die Ebene sichtbar war
+    assert fake.params("SetLayerAttributes") == [{"layers": [{"layerIndex": 5, "hidden": False}]},
+                                                {"layers": [{"layerIndex": 5, "hidden": True}]}]   # nur die eine
+    assert fake.ebenen.stand["10 Wand"]["hidden"] and fake.ebenen.stand["99 Fremd"]["hidden"]
+    n = fake.namen()
+    assert n.index("SetLayerAttributes") < n.index("Get3DGeometryOfElements") < len(n) - 1 - n[::-1].index("SetLayerAttributes")
+
+
+def test_netze_setzt_ebene_auch_bei_ausnahme_zurueck(tmp_path, monkeypatch):
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": True})
+    fake.antworten["Get3DGeometryOfElements"] = Roh({"succeeded": False, "error": {"code": 9, "message": "kaputt"}})
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    with pytest.raises(pa.Fehler, match="kaputt"):
+        pa.cmd_netze(_o(tmp_path))
+    assert fake.ebenen.stand["10 Wand"]["hidden"] and fake.namen()[-2:] == ["SetLayerAttributes", "GetLayers"]
+
+
+def test_netze_zuruecksetzen_scheitert_laut(tmp_path, monkeypatch):
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": True})
+    fake.ebenen.verweigern.add(("10 Wand", True))              # Archicad lehnt das Ausblenden ab
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    with pytest.raises(pa.Fehler, match="EBENEN NICHT ZURÜCKGESETZT.*10 Wand"):
+        pa.cmd_netze(_o(tmp_path))
+
+
+def test_netze_teamwork_fremd_reserviert_blendet_nicht_ein(tmp_path, monkeypatch):
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": True})
+    fake.antworten["GetProjectInfo"] = {"projectName": "Haus", "isTeamwork": True}
+    fake.antworten["GetLockableObjectSetStatus"] = {"status": "Locked", "conflicts": [{"userId": 3, "userName": "Dani"}]}
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    aus = pa.cmd_netze(_o(tmp_path))
+    assert "SetLayerAttributes" not in fake.namen() and aus["ebenen_eingeblendet"] == []
+    assert fake.params("GetLockableObjectSetStatus") == [{"objectSetName": "LayerSettingsDialog"}]
+    assert any("NICHT eingeblendet" in h and "Dani" in h for h in aus["hinweise"])
+    assert aus["ohne_koerper"] == {"Wall": 3}
+
+
+def test_netze_teamwork_eigene_reservierung_blendet_ein(tmp_path, monkeypatch):
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": True})
+    fake.antworten["GetProjectInfo"] = {"projectName": "Haus", "isTeamwork": True}
+    fake.antworten["GetLockableObjectSetStatus"] = {"status": "Editable"}
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    aus = pa.cmd_netze(_o(tmp_path))
+    assert aus["ebenen_eingeblendet"] == ["10 Wand"] and aus["ebenen_zurueckgesetzt"] == "ok"
+    assert not any(n.startswith("Reserve") for n in fake.namen())
+
+
+def test_netze_ebenen_nicht_einblenden_alte_variante(tmp_path, monkeypatch):
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": True})
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    aus = pa.cmd_netze(types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=50, ebenen_nicht_einblenden=True))
+    assert "SetLayerAttributes" not in fake.namen() and "GetLayers" not in fake.namen()
+    assert aus["ebenen_eingeblendet"] == [] and "ebenen_zurueckgesetzt" not in aus
+
+
+def test_netze_abbruch_und_design_option_getrennt(tmp_path, monkeypatch):
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": False})
+    fake.antworten["Get3DGeometryOfElements"] = lambda p: {"geometries3D": [{"bodies": []} for _ in p["elements"]]}
+    status = {guid(1): "ToBeDemolished", guid(2): "New", guid(3): "New"}
+    fake.antworten["GetDiffDataELM"] = lambda p: {"format": "elm-diff-daten/1", "context": {}, "elements": [
+        {"elementId": e["elementId"], "type": "Window", "ifcType": "IfcWindow", "layer": "10 Wand",
+         "renovationStatus": status[e["elementId"]["guid"]]} for e in p["elements"]]}
+    fake.antworten["GetDesignOptionForElements"] = lambda p: {"designOptionForElements": [
+        {"elementId": e["elementId"], "type": "LinkedToDesignOption",
+         "designOption": {"name": "geschlossen", "ownerSetName": "IT-109 Trennwand"}} if e["elementId"]["guid"] == guid(2)
+        else {"elementId": e["elementId"], "type": "NotLinkedToAnyDesignOption"} for e in p["elements"]]}
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    aus = pa.cmd_netze(_o(tmp_path))
+    assert [e["elementId"]["guid"] for e in fake.params("GetDesignOptionForElements")[0]["elements"]] == [guid(2), guid(3)]
+    assert aus["ohne_koerper_umbau"] == {"New": 2, "ToBeDemolished": 1}
+    abbruch, rest = aus["hinweise"][-2:]
+    assert abbruch.startswith("1 Abbruch-Bauteile ohne Körper → Umbau-Filter auf „alles anzeigen“") and "Dokument → Umbau" in abbruch
+    assert rest.startswith("2 übrige Bauteile ohne Körper — evtl. inaktive Design-Option, wird bewusst nicht übertragen")
+    assert "IT-109 Trennwand / geschlossen" in rest
+    d = json.loads(gzip.decompress((tmp_path / "archicad_netze.json.gz").read_bytes()))
+    assert [f.get("designOption") for f in d["fehler"]] == [None, "IT-109 Trennwand / geschlossen", None]
 
 
 def test_netze_anderes_projekt_liest_nichts(tmp_path, monkeypatch):
@@ -976,7 +1113,7 @@ def test_netze_anderes_projekt_liest_nichts(tmp_path, monkeypatch):
     fake = _netz_ac("Anderes")
     monkeypatch.setattr(pa, "_http", lambda port: fake)
     with pytest.raises(pa.Fehler, match="Anderes"):
-        pa.cmd_netze(types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=50))
+        pa.cmd_netze(_o(tmp_path))
     assert fake.namen() == ["GetProjectInfo"] and not (tmp_path / "archicad_netze.json.gz").exists()
 
 
@@ -987,7 +1124,7 @@ def test_netze_aus_diff_seiten(tmp_path, monkeypatch):
     pa._schreiben(tmp_path / "archicad_diff.json", {"projekt": "Haus", "seiten": [seite]})
     fake = _netz_ac()
     monkeypatch.setattr(pa, "_http", lambda port: fake)
-    pa.cmd_netze(types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=50))
+    pa.cmd_netze(_o(tmp_path))
     (b,) = json.loads(gzip.decompress((tmp_path / "archicad_netze.json.gz").read_bytes()))["bauteile"]
     assert b["typ"] == "Slab" and b["ebene"] == "20 Decke" and b["geschoss"] == "OG" and b["ifc"]["klasse"] == "IfcSlab"
 
@@ -1030,3 +1167,34 @@ def test_cli_kennt_netze_und_netze_ablage(capsys):
     with pytest.raises(SystemExit):
         pa.main(["hochladen", "--help"])
     assert "--netze-ablage" in capsys.readouterr().out
+
+
+def test_netze_altes_addon_status_und_ebene_ueber_rueckfaelle(tmp_path, monkeypatch):
+    """Live BFW 20.11.2026: GetDiffDataELM → 4010. Ebene aus GetDetailsOfElements.layerIndex, Umbau-Status aus der
+    eingebauten Eigenschaft Category_RenovationStatus (nonLocalizedValue)."""
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": True, "20_Decke": False})
+    fake.antworten["GetDiffDataELM"] = Roh({"succeeded": False, "error": {"code": 4010, "message": "unbekannt"}})
+    fake.antworten["GetIFCTypeOfElements"] = lambda p: {"elementIFCTypes": [{"ifcType": "IfcWindow"} for _ in p["elements"]]}
+    fake.antworten["GetDetailsOfElements"] = lambda p: {"detailsOfElements": [{"layerIndex": 5} for _ in p["elements"]]}
+    fake.antworten["Get3DGeometryOfElements"] = lambda p: {"geometries3D": [
+        {"bodies": [_QUADRAT]} if (not fake.ebenen.stand["10 Wand"]["hidden"] and e["elementId"]["guid"] != guid(1))
+        else {"bodies": []} for e in p["elements"]]}
+    fake.antworten["API.GetPropertyIds"] = {"properties": [{"propertyId": {"guid": "RENO"}}]}
+    fake.antworten["API.GetPropertyValuesOfElements"] = lambda p: {"propertyValuesForElements": [
+        {"propertyValues": [{"propertyValue": {"type": "singleEnum", "status": "normal",
+                                               "value": {"type": "nonLocalizedValue", "nonLocalizedValue": "ToBeDemolished"}}}]}
+        for _ in p["elements"]]}
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    aus = pa.cmd_netze(_o(tmp_path))
+    assert aus["ebenen_eingeblendet"] == ["10 Wand"] and aus["ebenen_zurueckgesetzt"] == "ok"
+    assert fake.ebenen.stand["10 Wand"]["hidden"]
+    assert fake.params("GetDetailsOfElements")[0]["elements"] == [{"elementId": {"guid": guid(n)}} for n in (1, 2, 3)]
+    assert aus["neu"] == 1 and aus["geaendert"] == 1                       # guid(1) bleibt ohne Körper
+    assert aus["ohne_koerper_umbau"] == {"ToBeDemolished": 1}
+    assert [e["elementId"]["guid"] for e in fake.params("API.GetPropertyValuesOfElements")[0]["elements"]] == [guid(1)]
+    assert fake.params("API.GetPropertyIds") == [{"properties": [{"type": "BuiltIn",
+                                                                  "nonLocalizedName": "Category_RenovationStatus"}]}]
+    assert aus["hinweise"][-1].startswith("1 Abbruch-Bauteile ohne Körper")
+    d = json.loads(gzip.decompress((tmp_path / "archicad_netze.json.gz").read_bytes()))
+    assert {b["ebene"] for b in d["bauteile"]} == {"10 Wand"}                # Ebene auch in der Datei

@@ -84,9 +84,18 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
    `$O/archicad_netze.json.gz` (Format `sab-archicad-netze/1`, Spezifikation im Kern `elmonkey.netze`). Ist in Archicad
    ein anderes Projekt offen als beim Lesen, liest es nichts. Fehlt die IFC-Klasse (archicad.json aus `archicad-lesen`
    hat keine), liest es sie für die gewählten GUIDs über `ELM_SAB.GetDiffDataELM {elements}` nach (Rückfall
-   `GetIFCTypeOfElements`), sonst würde in der Plattform alles Proxy. `fehler` und `ohne_koerper` (je Typ) dem
-   Zeichner nennen; ohne Körper heißt meist: Ansicht → Elemente in 3D-Ansicht → Alles in 3D zeigen (⌥⌘F5),
-   3D-Schnittebenen aus, dann `netze` erneut. Braucht ein `ergebnis.json` aus dem Diff-Checker (unten) — der Skript-Ablauf ohne Diff kennt
+   `GetIFCTypeOfElements`), sonst würde in der Plattform alles Proxy. <!-- 2026-11-20 --> Stützen/Träger: die Körper
+   hängen an den Segmenten (`GetSubelementsOfHierarchicalElements`), `netze` holt sie dort. **Ausgeblendete Ebenen
+   der gewählten Bauteile blendet `netze` kurz ein und danach genau diese wieder aus** (Entscheidung Mudi 20.11.2026,
+   `ELM_SAB.SetLayerAttributes` mit Rücklese; Ergebnis `ebenen_eingeblendet`, `ebenen_zurueckgesetzt` ok|fehler —
+   bei „fehler“ dem Zeichner die Ebenen sofort nennen, er blendet sie von Hand aus). Teamwork: nur, wenn niemand
+   anderes die Ebenen-Einstellungen reserviert hat (`GetLockableObjectSetStatus LayerSettingsDialog`), sonst Hinweis.
+   Alte Variante: `--ebenen-nicht-einblenden` (MCP: `netze_ebenen_einblenden: false`). `fehler`, `ohne_koerper`
+   (je Typ) und `ohne_koerper_umbau` (je Umbau-Status) dem Zeichner nennen: Abbruch ohne Körper → Umbau-Filter auf
+   „alles anzeigen“ (Dokument → Umbau → Umbau-Filter), dann `netze` erneut; übrige meist inaktive Design-Option
+   (`designOption` im Fehler, wenn Archicad 29 sie nennt) — bewusst nicht übertragen. Ohne `GetDiffDataELM` (älteres Add-on, 4010)
+   kommen Ebene aus `TapirCommand.GetDetailsOfElements.layerIndex` und Umbau-Status aus der eingebauten Eigenschaft
+   `Category_RenovationStatus` (`API.GetPropertyIds` + `API.GetPropertyValuesOfElements`, `nonLocalizedValue`). Braucht ein `ergebnis.json` aus dem Diff-Checker (unten) — der Skript-Ablauf ohne Diff kennt
    keine Geometrie und liefert nur `neu`.
    **Braucht die Plattform-Seite:** `netze_ablage` aus `archicad_abgleich_lesen` und ein `archicad_abgleich_melden`,
    das die Datei liest — PR in SchwarzPlatform steht aus. Ohne `netze_ablage` die Datei liegen lassen und es dem
