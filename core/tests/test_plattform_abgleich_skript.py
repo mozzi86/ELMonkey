@@ -4,7 +4,10 @@ from __future__ import annotations
 import datetime
 import importlib.util
 import json
+import os
+import shutil
 import subprocess
+import sys
 import types
 import urllib.error
 from pathlib import Path
@@ -614,3 +617,49 @@ def test_cli_verbund_vorgabe_einzeln(monkeypatch, tmp_path, capsys):
     base = ["bauen", "--ordner", str(tmp_path), "--ifc", "a", "--bauliste", "b", "--register", "c"]
     assert pa.main(base) == 0 and pa.main(base + ["--verbund", "zusammen"]) == 0
     assert gesehen == ["einzeln", "zusammen"]
+
+
+# ───────────────────────────────────────── Spiegel-Layout (skill/scripts/_kern/elmonkey)
+
+def _saubere_env() -> dict:
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    return env
+
+
+def _spiegel_bauen(tmp_path: Path, mit_kern: bool) -> Path:
+    skript_dir = tmp_path / "skill" / "scripts" / "plattform_abgleich"
+    skript_dir.mkdir(parents=True)
+    ziel = skript_dir / "plattform_abgleich.py"
+    shutil.copy(SKRIPT, ziel)
+    if mit_kern:
+        kern = Path(__file__).resolve().parents[1] / "elmonkey"
+        shutil.copytree(kern, tmp_path / "skill" / "scripts" / "_kern" / "elmonkey",
+                        ignore=shutil.ignore_patterns("__pycache__"))
+    return ziel
+
+
+def _skip_wenn_installiert(tmp_path: Path) -> None:
+    r = subprocess.run([sys.executable, "-I", "-c", "import elmonkey"], cwd=tmp_path,
+                       env=_saubere_env(), capture_output=True, text=True, timeout=60)
+    if r.returncode == 0:
+        pytest.skip("elmonkey ist site-installiert, Spiegelfall nicht prüfbar")
+
+
+def test_spiegel_layout_mit_kern(tmp_path):
+    _skip_wenn_installiert(tmp_path)
+    skript = _spiegel_bauen(tmp_path, True)
+    r = subprocess.run([sys.executable, "-I", str(skript), "--help"], cwd=tmp_path,
+                       env=_saubere_env(), capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    assert "archicad-lesen" in r.stdout
+
+
+def test_spiegel_layout_ohne_kern(tmp_path):
+    _skip_wenn_installiert(tmp_path)
+    skript = _spiegel_bauen(tmp_path, False)
+    r = subprocess.run([sys.executable, "-I", str(skript), "--help"], cwd=tmp_path,
+                       env=_saubere_env(), capture_output=True, text=True, timeout=60)
+    assert r.returncode != 0
+    assert "elmonkey-core" in r.stderr and "spiegeln" in r.stderr
+    assert "IndexError" not in r.stderr and "Traceback" not in r.stderr
