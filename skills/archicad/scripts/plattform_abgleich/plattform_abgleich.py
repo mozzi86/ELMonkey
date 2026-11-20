@@ -11,7 +11,9 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
     plattform_abgleich.py stempeln        --ordner <dir> --gebaut gebaut.json [--ausfuehren]
     plattform_abgleich.py bauen           --ordner <dir> --bauliste <datei|link> [weitere …] --register register.json
                                           [--ifc plattform.ifc] [--trotzdem] [--zuordnung z.json] [--nur GUID,..] [--ohne GUID,..] [--vorhanden v.json] [--verbund einzeln|zusammen] [--ausfuehren]
-    plattform_abgleich.py hochladen       --ordner <dir> --ablage "<ergebnis_ablage>"
+    plattform_abgleich.py hochladen       --ordner <dir> --ablage "<ergebnis_ablage>" [--netze-ablage "<netze_ablage>"]
+    plattform_abgleich.py netze           --ordner <dir> [--paket 50]   # neue + in Archicad geänderte Bauteile mit
+                                          # Körpern → archicad_netze.json.gz (sab-archicad-netze/1), statt IFC
     plattform_abgleich.py oberflaechen    --ordner <dir>                     # Export + ZIP für die Plattform
     plattform_abgleich.py ifc             --ordner <dir> [--translator "<Name>"]
     plattform_abgleich.py diff            --ordner <dir> --stand-link "<stand_link>" [--toleranz 0.003]
@@ -19,7 +21,7 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
 
 Alles, was Archicad verändert, ist ohne `--ausfuehren` ein Trockenlauf. Gelöscht wird in Archicad nie.
 Dateien im Arbeitsordner: archicad.json, stand.json, plan.json, fragen.md, antworten.json, ergebnis.json,
-archicad_geschrieben.json, archicad_diff.json (Befehl diff); Befehl bauen: ausgelassen.json + netz_pruefen.json (immer),
+archicad_geschrieben.json, archicad_diff.json (Befehl diff), archicad_netze.json.gz (Befehl netze); Befehl bauen: ausgelassen.json + netz_pruefen.json (immer),
 angelegt.json / gebaut.json / ruecklese.json (je Paket fortgeschrieben, nur mit --ausfuehren).
 """
 from __future__ import annotations
@@ -47,7 +49,8 @@ def _kern_laden():
     try:
         from elmonkey import abgleich as _ab
         from elmonkey import diff_plattform as _dp
-        return _ab, _dp
+        from elmonkey import netze as _nz
+        return _ab, _dp, _nz
     except ImportError:
         pass
     eltern = Path(__file__).resolve().parents
@@ -62,7 +65,8 @@ def _kern_laden():
         try:
             from elmonkey import abgleich as _ab
             from elmonkey import diff_plattform as _dp
-            return _ab, _dp
+            from elmonkey import netze as _nz
+            return _ab, _dp, _nz
         except ImportError:
             sys.path.remove(str(k))
             for name in [n for n in sys.modules if n == "elmonkey" or n.startswith("elmonkey.")]:
@@ -73,7 +77,7 @@ def _kern_laden():
              + (", ".join(str(k) for k in kandidaten) or "keine Kandidaten"))
 
 
-ab, dp = _kern_laden()
+ab, dp, nz = _kern_laden()
 
 PORT = 19723
 #: Elementtypen, die als Bauteil zählen (2D, Bemaßung, Zonen-Stempel usw. bleiben draußen).
@@ -1114,10 +1118,64 @@ def cmd_bauen(o) -> dict:
 
 
 def cmd_hochladen(o) -> dict:
-    daten = (Path(o.ordner) / "ergebnis.json").read_bytes()
+    ordner = Path(o.ordner)
+    daten = (ordner / "ergebnis.json").read_bytes()
+    netze = ordner / nz.DATEI
+    if o.netze_ablage:
+        _nur_https(o.netze_ablage)                         # vor dem ersten Upload prüfen
+        if not netze.is_file():
+            raise Fehler(f"{nz.DATEI} fehlt — erst „netze“ laufen lassen (oder --netze-ablage weglassen)")
     ablegen(o.ablage, daten, "application/json")
-    return {"hochgeladen": "ergebnis.json", "bytes": len(daten),
-            "naechster_schritt": "archicad_abgleich_melden {projekt, lauf} — erst Vorschau, nach dem Ja bestaetigt=true"}
+    aus = {"hochgeladen": ["ergebnis.json"], "bytes": {"ergebnis.json": len(daten)}}
+    if o.netze_ablage:
+        n = netze.read_bytes()
+        ablegen(o.netze_ablage, n, "application/gzip")
+        aus["hochgeladen"].append(nz.DATEI)
+        aus["bytes"][nz.DATEI] = len(n)
+    elif netze.is_file():
+        aus["hinweis"] = (f"{nz.DATEI} liegt im Ordner, ist aber nicht hochgeladen — --netze-ablage "
+                          "<netze_ablage aus archicad_abgleich_lesen> mitgeben.")
+    aus["naechster_schritt"] = ("archicad_abgleich_melden {projekt, lauf} — erst Vorschau, nach dem Ja bestaetigt=true"
+                                + (" (liest archicad_netze.json.gz: neue Bauteile + Netz-Ersatz)" if o.netze_ablage
+                                   else ""))
+    return aus
+
+
+def archicad_datei(ordner: Path) -> Path:
+    """Die jüngste von archicad.json (archicad-lesen bzw. MCP-Diff) und archicad_diff.json (Befehl diff)."""
+    da = [p for p in (ordner / "archicad.json", ordner / "archicad_diff.json") if p.is_file()]
+    if not da:
+        raise Fehler(f"{ordner}/archicad.json bzw. archicad_diff.json fehlt — erst diff oder archicad-lesen")
+    return max(da, key=lambda p: p.stat().st_mtime)
+
+
+def cmd_netze(o) -> dict:
+    """Neue und in Archicad geänderte Bauteile mit echten Körpern → archicad_netze.json.gz (sab-archicad-netze/1).
+    Liest Archicad nur (GetProjectInfo, fehlende IFC-Klassen über GetDiffDataELM {elements} bzw.
+    GetIFCTypeOfElements, Get3DGeometryOfElements); anderes Projekt offen → nichts gelesen."""
+    ordner = Path(o.ordner)
+    erg = _lesen(ordner / "ergebnis.json")
+    quelle = archicad_datei(ordner)
+    archicad = _lesen(quelle)
+    ac = Archicad(_http(o.port))
+    hinweise: list[str] = []
+    try:
+        datei = nz.erzeugen(erg, archicad, nz.tapir_holen(ac.befehl),
+                            ac.befehl("GetProjectInfo").get("projectName"), paket=o.paket,
+                            diff_daten=nz.elm_diff_daten(ac.elm), ifc_typen=nz.tapir_ifc_typen(ac.befehl),
+                            hinweise=hinweise)
+    except nz.NetzFehler as e:
+        raise Fehler(str(e)) from e
+    ziel = ordner / nz.DATEI
+    ziel.write_bytes(nz.gz_bytes(datei))
+    return {"datei": str(ziel), "quelle": quelle.name, "projekt": datei["projekt"], "lauf": datei["lauf"],
+            **datei["zahlen"], "mb": round(ziel.stat().st_size / 1e6, 2),
+            "fehler_beispiele": [f for f in datei["fehler"] if not f.get("nur_hinweis")][:10],
+            "hinweise": hinweise + ([nz.OHNE_KOERPER + " — betrifft " + ", ".join(
+                f"{n} {t}" for t, n in datei["zahlen"]["ohne_koerper"].items())] if datei["zahlen"]["ohne_koerper"]
+                else []),
+            "naechster_schritt": "hochladen --ordner <Ordner> --ablage <ergebnis_ablage> --netze-ablage <netze_ablage> "
+                                 "(beide Links aus archicad_abgleich_lesen), dann archicad_abgleich_melden."}
 
 
 def cmd_oberflaechen(o) -> dict:
@@ -1190,7 +1248,8 @@ def cmd_diff(o) -> dict:
         if int(s["nextOffset"]) <= offset:
             raise Fehler(f"GetDiffDataELM: nextOffset {s['nextOffset']} geht nicht weiter")
         offset = int(s["nextOffset"])
-    _schreiben(ordner / "archicad_diff.json", {"seiten": seiten})
+    _schreiben(ordner / "archicad_diff.json", {"projekt": ac.befehl("GetProjectInfo").get("projectName"),
+                                               "seiten": seiten})
     namen = {g.get("archicadName"): g.get("name") for g in stand.get("geschosse") or []
              if g.get("archicadName") and g.get("name")}
     archicad = dp.archicad_bauteile(seiten, geschoss_namen=namen)
@@ -1202,9 +1261,10 @@ def cmd_diff(o) -> dict:
             "beispiele": {"neu": d["neu"][:5], "weg": d["weg"][:5], "eigenschaften": d["eigenschaften"][:5],
                           "geometrie": d["geometrie"][:5]},
             "gebaut_vorschlag": d["gebaut_vorschlag"][:50],
-            "naechster_schritt": "Zahlen dem Zeichner zeigen. ergebnis.json mit „hochladen“ ablegen, dann "
-                                 "archicad_abgleich_melden {projekt, lauf, gebaut} — erst Vorschau, nach dem Ja "
-                                 "bestaetigt=true (Geometrie geht als Vorschlag mit)."}
+            "naechster_schritt": "Zahlen dem Zeichner zeigen. Dann „netze“ (neue + in Archicad geänderte Bauteile "
+                                 "mit Körpern, keine Gesamt-IFC), ergebnis.json + archicad_netze.json.gz mit "
+                                 "„hochladen --netze-ablage“ ablegen, dann archicad_abgleich_melden {projekt, lauf, "
+                                 "gebaut} — erst Vorschau, nach dem Ja bestaetigt=true."}
 
 
 def main(argv=None) -> int:
@@ -1232,7 +1292,9 @@ def main(argv=None) -> int:
         verbund={"choices": ["einzeln", "zusammen"], "default": "einzeln"},
         system={"default": "", "help": "Klassifizierungssystem erzwingen (sonst automatisch)"},
         ausfuehren={"action": "store_true"})
-    neu("hochladen", cmd_hochladen, ablage={"required": True})
+    neu("hochladen", cmd_hochladen, ablage={"required": True},
+        netze_ablage={"default": "", "help": "Link netze_ablage aus archicad_abgleich_lesen (archicad_netze.json.gz)"})
+    neu("netze", cmd_netze, paket={"type": int, "default": nz.PAKET, "help": "GUIDs je Get3DGeometryOfElements"})
     neu("oberflaechen", cmd_oberflaechen)
     neu("ifc", cmd_ifc, translator={"default": ""})
     neu("diff", cmd_diff, stand_link={"default": ""},

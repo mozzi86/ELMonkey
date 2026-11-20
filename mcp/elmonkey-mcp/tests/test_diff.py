@@ -26,6 +26,8 @@ class Attrappe:
 
     def __call__(self, port, ns, name, params=None, timeout=600.0):
         self.aufrufe.append((ns, name, dict(params or {})))
+        if name == "GetProjectInfo":
+            return {"projectName": "Haus"}
         if name == "GetDiffDataELM":
             if params["offset"] == 0:
                 return {"format": "elm-diff-daten/1", "readOnly": True, "elements": [_el(G1, [0, 5.2, 0, 0.3, 0, 2.8])],
@@ -83,3 +85,68 @@ def test_falsches_stand_format(tmp_path):
 def test_werkzeug_registriert():
     namen = {t.name for t in asyncio.run(server.mcp.list_tools())}
     assert "elmonkey_diff_plattform" in namen
+
+
+G3 = "11111111-2222-3333-4444-555555555503"
+QUADRAT = {"vertices": [{"x": 0, "y": 0, "z": 0}, {"x": 1, "y": 0, "z": 0}, {"x": 1, "y": 1, "z": 0},
+                        {"x": 0, "y": 1, "z": 0}], "polygons": [{"vertexIds": [0, 1, 2, 3]}]}
+
+
+class NetzAttrappe(Attrappe):
+    """G1 in Archicad verlängert (Plattform = Basis), G3 neu in Archicad."""
+
+    def __init__(self, projekt_danach="Haus"):
+        super().__init__()
+        self.projekt_danach = projekt_danach
+
+    def __call__(self, port, ns, name, params=None, timeout=600.0):
+        if name == "GetProjectInfo" and any(n == "GetDiffDataELM" for _, n, _ in self.aufrufe):
+            self.aufrufe.append((ns, name, {}))
+            return {"projectName": self.projekt_danach}
+        if name == "GetDiffDataELM" and params["offset"] == 1:
+            self.aufrufe.append((ns, name, dict(params)))
+            return {"format": "elm-diff-daten/1", "readOnly": True, "elements": [_el(G2, BOX), _el(G3, BOX)],
+                    "context": {}}
+        if name == "Get3DGeometryOfElements":
+            self.aufrufe.append((ns, name, dict(params)))
+            return {"geometries3D": [{"bodies": [QUADRAT]} for _ in params["elements"]]}
+        return super().__call__(port, ns, name, params, timeout)
+
+
+def _stand_mit_basis(tmp_path):
+    p = _stand(tmp_path)
+    st = json.loads(p.read_text(encoding="utf-8"))
+    st["basis"] = {"paare": {ab.ifc_guid(G1): G1}, "werte": {}, "geometrie": {ab.ifc_guid(G1): BOX}}
+    p.write_text(json.dumps(st), encoding="utf-8")
+    return p
+
+
+def test_diff_mit_netzen_nur_neu_und_archicad_geaendert(tmp_path):
+    import gzip
+    a = NetzAttrappe()
+    aus = diff.diff_lauf(19723, str(_stand_mit_basis(tmp_path)), ordner=str(tmp_path / "lauf"), netze=True, rufen=a)
+    assert aus["netze"]["neu"] == 1 and aus["netze"]["geaendert"] == 1 and aus["netze"]["fehler"] == 0
+    assert aus["netze"]["hinweise"] == [] and aus["netze"]["ohne_koerper"] == {}
+    # Diff-Daten tragen die IFC-Klasse schon → kein Nachlesen mit elements
+    assert not any("elements" in p for _, n, p in a.aufrufe if n == "GetDiffDataELM")
+    (geo,) = [x for x in a.aufrufe if x[1] == "Get3DGeometryOfElements"]
+    assert [e["elementId"]["guid"] for e in geo[2]["elements"]] == [G3.upper(), G1.upper()]
+    d = json.loads(gzip.decompress((tmp_path / "lauf" / "archicad_netze.json.gz").read_bytes()))
+    assert d["projekt"] == "Haus" and d["lauf"] == "ab-1"
+    assert [(b["art"], b["plattformGuid"]) for b in d["bauteile"]] == [("neu", None), ("geaendert", ab.ifc_guid(G1))]
+    assert not any(n.startswith(("Set", "Reserve", "Create", "Delete")) for _, n, _ in a.aufrufe)
+    assert json.loads((tmp_path / "lauf" / "archicad.json").read_text(encoding="utf-8"))["projekt"] == "Haus"
+
+
+def test_diff_ohne_netze_liest_keine_geometrie(tmp_path):
+    a = NetzAttrappe()
+    aus = diff.diff_lauf(19723, str(_stand_mit_basis(tmp_path)), ordner=str(tmp_path / "lauf"), rufen=a)
+    assert aus["netze"] is None and not (tmp_path / "lauf" / "archicad_netze.json.gz").exists()
+    assert not any(n == "Get3DGeometryOfElements" for _, n, _ in a.aufrufe)
+
+
+def test_diff_netze_projekt_gewechselt_liest_keine_geometrie(tmp_path):
+    a = NetzAttrappe(projekt_danach="Anderes")
+    with pytest.raises(ValueError, match="Anderes"):
+        diff.diff_lauf(19723, str(_stand_mit_basis(tmp_path)), ordner=str(tmp_path / "lauf"), netze=True, rufen=a)
+    assert not any(n == "Get3DGeometryOfElements" for _, n, _ in a.aufrufe)

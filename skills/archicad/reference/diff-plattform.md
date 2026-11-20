@@ -71,7 +71,7 @@ Zusätzlich `diff` (die Plattform ignoriert den Schlüssel):
 | `weg` | stammte aus Archicad, fehlt jetzt dort (mit Umbau-Status der Plattform) |
 | `nur_plattform` | Plattform-eigene Bauteile, noch nicht nachgebaut |
 | `eigenschaften` | Feld, Werte, `richtung` archicad→plattform / plattform→archicad / unklar (+ Frage-ID) |
-| `geometrie` | je Paar `seiten` {x-, x+, y-, y+, z-, z+: Delta in m, Archicad minus Plattform}, nur über `toleranz_m` (0,003), `vergleich_mit` plattform/basis, `archicad_box`, `plattform_box`, `bauteil` — genau die Felder, die `archicad_abgleich_melden` liest |
+| `geometrie` | je Paar `seiten` {x-, x+, y-, y+, z-, z+: Delta in m, Archicad minus Plattform}, nur über `toleranz_m` (0,003), `vergleich_mit` plattform/basis, `richtung` archicad→plattform / plattform→archicad / beide / unklar (gegen die Basis-Box; nur archicad→plattform geht als Netz mit, <!-- 2026-11-20 -->), `archicad_box`, `plattform_box`, `bauteil` — genau die Felder, die `archicad_abgleich_melden` liest |
 | `geometrie_ungeprueft` | Paare ohne belastbare Box (Archicad nur roh / keine; Plattform ohne Box) mit Grund |
 | `zonen` | Anzahl je Seite, Zonen nur in Archicad — nie „neu“ |
 | `oeffnungen` | Paare, `an_tuer_fenster` (IfcOpeningElement einer Tür/einem Fenster zugeordnet), `ohne_partner` (nie „weg“) |

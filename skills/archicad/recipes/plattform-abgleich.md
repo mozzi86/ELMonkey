@@ -9,7 +9,7 @@ beide zusammen:
 |---|---|---|
 | Plattform → Archicad | Bauteile, die nur die Plattform kennt | nativ **neu bauen** (neue Archicad-GUID), Stempel „Plattform-GUID“ |
 | Plattform → Archicad | geänderte Bauteilinformationen | Eigenschaften setzen, zurücklesen |
-| Archicad → Plattform | Bauteile, die nur Archicad kennt | IFC → `modell_hochladen` → Import-Vorschlag |
+| Archicad → Plattform | neue und in Archicad geänderte Bauteile | Netze (`netze` → `archicad_netze.json.gz`) im Abgleich-Vorschlag, keine Gesamt-IFC <!-- 2026-11-20 --> |
 | Archicad → Plattform | geänderte Bauteilinformationen | EIN Vorschlag am Modell (Freigabe in der App) |
 | Archicad → Plattform | Oberflächen mit Texturbildern | `ExportSurfaces` → Texturbibliothek |
 | beide | Unklares | **Frage an den Zeichner**, gebündelt — ohne Antwort wird nichts geschrieben |
@@ -37,7 +37,8 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 
 1. **Archicad lesen** — `plattform_abgleich.py archicad-lesen --ordner $O`
    Zeigt Projektname, Teamwork, Anzahl Bauteile. → Zeichner bestätigt das Projekt.
-2. **Plattform lesen** — Konnektor `archicad_abgleich_lesen {projekt}` → `lauf`, `stand_link`, `ergebnis_ablage`.
+2. **Plattform lesen** — Konnektor `archicad_abgleich_lesen {projekt}` → `lauf`, `stand_link`, `ergebnis_ablage`
+   (und `netze_ablage`, sobald die Plattform sie liefert, siehe Schritt 8).
 3. **Planen** — `plattform_abgleich.py planen --ordner $O --stand-link "<stand_link>"`
    Schreibt `plan.json` und `fragen.md`. Zahlen dem Zeichner zeigen. Auffällig viele „nur in Archicad“ oder „nur in
    der Plattform“ heißt meist: falsches Projekt, ausgeblendete Ebenen oder ein Teilmodell — erst klären.
@@ -74,12 +75,26 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
    `ausgelassen.json` dem Zeichner nennen: `status fehler` (nie gebaut), reine Hülle ohne IFC („nur Hülle“),
    Klasse/Status fehlt. Fehlt die Eigenschaft „Plattform-GUID“ im Projekt: mit dem Zeichner anlegen (Gruppe
    „Allgemeine Werte“, Text).
-8. **Plattform: Ergebnis melden** — `plattform_abgleich.py hochladen --ordner $O --ablage "<ergebnis_ablage>"`,
-   dann Konnektor `archicad_abgleich_melden {projekt, lauf, gebaut}` (Vorschau) → nach dem Ja `bestaetigt=true`.
-   Es entsteht EIN Vorschlag; freigegeben wird in der App.
-9. **Plattform: neue Archicad-Bauteile** (wenn `plattform.neu_importieren` nicht leer) —
-   `plattform_abgleich.py ifc --ordner $O [--translator "<Name>"]`, dann `modell_hochladen` (Ablage-Link, IFC
-   hochladen). Der Import-Vorschlag zeigt die neuen Bauteile; Konflikte entscheidet der Freigebende.
+8. **Plattform: neue und geänderte Archicad-Bauteile als Netze** <!-- 2026-11-20 --> — **keine Gesamt-IFCs mehr
+   (Weisung Mudi 20.11.2026)**; `plattform_abgleich.py ifc` + `modell_hochladen` nicht mehr für den Abgleich nehmen.
+   `plattform_abgleich.py netze --ordner $O [--paket 50]` (bzw. MCP `elmonkey_diff_plattform {…, netze: true}`):
+   nimmt nur `plattform.neu_importieren` (Art `neu`) und die Einträge aus `diff.geometrie` mit
+   `richtung: archicad→plattform` (Art `geaendert`, Archicad-Box seit der Basis bewegt, Plattform nicht), liest deren
+   Körper per `TapirCommand.Get3DGeometryOfElements` in Paketen, trianguliert und schreibt
+   `$O/archicad_netze.json.gz` (Format `sab-archicad-netze/1`, Spezifikation im Kern `elmonkey.netze`). Ist in Archicad
+   ein anderes Projekt offen als beim Lesen, liest es nichts. Fehlt die IFC-Klasse (archicad.json aus `archicad-lesen`
+   hat keine), liest es sie für die gewählten GUIDs über `ELM_SAB.GetDiffDataELM {elements}` nach (Rückfall
+   `GetIFCTypeOfElements`), sonst würde in der Plattform alles Proxy. `fehler` und `ohne_koerper` (je Typ) dem
+   Zeichner nennen; ohne Körper heißt meist: Ansicht → Elemente in 3D-Ansicht → Alles in 3D zeigen (⌥⌘F5),
+   3D-Schnittebenen aus, dann `netze` erneut. Braucht ein `ergebnis.json` aus dem Diff-Checker (unten) — der Skript-Ablauf ohne Diff kennt
+   keine Geometrie und liefert nur `neu`.
+   **Braucht die Plattform-Seite:** `netze_ablage` aus `archicad_abgleich_lesen` und ein `archicad_abgleich_melden`,
+   das die Datei liest — PR in SchwarzPlatform steht aus. Ohne `netze_ablage` die Datei liegen lassen und es dem
+   Zeichner sagen; nicht auf IFC ausweichen.
+9. **Plattform: Ergebnis melden** — `plattform_abgleich.py hochladen --ordner $O --ablage "<ergebnis_ablage>"
+   [--netze-ablage "<netze_ablage>"]` (lädt `ergebnis.json` und, falls da, `archicad_netze.json.gz`), dann Konnektor
+   `archicad_abgleich_melden {projekt, lauf, gebaut}` (Vorschau) → nach dem Ja `bestaetigt=true`. Es entsteht EIN
+   Vorschlag (neue Bauteile + Netz-Ersatz für geänderte); freigegeben wird in der App.
 10. **Oberflächen** — `plattform_abgleich.py oberflaechen --ordner $O` (Export + ZIP), dann Konnektor
     `archicad_oberflaechen_hochladen {projekt}` → ZIP mit dem genannten curl-Befehl hochladen; die Antwort ist der
     Prüfplan. Nach dem Ja `archicad_oberflaechen_einpflegen {ablage_auftrag, bestaetigt: true}` (Bibliothek +
@@ -94,12 +109,13 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
   „Pset.Name“ in der Plattform), dazu alles aus der Basis des letzten Abgleichs. Stempel und Technikfelder nie.
 - Mit Basis: wer sich vom letzten gemeinsamen Wert entfernt hat, gewinnt; beide verschieden → Frage.
   Ohne Basis (erster Abgleich): ein Wert füllt die leere Seite; zwei verschiedene Werte → Frage.
-- Geometrie: im Skript-Ablauf **nicht** verglichen (geänderte Geometrie kommt über den IFC-Import, Schritt 9). Der
-  Diff-Checker unten vergleicht sie ohne IFC-Export.
+- Geometrie: im Skript-Ablauf **nicht** verglichen. Der Diff-Checker unten vergleicht sie ohne IFC-Export und setzt je
+  Abweichung `richtung` gegen die Basis; die in Archicad geänderten gehen als Netze mit (Schritt 8). <!-- 2026-11-20 -->
 
 ## Bekannt / offen
 
 - Der neue Bau-Weg über Bauliste-Netze (Schritt 7) ist noch nicht live gegen Archicad gelaufen. <!-- 2026-11-20 -->
+- Die Netz-Übergabe (Schritt 8) ist nur mit Attrappen getestet, nicht live; Plattform-Seite steht aus. <!-- 2026-11-20 -->
 - Live gelaufen am 19.11.2026 (BFW07), Erkenntnisse im Abschnitt „Live-Lauf BFW07 19.11.2026“ unten.
 - Eigenschaftsnamen beider Seiten passen nur, wenn der IFC-Übersetzer die Archicad-Gruppen als gleichnamige Psets
   ausgibt. Passt das nicht, findet der Vergleich nichts (keine falschen Änderungen, aber auch kein Abgleich).
@@ -135,7 +151,8 @@ Format (`sab-archicad-abgleich/1`) plus `diff` (neu / weg / Eigenschaften / Geom
 2. Zahlen zeigen; `diff.geometrie_ungeprueft` und `diff.hinweise` immer mit nennen (z. B. Elemente auf ausgeblendeten
    Ebenen haben keine belastbare Box).
    Ohne MCP: `plattform_abgleich.py diff --ordner $O --stand-link "<stand_link>"` (dieselbe Logik).
-3. Weiter mit Schritt 8 (`hochladen`, `archicad_abgleich_melden` mit `gebaut` = `diff.gebaut_vorschlag`). Die Plattform
+3. Weiter mit Schritt 8 (`netze`) und 9 (`hochladen --netze-ablage`, `archicad_abgleich_melden` mit `gebaut` =
+   `diff.gebaut_vorschlag`). Die Plattform
    macht aus `diff.geometrie` Geometrie-Vorschläge im selben Vorschlag; `geometrie.nicht_automatisch` und
    `plattform_geaendert` aus der Antwort dem Zeichner zeigen.
 

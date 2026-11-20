@@ -444,6 +444,22 @@ def stempel_paare(archicad: list[dict], basis_paare: dict) -> list[dict]:
     return aus
 
 
+def geometrie_richtung(ac_box: list[float], ref: list[float], quelle: str, basis_box: Optional[list[float]],
+                       toleranz: float = TOLERANZ) -> str:
+    """Welche Seite hat die Geometrie seit der Basis (Archicad-Box des letzten gemerkten Laufs) geändert?
+
+    ``quelle == "basis"``: die Referenz IST die alte Archicad-Box → Archicad hat geändert. Sonst gegen die Basis:
+    nur Archicad weg → „archicad→plattform“, nur Plattform weg → „plattform→archicad“, beide → „beide“, ohne Basis
+    oder keine Seite über der Toleranz → „unklar“. Die Netz-Übergabe (elmonkey.netze) nimmt nur „archicad→plattform“."""
+    if quelle == "basis":
+        return "archicad→plattform"
+    if not basis_box:
+        return "unklar"
+    ac, pf = bool(seiten_delta(ac_box, basis_box, toleranz)), bool(seiten_delta(ref, basis_box, toleranz))
+    return {(True, False): "archicad→plattform", (False, True): "plattform→archicad",
+            (True, True): "beide"}.get((ac, pf), "unklar")
+
+
 def vergleichen(archicad: dict, stand: dict, *, gebaut: Optional[list[dict]] = None,
                 plattform_geometrie: Optional[dict] = None, basis: Optional[dict] = None,
                 antworten: Optional[dict] = None, toleranz: float = TOLERANZ,
@@ -544,6 +560,7 @@ def vergleichen(archicad: dict, stand: dict, *, gebaut: Optional[list[dict]] = N
         d = seiten_delta(ab_box, ref, toleranz)
         if d:
             geometrie.append({"plattform": pg, "archicad": ag, "seiten": d, "vergleich_mit": quelle,
+                              "richtung": geometrie_richtung(ab_box, ref, quelle, geo_basis.get(str(pg)), toleranz),
                               "archicad_box": [round(x, 4) for x in ab_box], "plattform_box": ref,
                               "bauteil": ab._kurz(a)})
 
