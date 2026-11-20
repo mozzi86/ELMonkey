@@ -401,3 +401,21 @@ def projekt_pruefen(soll: Optional[str], ist: Optional[str]) -> None:
         raise NetzFehler("archicad.json nennt kein Projekt — Diff bzw. archicad-lesen neu laufen lassen")
     if soll != ist:
         raise NetzFehler(f"In Archicad ist „{ist}“ offen, gelesen wurde „{soll}“ — nichts gelesen.")
+
+
+def erzeugen(ergebnis: dict, archicad: dict, holen: Callable[[list[str]], list[dict]], projekt_ist: Optional[str],
+             paket: int = PAKET, erzeugt: Optional[str] = None) -> dict:
+    """Der ganze Schritt für Skript und MCP: Projekt prüfen (sonst nichts lesen), auswählen, lesen, Datei-Dict.
+    ``archicad`` = archicad.json (``archicad-lesen``: elemente; Diff: seiten) mit ``projekt``."""
+    projekt_pruefen(archicad.get("projekt"), projekt_ist)
+    gewaehlt = auswahl(ergebnis)
+    bauteile, fehler = netze_lesen(holen, gewaehlt, metadaten(archicad), paket) if gewaehlt else ([], [])
+    return netze_datei(archicad.get("projekt"), ergebnis.get("lauf"), bauteile, fehler, erzeugt)
+
+
+def tapir_holen(befehl: Callable[[str, dict], dict]) -> Callable[[list[str]], list[dict]]:
+    """``befehl(name, params)`` → TapirCommand-Antwort; daraus ``holen(guids)`` für Get3DGeometryOfElements."""
+    def holen(guids: list[str]) -> list[dict]:
+        r = befehl("Get3DGeometryOfElements", {"elements": [{"elementId": {"guid": g}} for g in guids]})
+        return r.get("geometries3D") or []
+    return holen
