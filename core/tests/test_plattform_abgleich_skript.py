@@ -435,7 +435,8 @@ def test_sab_klassen_live_antwortform_kinder_am_item_und_details_schluessel():
             {"classificationItem": {"id": namen[x["classificationItemId"]["guid"]]}}
             for x in p["classificationItemIds"]]},
     }))
-    sid, klassen = pa.sab_klassen(ac)
+    sid, klassen, sysname = pa.sab_klassen(ac)
+    assert sysname == "SAB_Klassifizierung_29"
     assert sid == guid(1)
     assert klassen == {"ELEMENTE": guid(10), "Komponente der TGA": guid(11), "Lüftungskanal": guid(12)}
 
@@ -815,3 +816,34 @@ def test_spiegel_layout_ohne_kern(tmp_path):
     assert r.returncode != 0
     assert "elmonkey-core" in r.stderr and "spiegeln" in r.stderr
     assert "IndexError" not in r.stderr and "Traceback" not in r.stderr
+
+
+def _systeme_ac(*namen):
+    return pa.Archicad(FakeSenden({
+        "API.GetAllClassificationSystems": {"classificationSystems": [
+            {"name": n, "classificationSystemId": {"guid": guid(i + 1)}} for i, n in enumerate(namen)]},
+        "API.GetAllClassificationsInSystem": {"classificationItems": [
+            {"classificationItem": {"classificationItemId": {"guid": guid(50)}, "id": "Wand"}}]},
+    }))
+
+
+def test_sab_klassen_findet_graphisoft_klassifizierung():
+    sid, klassen, name = pa.sab_klassen(_systeme_ac("Archicad Klassifizierung", "Graphisoft Klassifizierung"))
+    assert name == "Graphisoft Klassifizierung" and sid == guid(2) and klassen == {"Wand": guid(50)}
+
+
+def test_sab_klassen_expliziter_name_falsch_nennt_beide_listen():
+    import pytest
+    with pytest.raises(pa.Fehler) as e:
+        pa.sab_klassen(_systeme_ac("Graphisoft Klassifizierung", "Sonst"), "Gibt es nicht")
+    assert "Gibt es nicht" in str(e.value) and "Graphisoft Klassifizierung" in str(e.value) and "Sonst" in str(e.value)
+    with pytest.raises(pa.Fehler) as e:
+        pa.sab_klassen(_systeme_ac("Sonst"))
+    assert "SAB_Klassifizierung_29" in str(e.value) and "Graphisoft Klassifizierung" in str(e.value) \
+        and "Sonst" in str(e.value)
+
+
+def test_zuordnung_enthaelt_wall_window_discrete_accessory():
+    z = pa.zuordnung_laden(pa.ZUORDNUNG)
+    assert z["IfcWall"] == "Wand" and z["IfcWindow"] == "Fenster"
+    assert z["IfcDiscreteAccessory"] == "Zusatzgerät / Einbauteil"
