@@ -54,18 +54,26 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 6. **Archicad: Eigenschaften** — `plattform_abgleich.py archicad-schreiben --ordner $O` (Trockenlauf), nach dem Ja
    `--ausfuehren`. Das Skript liest zurück; „nicht möglich“ (Eigenschaft fehlt in Archicad oder ist ein Ausdruck)
    dem Zeichner nennen.
-7. **Archicad: neue Bauteile bauen** — mit echter Geometrie, nicht als Hülle: Konnektor `modell_exportieren
-   {modellarten: ["plattform"]}` liefert das Plattform-IFC (Archicad-Koordinaten); Konnektor
-   `archicad_abgleich_bauliste {projekt, guids}` (nur ~20 GUIDs je Aufruf) liefert Ebene, Name, IFC-Klasse nach
-   `$O/bauliste.json`; das Register liefert den Umbau-Status (`$O/register.json`). Dann als Trockenlauf
-   `plattform_abgleich.py bauen --ordner $O --ifc <plattform.ifc> --bauliste $O/bauliste.json --register $O/register.json
-   [--zuordnung …] [--nur GUID,…] [--ohne GUID,…] [--vorhanden v.json]`, Zahlen (zu bauen, ausgelassen, Ebenen,
-   Klassen) dem Zeichner zeigen, nach dem Ja dasselbe mit `--ausfuehren`. Je Bauteil ein Morph, Ebene, Geschoss aus der
+7. **Archicad: neue Bauteile bauen** <!-- 2026-11-20 --> — mit echter Geometrie aus der neuen Bauliste (Plattform
+   PR 404, Staging seit 20.11.2026, noch nicht live gegen Archicad gelaufen): Konnektor
+   `archicad_abgleich_bauliste {projekt, guids}` in Paketen zu höchstens 200 GUIDs (`netz=link` ist Vorgabe); die
+   Antwort enthält nur Kennzahlen + `bauliste_link` (https, 2 h gültig). Alle Links innerhalb der 2 h übergeben:
+   `plattform_abgleich.py bauen --ordner $O --bauliste <link1> <link2> … --register $O/register.json` (lokale
+   Dateien gehen auch; das Register liefert den Umbau-Status). Dubletten werden per Plattform-GUID zusammengeführt
+   (spätere Datei gewinnt). **Nicht bearbeitete GUIDs** (`nicht_bearbeitet`) → Abbruch vor jedem Archicad-Aufruf:
+   Bauliste für diese GUIDs neu abrufen; `--trotzdem` nur nach Rücksprache. IFC (`--ifc`, Konnektor
+   `modell_exportieren {modellarten: ["plattform"]}`) ist nur für Verbund-Unterteile mit eigener GUID nötig
+   (Entscheidung Mudi 19.11.2026: Kopf + Unterteile); ohne IFC wird ein Verbund EIN Morph über alle Körper.
+   Zuerst Trockenlauf, weitere Optionen `[--zuordnung …] [--nur GUID,…] [--ohne GUID,…] [--vorhanden v.json]
+   [--verbund einzeln|zusammen]`. Zahlen (zu bauen, ausgelassen, `quelle`, Ebenen, Klassen) und `netz_pruefen`
+   (Bauteile mit nicht mannigfaltigen oder offenen Kanten, Summen in `netz_kennzahlen`; auch `netz_pruefen.json`)
+   dem Zeichner zeigen, nach dem Ja dasselbe mit `--ausfuehren`. Je Bauteil ein Morph, Ebene, Geschoss aus der
    Unterkante, Klasse (`sab_zuordnung.json`), Umbau-Status, Stempel „Plattform-GUID“ + „KI generiert <Datum>“ und
    Rücklese (`ruecklese.json`, Paare in `gebaut.json`). `bauen` stempelt selbst; `stempeln --gebaut …` nur noch für von
    Hand gebaute Bauteile (es reserviert nicht, unklassifizierte meldet es als „nicht klassifiziert (6703)“).
-   `ausgelassen.json` (keine Geometrie, Klasse/Status fehlt) dem Zeichner nennen. Fehlt die Eigenschaft
-   „Plattform-GUID“ im Projekt: mit dem Zeichner anlegen (Gruppe „Allgemeine Werte“, Text).
+   `ausgelassen.json` dem Zeichner nennen: `status fehler` (nie gebaut), reine Hülle ohne IFC („nur Hülle“),
+   Klasse/Status fehlt. Fehlt die Eigenschaft „Plattform-GUID“ im Projekt: mit dem Zeichner anlegen (Gruppe
+   „Allgemeine Werte“, Text).
 8. **Plattform: Ergebnis melden** — `plattform_abgleich.py hochladen --ordner $O --ablage "<ergebnis_ablage>"`,
    dann Konnektor `archicad_abgleich_melden {projekt, lauf, gebaut}` (Vorschau) → nach dem Ja `bestaetigt=true`.
    Es entsteht EIN Vorschlag; freigegeben wird in der App.
@@ -91,6 +99,7 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 
 ## Bekannt / offen
 
+- Der neue Bau-Weg über Bauliste-Netze (Schritt 7) ist noch nicht live gegen Archicad gelaufen. <!-- 2026-11-20 -->
 - Live gelaufen am 19.11.2026 (BFW07), Erkenntnisse im Abschnitt „Live-Lauf BFW07 19.11.2026“ unten.
 - Eigenschaftsnamen beider Seiten passen nur, wenn der IFC-Übersetzer die Archicad-Gruppen als gleichnamige Psets
   ausgibt. Passt das nicht, findet der Vergleich nichts (keine falschen Änderungen, aber auch kein Abgleich).
@@ -99,9 +108,9 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 
 ## Live-Lauf BFW07 19.11.2026 <!-- 2026-11-19 -->
 
-- Die Bauliste liefert nur die konvexe Hülle (vereinfacht, 395 von 432 unbrauchbar) → die echte Form kommt über
-  `modell_exportieren` + `bauen`.
-- Die Bauliste gibt nur ~20 GUIDs je Aufruf her.
+- ÜBERHOLT <!-- 2026-11-20 --> (neue Bauliste mit echten Netzen, PR 404, Staging seit 20.11.2026, bis 200 GUIDs je
+  Aufruf, siehe Schritt 7): ~~Die Bauliste liefert nur die konvexe Hülle (395 von 432 unbrauchbar) → echte Form über
+  `modell_exportieren` + `bauen`.~~ ~~Die Bauliste gibt nur ~20 GUIDs je Aufruf her.~~
 - Ebenen-Bauteile (nur in Skizzen-Ebenen) und Vorschläge kennt der Abgleich nicht.
 - Paare melden: in `ergebnis.json` `basis.paare` um `gebaut.json` ergänzen, hochladen, `archicad_abgleich_melden`
   (Vorschau, dann `bestaetigt`).
