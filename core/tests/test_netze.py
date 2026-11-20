@@ -108,13 +108,20 @@ def test_wuerfel_normalen_nach_aussen():
         assert sum(n[k] * c[k] for k in range(3)) > 0
 
 
-def test_entartete_weg():
+def test_entartet_nur_gleiche_punkte_kollineare_ecke_bleibt():
     P = [[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 0, 0], [1, 1, 0], [0, 1, 0]]
-    # kollineare Ecke (1,0) und doppelter Punkt (Index 3 = Index 0) im Ring
-    p, d = nz.triangulieren(P, [{"vertexIds": [0, 1, 2, 4, 5, 3]}, {"vertexIds": [0, 1, 2]}, {"vertexIds": [0, 3, 1]}])
-    assert all(_flaeche(p, t)[1] > 1e-9 for t in d)
-    assert all(len(set(t)) == 3 for t in d)
+    # kollineare Ecke (1,0) und doppelter Punkt (Index 3 = Index 0) im Trapez
+    p, d = nz.triangulieren(P, [{"vertexIds": [0, 1, 2, 4, 5, 3]}])
+    assert all(len({tuple(p[i]) for i in t}) == 3 for t in d)        # nie gleiche Punkte im Dreieck
     assert _summe(p, d) == pytest.approx(1.5)                      # Trapez (0,0)(2,0)(1,1)(0,1)
+    kanten = {frozenset(k) for t in d for k in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0]))}
+    assert {frozenset((0, 1)), frozenset((1, 2))} <= kanten        # Zwischenpunkt bleibt auf der Kante
+    assert frozenset((0, 2)) not in kanten
+    # Polygon ohne Fläche: flacher Fächer statt nichts (seine Kanten nutzt die Nachbarfläche)
+    p, d = nz.triangulieren(P, [{"vertexIds": [0, 1, 2]}])
+    assert d == [[0, 1, 2]]
+    p, d = nz.triangulieren(P, [{"vertexIds": [0, 3, 1]}])         # nur gleiche Punkte → nichts
+    assert d == []
 
 
 def test_ungueltiger_index():
@@ -246,3 +253,103 @@ def test_kamm_und_vieleck_mit_loechern_flaeche_stimmt():
     flaeche = lambda r, n: n / 2 * r * r * math.sin(2 * math.pi / n)   # noqa: E731
     assert _summe(p, d) == pytest.approx(flaeche(10, 40) - flaeche(2, 7) - flaeche(1.5, 7))
     _normalen_gleich(p, d, (0, 0, 1))
+
+
+# ─────────────────────────────────────────────────────────── dicht rein → dicht raus (live BFW 20.11.2026)
+
+def _offene_kanten(polygone_oder_dreiecke) -> int:
+    """Kanten (ungerichtet), die nicht genau zweimal vorkommen."""
+    z: dict = {}
+    for r in polygone_oder_dreiecke:
+        for i in range(len(r)):
+            k = frozenset((r[i], r[(i + 1) % len(r)]))
+            z[k] = z.get(k, 0) + 1
+    return sum(1 for n in z.values() if n != 2)
+
+
+def _roh_ringe(polys):
+    return [r for p in polys for r in [p["vertexIds"], *[h["vertexIds"] for h in p.get("holes", [])]]]
+
+
+def test_quader_mit_zwischenpunkt_auf_gemeinsamer_kante_bleibt_dicht():
+    """Wie die Wände live (BFW 20.11.2026): die Vorderseite ist an E/F in zwei Flächen geteilt (Wandanschluss), Boden
+    und Deckel haben E bzw. F nur als Zwischenpunkt auf einer geraden Kante. Wird E weggeworfen, bleibt 0-8-1 offen."""
+    # Quader 3 × 1 × 2; E = (1.5, 0, 0) mitten auf der Kante unten/vorne, F = (1.5, 0, 2) oben/vorne
+    P = [[0, 0, 0], [3, 0, 0], [3, 1, 0], [0, 1, 0], [0, 0, 2], [3, 0, 2], [3, 1, 2], [0, 1, 2], [1.5, 0, 0],
+         [1.5, 0, 2]]
+    polys = [{"vertexIds": [8, 0, 3, 2, 1]},           # unten (von unten gegen Uhrzeiger), E zuerst
+             {"vertexIds": [9, 5, 6, 7, 4]},           # oben, F zuerst
+             {"vertexIds": [0, 8, 9, 4]},              # vorne links (y=0)
+             {"vertexIds": [8, 1, 5, 9]},              # vorne rechts
+             {"vertexIds": [2, 3, 7, 6]},              # hinten
+             {"vertexIds": [3, 0, 4, 7]},              # x=0
+             {"vertexIds": [1, 2, 6, 5]}]              # x=3
+    assert _offene_kanten(_roh_ringe(polys)) == 0
+    p, d = nz.triangulieren(P, polys)
+    assert _offene_kanten(d) == 0
+    assert _summe(p, d) == pytest.approx(2 * 3 + 2 * 6 + 2 * 2)
+    _normalen_gleich(p, nz.triangulieren(P, polys[:1])[1], (0, 0, -1))
+
+
+def _prisma(rng, n, zwischen_unten, zwischen_hoehe, loch):
+    """Zufälliges sternförmiges Prisma (konkav), Zwischenpunkte auf Grundkanten (oben + unten + in der Seitenfläche)
+    und auf senkrechten Kanten (von beiden Nachbarseiten benutzt), optional mit Loch (Durchbruch)."""
+    # Winkel mit Abstand < 0,64 π: der Ursprung (und das Loch mit r = 0,8) liegt sicher innen
+    winkel = [2 * math.pi * (k + rng.uniform(-0.3, 0.3)) / n for k in range(n)]
+    ring = [(rng.uniform(2, 5) * math.cos(w), rng.uniform(2, 5) * math.sin(w)) for w in winkel]
+    lochring = [(0.8 * math.cos(2 * math.pi * k / 5 + 0.3), 0.8 * math.sin(2 * math.pi * k / 5 + 0.3)) for k in range(5)]
+    P: list = []
+
+    def punkt(x, y, z):
+        P.append([x, y, z])
+        return len(P) - 1
+
+    def kontur(r, h):
+        """Ring mit Zwischenpunkten auf jeder ``zwischen_unten``-ten Kante → Liste der (Index, ist_ecke)."""
+        out = []
+        for i, (x, y) in enumerate(r):
+            out.append(punkt(x, y, h))
+            if zwischen_unten and i % zwischen_unten == 0:
+                nx, ny = r[(i + 1) % len(r)]
+                t = rng.uniform(0.2, 0.8)
+                out.append(punkt(x + t * (nx - x), y + t * (ny - y), h))
+        return out
+
+    def waende(r_unten, r_oben, aussen):
+        """Seitenflächen zwischen zwei gleich langen Konturen; senkrechte Kanten ggf. mit Zwischenpunkt."""
+        m = len(r_unten)
+        mitte = [punkt(*[(P[r_unten[i]][k] + P[r_oben[i]][k]) / 2 for k in range(2)], zwischen_hoehe)
+                 if zwischen_hoehe else None for i in range(m)]
+        f = []
+        for i in range(m):
+            j = (i + 1) % m
+            # außen (Ring gegen Uhrzeiger von oben): unten i → unten j → oben j → oben i
+            r = [r_unten[i], r_unten[j]] + ([mitte[j]] if mitte[j] is not None else []) + \
+                [r_oben[j], r_oben[i]] + ([mitte[i]] if mitte[i] is not None else [])
+            f.append({"vertexIds": r if aussen else r[::-1]})
+        return f
+
+    zu, zo = kontur(ring, 0.0), None
+    # oben dieselben Zwischenpunkte (gleiches t) → Konturen gleich lang
+    zo = [punkt(P[i][0], P[i][1], 1.0) for i in zu]
+    lu = [punkt(x, y, 0.0) for x, y in lochring] if loch else []
+    lo = [punkt(x, y, 1.0) for x, y in lochring] if loch else []
+    unten = {"vertexIds": zu[::-1]}
+    oben = {"vertexIds": list(zo)}
+    if loch:
+        unten["holes"] = [{"vertexIds": list(lu)}]
+        oben["holes"] = [{"vertexIds": lo[::-1]}]
+    polys = [unten, oben] + waende(zu, zo, True) + (waende(lu, lo, False) if loch else [])
+    return P, polys
+
+
+def test_eigenschaft_rohpolygone_dicht_dann_dreiecke_dicht():
+    import random
+    rng = random.Random(20261120)
+    for fall in range(60):
+        P, polys = _prisma(rng, rng.randint(5, 14), rng.choice([0, 1, 2, 3]), rng.choice([0.0, 0.5, 0.37]),
+                           rng.random() < 0.5)
+        assert _offene_kanten(_roh_ringe(polys)) == 0, fall
+        p, d = nz.triangulieren(P, polys)
+        assert _offene_kanten(d) == 0, fall
+        assert all(len({tuple(p[i]) for i in t}) == 3 for t in d)

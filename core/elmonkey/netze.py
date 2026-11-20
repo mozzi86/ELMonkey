@@ -136,8 +136,21 @@ def _loch_einhaengen(aussen: list[int], loch: list[int], uv: dict[int, tuple[flo
     return aussen[:best_i + 1] + loch[m:] + loch[:m + 1] + aussen[best_i:]
 
 
+def _auf_strecke(p, a, c) -> bool:
+    """p liegt (kollinear) echt zwischen a und c."""
+    if p == a or p == c or abs(_kreuz2(a, c, p)) > 1e-18:
+        return False
+    return (p[0] - a[0]) * (c[0] - a[0]) + (p[1] - a[1]) * (c[1] - a[1]) > 0 and \
+        (p[0] - c[0]) * (a[0] - c[0]) + (p[1] - c[1]) * (a[1] - c[1]) > 0
+
+
 def _ohren(ring: list[int], uv: dict[int, tuple[float, float]]) -> list[tuple[int, int, int]]:
-    """Ohrenschneiden eines einfachen Rings gegen den Uhrzeigersinn (Brückenpunkte dürfen doppelt vorkommen)."""
+    """Ohrenschneiden eines einfachen Rings gegen den Uhrzeigersinn (Brückenpunkte dürfen doppelt vorkommen).
+
+    Jede Kante des Rings bleibt Dreieckskante (live BFW 20.11.2026: Wände mit Zwischenpunkten auf geraden Kanten
+    wurden sonst undicht — die Nachbarfläche nutzt den Zwischenpunkt, T-Fuge). Darum: eine Ecke auf gerader Strecke
+    ist nie Ohrspitze und wird nie weggeworfen, sie wird von den Nachbarn aus mittrianguliert; kein Ohr, dessen
+    Diagonale durch eine Ecke läuft. Nur Stachel (Hin und zurück auf derselben Linie) fallen weg."""
     v = list(ring)
     aus: list[tuple[int, int, int]] = []
     schutz = 0
@@ -149,10 +162,12 @@ def _ohren(ring: list[int], uv: dict[int, tuple[float, float]]) -> list[tuple[in
             a, b, c = v[i - 1], v[i], v[(i + 1) % n]
             pa, pb, pc = uv[a], uv[b], uv[c]
             k = _kreuz2(pa, pb, pc)
-            if abs(k) <= 1e-18:                               # kollinear/Stachel: Ecke weg, kein Dreieck
-                del v[i]
-                geschnitten = True
-                break
+            if abs(k) <= 1e-18:
+                if (pa[0] - pb[0]) * (pc[0] - pb[0]) + (pa[1] - pb[1]) * (pc[1] - pb[1]) > 0 or pa == pc:
+                    del v[i]                                  # Stachel: kein Flächenanteil
+                    geschnitten = True
+                    break
+                continue                                      # Ecke auf gerader Strecke: bleibt, keine Ohrspitze
             if k < 0:                                         # reflex
                 continue
             frei = True
@@ -161,7 +176,10 @@ def _ohren(ring: list[int], uv: dict[int, tuple[float, float]]) -> list[tuple[in
                 pq = uv[q]
                 if q in (a, b, c) or pq in (pa, pb, pc):
                     continue
-                if _kreuz2(uv[v[j - 1]], pq, uv[v[(j + 1) % n]]) > 0:  # nur reflexe Ecken können im Ohr liegen
+                if _auf_strecke(pq, pa, pc):                  # Diagonale träfe eine Ecke → T-Fuge
+                    frei = False
+                    break
+                if _kreuz2(uv[v[j - 1]], pq, uv[v[(j + 1) % n]]) > 0:  # sonst können nur reflexe Ecken im Ohr liegen
                     continue
                 if _im_dreieck(pq, pa, pb, pc):
                     frei = False
@@ -177,8 +195,9 @@ def _ohren(ring: list[int], uv: dict[int, tuple[float, float]]) -> list[tuple[in
                     aus.append((v[i - 1], v[i], v[(i + 1) % n]))
                     del v[i]
                     break
-            else:
-                break
+            else:                                             # nur noch eine Linie: flach auffächern, Kanten bleiben
+                aus += [(v[0], v[i], v[i + 1]) for i in range(1, len(v) - 1)]
+                return aus
     if len(v) == 3:
         aus.append((v[0], v[1], v[2]))
     return aus
@@ -191,11 +210,25 @@ def _ring(x: Any) -> list[int]:
     return [int(i) for i in ids or []]
 
 
+def _faecher(punkte: list[Punkt], ring: list[int]) -> list[tuple[int, int, int]]:
+    """Flacher Fächer über einen Ring ohne Fläche — hält seine Kanten, die die Nachbarflächen benutzen."""
+    r: list[int] = []
+    for i in ring:
+        if not r or punkte[r[-1]] != punkte[i]:
+            r.append(i)
+    while len(r) > 1 and punkte[r[0]] == punkte[r[-1]]:
+        r.pop()
+    return [(r[0], r[i], r[i + 1]) for i in range(1, len(r) - 1)
+            if len({punkte[r[0]], punkte[r[i]], punkte[r[i + 1]]}) == 3]
+
+
 def polygon_dreiecke(punkte: list[Punkt], aussen: list[int], loecher: Iterable[list[int]] = ()) -> list[tuple[int, int, int]]:
-    """Ein planares Polygon (Ring + Löcher, Indizes in ``punkte``) in Dreiecke mit dem Umlaufsinn des Rings."""
+    """Ein planares Polygon (Ring + Löcher, Indizes in ``punkte``) in Dreiecke mit dem Umlaufsinn des Rings.
+    Jede Kante von Ring und Löchern bleibt Dreieckskante; Polygone/Löcher ohne Fläche werden flach aufgefächert."""
+    loecher = [list(l) for l in loecher]
     n3 = newell(punkte, aussen)
     if max(abs(n3[0]), abs(n3[1]), abs(n3[2])) <= FLAECHE_MIN:
-        return []
+        return _faecher(punkte, aussen) + [t for l in loecher for t in _faecher(punkte, l)]
     k = max(range(3), key=lambda i: abs(n3[i]))               # Achse mit der größten Normalenkomponente wegfallen lassen
     a_, b_ = (k + 1) % 3, (k + 2) % 3                          # (y,z) / (z,x) / (x,y): Normale +k ↔ gegen Uhrzeiger
     s = 1.0 if n3[k] > 0 else -1.0                             # gespiegelt, damit der Ring in 2D gegen den Uhrzeiger läuft
@@ -208,10 +241,11 @@ def polygon_dreiecke(punkte: list[Punkt], aussen: list[int], loecher: Iterable[l
         return []
     if _flaeche2(ring, uv) < 0:
         ring.reverse()
-    lr = []
+    lr, flach = [], []
     for l in loecher:
         l = _bereinigen(l, uv)
         if len(l) < 3 or abs(_flaeche2(l, uv)) <= FLAECHE_MIN:
+            flach += _faecher(punkte, l)
             continue
         if _flaeche2(l, uv) > 0:
             l.reverse()
@@ -220,15 +254,14 @@ def polygon_dreiecke(punkte: list[Punkt], aussen: list[int], loecher: Iterable[l
         ring = _loch_einhaengen(ring, l, uv)
     aus = []
     for a, b, c in _ohren(ring, uv):
-        if a == b or b == c or a == c:
+        # entartet = gleiche Punkte; flache Dreiecke bleiben, sonst fehlte eine Kante des Rings (T-Fuge)
+        if a == b or b == c or a == c or punkte[a] == punkte[b] or punkte[b] == punkte[c] or punkte[a] == punkte[c]:
             continue
         n = _kreuz(_sub(punkte[b], punkte[a]), _sub(punkte[c], punkte[a]))
-        if (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]) ** 0.5 <= FLAECHE_MIN:
-            continue
-        if n[0] * n3[0] + n[1] * n3[1] + n[2] * n3[2] < 0:     # Umlaufsinn des Polygons erhalten
+        if n[0] * n3[0] + n[1] * n3[1] + n[2] * n3[2] < -FLAECHE_MIN:  # Umlaufsinn des Polygons erhalten
             b, c = c, b
         aus.append((a, b, c))
-    return aus
+    return aus + flach
 
 
 def triangulieren(vertices: list, polygons: list) -> tuple[list[list[float]], list[list[int]]]:
