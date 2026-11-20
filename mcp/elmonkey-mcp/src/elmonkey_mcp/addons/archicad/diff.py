@@ -1,5 +1,7 @@
 """Diff-Checker Archicad ↔ Plattform: ELM_SAB.GetDiffDataELM seitenweise lesen, mit stand.json vergleichen
-(elmonkey.diff_plattform), ergebnis.json als Datei schreiben. Liest Archicad nur; schreibt nur in den Arbeitsordner.
+(elmonkey.diff_plattform), ergebnis.json als Datei schreiben. Mit ``netze=True`` zusätzlich die Körper der neuen und
+in Archicad geänderten Bauteile → archicad_netze.json.gz (elmonkey.netze, Format sab-archicad-netze/1; ersetzt den
+Gesamt-IFC-Export). Liest Archicad nur; schreibt nur in den Arbeitsordner.
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from elmonkey import diff_plattform as dp
+from elmonkey import netze as nz
 
 from .api import ArchicadError, call
 
@@ -95,13 +98,14 @@ def _ordner(ordner: Optional[str], lauf: Optional[str]) -> Path:
 def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_geometrie: Optional[str] = None,
               gebaut: Optional[list[dict]] = None, ordner: Optional[str] = None,
               versatz: Optional[list[float]] = None, toleranz: float = dp.TOLERANZ, limit: int = 500,
-              rufen: Callable = call) -> dict:
+              netze: bool = False, netze_paket: int = nz.PAKET, rufen: Callable = call) -> dict:
     """Der ganze Lauf; Rückgabe = kurze Zusammenfassung, das Ergebnis liegt als Datei im Arbeitsordner."""
     st = _https_oder_datei(stand)
     if st.get("format") != dp.FORMAT:
         raise ValueError(f"stand.json: Format „{st.get('format')}“ — erwartet {dp.FORMAT}")
     b = _https_oder_datei(basis) if basis else None
     geo = plattform_geometrie_laden(plattform_geometrie)
+    projekt = rufen(port, "TapirCommand", "GetProjectInfo", {}).get("projectName")
     seiten = archicad_lesen(port, rufen, limit)
     namen = {g.get("archicadName"): g.get("name") for g in st.get("geschosse") or []
              if g.get("archicadName") and g.get("name")}
@@ -114,15 +118,28 @@ def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_g
                          versatz=v)                                     # type: ignore[arg-type]
     o = _ordner(ordner, st.get("lauf"))
     (o / "ergebnis.json").write_text(json.dumps(erg, ensure_ascii=False, indent=1), encoding="utf-8")
-    (o / "archicad.json").write_text(json.dumps({"seiten": seiten}, ensure_ascii=False), encoding="utf-8")
+    archicad = {"projekt": projekt, "seiten": seiten}
+    (o / "archicad.json").write_text(json.dumps(archicad, ensure_ascii=False), encoding="utf-8")
     d = erg["diff"]
-    return {"ergebnis": str(o / "ergebnis.json"), "archicad_daten": str(o / "archicad.json"),
+    netz_aus = None
+    if netze:
+        try:
+            datei = nz.erzeugen(erg, archicad,
+                                nz.tapir_holen(lambda name, p: rufen(port, "TapirCommand", name, p, timeout=1800)),
+                                rufen(port, "TapirCommand", "GetProjectInfo", {}).get("projectName"), paket=netze_paket)
+        except nz.NetzFehler as e:
+            raise ValueError(str(e)) from e
+        (o / nz.DATEI).write_bytes(nz.gz_bytes(datei))
+        netz_aus = {"datei": str(o / nz.DATEI), **datei["zahlen"],
+                    "fehler_beispiele": [f for f in datei["fehler"] if not f.get("nur_hinweis")][:10]}
+    return {"netze": netz_aus,"ergebnis": str(o / "ergebnis.json"), "archicad_daten": str(o / "archicad.json"),
             "lauf": erg.get("lauf"), "zahlen": d["zahlen"], "hinweise": d["hinweise"], "kontext": d["kontext"],
             "beispiele": {"neu": d["neu"][:10], "weg": d["weg"][:10], "eigenschaften": d["eigenschaften"][:10],
                           "geometrie": d["geometrie"][:10], "geometrie_ungeprueft": d["geometrie_ungeprueft"][:5]},
             "gebaut_vorschlag": d["gebaut_vorschlag"][:50],
             "naechster_schritt": "Zahlen dem Zeichner zeigen. ergebnis.json auf den Ablage-Link des Laufs laden "
-                                 "(plattform_abgleich.py hochladen --ordner <Ordner> --ablage <ergebnis_ablage>), dann "
+                                 "(plattform_abgleich.py hochladen --ordner <Ordner> --ablage <ergebnis_ablage>; mit "
+                                 "netze=true zusätzlich --netze-ablage <netze_ablage>), dann "
                                  "archicad_abgleich_melden {projekt, lauf, gebaut} — erst Vorschau, nach dem Ja "
                                  "bestaetigt=true. Die Plattform macht aus diff.geometrie Geometrie-Vorschläge; "
                                  "geometrie.nicht_automatisch und plattform_geaendert aus ihrer Antwort dem Zeichner "
