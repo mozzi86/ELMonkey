@@ -126,6 +126,9 @@ def test_diff_mit_netzen_nur_neu_und_archicad_geaendert(tmp_path):
     a = NetzAttrappe()
     aus = diff.diff_lauf(19723, str(_stand_mit_basis(tmp_path)), ordner=str(tmp_path / "lauf"), netze=True, rufen=a)
     assert aus["netze"]["neu"] == 1 and aus["netze"]["geaendert"] == 1 and aus["netze"]["fehler"] == 0
+    assert aus["netze"]["hinweise"] == [] and aus["netze"]["ohne_koerper"] == {}
+    # Diff-Daten tragen die IFC-Klasse schon → kein Nachlesen mit elements
+    assert not any("elements" in p for _, n, p in a.aufrufe if n == "GetDiffDataELM")
     (geo,) = [x for x in a.aufrufe if x[1] == "Get3DGeometryOfElements"]
     assert [e["elementId"]["guid"] for e in geo[2]["elements"]] == [G3.upper(), G1.upper()]
     d = json.loads(gzip.decompress((tmp_path / "lauf" / "archicad_netze.json.gz").read_bytes()))

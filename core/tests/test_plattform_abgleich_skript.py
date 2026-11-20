@@ -926,7 +926,12 @@ def _netz_ac(projekt="Haus"):
         return {"geometries3D": [{"error": {"code": 4012, "message": "Ebene ausgeblendet"}}
                                  if e["elementId"]["guid"] == guid(2) else {"bodies": [_QUADRAT]}
                                  for e in params["elements"]]}
-    return FakeSenden({"GetProjectInfo": {"projectName": projekt}, "Get3DGeometryOfElements": geo})
+    def diff_daten(params):
+        return {"format": "elm-diff-daten/1", "readOnly": True, "context": {}, "elements": [
+            {"elementId": e["elementId"], "type": "Wall", "ifcType": "IfcWall", "ifcGlobalId": "ELM" + e["elementId"]["guid"][-2:],
+             "storyName": "EG", "layer": "10 Wand"} for e in params["elements"]]}
+    return FakeSenden({"GetProjectInfo": {"projectName": projekt}, "Get3DGeometryOfElements": geo,
+                       "GetDiffDataELM": diff_daten})
 
 
 def test_netze_befehl_mit_fake_archicad(tmp_path, monkeypatch):
@@ -935,17 +940,35 @@ def test_netze_befehl_mit_fake_archicad(tmp_path, monkeypatch):
     monkeypatch.setattr(pa, "_http", lambda port: fake)
     aus = pa.cmd_netze(types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=2))
     assert aus["neu"] == 1 and aus["geaendert"] == 1 and aus["fehler"] == 1 and aus["dreiecke"] == 4
-    assert fake.namen() == ["GetProjectInfo", "Get3DGeometryOfElements", "Get3DGeometryOfElements"]
+    assert fake.namen() == ["GetProjectInfo", "GetDiffDataELM", "Get3DGeometryOfElements", "Get3DGeometryOfElements"]
+    (dd,) = fake.params("GetDiffDataELM")                  # alle drei ohne Klasse, ein Paket, nur lesend
+    assert [e["elementId"]["guid"] for e in dd["elements"]] == [guid(1), guid(2), guid(3)]
+    assert dd["includeIfcProperties"] is False and dd["includeSurfaces"] is False
     assert [[e["elementId"]["guid"] for e in p["elements"]] for p in fake.params("Get3DGeometryOfElements")] == \
         [[guid(1), guid(2)], [guid(3)]]                     # Pakete à 2, guid(4) (Plattform geändert) nicht dabei
     d = json.loads(gzip.decompress((tmp_path / "archicad_netze.json.gz").read_bytes()))
     assert d["format"] == "sab-archicad-netze/1" and d["projekt"] == "Haus" and d["lauf"] == "ab-7"
     b1, b3 = d["bauteile"]
     assert b1["archicadGuid"] == guid(1) and b1["art"] == "neu" and b1["plattformGuid"] is None
-    assert b1["name"] == "W-1" and b1["ifc"] == {"klasse": None, "globalId": "IFC1"} and b1["eigenschaften"] == {"A.b": 1}
+    assert b1["name"] == "W-1" and b1["ifc"] == {"klasse": "IfcWall", "globalId": "IFC1"}   # GlobalId war schon da
+    assert b1["ebene"] == "10 Wand" and b1["eigenschaften"] == {"A.b": 1}
     assert b3["art"] == "geaendert" and b3["plattformGuid"] == "PF-3" and b3["box"] == [0, 0, 0, 1, 1, 0]
     assert len(b3["koerper"][0]["dreiecke"]) == 2
-    assert d["fehler"] == [{"archicadGuid": guid(2), "art": "neu", "grund": "4012 Ebene ausgeblendet"}]
+    assert d["fehler"] == [{"archicadGuid": guid(2), "art": "neu", "typ": "Wall", "grund": "4012 Ebene ausgeblendet"}]
+    assert aus["hinweise"] == [] and aus["ohne_koerper"] == {}
+
+
+def test_netze_altes_addon_rueckfall_getifctypeofelements(tmp_path, monkeypatch):
+    _netz_ordner(tmp_path)
+    fake = _netz_ac()
+    fake.antworten["GetDiffDataELM"] = Roh({"succeeded": False, "error": {"code": 4010, "message": "unbekannt"}})
+    fake.antworten["GetIFCTypeOfElements"] = lambda p: {"elementIFCTypes": [{"ifcType": "IfcWall"} for _ in p["elements"]]}
+    fake.antworten["Get3DGeometryOfElements"] = lambda p: {"geometries3D": [{"bodies": []} for _ in p["elements"]]}
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    aus = pa.cmd_netze(types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=50))
+    assert "GetIFCTypeOfElements" in aus["hinweise"][0]
+    assert aus["ohne_koerper"] == {"Wall": 3} and "⌥⌘F5" in aus["hinweise"][-1] and "3 Wall" in aus["hinweise"][-1]
+    assert not any(n.startswith(("Set", "Reserve", "Create", "Delete")) for n in fake.namen())
 
 
 def test_netze_anderes_projekt_liest_nichts(tmp_path, monkeypatch):

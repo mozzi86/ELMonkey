@@ -210,11 +210,11 @@ def test_netze_lesen_pakete_fehler_und_datei():
     assert aufrufe == [[G_NEU, G_NEU2], [G_AC]]
     assert [b["archicadGuid"] for b in bt] == [G_NEU, G_AC]
     assert bt[0]["box"] == [0, 0, 0, 1, 1, 0] and bt[1]["plattformGuid"] == "P-AC"
-    assert fe[0] == {"archicadGuid": G_NEU2, "art": "neu", "grund": "4012 ausgeblendet"}
+    assert fe[0] == {"archicadGuid": G_NEU2, "art": "neu", "typ": None, "grund": "4012 ausgeblendet"}
     assert fe[1]["archicadGuid"] == G_AC and fe[1]["nur_hinweis"]
     d = nz.netze_datei("Projekt", "ab-1", bt, fe, erzeugt="2026-11-20T00:00:00+00:00")
     assert d["format"] == "sab-archicad-netze/1" and d["rahmen"] == {"system": "archicad", "einheit": "m"}
-    assert d["zahlen"] == {"neu": 1, "geaendert": 1, "dreiecke": 4, "fehler": 1}
+    assert d["zahlen"] == {"neu": 1, "geaendert": 1, "dreiecke": 4, "fehler": 1, "ohne_koerper": {}}
     assert json.loads(gzip.decompress(nz.gz_bytes(d))) == d
     assert nz.gz_bytes(d) == nz.gz_bytes(d)
 
@@ -353,3 +353,54 @@ def test_eigenschaft_rohpolygone_dicht_dann_dreiecke_dicht():
         p, d = nz.triangulieren(P, polys)
         assert _offene_kanten(d) == 0, fall
         assert all(len({tuple(p[i]) for i in t}) == 3 for t in d)
+
+
+# ─────────────────────────────────────────────────────────── IFC-Klasse nachlesen, ohne Körper zählen
+
+def _diff_seite(*guids_klassen):
+    return {"format": "elm-diff-daten/1", "readOnly": True, "context": {}, "notFound": [], "elements": [
+        {"elementId": {"guid": g}, "type": "Wall", "ifcType": k, "ifcGlobalId": ab.ifc_guid(g),
+         "ifcAttributes": [{"name": "Name", "value": "Wand-684"}], "storyName": "EG - Erdgeschoss",
+         "layer": "10 Wand innen"} for g, k in guids_klassen]}
+
+
+def test_ifc_ergaenzen_ueber_getdiffdata_nur_fehlende_felder():
+    n1, n2, ac_ = G_NEU.upper(), G_NEU2.upper(), G_AC.upper()     # Schlüssel sind guid_norm (groß)
+    meta = {n1: {"typ": "Wall", "ifc": {"klasse": None, "globalId": None}, "name": "W-1", "geschoss": None,
+                 "ebene": None, "eigenschaften": {"A.b": 1}},
+            ac_: {"typ": "Slab", "ifc": {"klasse": "IfcSlab", "globalId": "g"}, "name": "D", "geschoss": "EG",
+                  "ebene": "E", "eigenschaften": {}}}
+    aufrufe = []
+
+    def diff_daten(guids):
+        aufrufe.append(list(guids))
+        return _diff_seite(*[(g.lower(), "IfcWall") for g in guids])  # Archicad antwortet ggf. klein
+
+    h = nz.ifc_ergaenzen(meta, [n1, ac_, n2], diff_daten=diff_daten, paket=1)
+    assert aufrufe == [[n1], [n2]]                                 # ac_ hat schon eine Klasse
+    assert meta[n1]["ifc"] == {"klasse": "IfcWall", "globalId": ab.ifc_guid(n1.lower())}
+    assert meta[n1]["name"] == "W-1"                               # vorhandenes bleibt
+    assert meta[n1]["geschoss"] == "EG - Erdgeschoss" and meta[n1]["ebene"] == "10 Wand innen"
+    assert meta[n2]["ifc"]["klasse"] == "IfcWall" and meta[n2]["typ"] == "Wall"   # neu angelegt
+    assert h == []
+
+
+def test_ifc_ergaenzen_rueckfall_ifc_typ_und_proxy_hinweis():
+    meta = {G_NEU: {"ifc": {"klasse": None, "globalId": "x"}}, G_NEU2: {"ifc": {"klasse": None}}}
+
+    def diff_daten(guids):
+        raise RuntimeError("4010 unbekannter Befehl")
+
+    h = nz.ifc_ergaenzen(meta, [G_NEU, G_NEU2], diff_daten=diff_daten,
+                         ifc_typen=lambda guids: [{"ifcType": "IfcDoor" if g == G_NEU else ""} for g in guids])
+    assert meta[G_NEU]["ifc"] == {"klasse": "IfcDoor", "globalId": "x"}
+    assert "GetDiffDataELM" in h[0] and "4010" in h[0]
+    assert h[1] == "1 Bauteile ohne IFC-Klasse — die Plattform legt sie als Proxy an."
+
+
+def test_ohne_koerper_je_typ_und_ui_hinweis():
+    gew = [{"archicadGuid": g, "art": "neu", "plattformGuid": None} for g in (G_NEU, G_NEU2, G_AC)]
+    meta = {G_NEU: {"typ": "Door"}, G_NEU2: {"typ": "Door"}, G_AC: {"typ": "Wall"}}
+    bt, fe = nz.netze_lesen(lambda guids: [{"bodies": []} for _ in guids], gew, meta)
+    assert "Alles in 3D zeigen (⌥⌘F5)" in fe[0]["grund"] and "3D-Schnittebenen aus" in fe[0]["grund"]
+    assert nz.netze_datei("P", "l", bt, fe)["zahlen"]["ohne_koerper"] == {"Door": 2, "Wall": 1}

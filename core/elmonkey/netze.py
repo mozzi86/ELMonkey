@@ -29,6 +29,8 @@ FORMAT = "sab-archicad-netze/1"
 DATEI = "archicad_netze.json.gz"
 MAX_DREIECKE = 20000                       # Plattform-Grenze NETZ_MAX_DREIECKE je Netz
 PAKET = 50                                 # GUIDs je Get3DGeometryOfElements
+OHNE_KOERPER = ("kein 3D-Körper — in Archicad: Ansicht → Elemente in 3D-Ansicht → Alles in 3D zeigen (⌥⌘F5), "
+               "3D-Schnittebenen aus; Ebene eingeblendet? Umbau-Filter?")
 FLAECHE_MIN = 1e-12                        # m² (doppelte Dreiecksfläche) — darunter entartet
 NACH_PLATTFORM = ("archicad→plattform", "archicad->plattform")
 
@@ -383,7 +385,7 @@ def bauteil(wahl: dict, meta: Optional[dict], geometrie: dict, max_dreiecke: int
         if d:
             koerper += teilen(p, d, max_dreiecke)
     if not koerper:
-        raise NetzFehler("kein 3D-Körper (Ebene ausgeblendet, 3D-Filter oder Umbau-Filter?)")
+        raise NetzFehler(OHNE_KOERPER)
     m = meta or {}
     return {"archicadGuid": wahl["archicadGuid"], "art": wahl["art"], "plattformGuid": wahl.get("plattformGuid"),
             "typ": m.get("typ"), "ifc": m.get("ifc") or {"klasse": None, "globalId": None}, "name": m.get("name"),
@@ -404,7 +406,8 @@ def netze_lesen(holen: Callable[[list[str]], list[dict]], gewaehlt: list[dict], 
                 bauteile.append(bauteil(w, meta.get(w["archicadGuid"]), antw[i] if i < len(antw) else None,
                                         max_dreiecke))
             except NetzFehler as e:
-                fehler.append({"archicadGuid": w["archicadGuid"], "art": w["art"], "grund": str(e)})
+                fehler.append({"archicadGuid": w["archicadGuid"], "art": w["art"],
+                               "typ": (meta.get(w["archicadGuid"]) or {}).get("typ"), "grund": str(e)})
             if w["archicadGuid"] not in meta:
                 fehler.append({"archicadGuid": w["archicadGuid"], "art": w["art"],
                                "grund": "nicht in archicad.json (Metadaten fehlen)", "nur_hinweis": True})
@@ -420,7 +423,18 @@ def netze_datei(projekt: Optional[str], lauf: Optional[str], bauteile: list[dict
             "zahlen": {"neu": sum(1 for b in bauteile if b["art"] == "neu"),
                        "geaendert": sum(1 for b in bauteile if b["art"] == "geaendert"),
                        "dreiecke": sum(len(k["dreiecke"]) for b in bauteile for k in b["koerper"]),
-                       "fehler": sum(1 for f in fehler if not f.get("nur_hinweis"))}}
+                       "fehler": sum(1 for f in fehler if not f.get("nur_hinweis")),
+                       "ohne_koerper": ohne_koerper(fehler)}}
+
+
+def ohne_koerper(fehler: list[dict]) -> dict[str, int]:
+    """Je Archicad-Typ: wie viele Bauteile kamen ohne 3D-Körper (meist 3D-Ansicht gefiltert)."""
+    aus: dict[str, int] = {}
+    for f in fehler:
+        if str(f.get("grund") or "").startswith("kein 3D-Körper"):
+            t = str(f.get("typ") or "?")
+            aus[t] = aus.get(t, 0) + 1
+    return dict(sorted(aus.items()))
 
 
 def gz_bytes(datei: dict) -> bytes:
@@ -436,14 +450,95 @@ def projekt_pruefen(soll: Optional[str], ist: Optional[str]) -> None:
         raise NetzFehler(f"In Archicad ist „{ist}“ offen, gelesen wurde „{soll}“ — nichts gelesen.")
 
 
+def _leer(v: Any) -> bool:
+    return v is None or v == ""
+
+
+def ifc_ergaenzen(meta: dict[str, dict], guids: list[str], *,
+                  diff_daten: Optional[Callable[[list[str]], dict]] = None,
+                  ifc_typen: Optional[Callable[[list[str]], list[dict]]] = None,
+                  paket: int = 200) -> list[str]:
+    """Fehlende IFC-Klasse (sonst wird in der Plattform alles Proxy), GlobalId, Ebene, Geschoss, Name, Typ für die
+    gewählten GUIDs nachlesen — nur lesend. ``archicad.json`` aus ``archicad-lesen`` kennt keine IFC-Klasse.
+
+    ``diff_daten(guids)`` = eine Antwortseite von ``ELM_SAB.GetDiffDataELM {elements: […]}`` (ab 0.11.13).
+    Scheitert das (älteres Add-on), ``ifc_typen(guids)`` = ``elementIFCTypes`` von
+    ``TapirCommand.GetIFCTypeOfElements`` (nur die Klasse). Füllt nur leere Felder. → Hinweise."""
+    hinweise: list[str] = []
+    fehlt = [g for g in guids if _leer(((meta.get(g) or {}).get("ifc") or {}).get("klasse"))]
+    if not fehlt:
+        return hinweise
+    rest = list(fehlt)
+    if diff_daten is not None:
+        try:
+            for s in range(0, len(fehlt), max(1, paket)):
+                seite = diff_daten(fehlt[s:s + paket]) or {}
+                for e in dp.archicad_bauteile([seite])["elemente"]:
+                    g = ab.guid_norm(e.get("guid"))
+                    m = meta.setdefault(g, {"typ": None, "ifc": {"klasse": None, "globalId": None}, "name": None,
+                                            "geschoss": None, "ebene": None,
+                                            "eigenschaften": {k: v for k, v in (e.get("eigenschaften") or {}).items()
+                                                              if not dp.ist_menge(k)}})
+                    ifc = m.setdefault("ifc", {"klasse": None, "globalId": None})
+                    for feld, wert in (("klasse", e.get("klasse")), ("globalId", e.get("ifcId"))):
+                        if _leer(ifc.get(feld)) and not _leer(wert):
+                            ifc[feld] = wert
+                    for feld in ("typ", "name", "geschoss", "ebene"):
+                        if _leer(m.get(feld)) and not _leer(e.get(feld)):
+                            m[feld] = e.get(feld)
+        except Exception as e:                                  # noqa: BLE001 — Rückfall, Grund geht in die Hinweise
+            hinweise.append(f"ELM_SAB.GetDiffDataELM mit elements scheitert ({str(e)[:120]}) — IFC-Klasse über "
+                            "TapirCommand.GetIFCTypeOfElements (ohne GlobalId/Ebene).")
+        rest = [g for g in fehlt if _leer(((meta.get(g) or {}).get("ifc") or {}).get("klasse"))]
+    if rest and ifc_typen is not None:
+        try:
+            for s in range(0, len(rest), max(1, paket)):
+                teil = rest[s:s + paket]
+                for g, x in zip(teil, ifc_typen(teil) or []):
+                    k = (x or {}).get("ifcType") if isinstance(x, dict) else None
+                    if not _leer(k):
+                        meta.setdefault(g, {}).setdefault("ifc", {"klasse": None, "globalId": None})["klasse"] = k
+        except Exception as e:                                  # noqa: BLE001
+            hinweise.append(f"TapirCommand.GetIFCTypeOfElements scheitert ({str(e)[:120]}).")
+    rest = [g for g in fehlt if _leer(((meta.get(g) or {}).get("ifc") or {}).get("klasse"))]
+    if rest:
+        hinweise.append(f"{len(rest)} Bauteile ohne IFC-Klasse — die Plattform legt sie als Proxy an.")
+    return hinweise
+
+
 def erzeugen(ergebnis: dict, archicad: dict, holen: Callable[[list[str]], list[dict]], projekt_ist: Optional[str],
-             paket: int = PAKET, erzeugt: Optional[str] = None) -> dict:
-    """Der ganze Schritt für Skript und MCP: Projekt prüfen (sonst nichts lesen), auswählen, lesen, Datei-Dict.
-    ``archicad`` = archicad.json (``archicad-lesen``: elemente; Diff: seiten) mit ``projekt``."""
+             paket: int = PAKET, erzeugt: Optional[str] = None, *,
+             diff_daten: Optional[Callable[[list[str]], dict]] = None,
+             ifc_typen: Optional[Callable[[list[str]], list[dict]]] = None,
+             hinweise: Optional[list[str]] = None) -> dict:
+    """Der ganze Schritt für Skript und MCP: Projekt prüfen (sonst nichts lesen), auswählen, fehlende IFC-Klassen
+    nachlesen (:func:`ifc_ergaenzen`), Körper lesen, Datei-Dict. ``archicad`` = archicad.json (``archicad-lesen``:
+    elemente; Diff: seiten) mit ``projekt``. ``hinweise`` (Liste) bekommt, was der Zeichner wissen muss."""
     projekt_pruefen(archicad.get("projekt"), projekt_ist)
     gewaehlt = auswahl(ergebnis)
-    bauteile, fehler = netze_lesen(holen, gewaehlt, metadaten(archicad), paket) if gewaehlt else ([], [])
+    meta = metadaten(archicad)
+    if gewaehlt:
+        h = ifc_ergaenzen(meta, [w["archicadGuid"] for w in gewaehlt], diff_daten=diff_daten, ifc_typen=ifc_typen)
+        if hinweise is not None:
+            hinweise += h
+    bauteile, fehler = netze_lesen(holen, gewaehlt, meta, paket) if gewaehlt else ([], [])
     return netze_datei(archicad.get("projekt"), ergebnis.get("lauf"), bauteile, fehler, erzeugt)
+
+
+def elm_diff_daten(elm: Callable[[str, dict], dict]) -> Callable[[list[str]], dict]:
+    """``elm(name, params)`` → ELM_SAB-Antwort; daraus ``diff_daten(guids)`` (ohne IFC-Eigenschaften/Oberflächen)."""
+    def diff_daten(guids: list[str]) -> dict:
+        return elm("GetDiffDataELM", {"elements": [{"elementId": {"guid": g}} for g in guids],
+                                      "includeIfcProperties": False, "includeSurfaces": False})
+    return diff_daten
+
+
+def tapir_ifc_typen(befehl: Callable[[str, dict], dict]) -> Callable[[list[str]], list[dict]]:
+    """``befehl(name, params)`` → TapirCommand-Antwort; daraus ``ifc_typen(guids)`` (GetIFCTypeOfElements)."""
+    def ifc_typen(guids: list[str]) -> list[dict]:
+        r = befehl("GetIFCTypeOfElements", {"elements": [{"elementId": {"guid": g}} for g in guids]})
+        return r.get("elementIFCTypes") or []
+    return ifc_typen
 
 
 def tapir_holen(befehl: Callable[[str, dict], dict]) -> Callable[[list[str]], list[dict]]:

@@ -1151,15 +1151,19 @@ def archicad_datei(ordner: Path) -> Path:
 
 def cmd_netze(o) -> dict:
     """Neue und in Archicad geänderte Bauteile mit echten Körpern → archicad_netze.json.gz (sab-archicad-netze/1).
-    Liest Archicad nur (GetProjectInfo, Get3DGeometryOfElements); anderes Projekt offen → nichts gelesen."""
+    Liest Archicad nur (GetProjectInfo, fehlende IFC-Klassen über GetDiffDataELM {elements} bzw.
+    GetIFCTypeOfElements, Get3DGeometryOfElements); anderes Projekt offen → nichts gelesen."""
     ordner = Path(o.ordner)
     erg = _lesen(ordner / "ergebnis.json")
     quelle = archicad_datei(ordner)
     archicad = _lesen(quelle)
     ac = Archicad(_http(o.port))
+    hinweise: list[str] = []
     try:
         datei = nz.erzeugen(erg, archicad, nz.tapir_holen(ac.befehl),
-                            ac.befehl("GetProjectInfo").get("projectName"), paket=o.paket)
+                            ac.befehl("GetProjectInfo").get("projectName"), paket=o.paket,
+                            diff_daten=nz.elm_diff_daten(ac.elm), ifc_typen=nz.tapir_ifc_typen(ac.befehl),
+                            hinweise=hinweise)
     except nz.NetzFehler as e:
         raise Fehler(str(e)) from e
     ziel = ordner / nz.DATEI
@@ -1167,6 +1171,9 @@ def cmd_netze(o) -> dict:
     return {"datei": str(ziel), "quelle": quelle.name, "projekt": datei["projekt"], "lauf": datei["lauf"],
             **datei["zahlen"], "mb": round(ziel.stat().st_size / 1e6, 2),
             "fehler_beispiele": [f for f in datei["fehler"] if not f.get("nur_hinweis")][:10],
+            "hinweise": hinweise + ([nz.OHNE_KOERPER + " — betrifft " + ", ".join(
+                f"{n} {t}" for t, n in datei["zahlen"]["ohne_koerper"].items())] if datei["zahlen"]["ohne_koerper"]
+                else []),
             "naechster_schritt": "hochladen --ordner <Ordner> --ablage <ergebnis_ablage> --netze-ablage <netze_ablage> "
                                  "(beide Links aus archicad_abgleich_lesen), dann archicad_abgleich_melden."}
 

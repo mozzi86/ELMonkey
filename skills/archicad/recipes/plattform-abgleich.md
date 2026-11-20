@@ -82,8 +82,11 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
    `richtung: archicad→plattform` (Art `geaendert`, Archicad-Box seit der Basis bewegt, Plattform nicht), liest deren
    Körper per `TapirCommand.Get3DGeometryOfElements` in Paketen, trianguliert und schreibt
    `$O/archicad_netze.json.gz` (Format `sab-archicad-netze/1`, Spezifikation im Kern `elmonkey.netze`). Ist in Archicad
-   ein anderes Projekt offen als beim Lesen, liest es nichts. `fehler` (z. B. kein 3D-Körper, Ebene ausgeblendet) dem
-   Zeichner nennen. Braucht ein `ergebnis.json` aus dem Diff-Checker (unten) — der Skript-Ablauf ohne Diff kennt
+   ein anderes Projekt offen als beim Lesen, liest es nichts. Fehlt die IFC-Klasse (archicad.json aus `archicad-lesen`
+   hat keine), liest es sie für die gewählten GUIDs über `ELM_SAB.GetDiffDataELM {elements}` nach (Rückfall
+   `GetIFCTypeOfElements`), sonst würde in der Plattform alles Proxy. `fehler` und `ohne_koerper` (je Typ) dem
+   Zeichner nennen; ohne Körper heißt meist: Ansicht → Elemente in 3D-Ansicht → Alles in 3D zeigen (⌥⌘F5),
+   3D-Schnittebenen aus, dann `netze` erneut. Braucht ein `ergebnis.json` aus dem Diff-Checker (unten) — der Skript-Ablauf ohne Diff kennt
    keine Geometrie und liefert nur `neu`.
    **Braucht die Plattform-Seite:** `netze_ablage` aus `archicad_abgleich_lesen` und ein `archicad_abgleich_melden`,
    das die Datei liest — PR in SchwarzPlatform steht aus. Ohne `netze_ablage` die Datei liegen lassen und es dem

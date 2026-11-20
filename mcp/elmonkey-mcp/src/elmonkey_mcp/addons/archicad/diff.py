@@ -124,14 +124,19 @@ def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_g
     netz_aus = None
     if netze:
         try:
-            datei = nz.erzeugen(erg, archicad,
-                                nz.tapir_holen(lambda name, p: rufen(port, "TapirCommand", name, p, timeout=1800)),
-                                rufen(port, "TapirCommand", "GetProjectInfo", {}).get("projectName"), paket=netze_paket)
+            tapir = lambda name, p: rufen(port, "TapirCommand", name, p, timeout=1800)   # noqa: E731
+            hinweise: list[str] = []
+            datei = nz.erzeugen(erg, archicad, nz.tapir_holen(tapir),
+                                rufen(port, "TapirCommand", "GetProjectInfo", {}).get("projectName"), paket=netze_paket,
+                                diff_daten=nz.elm_diff_daten(lambda name, p: rufen(port, "ELM_SAB", name, p,
+                                                                                   timeout=1800)),
+                                ifc_typen=nz.tapir_ifc_typen(tapir), hinweise=hinweise)
         except nz.NetzFehler as e:
             raise ValueError(str(e)) from e
         (o / nz.DATEI).write_bytes(nz.gz_bytes(datei))
         netz_aus = {"datei": str(o / nz.DATEI), **datei["zahlen"],
-                    "fehler_beispiele": [f for f in datei["fehler"] if not f.get("nur_hinweis")][:10]}
+                    "fehler_beispiele": [f for f in datei["fehler"] if not f.get("nur_hinweis")][:10],
+                    "hinweise": hinweise + ([nz.OHNE_KOERPER] if datei["zahlen"]["ohne_koerper"] else [])}
     return {"netze": netz_aus,"ergebnis": str(o / "ergebnis.json"), "archicad_daten": str(o / "archicad.json"),
             "lauf": erg.get("lauf"), "zahlen": d["zahlen"], "hinweise": d["hinweise"], "kontext": d["kontext"],
             "beispiele": {"neu": d["neu"][:10], "weg": d["weg"][:10], "eigenschaften": d["eigenschaften"][:10],
