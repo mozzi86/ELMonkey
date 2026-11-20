@@ -32,6 +32,7 @@ import re
 import ssl
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -275,13 +276,17 @@ def _nur_https(link: str) -> str:
     return link
 
 
+def _ist_zertifikatsfehler(e: BaseException) -> bool:
+    return "CERTIFICATE_VERIFY_FAILED" in str(e)
+
+
 def herunterladen(link: str) -> Any:
     link = _nur_https(link)
     try:
         with urllib.request.urlopen(link, timeout=900) as r:
             return json.loads(r.read().decode("utf-8"))
     except (urllib.error.URLError, ssl.SSLError) as e:
-        if "CERTIFICATE_VERIFY_FAILED" not in str(e):
+        if not _ist_zertifikatsfehler(e):
             raise
     # python.org-Python auf macOS kennt die Systemzertifikate nicht → curl (Argumentliste, nie über die Shell)
     r = subprocess.run(["curl", "-sS", "--fail", link], capture_output=True, timeout=900)
@@ -350,11 +355,33 @@ def nicht_bearbeitet_pruefen(bauliste: dict, trotzdem: bool = False) -> None:
 
 
 def ablegen(link: str, daten: bytes, typ: str) -> None:
-    req = urllib.request.Request(_nur_https(link), data=daten, method="PUT",
+    link = _nur_https(link)
+    req = urllib.request.Request(link, data=daten, method="PUT",
                                  headers={"x-ms-blob-type": "BlockBlob", "Content-Type": typ})
-    with urllib.request.urlopen(req, timeout=3600) as r:
-        if r.status not in (200, 201):
-            raise Fehler(f"Ablage antwortet mit {r.status}")
+    try:
+        with urllib.request.urlopen(req, timeout=3600) as r:
+            if r.status not in (200, 201):
+                raise Fehler(f"Ablage antwortet mit {r.status}")
+        return
+    except (urllib.error.URLError, ssl.SSLError) as e:
+        if not _ist_zertifikatsfehler(e):
+            raise
+    # Zertifikatsfehler (python.org-Python auf macOS) → curl, Argumentliste, nie über die Shell
+    kurz = link.split("?", 1)[0]
+    tmp = tempfile.NamedTemporaryFile(delete=False)
+    try:
+        with tmp:
+            tmp.write(daten)
+        r = subprocess.run(["curl", "-sS", "--fail", "-X", "PUT", "-H", "x-ms-blob-type: BlockBlob",
+                            "-H", f"Content-Type: {typ}", "--data-binary", f"@{tmp.name}",
+                            "-o", "/dev/null", "-w", "%{http_code}", link],
+                           capture_output=True, timeout=3600)
+    finally:
+        Path(tmp.name).unlink(missing_ok=True)
+    code = r.stdout.decode("utf-8", "replace").strip()
+    if r.returncode != 0 or code not in ("200", "201"):
+        err = r.stderr.decode("utf-8", "replace").replace(link, kurz)[:300]
+        raise Fehler(f"curl-Ablage scheitert (Rückgabe {r.returncode}, HTTP {code or '?'}) bei {kurz}: {err}")
 
 
 def fragen_text(plan: dict) -> str:

@@ -157,6 +157,59 @@ def test_herunterladen_weist_http_ab():
         pa.herunterladen("http://example.test/x")
 
 
+# ───────────────────────────────────────────── ablegen
+
+_LINK = "https://example.test/blob?sig=GEHEIM"
+
+
+def _zert_kaputt(*a, **k):
+    raise urllib.error.URLError("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed")
+
+
+def test_ablegen_ssl_fallback_curl(monkeypatch):
+    aufrufe = []
+
+    def fake_run(cmd, **k):
+        pfad = cmd[cmd.index("--data-binary") + 1][1:]
+        aufrufe.append((cmd, k, Path(pfad).read_bytes(), pfad))
+        return subprocess.CompletedProcess(cmd, 0, stdout=b"201", stderr=b"")
+
+    monkeypatch.setattr(pa.urllib.request, "urlopen", _zert_kaputt)
+    monkeypatch.setattr(pa.subprocess, "run", fake_run)
+    pa.ablegen(_LINK, b"DATEN", "application/json")
+    cmd, k, inhalt, pfad = aufrufe[0]
+    assert cmd[0] == "curl" and cmd[cmd.index("-X") + 1] == "PUT"
+    assert "x-ms-blob-type: BlockBlob" in cmd and "Content-Type: application/json" in cmd
+    assert cmd[-1] == _LINK
+    assert inhalt == b"DATEN"
+    assert not k.get("shell")
+    assert not Path(pfad).exists()
+
+
+def test_ablegen_curl_403_fehler_ohne_signatur(monkeypatch):
+    def fake_run(cmd, **k):
+        return subprocess.CompletedProcess(cmd, 0, stdout=b"403", stderr=b"denied " + _LINK.encode())
+
+    monkeypatch.setattr(pa.urllib.request, "urlopen", _zert_kaputt)
+    monkeypatch.setattr(pa.subprocess, "run", fake_run)
+    with pytest.raises(pa.Fehler) as e:
+        pa.ablegen(_LINK, b"x", "application/json")
+    assert "403" in str(e.value) and "sig=" not in str(e.value)
+
+
+def test_ablegen_anderer_urlerror_nicht_ueber_curl(monkeypatch):
+    def refused(*a, **k):
+        raise urllib.error.URLError("Connection refused")
+
+    def kein_run(*a, **k):
+        raise AssertionError("curl darf nicht laufen")
+
+    monkeypatch.setattr(pa.urllib.request, "urlopen", refused)
+    monkeypatch.setattr(pa.subprocess, "run", kein_run)
+    with pytest.raises(urllib.error.URLError):
+        pa.ablegen(_LINK, b"x", "application/json")
+
+
 # ───────────────────────────────────────────── stempeln
 
 def _stempel_fake(klassifiziert_guids: set[str]):
