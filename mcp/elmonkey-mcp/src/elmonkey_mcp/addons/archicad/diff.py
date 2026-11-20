@@ -136,7 +136,10 @@ def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_g
             datei = nz.erzeugen(erg, archicad, nz.tapir_holen(tapir), info.get("projectName"), paket=netze_paket,
                                 diff_daten=nz.elm_diff_daten(elm), ifc_typen=nz.tapir_ifc_typen(tapir),
                                 unterelemente=nz.tapir_unterelemente(tapir),
-                                design_option=nz.tapir_design_option(tapir), ebenen=ebenen,
+                                design_option=nz.tapir_design_option(tapir),
+                                umbau_lesen=nz.api_umbau_lesen(
+                                    lambda name, p: rufen(port, "API", name.removeprefix("API."), p, timeout=1800)),
+                                ebenen=ebenen,
                                 hinweise=hinweise, bericht=bericht)
         except (nz.NetzFehler, nz.EbenenFehler) as e:
             raise ValueError(str(e)) from e

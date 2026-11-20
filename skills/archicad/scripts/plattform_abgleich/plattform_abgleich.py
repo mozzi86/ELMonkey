@@ -1169,7 +1169,8 @@ def cmd_netze(o) -> dict:
         datei = nz.erzeugen(erg, archicad, nz.tapir_holen(ac.befehl), info.get("projectName"), paket=o.paket,
                             diff_daten=nz.elm_diff_daten(ac.elm), ifc_typen=nz.tapir_ifc_typen(ac.befehl),
                             unterelemente=nz.tapir_unterelemente(ac.befehl),
-                            design_option=nz.tapir_design_option(ac.befehl), ebenen=ebenen,
+                            design_option=nz.tapir_design_option(ac.befehl),
+                            umbau_lesen=nz.api_umbau_lesen(ac.api), ebenen=ebenen,
                             hinweise=hinweise, bericht=bericht)
     except (nz.NetzFehler, nz.EbenenFehler) as e:
         raise Fehler(str(e)) from e

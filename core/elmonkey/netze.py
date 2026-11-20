@@ -510,6 +510,47 @@ def ohne_koerper_hinweise(fehler: list[dict]) -> list[str]:
     return aus
 
 
+def umbau_eintragen(fehler: list[dict], umbau_lesen: Callable[[list[str]], list[Optional[str]]],
+                    hinweise: list[str]) -> None:
+    """Rückfall ohne GetDiffDataELM: Umbau-Status der Bauteile ohne Körper, denen er fehlt, über die eingebaute
+    Eigenschaft ``Category_RenovationStatus`` (``umbau_lesen(guids)`` → Existing/New/ToBeDemolished je GUID)."""
+    offen = [f for f in fehler if _ohne(f) and _leer(f.get("umbau"))]
+    if not offen:
+        return
+    try:
+        werte = umbau_lesen([f["archicadGuid"] for f in offen]) or []
+    except Exception as e:                                    # noqa: BLE001 — dann bleibt „?“
+        hinweise.append(f"Umbau-Status nicht lesbar ({str(e)[:120]}).")
+        return
+    for f, w in zip(offen, werte):
+        if not _leer(w):
+            f["umbau"] = w
+
+
+def api_umbau_lesen(api: Callable[[str, dict], dict], paket: int = 200) -> Callable[[list[str]], list[Optional[str]]]:
+    """``api(name, params)`` → Antwort der eingebauten JSON-API (``API.*``, ``result``); daraus ``umbau_lesen``:
+    ``API.GetPropertyIds {properties:[{type: BuiltIn, nonLocalizedName: Category_RenovationStatus}]}`` +
+    ``API.GetPropertyValuesOfElements``, Wert ``value.nonLocalizedValue`` (bzw. ``value``, wenn ein Text)."""
+    def umbau_lesen(guids: list[str]) -> list[Optional[str]]:
+        ids = api("API.GetPropertyIds", {"properties": [{"type": "BuiltIn",
+                                                         "nonLocalizedName": "Category_RenovationStatus"}]})
+        pid = (((ids.get("properties") or [{}])[0] or {}).get("propertyId"))
+        if not pid:
+            raise NetzFehler("Category_RenovationStatus: keine Eigenschafts-Id")
+        aus: list[Optional[str]] = []
+        for s in range(0, len(guids), max(1, paket)):
+            teil = guids[s:s + paket]
+            r = api("API.GetPropertyValuesOfElements", {"elements": [{"elementId": {"guid": g}} for g in teil],
+                                                        "properties": [{"propertyId": pid}]})
+            zeilen = list(r.get("propertyValuesForElements") or [])
+            for i in range(len(teil)):
+                z = zeilen[i] if i < len(zeilen) and isinstance(zeilen[i], dict) else {}
+                v = (((z.get("propertyValues") or [{}])[0] or {}).get("propertyValue") or {}).get("value")
+                aus.append(v.get("nonLocalizedValue") or v.get("displayValue") if isinstance(v, dict) else v)
+        return aus
+    return umbau_lesen
+
+
 def design_optionen_eintragen(fehler: list[dict], design_option: Callable[[list[str]], list[dict]]) -> None:
     """Bauteile ohne Körper (nicht Abbruch): Design-Option nachlesen (``TapirCommand.GetDesignOptionForElements``,
     ab AC29) und als ``designOption`` „Satz / Name“ eintragen. Scheitert der Befehl: nichts eintragen."""
@@ -637,6 +678,19 @@ class Ebenen:
         wer = ", ".join(str(c.get("userName") or c.get("userId")) for c in r.get("conflicts") or [])
         return f"Ebenen-Einstellungen in Teamwork: {st}" + (f" (reserviert von {wer})" if wer else "")
 
+    def indizes(self, guids: list[str], paket: int = 200) -> list[Optional[int]]:
+        """Rückfall ohne GetDiffDataELM (älteres Add-on): ``layerIndex`` je Element aus
+        ``TapirCommand.GetDetailsOfElements`` (gleiche Reihenfolge; None, wenn Archicad keinen nennt)."""
+        aus: list[Optional[int]] = []
+        for s in range(0, len(guids), max(1, paket)):
+            teil = guids[s:s + paket]
+            r = self.befehl("GetDetailsOfElements", {"elements": [{"elementId": {"guid": g}} for g in teil]})
+            d = list(r.get("detailsOfElements") or [])
+            for i in range(len(teil)):
+                x = d[i] if i < len(d) and isinstance(d[i], dict) else {}
+                aus.append(int(x["layerIndex"]) if isinstance(x.get("layerIndex"), (int, float)) else None)
+        return aus
+
     def setzen(self, indizes: list[int], hidden: bool) -> list[int]:
         """Setzt nur das Ausblenden-Flag; → Indizes, bei denen Archicad (mit Rücklese) Erfolg meldet."""
         r = self.elm("SetLayerAttributes", {"layers": [{"layerIndex": i, "hidden": hidden} for i in indizes]})
@@ -650,6 +704,7 @@ def erzeugen(ergebnis: dict, archicad: dict, holen: Callable[[list[str]], list[d
              ifc_typen: Optional[Callable[[list[str]], list[dict]]] = None,
              unterelemente: Optional[Callable[[list[str]], list[dict]]] = None,
              design_option: Optional[Callable[[list[str]], list[dict]]] = None,
+             umbau_lesen: Optional[Callable[[list[str]], list[Optional[str]]]] = None,
              ebenen: Optional[Ebenen] = None,
              hinweise: Optional[list[str]] = None, bericht: Optional[dict] = None) -> dict:
     """Der ganze Schritt für Skript und MCP: Projekt prüfen (sonst nichts lesen), auswählen, fehlende IFC-Klassen,
@@ -672,8 +727,17 @@ def erzeugen(ergebnis: dict, archicad: dict, holen: Callable[[list[str]], list[d
     eingeblendet: dict[str, int] = {}
     bericht["ebenen_eingeblendet"] = []
     if ebenen is not None and gewaehlt:
-        namen = {(meta.get(w["archicadGuid"]) or {}).get("ebene") for w in gewaehlt} - {None, ""}
         stand = ebenen.lesen()
+        ohne_ebene = [w["archicadGuid"] for w in gewaehlt if _leer((meta.get(w["archicadGuid"]) or {}).get("ebene"))]
+        if ohne_ebene:                                        # GetDiffDataELM fehlte → layerIndex aus den Details
+            try:
+                je_index = {v["index"]: n for n, v in stand.items()}
+                for g, i in zip(ohne_ebene, ebenen.indizes(ohne_ebene)):
+                    if i is not None and i in je_index:
+                        meta.setdefault(g, {})["ebene"] = je_index[i]
+            except Exception as e:                            # noqa: BLE001
+                hinweise.append(f"Ebenen der Bauteile nicht lesbar ({str(e)[:120]}) — nichts eingeblendet.")
+        namen = {(meta.get(w["archicadGuid"]) or {}).get("ebene") for w in gewaehlt} - {None, ""}
         aus = sorted(n for n in namen if (stand.get(n) or {}).get("hidden"))
         if aus:
             grund = ebenen.darf()
@@ -702,6 +766,8 @@ def erzeugen(ergebnis: dict, archicad: dict, holen: Callable[[list[str]], list[d
     finally:
         if eingeblendet:
             _zuruecksetzen(ebenen, eingeblendet, bericht, lese_fehler)  # type: ignore[arg-type]
+    if umbau_lesen is not None:
+        umbau_eintragen(fehler, umbau_lesen, hinweise)
     if design_option is not None:
         design_optionen_eintragen(fehler, design_option)
     hinweise += ohne_koerper_hinweise(fehler)

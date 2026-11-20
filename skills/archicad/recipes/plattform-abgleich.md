@@ -93,7 +93,9 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
    Alte Variante: `--ebenen-nicht-einblenden` (MCP: `netze_ebenen_einblenden: false`). `fehler`, `ohne_koerper`
    (je Typ) und `ohne_koerper_umbau` (je Umbau-Status) dem Zeichner nennen: Abbruch ohne Körper → Umbau-Filter auf
    „alles anzeigen“ (Dokument → Umbau → Umbau-Filter), dann `netze` erneut; übrige meist inaktive Design-Option
-   (`designOption` im Fehler, wenn Archicad 29 sie nennt) — bewusst nicht übertragen. Braucht ein `ergebnis.json` aus dem Diff-Checker (unten) — der Skript-Ablauf ohne Diff kennt
+   (`designOption` im Fehler, wenn Archicad 29 sie nennt) — bewusst nicht übertragen. Ohne `GetDiffDataELM` (älteres Add-on, 4010)
+   kommen Ebene aus `TapirCommand.GetDetailsOfElements.layerIndex` und Umbau-Status aus der eingebauten Eigenschaft
+   `Category_RenovationStatus` (`API.GetPropertyIds` + `API.GetPropertyValuesOfElements`, `nonLocalizedValue`). Braucht ein `ergebnis.json` aus dem Diff-Checker (unten) — der Skript-Ablauf ohne Diff kennt
    keine Geometrie und liefert nur `neu`.
    **Braucht die Plattform-Seite:** `netze_ablage` aus `archicad_abgleich_lesen` und ein `archicad_abgleich_melden`,
    das die Datei liest — PR in SchwarzPlatform steht aus. Ohne `netze_ablage` die Datei liegen lassen und es dem

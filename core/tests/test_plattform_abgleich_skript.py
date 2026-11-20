@@ -1167,3 +1167,34 @@ def test_cli_kennt_netze_und_netze_ablage(capsys):
     with pytest.raises(SystemExit):
         pa.main(["hochladen", "--help"])
     assert "--netze-ablage" in capsys.readouterr().out
+
+
+def test_netze_altes_addon_status_und_ebene_ueber_rueckfaelle(tmp_path, monkeypatch):
+    """Live BFW 20.11.2026: GetDiffDataELM → 4010. Ebene aus GetDetailsOfElements.layerIndex, Umbau-Status aus der
+    eingebauten Eigenschaft Category_RenovationStatus (nonLocalizedValue)."""
+    _netz_ordner(tmp_path)
+    fake = _ohne_koerper_ac(**{"10_Wand": True, "20_Decke": False})
+    fake.antworten["GetDiffDataELM"] = Roh({"succeeded": False, "error": {"code": 4010, "message": "unbekannt"}})
+    fake.antworten["GetIFCTypeOfElements"] = lambda p: {"elementIFCTypes": [{"ifcType": "IfcWindow"} for _ in p["elements"]]}
+    fake.antworten["GetDetailsOfElements"] = lambda p: {"detailsOfElements": [{"layerIndex": 5} for _ in p["elements"]]}
+    fake.antworten["Get3DGeometryOfElements"] = lambda p: {"geometries3D": [
+        {"bodies": [_QUADRAT]} if (not fake.ebenen.stand["10 Wand"]["hidden"] and e["elementId"]["guid"] != guid(1))
+        else {"bodies": []} for e in p["elements"]]}
+    fake.antworten["API.GetPropertyIds"] = {"properties": [{"propertyId": {"guid": "RENO"}}]}
+    fake.antworten["API.GetPropertyValuesOfElements"] = lambda p: {"propertyValuesForElements": [
+        {"propertyValues": [{"propertyValue": {"type": "singleEnum", "status": "normal",
+                                               "value": {"type": "nonLocalizedValue", "nonLocalizedValue": "ToBeDemolished"}}}]}
+        for _ in p["elements"]]}
+    monkeypatch.setattr(pa, "_http", lambda port: fake)
+    aus = pa.cmd_netze(_o(tmp_path))
+    assert aus["ebenen_eingeblendet"] == ["10 Wand"] and aus["ebenen_zurueckgesetzt"] == "ok"
+    assert fake.ebenen.stand["10 Wand"]["hidden"]
+    assert fake.params("GetDetailsOfElements")[0]["elements"] == [{"elementId": {"guid": guid(n)}} for n in (1, 2, 3)]
+    assert aus["neu"] == 1 and aus["geaendert"] == 1                       # guid(1) bleibt ohne Körper
+    assert aus["ohne_koerper_umbau"] == {"ToBeDemolished": 1}
+    assert [e["elementId"]["guid"] for e in fake.params("API.GetPropertyValuesOfElements")[0]["elements"]] == [guid(1)]
+    assert fake.params("API.GetPropertyIds") == [{"properties": [{"type": "BuiltIn",
+                                                                  "nonLocalizedName": "Category_RenovationStatus"}]}]
+    assert aus["hinweise"][-1].startswith("1 Abbruch-Bauteile ohne Körper")
+    d = json.loads(gzip.decompress((tmp_path / "archicad_netze.json.gz").read_bytes()))
+    assert {b["ebene"] for b in d["bauteile"]} == {"10 Wand"}                # Ebene auch in der Datei
