@@ -10,7 +10,7 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
     plattform_abgleich.py archicad-schreiben --ordner <dir> [--ausfuehren]      # Eigenschaften nach Archicad
     plattform_abgleich.py stempeln        --ordner <dir> --gebaut gebaut.json [--ausfuehren]
     plattform_abgleich.py bauen           --ordner <dir> --ifc plattform.ifc --bauliste bauliste.json --register register.json
-                                          [--zuordnung z.json] [--nur GUID,..] [--ohne GUID,..] [--vorhanden v.json] [--ausfuehren]
+                                          [--zuordnung z.json] [--nur GUID,..] [--ohne GUID,..] [--vorhanden v.json] [--verbund einzeln|zusammen] [--ausfuehren]
     plattform_abgleich.py hochladen       --ordner <dir> --ablage "<ergebnis_ablage>"
     plattform_abgleich.py oberflaechen    --ordner <dir>                     # Export + ZIP für die Plattform
     plattform_abgleich.py ifc             --ordner <dir> [--translator "<Name>"]
@@ -54,6 +54,7 @@ TYPEN = ("Wall", "Column", "Beam", "Slab", "Roof", "Shell", "Morph", "Object", "
          "Stair", "Railing", "CurtainWall", "Mesh", "Zone", "Opening", "Lamp")
 PAKET = 400                                             # Elemente je Aufruf
 STEMPEL_GRUPPE, STEMPEL_NAME, KI_NAME = "Allgemeine Werte", ab.PLATTFORM_GUID, "KI generiert"
+VERBUND_NAME = "Plattform-Verbund"
 
 
 class Fehler(RuntimeError):
@@ -304,9 +305,61 @@ def guid_lang(g22: str) -> str:
     return str(uuid.UUID(int=n)).upper()
 
 
-def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
-    """{GUID (lang): [(Punkte, Dreiecke 0-basiert)]} aus den IFCTRIANGULATEDFACESET der Datei. Unterteile
-    (IfcRelAggregates) werden dem Elternteil zugeschlagen. Nur GUIDs mit mindestens einem Netz."""
+def _attribute(s: str) -> list[str]:
+    """STEP-Attribute der obersten Ebene trennen (Klammern und Zeichenketten beachten)."""
+    aus, cur, tiefe, q = [], [], 0, False
+    for ch in s:
+        if q:
+            cur.append(ch)
+            if ch == "'":
+                q = False
+            continue
+        if ch == "'":
+            q = True
+        elif ch == "(":
+            tiefe += 1
+        elif ch == ")":
+            tiefe -= 1
+        elif ch == "," and tiefe == 0:
+            aus.append("".join(cur)); cur = []
+            continue
+        cur.append(ch)
+    aus.append("".join(cur))
+    return aus
+
+
+_X2 = re.compile(r"\\X2\\((?:[0-9A-Fa-f]{4})+)\\X0\\")
+_IFC_NAMEN = ("IfcPipeSegment", "IfcCovering", "IfcPlate", "IfcDuctSegment", "IfcBuildingElementProxy", "IfcSlab",
+              "IfcWall", "IfcPipeFitting", "IfcDuctFitting", "IfcFlowSegment")
+
+
+def step_text(s: str) -> str:
+    """STEP-Zeichenkette lesen: Anführungszeichen weg, \\X2\\…\\X0\\ → Unicode, '' → '; „$“ → leer."""
+    s = s.strip()
+    if s in ("$", "*", ""):
+        return ""
+    if len(s) >= 2 and s[0] == s[-1] == "'":
+        s = s[1:-1]
+    s = _X2.sub(lambda m: "".join(chr(int(m.group(1)[i:i + 4], 16)) for i in range(0, len(m.group(1)), 4)), s)
+    return s.replace("''", "'")
+
+
+def ifc_klasse(step_typ: str) -> str:
+    """STEP-Typ (IFCPIPESEGMENT) → IFC-Schreibweise (IfcPipeSegment) über sab_zuordnung.json + feste Liste."""
+    try:
+        bekannt = list(zuordnung_laden())
+    except Exception:  # noqa: BLE001 — Zuordnung ist hier nur Schreibhilfe
+        bekannt = []
+    for k in bekannt + list(_IFC_NAMEN):
+        if k.upper() == step_typ.upper():
+            return k
+    return "Ifc" + step_typ[3:].capitalize() if step_typ.upper().startswith("IFC") else step_typ
+
+
+def ifc_teile(pfad) -> tuple[dict, dict, dict]:
+    """(eigene, kinder, info): eigene = {GUID (lang): [(Punkte, Dreiecke 0-basiert)]} nur eigene Netze der
+    IFCTRIANGULATEDFACESET (nur GUIDs mit Netz); kinder = {Kopf-GUID: [Unterteil-GUIDs]} aus IfcRelAggregates;
+    info = {GUID: {"name", "klasse"}}."""
     zeilen: dict[int, tuple[str, str]] = {}
     with open(pfad, encoding="latin-1") as f:
         for z in f:
@@ -318,16 +371,20 @@ def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
         return [int(x) for x in _REF.findall(a)]
 
     nr2g: dict[int, str] = {}
-    kinder: dict[int, list[int]] = collections.defaultdict(list)
+    kinder_nr: dict[int, list[int]] = collections.defaultdict(list)
     for i, (t, a) in zeilen.items():
         m = re.match(r"'([^']{22})',", a)
         if m and all(c in _IFC_ZEICHEN for c in m.group(1)) and not t.startswith("IFCREL") \
                 and t not in ("IFCPROPERTYSET", "IFCELEMENTQUANTITY"):
             nr2g[i] = guid_lang(m.group(1))
         if t == "IFCRELAGGREGATES":
-            r = refs(a)
-            for kind in r[2:]:                          # r[0] = Besitzer, r[1] = Elternteil
-                kinder[r[1]].append(kind)
+            # IfcRelAggregates(GlobalId, OwnerHistory, Name, Description, RelatingObject, RelatedObjects):
+            # nach Attributen trennen, nicht nach Verweis-Reihenfolge — OwnerHistory ist im Plattform-IFC „$“
+            # (live BFW07 19.11.2026: sonst hingen die Kinder am ersten Geschwister, 35 Verbünde ohne Körper).
+            attr = _attribute(a)
+            eltern = refs(attr[4]) if len(attr) > 5 else []
+            if eltern:
+                kinder_nr[eltern[0]].extend(refs(attr[5]))
 
     def netze(i: int) -> list[tuple[list, list]]:
         aus: list[tuple[list, list]] = []
@@ -341,18 +398,50 @@ def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
                         F = [[int(x) - 1 for x in f.split(",")]
                              for f in re.findall(r"\((\d+,\d+,\d+)\)", fa[fa.index("(("):])]
                         aus.append((P, F))
-        for k in kinder.get(i, []):
-            aus += netze(k)
         return aus
 
-    ergebnis = {g: netze(i) for i, g in nr2g.items()}
-    return {g: n for g, n in ergebnis.items() if n}
+    eigene: dict[str, list] = {}
+    info: dict[str, dict] = {}
+    for i, g in nr2g.items():
+        n = netze(i)
+        if n:
+            eigene[g] = n
+        t, a = zeilen[i]
+        at = _attribute(a)
+        info[g] = {"name": step_text(at[2]) if len(at) > 2 else "", "klasse": ifc_klasse(t)}
+    kinder: dict[str, list[str]] = {}
+    for i, ks in kinder_nr.items():
+        if i in nr2g:
+            kinder[nr2g[i]] = [nr2g[k] for k in ks if k in nr2g]
+    return eigene, kinder, info
 
 
-def zerlegen(P: list, F: list) -> list[tuple[list, list]]:
-    """Netz in Einzelkörper trennen: Dreiecke hängen nur über Kanten mit genau 2 Nachbarn zusammen. Verschweißte
-    Teilstücke (Kante mit 4 Nachbarn) werden so getrennt und bekommen eigene Punkte — Archicad nimmt nur saubere
-    Körper. Entartete Dreiecke (zwei gleiche Punkte) fallen weg."""
+def _zusammen(eigene: dict, kinder: dict) -> dict[str, list]:
+    """Eigene Netze + die aller Nachfahren (Zyklen-sicher). Nur GUIDs mit mindestens einem Netz."""
+    def sammeln(g: str, besucht: set) -> list:
+        if g in besucht:
+            return []
+        besucht.add(g)
+        aus = list(eigene.get(g, []))
+        for k in kinder.get(g, []):
+            aus += sammeln(k, besucht)
+        return aus
+
+    alle = set(eigene) | set(kinder)
+    erg = {g: sammeln(g, set()) for g in alle}
+    return {g: n for g, n in erg.items() if n}
+
+
+def ifc_netze(pfad) -> dict[str, list[tuple[list, list]]]:
+    """{GUID (lang): [(Punkte, Dreiecke 0-basiert)]} — Unterteile (IfcRelAggregates) werden dem Elternteil
+    zugeschlagen. Nur GUIDs mit mindestens einem Netz."""
+    eigene, kinder, _ = ifc_teile(pfad)
+    return _zusammen(eigene, kinder)
+
+
+def _komponenten(P: list, F: list) -> list[tuple[list, list]]:
+    """Netz in zusammenhängende Teile trennen: Dreiecke hängen nur über Kanten mit genau 2 Nachbarn zusammen.
+    Jeder Teil bekommt eigene, neu nummerierte Punkte. Entartete Dreiecke (zwei gleiche Punkte) fallen weg."""
     F = [f for f in F if len({tuple(P[i]) for i in f}) == 3]
     kanten: dict[tuple, list[int]] = collections.defaultdict(list)
     for n, f in enumerate(F):
@@ -384,6 +473,71 @@ def zerlegen(P: list, F: list) -> list[tuple[list, list]]:
                     Pk.append(P[i])
             Fk.append([idx[i] for i in f])
         aus.append((Pk, Fk))
+    return aus
+
+
+def mannigfaltig(P: list, F: list) -> tuple[list, list]:
+    """Mehrfachkanten (Kante mit mehr als 2 Dreiecken) auflösen, indem der Dreiecksfächer je Eckpunkt getrennt wird.
+
+    2026-11-19 live BFW07: 6 Plattform-Teile (Zuluftstutzen Ø160, Steigrohr Ø315, Kondensat-Fallrohr …) scheiterten
+    mit "Failed to create morph" (Solid und Surface), weil nach dem Trennen noch eine Kante mit 4 Dreiecken übrig
+    blieb (Rohrprofil läuft zweimal durch einen Punkt). Fächer je Eckpunkt trennen löst es: live alle 6 gebaut,
+    Rücklese exakt.
+
+    Je Eckpunkt werden die anliegenden Dreiecke über Kanten mit genau 2 Dreiecken verbunden; jede weitere
+    Fächergruppe bekommt eine Punktkopie. Alle Nachbarschaftsabfragen laufen auf den unveränderten Originalflächen
+    (F0), Ersetzungen gehen in eine getrennte Ausgabeliste — so können frühere Ersetzungen spätere Kantenabfragen
+    nicht verfehlen lassen. Eingabelisten werden nicht verändert."""
+    F0 = [list(f) for f in F]
+    kanten: dict[tuple, list[int]] = {}
+    an_punkt: dict[int, list[int]] = {}
+    for n, f in enumerate(F0):
+        for a in range(3):
+            kanten.setdefault(tuple(sorted((f[a], f[(a + 1) % 3]))), []).append(n)
+            an_punkt.setdefault(f[a], []).append(n)
+    P2 = [list(p) for p in P]
+    F2 = [list(f) for f in F0]
+    for v, fl in an_punkt.items():
+        wurzel = {n: n for n in fl}
+
+        def finde(x: int) -> int:
+            while wurzel[x] != x:
+                wurzel[x] = wurzel[wurzel[x]]
+                x = wurzel[x]
+            return x
+
+        for n in fl:
+            for x in F0[n]:
+                if x == v:
+                    continue
+                paar = kanten.get(tuple(sorted((v, x))), ())
+                if len(paar) == 2:
+                    wurzel[finde(paar[0])] = finde(paar[1])
+        neu: dict[int, int] = {}
+        for n in fl:
+            w = finde(n)
+            if not neu:
+                neu[w] = v
+            elif w not in neu:
+                neu[w] = len(P2)
+                P2.append(list(P[v]))
+            if neu[w] != v:
+                F2[n] = [neu[w] if i == v else i for i in F2[n]]
+    return P2, F2
+
+
+def zerlegen(P: list, F: list) -> list[tuple[list, list]]:
+    """Netz in Einzelkörper trennen: Dreiecke hängen nur über Kanten mit genau 2 Nachbarn zusammen. Verschweißte
+    Teilstücke (Kante mit 4 Nachbarn) werden so getrennt und bekommen eigene Punkte — Archicad nimmt nur saubere
+    Körper. Entartete Dreiecke (zwei gleiche Punkte) fallen weg. Bleibt in einem Teil noch eine Mehrfachkante
+    (Teil hängt über andere Kanten zusammen), wird der Fächer je Eckpunkt getrennt (mannigfaltig) und neu zerlegt."""
+    aus: list[tuple[list, list]] = []
+    for Pk, Fk in _komponenten(P, F):
+        P2, F2 = mannigfaltig(Pk, Fk)
+        if len(P2) != len(Pk):
+            aus.extend(_komponenten(P2, F2))
+        else:
+            aus.append((Pk, Fk))
     return aus
 
 
@@ -427,34 +581,90 @@ def geschoss_index(stories: list[dict], z: float) -> int:
     return max(passend, key=lambda s: s["level"])["index"]
 
 
-def bauplan(bauliste: dict, netze: dict, register: dict, zuordnung: dict, klassen: dict, stories: list[dict],
-            nur=None, ohne=()) -> tuple[list[dict], list[dict]]:
-    """Rein, ohne Archicad: (plan, ausgelassen). klassen = {Klassen-id: Item-GUID}."""
+def bauplan(bauliste: dict, netze, register: dict, zuordnung: dict, klassen: dict, stories: list[dict],
+            nur=None, ohne=(), verbund: str = "einzeln") -> tuple[list[dict], list[dict]]:
+    """Rein, ohne Archicad: (plan, ausgelassen). klassen = {Klassen-id: Item-GUID}. netze = Ergebnis von
+    ifc_teile() (Tupel) oder ein Dict {GUID: Netze} (= nur eigene Netze, keine Unterteile).
+    verbund „einzeln“: Kopf + jedes Unterteil als eigener Morph; „zusammen“: ein Morph je Verbund."""
+    if verbund not in ("einzeln", "zusammen"):
+        raise Fehler(f"verbund muss „einzeln“ oder „zusammen“ sein, nicht „{verbund}“.")
+    if isinstance(netze, tuple):
+        eigene, kinder, info = netze
+    else:
+        eigene, kinder, info = netze, {}, {}
+    eigene = {k.upper(): v for k, v in eigene.items()}
+    kinder = {k.upper(): [x.upper() for x in v] for k, v in kinder.items()}
+    info = {k.upper(): v for k, v in info.items()}
     reg = {str(x["guid"]).upper(): x for x in register.get("neu") or []}
-    netze = {k.upper(): v for k, v in netze.items()}
+    zu_ci = {k.lower(): v for k, v in zuordnung.items()}
     nur_g = {g.upper() for g in nur} if nur else None
     ohne_g = {g.upper() for g in ohne}
+    kopf_g = {b["plattformGuid"].upper() for b in bauliste.get("bauteile") or []}
+    if verbund == "zusammen":
+        eigene, kinder = _zusammen(eigene, kinder), {}
+
+    def nachfahren(g: str) -> list[str]:
+        aus: list[str] = []
+        besucht = {g}
+
+        def lauf(x: str) -> None:
+            for k in kinder.get(x, []):
+                if k in besucht or k in kopf_g:
+                    continue
+                besucht.add(k)
+                aus.append(k)
+                lauf(k)
+
+        lauf(g)
+        return aus
+
     plan: list[dict] = []
     aus: list[dict] = []
-    for b in bauliste.get("bauteile") or []:
-        g = b["plattformGuid"]
-        if (nur_g is not None and g.upper() not in nur_g) or g.upper() in ohne_g:
-            continue
-        ns = netze.get(g.upper()) or []
-        klasse = zuordnung.get(b["ifc"]["klasse"])
-        status_roh = (reg.get(g.upper()) or {}).get("status")
-        status = status_archicad(status_roh)
-        if not ns:
-            aus.append({"plattformGuid": g, "name": b["name"], "grund": "keine Geometrie im IFC"})
-            continue
-        if klasse not in klassen or not status:
-            aus.append({"plattformGuid": g, "name": b["name"],
-                        "grund": f"Klasse/Status fehlt ({b['ifc']['klasse']}, {status_roh})"})
-            continue
+
+    def eintrag(g, name, ebene, klasse, status, ns, kopf):
         body, box = morph_body(ns)
-        plan.append({"g": g, "name": b["name"], "ebene": b["ebene"], "klasse": klasse, "status": status,
+        plan.append({"g": g, "name": name, "ebene": ebene, "klasse": klasse, "status": status, "kopf": kopf,
                      "soll": box, "morph": {"basePoint": {"x": 0, "y": 0, "z": 0}, "body": body,
                                             "floorIndex": geschoss_index(stories, box[2])}})
+
+    for b in bauliste.get("bauteile") or []:
+        g = b["plattformGuid"]
+        gu = g.upper()
+        subs = nachfahren(gu) if verbund == "einzeln" else []
+        if gu in ohne_g:
+            continue
+        if nur_g is not None and gu not in nur_g and not any(s in nur_g for s in subs):
+            continue
+        klasse = zuordnung.get(b["ifc"]["klasse"])
+        status_roh = (reg.get(gu) or {}).get("status")
+        status = status_archicad(status_roh)
+        kopf_ok = gu in nur_g if nur_g is not None else True
+        gebaut_vorher = len(plan)
+        ausg_vorher = len(aus)
+        ns = eigene.get(gu) or []
+        if ns and kopf_ok:
+            if klasse not in klassen or not status:
+                aus.append({"plattformGuid": g, "name": b["name"],
+                            "grund": f"Klasse/Status fehlt ({b['ifc']['klasse']}, {status_roh})"})
+            else:
+                eintrag(g, b["name"], b["ebene"], klasse, status, ns, None)
+        for s in subs:
+            if s in ohne_g or (nur_g is not None and not kopf_ok and s not in nur_g):
+                continue
+            sns = eigene.get(s) or []
+            if not sns:
+                continue
+            si = info.get(s) or {}
+            sname = f"{b['name']} / {si.get('name') or s}"
+            sk = zu_ci.get((si.get("klasse") or "").lower())
+            sk = sk if sk in klassen else klasse
+            if sk not in klassen or not status:
+                aus.append({"plattformGuid": s, "kopf": g, "name": sname,
+                            "grund": f"Klasse/Status fehlt ({si.get('klasse') or b['ifc']['klasse']}, {status_roh})"})
+                continue
+            eintrag(s, sname, b["ebene"], sk, status, sns, g)
+        if len(plan) == gebaut_vorher and len(aus) == ausg_vorher:
+            aus.append({"plattformGuid": g, "name": b["name"], "grund": "keine Geometrie im IFC"})
     return plan, aus
 
 
@@ -500,19 +710,22 @@ def _string(v: Any) -> dict:
 
 
 def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: dict, *, nur, ohne, vorhanden: dict,
-          ausfuehren: bool, projekt_soll: Optional[str] = None) -> dict:
+          ausfuehren: bool, projekt_soll: Optional[str] = None, verbund: str = "einzeln") -> dict:
     """Plattform-Bauteile als Morphs (echte Geometrie) nach Archicad: Ebene, Geschoss, Klasse, Umbau-Status,
     Stempel, Rücklese. Ohne `ausfuehren` nur Trockenlauf — es wird nichts Schreibendes gesendet."""
     ordner = Path(ordner)
     projekt = ac.befehl("GetProjectInfo").get("projectName")
     stories = ac.befehl("GetStories").get("stories") or []
     system_id, klassen = sab_klassen(ac)
-    plan, ausgelassen = bauplan(bauliste, ifc_netze(ifc), register, zuordnung, klassen, stories, nur, ohne)
+    plan, ausgelassen = bauplan(bauliste, ifc_teile(ifc), register, zuordnung, klassen, stories, nur, ohne,
+                                verbund=verbund)
     _schreiben(ordner / "ausgelassen.json", ausgelassen)
     zaehl = {"ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
              "klassen": dict(collections.Counter(p["klasse"] for p in plan)),
              "status": dict(collections.Counter(p["status"] for p in plan)),
-             "dreiecke": sum(len(p["morph"]["body"]["polygons"]) for p in plan)}
+             "dreiecke": sum(len(p["morph"]["body"]["polygons"]) for p in plan),
+             "verbuende": len({p["kopf"] for p in plan if p.get("kopf")}),
+             "unterteile": sum(1 for p in plan if p.get("kopf"))}
     if not ausfuehren:
         return {"trockenlauf": True, "projekt": projekt, "zu_bauen": len(plan), "ausgelassen": len(ausgelassen),
                 **zaehl}
@@ -525,6 +738,12 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
     if len(ids) < 3 or any("propertyId" not in x for x in ids):
         raise Fehler(f"Eigenschaften fehlen im Projekt (Plattform-GUID, KI generiert, Umbau-Status): {ids}")
     pg, ki, ps = (x["propertyId"] for x in ids)
+    try:
+        vid = ac.api("API.GetPropertyIds", {"properties": [
+            {"type": "UserDefined", "localizedName": [STEMPEL_GRUPPE, VERBUND_NAME]}]}).get("properties") or []
+    except Fehler:
+        vid = []
+    pv_id = (vid[0] or {}).get("propertyId") if vid else None
     tag = "KI generiert " + datetime.date.today().isoformat()
     sys_id = {"guid": system_id}
     gebaut: list[dict] = []
@@ -535,7 +754,8 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
         antw = iter(ac.befehl("CreateMorphs", {"morphsData": [p["morph"] for p in neu_]}).get("elements") or []
                     if neu_ else [])
         r = [{"elementId": {"guid": vorhanden[p["g"]]}} if p["g"] in vorhanden else next(antw, {}) for p in ch]
-        _schreiben(ordner / "angelegt.json", gebaut + [{"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"]}
+        _schreiben(ordner / "angelegt.json", gebaut + [{"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"],
+                                                        "kopf": p.get("kopf")}
                                                        for p, e in zip(ch, r) if "elementId" in e])
         ok = [(p, e) for p, e in zip(ch, r) if "elementId" in e]
         fehler += [{"plattformGuid": p["g"], "name": p["name"], "grund": str(e)[:200]}
@@ -554,6 +774,8 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
         for p, e in ok:
             ev += [{"elementId": e["elementId"], "propertyId": pg, "propertyValue": _string(p["g"])},
                    {"elementId": e["elementId"], "propertyId": ki, "propertyValue": _string(tag)},
+                   *([{"elementId": e["elementId"], "propertyId": pv_id, "propertyValue": _string(p["kopf"])}]
+                     if pv_id and p.get("kopf") else []),
                    {"elementId": e["elementId"], "propertyId": ps, "propertyValue": {
                        "type": "singleEnum", "status": "normal",
                        "value": {"type": "nonLocalizedValue", "nonLocalizedValue": p["status"]}}}]
@@ -561,7 +783,8 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
         els = [e for _, e in ok]
         boxen = ac.api("API.Get3DBoundingBoxes", {"elements": els}).get("boundingBoxes3D") or []
         pv = ac.api("API.GetPropertyValuesOfElements", {
-            "elements": els, "properties": [{"propertyId": pg}, {"propertyId": ki}, {"propertyId": ps}]}
+            "elements": els, "properties": [{"propertyId": pg}, {"propertyId": ki}, {"propertyId": ps}]
+                          + ([{"propertyId": pv_id}] if pv_id else [])}
                     ).get("propertyValuesForElements") or []
         cl = ac.api("API.GetClassificationsOfElements", {
             "elements": els, "classificationSystemIds": [{"classificationSystemId": sys_id}]}
@@ -573,21 +796,28 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
             ist = [bx[k] for k in ("xMin", "yMin", "zMin", "xMax", "yMax", "zMax")] if bx else None
             abw = max(abs(a - b) for a, b in zip(ist, p["soll"])) if ist else None
             w = [(x or {}).get("propertyValue", {}).get("value")
-                 for x in ((pv[n] if n < len(pv) else {}).get("propertyValues") or [])] + [None] * 3
+                 for x in ((pv[n] if n < len(pv) else {}).get("propertyValues") or [])] + [None] * 4
             cids = (cl[n] if n < len(cl) else {}).get("classificationIds") or [{}]
             kg = ((cids[0] or {}).get("classificationId") or {}).get("classificationItemId", {}).get("guid")
             d = det[n] if n < len(det) else {}
             stimmt = (abw is not None and abw <= 0.002 and w[0] == p["g"] and w[1] == tag
-                      and (w[2] or {}).get("nonLocalizedValue") == p["status"] and kg == klassen[p["klasse"]])
-            gebaut.append({"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"]})
+                      and (w[2] or {}).get("nonLocalizedValue") == p["status"] and kg == klassen[p["klasse"]]
+                      and (not (pv_id and p.get("kopf")) or w[3] == p["kopf"]))
+            gebaut.append({"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"],
+                           "kopf": p.get("kopf")})
             rueck.append({"plattformGuid": p["g"], "archicadGuid": e["elementId"]["guid"], "name": p["name"],
+                          "kopf": p.get("kopf"),
                           "stimmt": bool(stimmt), "abweichung_m": abw,
                           "geschlossen": ((d.get("details") or {}).get("body") or {}).get("isClosed"),
                           "geschoss": d.get("floorIndex"), "ebene": p["ebene"], "klasse": id2klasse.get(kg),
                           "status": (w[2] or {}).get("nonLocalizedValue")})
         _schreiben(ordner / "gebaut.json", gebaut)
         _schreiben(ordner / "ruecklese.json", {"rueck": rueck, "fehler": fehler})
+    hinweis = ({"hinweis": "Plattform-Verbund fehlt – Kopf nur in gebaut.json"}
+               if not pv_id and any(p.get("kopf") for p in plan) else {})
     return {"trockenlauf": False, "projekt": projekt, "gebaut": len(gebaut),
+            "verbuende": len({x["kopf"] for x in gebaut if x.get("kopf")}),
+            "unterteile": sum(1 for x in gebaut if x.get("kopf")), **hinweis,
             "stimmt": sum(1 for x in rueck if x["stimmt"]), "fehler": fehler[:10],
             "geschlossen": dict(collections.Counter(x["geschlossen"] for x in rueck)),
             "naechster_schritt": "Paare aus gebaut.json in ergebnis.json basis.paare ergänzen, hochladen, "
@@ -711,7 +941,7 @@ def cmd_bauen(o) -> dict:
     aus = bauen(Archicad(_http(o.port)), ordner, o.ifc, _lesen(Path(o.bauliste)), _lesen(Path(o.register)),
                 zuordnung_laden(o.zuordnung or ZUORDNUNG), nur=liste(o.nur) or None, ohne=liste(o.ohne),
                 vorhanden=_lesen(Path(o.vorhanden)) if o.vorhanden else {}, ausfuehren=o.ausfuehren,
-                projekt_soll=soll)
+                projekt_soll=soll, verbund=o.verbund)
     if aus.get("trockenlauf"):
         aus["hinweis"] = "Trockenlauf — nichts geschrieben. Nach dem Ja des Zeichners mit --ausfuehren wiederholen."
     return aus
@@ -831,6 +1061,7 @@ def main(argv=None) -> int:
     neu("stempeln", cmd_stempeln, gebaut={"required": True}, ausfuehren={"action": "store_true"})
     neu("bauen", cmd_bauen, ifc={"required": True}, bauliste={"required": True}, register={"required": True},
         zuordnung={"default": ""}, nur={"default": ""}, ohne={"default": ""}, vorhanden={"default": ""},
+        verbund={"choices": ["einzeln", "zusammen"], "default": "einzeln"},
         ausfuehren={"action": "store_true"})
     neu("hochladen", cmd_hochladen, ablage={"required": True})
     neu("oberflaechen", cmd_oberflaechen)

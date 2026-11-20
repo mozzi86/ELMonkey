@@ -244,6 +244,71 @@ def test_zerlegen_trennt_koerper_die_nur_eine_kante_teilen():
         assert len(Fk) == 12 and len(Pk) == 8
 
 
+def _voxel_netz(zellen):
+    """Oberflaeche aus Einheitszellen (Gitterpunkte teilen sich einen Index), Flaechen nach aussen."""
+    zellen = set(zellen)
+    idx: dict = {}
+    P: list = []
+    F: list = []
+
+    def pt(p):
+        if p not in idx:
+            idx[p] = len(P)
+            P.append(list(p))
+        return idx[p]
+
+    for c in sorted(zellen):
+        for a in range(3):
+            for s in (1, -1):
+                nb = list(c)
+                nb[a] += s
+                if tuple(nb) in zellen:
+                    continue
+                u, v = (a + 1) % 3, (a + 2) % 3
+                ecken = []
+                for du, dv in ((0, 0), (1, 0), (1, 1), (0, 1)):
+                    p = list(c)
+                    p[a] += 1 if s == 1 else 0
+                    p[u] += du
+                    p[v] += dv
+                    ecken.append(pt(tuple(p)))
+                if s == -1:
+                    ecken.reverse()
+                F.append([ecken[0], ecken[1], ecken[2]])
+                F.append([ecken[0], ecken[2], ecken[3]])
+    return P, F
+
+
+def _kanten_zaehler(F):
+    z: dict = {}
+    for f in F:
+        for a in range(3):
+            k = tuple(sorted((f[a], f[(a + 1) % 3])))
+            z[k] = z.get(k, 0) + 1
+    return z
+
+
+def test_zerlegen_loest_mehrfachkante_auf():
+    zellen = [(0, 0, 0), (1, 1, 0), (0, 0, 1), (1, 0, 1), (0, 1, 1), (1, 1, 1)]
+    P, F = _voxel_netz(zellen)
+    assert max(_kanten_zaehler(F).values()) == 4          # Fixture: eine Kante mit 4 Dreiecken
+    koerper = pa.zerlegen(P, F)
+    assert len(koerper) == 1
+    Pk, Fk = koerper[0]
+    assert max(_kanten_zaehler(Fk).values()) <= 2
+    assert len(Fk) == len(F)
+    assert len(Pk) == len(P) + 2
+    assert abs(pa.volumen(Pk, Fk)) == pytest.approx(6.0)
+
+
+def test_mannigfaltig_laesst_wuerfel_unveraendert():
+    P, F = _wuerfel()
+    koerper = pa.zerlegen(P, F)
+    assert len(koerper) == 1 and len(koerper[0][1]) == 12 and len(koerper[0][0]) == 8
+    P2, F2 = pa.mannigfaltig(P, F)
+    assert len(P2) == 8 and [list(f) for f in F2] == [list(f) for f in F]
+
+
 def test_morph_body_dreht_innenliegende_flaechen_um():
     P, F = _wuerfel(innen=True)
     assert pa.volumen(P, F) < 0
@@ -370,3 +435,182 @@ def test_sab_klassen_live_antwortform_kinder_am_item_und_details_schluessel():
     sid, klassen = pa.sab_klassen(ac)
     assert sid == guid(1)
     assert klassen == {"ELEMENTE": guid(10), "Komponente der TGA": guid(11), "Lüftungskanal": guid(12)}
+
+
+def test_ifc_netze_aggregation_ohne_ownerhistory(tmp_path):
+    """Plattform-IFC (live BFW07 19.11.2026): OwnerHistory ist „$“ — dann ist der ERSTE Verweis das Elternteil.
+    Vorher hingen die Kinder am ersten Geschwister, Verbünde (Kopf ohne Körper) blieben leer."""
+    k = ["0" * 21 + c for c in "123"]
+    _mini_ifc(tmp_path / "m.ifc", *k)
+    p = tmp_path / "m.ifc"
+    p.write_text(p.read_text(encoding="latin-1").replace(",#91,$,$,#6,(#7));", ",$,$,$,#6,(#7,#5));"),
+                 encoding="latin-1")
+    netze = pa.ifc_netze(p)
+    assert len(netze[pa.guid_lang(k[1])]) == 2               # Kopf S2: Körper von P1 und S1
+    assert len(netze[pa.guid_lang(k[2])]) == 1               # P1 bekommt keine Geschwister angehängt
+
+
+# ───────────────────────────────────────────── Verbünde: Kopf + Unterteile
+
+def _verbund_ifc(pfad: Path, gk: str, ga: str, gb: str) -> None:
+    pts = "(" + ",".join("(%s.,%s.,%s.)" % e for e in _ECKEN) + ")"
+    fl = "(" + ",".join("(%d,%d,%d)" % tuple(i + 1 for i in f) for f in _WUERFEL) + ")"
+    zeilen = [
+        "ISO-10303-21;", "DATA;",
+        f"#1=IFCCARTESIANPOINTLIST3D({pts});",
+        f"#2=IFCTRIANGULATEDFACESET(#1,$,$,{fl},$);",
+        "#3=IFCSHAPEREPRESENTATION(#90,'Body','Tessellation',(#2));",
+        "#4=IFCPRODUCTDEFINITIONSHAPE($,$,(#3));",
+        f"#5=IFCBUILDINGELEMENTPROXY('{gk}',$,'Kopf',$,$,$,$,$);",
+        f"#6=IFCPIPESEGMENT('{ga}',$,'Kind A',$,$,$,#4,$);",
+        f"#7=IFCCOVERING('{gb}',$,'K\\X2\\00E4\\X0\\lte',$,$,$,#4,$);",
+        f"#8=IFCRELAGGREGATES('{'0' * 21}9',$,$,$,#5,(#6,#7));",
+        "ENDSEC;", "END-ISO-10303-21;"]
+    pfad.write_text("\n".join(zeilen), encoding="latin-1")
+
+
+def _verbund_setup(tmp_path):
+    k = ["0" * 21 + c for c in "ABC"]
+    _verbund_ifc(tmp_path / "v.ifc", *k)
+    gk, ga, gb = (pa.guid_lang(x) for x in k)
+    bauliste = {"bauteile": [_bauteil(gk, "IfcBuildingElementProxy", "Kopf")]}
+    register = {"neu": [{"guid": gk, "status": "Neubau"}]}
+    return gk, ga, gb, bauliste, register
+
+
+def test_ifc_teile_eigene_kinder_info(tmp_path):
+    gk, ga, gb, _, _ = _verbund_setup(tmp_path)
+    eigene, kinder, info = pa.ifc_teile(tmp_path / "v.ifc")
+    assert set(eigene) == {ga, gb} and gk not in eigene
+    assert all(len(v) == 1 for v in eigene.values())
+    assert kinder == {gk: [ga, gb]}
+    assert info[gb]["name"] == "Kälte"
+    assert info[ga]["klasse"] == "IfcPipeSegment" and info[gb]["klasse"] == "IfcCovering"
+    assert len(pa.ifc_netze(tmp_path / "v.ifc")[gk]) == 2
+
+
+def test_bauplan_verbund_einzeln_zusammen_filter(tmp_path):
+    gk, ga, gb, bauliste, register = _verbund_setup(tmp_path)
+    teile = pa.ifc_teile(tmp_path / "v.ifc")
+    z = {"IfcBuildingElementProxy": "Decke", "IfcPipeSegment": "Rohr"}
+    kl = {"Decke": "k1", "Rohr": "k2"}
+    plan, aus = pa.bauplan(bauliste, teile, register, z, kl, STORIES)
+    assert aus == [] and len(plan) == 2
+    assert all(p["kopf"] == gk and p["ebene"] == "E1" and p["status"] == "New" for p in plan)
+    por = {p["g"]: p for p in plan}
+    assert por[ga]["klasse"] == "Rohr" and por[gb]["klasse"] == "Decke"
+    assert por[ga]["name"] == "Kopf / Kind A" and por[gb]["name"] == "Kopf / Kälte"
+    plan_z, _ = pa.bauplan(bauliste, teile, register, z, kl, STORIES, verbund="zusammen")
+    assert len(plan_z) == 1 and plan_z[0]["g"] == gk and plan_z[0]["kopf"] is None
+    assert pa.bauplan(bauliste, teile, register, z, kl, STORIES, ohne=(gk,))[0] == []
+    assert [p["g"] for p in pa.bauplan(bauliste, teile, register, z, kl, STORIES, ohne=(ga,))[0]] == [gb]
+    assert [p["g"] for p in pa.bauplan(bauliste, teile, register, z, kl, STORIES, nur={gb})[0]] == [gb]
+    with pytest.raises(pa.Fehler):
+        pa.bauplan(bauliste, teile, register, z, kl, STORIES, verbund="x")
+
+
+def _bau_fake(gebaut_ids: dict, mit_verbund: bool, katalog_klasse="Decke"):
+    """Gefälschtes Archicad für bauen(): schreibt Eigenschaften in ein Dict und liest sie zurück."""
+    gespeichert: dict = {}
+    reihe = iter(range(1, 100))
+    boxen: list = []
+    PID = {"Plattform-GUID": "p-guid", "KI generiert": "p-ki", "Plattform-Verbund": "p-verbund"}
+
+    def prop_ids(p):
+        aus = []
+        for q in p["properties"]:
+            n = (q.get("localizedName") or [None, q.get("nonLocalizedName")])[1]
+            if n == "Plattform-Verbund" and not mit_verbund:
+                aus.append({"error": {"code": 1, "message": "nicht da"}})
+            else:
+                aus.append({"propertyId": {"guid": PID.get(n, "p-status")}})
+        return {"properties": aus}
+
+    def morphs(p):
+        els = []
+        for m in p["morphsData"]:
+            els.append({"elementId": {"guid": guid(next(reihe))}})
+            boxen.append(None)
+        gebaut_ids["els"] = gebaut_ids.get("els", []) + els
+        return {"elements": els}
+
+    def setzen(p):
+        for x in p["elementPropertyValues"]:
+            gespeichert[(x["elementId"]["guid"], x["propertyId"]["guid"])] = x["propertyValue"]["value"]
+        return {}
+
+    def lesen(p):
+        return {"propertyValuesForElements": [{"propertyValues": [
+            {"propertyValue": {"value": gespeichert.get((e["elementId"]["guid"], q["propertyId"]["guid"]))}}
+            for q in p["properties"]]} for e in p["elements"]]}
+
+    def bbox(p):
+        return {"boundingBoxes3D": [{"boundingBox3D": dict(zip(
+            ("xMin", "yMin", "zMin", "xMax", "yMax", "zMax"), gebaut_ids["box"]))} for _ in p["elements"]]}
+
+    return FakeSenden({
+        "GetProjectInfo": {"projectName": "P"},
+        "GetStories": {"stories": STORIES},
+        "API.GetAllClassificationSystems": {"classificationSystems": [
+            {"classificationSystemId": {"guid": "sys"}, "name": pa.SAB_SYSTEM}]},
+        "API.GetAllClassificationsInSystem": {"classificationItems": [
+            {"classificationItem": {"classificationItemId": {"guid": "k-decke"}, "id": "Decke"}, "children": []}]},
+        "API.GetPropertyIds": prop_ids,
+        "CreateMorphs": morphs,
+        "SetLayerOfElements": {},
+        "API.SetClassificationsOfElements": {},
+        "API.SetPropertyValuesOfElements": setzen,
+        "API.Get3DBoundingBoxes": bbox,
+        "GetPropertyValuesOfElements": lesen,
+        "API.GetPropertyValuesOfElements": lesen,
+        "API.GetClassificationsOfElements": lambda p: {"elementClassifications": [
+            {"classificationIds": [{"classificationId": {"classificationItemId": {"guid": "k-decke"}}}]}
+            for _ in p["elements"]]},
+        "GetDetailsOfElements": lambda p: {"detailsOfElements": [
+            {"floorIndex": 0, "details": {"body": {"isClosed": True}}} for _ in p["elements"]]},
+    }), gespeichert
+
+
+def test_bauen_verbund_trockenlauf(tmp_path):
+    gk, ga, gb, bauliste, register = _verbund_setup(tmp_path)
+    f, _ = _bau_fake({}, True)
+    aus = pa.bauen(pa.Archicad(f), tmp_path, tmp_path / "v.ifc", bauliste, register, {"IfcBuildingElementProxy": "Decke"},
+                   nur=None, ohne=(), vorhanden={}, ausfuehren=False)
+    assert aus["zu_bauen"] == 2 and aus["verbuende"] == 1 and aus["unterteile"] == 2
+    for schreibend in ("CreateMorphs", "SetLayerOfElements", "API.SetPropertyValuesOfElements"):
+        assert schreibend not in f.namen()
+
+
+def test_bauen_verbund_ausfuehren_stempelt_kopf(tmp_path):
+    gk, ga, gb, bauliste, register = _verbund_setup(tmp_path)
+    info = {"box": [0, 0, 0, 1, 1, 1]}
+    f, gespeichert = _bau_fake(info, True)
+    aus = pa.bauen(pa.Archicad(f), tmp_path, tmp_path / "v.ifc", bauliste, register, {"IfcBuildingElementProxy": "Decke"},
+                   nur=None, ohne=(), vorhanden={}, ausfuehren=True)
+    assert aus["gebaut"] == 2 and aus["stimmt"] == 2 and aus["verbuende"] == 1 and aus["unterteile"] == 2
+    assert "hinweis" not in aus
+    ev = f.params("API.SetPropertyValuesOfElements")[0]["elementPropertyValues"]
+    guids = {x["propertyValue"]["value"] for x in ev if x["propertyId"]["guid"] == "p-guid"}
+    koepfe = [x["propertyValue"]["value"] for x in ev if x["propertyId"]["guid"] == "p-verbund"]
+    assert guids == {ga, gb} and koepfe == [gk, gk]
+    for datei in ("gebaut.json", "angelegt.json"):
+        assert all(x["kopf"] == gk for x in json.loads((tmp_path / datei).read_text()))
+    assert all(x["kopf"] == gk for x in json.loads((tmp_path / "ruecklese.json").read_text())["rueck"])
+
+
+def test_bauen_ohne_verbund_eigenschaft_nur_hinweis(tmp_path):
+    gk, ga, gb, bauliste, register = _verbund_setup(tmp_path)
+    f, gespeichert = _bau_fake({"box": [0, 0, 0, 1, 1, 1]}, False)
+    aus = pa.bauen(pa.Archicad(f), tmp_path, tmp_path / "v.ifc", bauliste, register, {"IfcBuildingElementProxy": "Decke"},
+                   nur=None, ohne=(), vorhanden={}, ausfuehren=True)
+    assert aus["stimmt"] == 2 and "Plattform-Verbund fehlt – Kopf nur in gebaut.json" in aus["hinweis"]
+    assert all(k[1] != "p-verbund" for k in gespeichert)
+    assert all(x["kopf"] == gk for x in json.loads((tmp_path / "gebaut.json").read_text()))
+
+
+def test_cli_verbund_vorgabe_einzeln(monkeypatch, tmp_path, capsys):
+    gesehen = []
+    monkeypatch.setattr(pa, "cmd_bauen", lambda o: gesehen.append(o.verbund) or {})
+    base = ["bauen", "--ordner", str(tmp_path), "--ifc", "a", "--bauliste", "b", "--register", "c"]
+    assert pa.main(base) == 0 and pa.main(base + ["--verbund", "zusammen"]) == 0
+    assert gesehen == ["einzeln", "zusammen"]
