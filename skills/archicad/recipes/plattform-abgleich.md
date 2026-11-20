@@ -140,3 +140,8 @@ Format (`sab-archicad-abgleich/1`) plus `diff` (neu / weg / Eigenschaften / Geom
    `plattform_geaendert` aus der Antwort dem Zeichner zeigen.
 
 Details, Fallen und die ehrliche Einschätzung der Geometrie: [`reference/diff-plattform.md`](../reference/diff-plattform.md).
+
+## Klassifizierungssystem und fehlende Eigenschaften <!-- 2026-11-20 -->
+
+- `bauen` findet das System automatisch (`SAB_Klassifizierung_29` oder `Graphisoft Klassifizierung`); `--system NAME` erzwingt eines. Der gefundene Name steht im Ergebnis unter `klassifizierung`.
+- Fehlende Eigenschaften lassen sich per `TapirCommand.CreatePropertyDefinitions` anlegen, nur mit `isEditable: true` und `defaultValue {basicDefaultValue {type: string, status: userUndefined}}` (sonst „failed to create the property“); Verfügbarkeit = alle Klassen-Items. Nur nach Ja des Zeichners.

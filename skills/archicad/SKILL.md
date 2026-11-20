@@ -63,7 +63,7 @@ Standard (User-Vorgabe vom 2026-07-17): **Jedes Element, das Claude erstellt, be
 
 - Property-GUID **pro Projekt** frisch ermitteln (GUIDs sind projektspezifisch): `API.GetAllPropertyIds` (UserDefined) + `API.GetDetailsOfProperties`, Name `KI generiert`, Gruppe `Allgemeine Werte`.
 - Setzen bevorzugt per HTTP-Bypass `API.SetPropertyValuesOfElements` (flaches Schema, `propertyValue {type:"string", status:"normal", value:"KI generiert <Datum>"}`), danach **Rücklese-Verifikation**.
-- Fehlt die Property im Projekt: User kurz informieren und bitten, sie im Eigenschaften-Manager anzulegen (Zeichenfolge, Gruppe „Allgemeine Werte", verfügbar für alle Klassifizierungen). Nicht still weglassen, nicht selbst per API anlegen (Property-Create in AC29 fragil: defaultValue-Pflicht, eigene Gruppe nötig, Availability-Kopplung).
+- Fehlt die Property im Projekt oder passt sie nicht (Typ, Gruppe, Verfügbarkeit, Name): Claude legt sie selbst an bzw. passt sie an <!-- 2026-11-20 -->, Weisung Mudi. Per `TapirCommand.CreatePropertyDefinitions` / `UpdatePropertyDefinitions`; Rezept: `isEditable: true`, `defaultValue {basicDefaultValue {type: string, status: userUndefined}}` (sonst „failed to create the property“), Verfügbarkeit = alle Klassen-Items. Danach Rücklese (`GetPropertyIds` + `GetDetailsOfProperties`) und dem Nutzer in einem Satz sagen, was angelegt/geändert wurde. Löschen von Eigenschaften bleibt Confirm-pflichtig (SAFE-01). Nicht still weglassen.
 
 ## API zuerst, UI nur wenn es sein muss <!-- 2026-07-30 -->
 
