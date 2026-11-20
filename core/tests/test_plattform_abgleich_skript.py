@@ -964,11 +964,13 @@ def test_netze_altes_addon_rueckfall_getifctypeofelements(tmp_path, monkeypatch)
     fake.antworten["GetDiffDataELM"] = Roh({"succeeded": False, "error": {"code": 4010, "message": "unbekannt"}})
     fake.antworten["GetIFCTypeOfElements"] = lambda p: {"elementIFCTypes": [{"ifcType": "IfcWall"} for _ in p["elements"]]}
     fake.antworten["Get3DGeometryOfElements"] = lambda p: {"geometries3D": [{"bodies": []} for _ in p["elements"]]}
+    fake.antworten["GetSubelementsOfHierarchicalElements"] = lambda p: {"subelements": [{} for _ in p["elements"]]}
     monkeypatch.setattr(pa, "_http", lambda port: fake)
     aus = pa.cmd_netze(types.SimpleNamespace(ordner=str(tmp_path), port=1, paket=50))
     assert "GetIFCTypeOfElements" in aus["hinweise"][0]
     assert aus["ohne_koerper"] == {"Wall": 3} and "⌥⌘F5" in aus["hinweise"][-1] and "3 Wall" in aus["hinweise"][-1]
     assert not any(n.startswith(("Set", "Reserve", "Create", "Delete")) for n in fake.namen())
+    assert fake.namen().count("GetSubelementsOfHierarchicalElements") == 1
 
 
 def test_netze_anderes_projekt_liest_nichts(tmp_path, monkeypatch):

@@ -1163,6 +1163,7 @@ def cmd_netze(o) -> dict:
         datei = nz.erzeugen(erg, archicad, nz.tapir_holen(ac.befehl),
                             ac.befehl("GetProjectInfo").get("projectName"), paket=o.paket,
                             diff_daten=nz.elm_diff_daten(ac.elm), ifc_typen=nz.tapir_ifc_typen(ac.befehl),
+                            unterelemente=nz.tapir_unterelemente(ac.befehl),
                             hinweise=hinweise)
     except nz.NetzFehler as e:
         raise Fehler(str(e)) from e

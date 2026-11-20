@@ -404,3 +404,60 @@ def test_ohne_koerper_je_typ_und_ui_hinweis():
     bt, fe = nz.netze_lesen(lambda guids: [{"bodies": []} for _ in guids], gew, meta)
     assert "Alles in 3D zeigen (⌥⌘F5)" in fe[0]["grund"] and "3D-Schnittebenen aus" in fe[0]["grund"]
     assert nz.netze_datei("P", "l", bt, fe)["zahlen"]["ohne_koerper"] == {"Door": 2, "Wall": 1}
+
+
+# ─────────────────────────────────────────────────────────── Körper über Segmente (live BFW 20.11.2026)
+
+def test_stuetze_ohne_bodies_bekommt_koerper_der_segmente():
+    stuetze, traeger, wand = G_NEU, G_NEU2, G_AC
+    seg = {"S1": _koerper(), "T1": _koerper(2.0), "T2": _koerper(4.0)}
+    aufrufe = []
+
+    def holen(guids):
+        aufrufe.append(list(guids))
+        return [{"bodies": [seg[g]]} if g in seg else ({"bodies": [_koerper()]} if g == wand else {"bodies": []})
+                for g in guids]
+
+    def unterelemente(guids):
+        aufrufe.append(("unter", list(guids)))
+        return [{"columnSegments": [{"elementId": {"guid": "S1"}}]} if g == stuetze else
+                {"beamSegments": [{"elementId": {"guid": "T1"}}, {"elementId": {"guid": "T2"}}], "andere": []}
+                for g in guids]
+
+    gew = [{"archicadGuid": g, "art": "neu", "plattformGuid": None} for g in (stuetze, traeger, wand)]
+    meta = {stuetze: {"typ": "Column", "name": "St-1"}, traeger: {"typ": "Beam"}, wand: {"typ": "Wall"}}
+    bt, fe = nz.netze_lesen(holen, gew, meta, unterelemente=unterelemente)
+    assert fe == []
+    assert aufrufe == [[stuetze, traeger, wand], ("unter", [stuetze, traeger]), ["S1", "T1", "T2"]]
+    st, tr, wa = bt
+    assert st["archicadGuid"] == stuetze and st["typ"] == "Column" and st["name"] == "St-1" and len(st["koerper"]) == 1
+    assert tr["archicadGuid"] == traeger and len(tr["koerper"]) == 2 and tr["box"] == [2, 0, 0, 5, 1, 0]
+
+
+def test_unterelemente_auch_leer_oder_fehler_dann_fehler_ohne_koerper():
+    gew = [{"archicadGuid": g, "art": "neu", "plattformGuid": None} for g in (G_NEU, G_NEU2, G_AC)]
+    meta = {G_NEU: {"typ": "Column"}, G_NEU2: {"typ": "Beam"}, G_AC: {"typ": "Window"}}
+
+    def holen(guids):
+        return [{"error": {"code": 1, "message": "weg"}} if g == "S-FEHLER" else
+                ({"error": {"code": 4012, "message": "x"}} if g == G_AC else {"bodies": []}) for g in guids]
+
+    def unterelemente(guids):
+        assert G_AC not in guids                                   # Fehler am Element → keine Unterelemente
+        return [{"columnSegments": [{"elementId": {"guid": "S-LEER"}}]}, {"beamSegments": [{"elementId": {"guid": "S-FEHLER"}}]}]
+
+    bt, fe = nz.netze_lesen(holen, gew, meta, unterelemente=unterelemente)
+    assert bt == []
+    assert [(f["archicadGuid"], f["grund"][:14]) for f in fe] == [(G_NEU, "kein 3D-Körper"), (G_NEU2, "kein 3D-Körper"),
+                                                                  (G_AC, "4012 x")]
+    assert "ausgeblendeten Ebenen" in fe[0]["grund"] and "⌥⌘F5" in fe[0]["grund"]
+
+
+def test_unterelemente_befehl_scheitert_nur_hinweis():
+    gew = [{"archicadGuid": G_NEU, "art": "neu", "plattformGuid": None}]
+
+    def unterelemente(guids):
+        raise RuntimeError("4010 unbekannt")
+
+    bt, fe = nz.netze_lesen(lambda g: [{"bodies": []}], gew, {G_NEU: {"typ": "Column"}}, unterelemente=unterelemente)
+    assert fe[0]["nur_hinweis"] and "4010" in fe[0]["grund"] and fe[1]["grund"].startswith("kein 3D-Körper")

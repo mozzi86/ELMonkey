@@ -29,8 +29,9 @@ FORMAT = "sab-archicad-netze/1"
 DATEI = "archicad_netze.json.gz"
 MAX_DREIECKE = 20000                       # Plattform-Grenze NETZ_MAX_DREIECKE je Netz
 PAKET = 50                                 # GUIDs je Get3DGeometryOfElements
-OHNE_KOERPER = ("kein 3D-Körper — in Archicad: Ansicht → Elemente in 3D-Ansicht → Alles in 3D zeigen (⌥⌘F5), "
-               "3D-Schnittebenen aus; Ebene eingeblendet? Umbau-Filter?")
+OHNE_KOERPER = ("kein 3D-Körper (auch nicht über Unterelemente/Segmente) — Bauteile auf ausgeblendeten Ebenen liefern "
+               "keinen Körper: Ebene einblenden. Sonst in Archicad: Ansicht → Elemente in 3D-Ansicht → Alles in 3D "
+               "zeigen (⌥⌘F5), 3D-Schnittebenen aus; Umbau-Filter?")
 FLAECHE_MIN = 1e-12                        # m² (doppelte Dreiecksfläche) — darunter entartet
 NACH_PLATTFORM = ("archicad→plattform", "archicad->plattform")
 
@@ -393,14 +394,57 @@ def bauteil(wahl: dict, meta: Optional[dict], geometrie: dict, max_dreiecke: int
             "box": box(koerper), "koerper": koerper}
 
 
+def _leer_ohne_fehler(g: Any) -> bool:
+    return isinstance(g, dict) and "error" not in g and not (g.get("bodies") or [])
+
+
+def unterkoerper(holen: Callable[[list[str]], list[dict]], unterelemente: Callable[[list[str]], list[dict]],
+                 guids: list[str], paket: int = PAKET) -> dict[str, list[dict]]:
+    """Körper über Unterelemente: ab AC23 hängen die Körper von Stützen/Trägern an den Segmenten (live BFW
+    20.11.2026: Get3DGeometryOfElements am Hauptbauteil immer leer). ``unterelemente(guids)`` = ``subelements`` von
+    ``TapirCommand.GetSubelementsOfHierarchicalElements`` (gleiche Reihenfolge); jede Liste darin zählt (generisch:
+    columnSegments, beamSegments, …). Deren Körper paketweise lesen → {Haupt-GUID: [Body3D]}; Fehler am Unterelement
+    werden übergangen."""
+    zu: list[tuple[str, str]] = []                            # (Haupt, Unter)
+    for g, sub in zip(guids, unterelemente(guids) or []):
+        for liste in (sub or {}).values() if isinstance(sub, dict) else []:
+            for x in liste if isinstance(liste, list) else []:
+                ug = ((x or {}).get("elementId") or {}).get("guid") if isinstance(x, dict) else None
+                if ug:
+                    zu.append((g, str(ug)))
+    aus: dict[str, list[dict]] = {}
+    for s in range(0, len(zu), max(1, paket)):
+        teil = zu[s:s + paket]
+        antw = holen([u for _, u in teil]) or []
+        for (g, _), geo in zip(teil, antw):
+            if isinstance(geo, dict) and "error" not in geo:
+                aus.setdefault(g, []).extend(geo.get("bodies") or [])
+    return aus
+
+
 def netze_lesen(holen: Callable[[list[str]], list[dict]], gewaehlt: list[dict], meta: dict[str, dict],
-                paket: int = PAKET, max_dreiecke: int = MAX_DREIECKE) -> tuple[list[dict], list[dict]]:
+                paket: int = PAKET, max_dreiecke: int = MAX_DREIECKE,
+                unterelemente: Optional[Callable[[list[str]], list[dict]]] = None) -> tuple[list[dict], list[dict]]:
     """``holen(guids)`` → ``geometries3D`` (gleiche Reihenfolge). Paketweise; ein Fehler am Element landet in
-    ``fehler``, ein Fehler des ganzen Pakets bricht ab (der Aufrufer meldet ihn)."""
+    ``fehler``, ein Fehler des ganzen Pakets bricht ab (der Aufrufer meldet ihn). Leere ``bodies`` (kein Fehler) →
+    Körper der Unterelemente (:func:`unterkoerper`), GUID und Metadaten bleiben die des Hauptbauteils."""
     bauteile, fehler = [], []
     for s in range(0, len(gewaehlt), max(1, paket)):
         teil = gewaehlt[s:s + paket]
-        antw = holen([w["archicadGuid"] for w in teil]) or []
+        antw = list(holen([w["archicadGuid"] for w in teil]) or [])
+        leer = [w["archicadGuid"] for i, w in enumerate(teil) if i < len(antw) and _leer_ohne_fehler(antw[i])]
+        if leer and unterelemente is not None:
+            try:
+                unter = unterkoerper(holen, unterelemente, leer, paket)
+            except Exception as e:                            # noqa: BLE001 — dann eben ohne Unterelemente
+                unter = {}
+                for w in teil:
+                    if w["archicadGuid"] in leer:
+                        fehler.append({"archicadGuid": w["archicadGuid"], "art": w["art"], "nur_hinweis": True,
+                                       "grund": f"Unterelemente nicht lesbar ({str(e)[:120]})"})
+            for i, w in enumerate(teil):
+                if unter.get(w["archicadGuid"]):
+                    antw[i] = {"bodies": unter[w["archicadGuid"]]}
         for i, w in enumerate(teil):
             try:
                 bauteile.append(bauteil(w, meta.get(w["archicadGuid"]), antw[i] if i < len(antw) else None,
@@ -510,6 +554,7 @@ def erzeugen(ergebnis: dict, archicad: dict, holen: Callable[[list[str]], list[d
              paket: int = PAKET, erzeugt: Optional[str] = None, *,
              diff_daten: Optional[Callable[[list[str]], dict]] = None,
              ifc_typen: Optional[Callable[[list[str]], list[dict]]] = None,
+             unterelemente: Optional[Callable[[list[str]], list[dict]]] = None,
              hinweise: Optional[list[str]] = None) -> dict:
     """Der ganze Schritt für Skript und MCP: Projekt prüfen (sonst nichts lesen), auswählen, fehlende IFC-Klassen
     nachlesen (:func:`ifc_ergaenzen`), Körper lesen, Datei-Dict. ``archicad`` = archicad.json (``archicad-lesen``:
@@ -521,7 +566,8 @@ def erzeugen(ergebnis: dict, archicad: dict, holen: Callable[[list[str]], list[d
         h = ifc_ergaenzen(meta, [w["archicadGuid"] for w in gewaehlt], diff_daten=diff_daten, ifc_typen=ifc_typen)
         if hinweise is not None:
             hinweise += h
-    bauteile, fehler = netze_lesen(holen, gewaehlt, meta, paket) if gewaehlt else ([], [])
+    bauteile, fehler = (netze_lesen(holen, gewaehlt, meta, paket, unterelemente=unterelemente) if gewaehlt
+                        else ([], []))
     return netze_datei(archicad.get("projekt"), ergebnis.get("lauf"), bauteile, fehler, erzeugt)
 
 
@@ -531,6 +577,15 @@ def elm_diff_daten(elm: Callable[[str, dict], dict]) -> Callable[[list[str]], di
         return elm("GetDiffDataELM", {"elements": [{"elementId": {"guid": g}} for g in guids],
                                       "includeIfcProperties": False, "includeSurfaces": False})
     return diff_daten
+
+
+def tapir_unterelemente(befehl: Callable[[str, dict], dict]) -> Callable[[list[str]], list[dict]]:
+    """``befehl(name, params)`` → TapirCommand-Antwort; daraus ``unterelemente(guids)``
+    (GetSubelementsOfHierarchicalElements → ``subelements``, je Eintrag Listen wie columnSegments/beamSegments)."""
+    def unterelemente(guids: list[str]) -> list[dict]:
+        r = befehl("GetSubelementsOfHierarchicalElements", {"elements": [{"elementId": {"guid": g}} for g in guids]})
+        return r.get("subelements") or []
+    return unterelemente
 
 
 def tapir_ifc_typen(befehl: Callable[[str, dict], dict]) -> Callable[[list[str]], list[dict]]:

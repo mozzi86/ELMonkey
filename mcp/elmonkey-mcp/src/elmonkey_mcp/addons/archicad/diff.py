@@ -130,7 +130,8 @@ def diff_lauf(port: int, stand: str, *, basis: Optional[str] = None, plattform_g
                                 rufen(port, "TapirCommand", "GetProjectInfo", {}).get("projectName"), paket=netze_paket,
                                 diff_daten=nz.elm_diff_daten(lambda name, p: rufen(port, "ELM_SAB", name, p,
                                                                                    timeout=1800)),
-                                ifc_typen=nz.tapir_ifc_typen(tapir), hinweise=hinweise)
+                                ifc_typen=nz.tapir_ifc_typen(tapir), unterelemente=nz.tapir_unterelemente(tapir),
+                                hinweise=hinweise)
         except nz.NetzFehler as e:
             raise ValueError(str(e)) from e
         (o / nz.DATEI).write_bytes(nz.gz_bytes(datei))
