@@ -98,8 +98,19 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
    `Category_RenovationStatus` (`API.GetPropertyIds` + `API.GetPropertyValuesOfElements`, `nonLocalizedValue`). Braucht ein `ergebnis.json` aus dem Diff-Checker (unten) — der Skript-Ablauf ohne Diff kennt
    keine Geometrie und liefert nur `neu`.
    **Braucht die Plattform-Seite:** `netze_ablage` aus `archicad_abgleich_lesen` und ein `archicad_abgleich_melden`,
-   das die Datei liest — PR in SchwarzPlatform steht aus. Ohne `netze_ablage` die Datei liegen lassen und es dem
-   Zeichner sagen; nicht auf IFC ausweichen.
+   das die Datei liest (SchwarzPlatform #433, live seit 20.11.2026). Ohne `netze_ablage` die Datei liegen lassen und
+   es dem Zeichner sagen; nicht auf IFC ausweichen.
+   **Mehr als 1 Mio. Dreiecke oder viele gleiche Objekte (Möbel)** <!-- 2026-11-24 -->: `plattform_abgleich.py formen
+   --ordner $O` (ohne Archicad) zerlegt `archicad_netze.json.gz` in `netze_teile/archicad_netze_teil_NN.json.gz` zu je
+   höchstens 1 Mio. Dreiecken (Plattform-Grenze je Vorschlag) und schreibt gleiche Körper je Teil nur einmal (Format
+   `sab-archicad-netze/2`: `formen` + je Bauteil `form`/`platzierung`, Kern `elmonkey.formen`). Geschrieben wird nur
+   nach bestandener Gegenprobe (Zurückrollen ≤ 0,5 mm, gleiche Dreiecke). Dann **je Teil der Reihe nach**:
+   `hochladen … --netze-ablage "<netze_ablage>" --netze-teil <nr>` → `archicad_abgleich_melden` (Vorschau, Ja,
+   `bestaetigt=true`) → nächster Teil. Je Teil entsteht ein Vorschlag; Eigenschaften und Aus-/Einblenden gehen mit
+   Teil 1. Die Plattform muss `/2` und `teil` kennen (SchwarzPlatform-PR „Form einmal + Platzierung“) — vorher lehnt
+   sie die Datei mit „Format … erwartet sab-archicad-netze/1“ ab; dann die Teile liegen lassen und es sagen.
+   Gemessen BFW07 24.11.2026: 4 728 Bauteile, 7,47 Mio. Dreiecke → 8 Teile, 26,9 statt 53,2 MB, 309 Formen
+   (445 Stühle = eine Form), Gegenprobe 0,34 mm. Gespiegelte Exemplare sind eigene Formen.
 9. **Plattform: Ergebnis melden** — `plattform_abgleich.py hochladen --ordner $O --ablage "<ergebnis_ablage>"
    [--netze-ablage "<netze_ablage>"]` (lädt `ergebnis.json` und, falls da, `archicad_netze.json.gz`), dann Konnektor
    `archicad_abgleich_melden {projekt, lauf, gebaut}` (Vorschau) → nach dem Ja `bestaetigt=true`. Es entsteht EIN
