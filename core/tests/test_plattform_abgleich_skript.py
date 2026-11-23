@@ -472,7 +472,7 @@ def test_bauen_trockenlauf_sendet_nichts_schreibendes(tmp_path):
 
 
 def test_sab_klassen_live_antwortform_kinder_am_item_und_details_schluessel():
-    """Antwortform live BFW07 19.11.2026 (AC29, Tapir 1.7.2): Kinder hängen am classificationItem, die Ids kommen
+    """Antwortform live Projekt-E 19.11.2026 (AC29, Tapir 1.7.2): Kinder hängen am classificationItem, die Ids kommen
     erst über GetDetailsOfClassificationItems unter dem Schlüssel „classificationItems“."""
     baum = {"classificationItems": [{"classificationItem": {
         "classificationItemId": {"guid": guid(10)},
@@ -495,7 +495,7 @@ def test_sab_klassen_live_antwortform_kinder_am_item_und_details_schluessel():
 
 
 def test_ifc_netze_aggregation_ohne_ownerhistory(tmp_path):
-    """Plattform-IFC (live BFW07 19.11.2026): OwnerHistory ist „$“ — dann ist der ERSTE Verweis das Elternteil.
+    """Plattform-IFC (live Projekt-E 19.11.2026): OwnerHistory ist „$“ — dann ist der ERSTE Verweis das Elternteil.
     Vorher hingen die Kinder am ersten Geschwister, Verbünde (Kopf ohne Körper) blieben leer."""
     k = ["0" * 21 + c for c in "123"]
     _mini_ifc(tmp_path / "m.ifc", *k)
@@ -1055,12 +1055,12 @@ def test_netze_teamwork_fremd_reserviert_blendet_nicht_ein(tmp_path, monkeypatch
     _netz_ordner(tmp_path)
     fake = _ohne_koerper_ac(**{"10_Wand": True})
     fake.antworten["GetProjectInfo"] = {"projectName": "Haus", "isTeamwork": True}
-    fake.antworten["GetLockableObjectSetStatus"] = {"status": "Locked", "conflicts": [{"userId": 3, "userName": "Dani"}]}
+    fake.antworten["GetLockableObjectSetStatus"] = {"status": "Locked", "conflicts": [{"userId": 3, "userName": "Nutzer B"}]}
     monkeypatch.setattr(pa, "_http", lambda port: fake)
     aus = pa.cmd_netze(_o(tmp_path))
     assert "SetLayerAttributes" not in fake.namen() and aus["ebenen_eingeblendet"] == []
     assert fake.params("GetLockableObjectSetStatus") == [{"objectSetName": "LayerSettingsDialog"}]
-    assert any("NICHT eingeblendet" in h and "Dani" in h for h in aus["hinweise"])
+    assert any("NICHT eingeblendet" in h and "Nutzer B" in h for h in aus["hinweise"])
     assert aus["ohne_koerper"] == {"Wall": 3}
 
 

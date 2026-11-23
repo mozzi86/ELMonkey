@@ -1,6 +1,6 @@
 # Fassaden / Pfosten-Riegel-Konstruktionen — CurtainWall + Sub-Elemente
 
-> **Status (2026-07-25):** Im THN-Projekt stehen 82 CurtainWalls — der frühere Marker „0 CW, alles unverifizierbar" ist überholt. Erstellen, Rastern und Giebelschnitt sind live verifiziert (siehe [Worked Example — CurtainWall erstellen](#worked-example--curtainwall-erstellen-elm_sab)); die Sub-Element-Update-Pfade tragen weiterhin VERIFY-Marker.
+> **Status (2026-07-25):** Im Projekt-A-Projekt stehen 82 CurtainWalls — der frühere Marker „0 CW, alles unverifizierbar" ist überholt. Erstellen, Rastern und Giebelschnitt sind live verifiziert (siehe [Worked Example — CurtainWall erstellen](#worked-example--curtainwall-erstellen-elm_sab)); die Sub-Element-Update-Pfade tragen weiterhin VERIFY-Marker.
 
 Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-Element enthält eine Hierarchie von bis zu 5 Sub-Element-Typen (Segmente, Pfosten, Paneele, Knoten, Zubehör). **Tapir/MCP kann CurtainWalls nicht erstellen** — das hauseigene `ELM_SAB.CreateCurtainWallFromAxes` kann es (seit 2026-07-21, Giebel/Trapez seit 0.9.7 / 2026-07-25). Sub-Elemente entstehen automatisch mit dem Top-Level und werden über die Hierarchie navigiert, nicht eigenständig erstellt. Vollständige Capability-Tabelle: [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Live-verifizierte Element-Create-Capabilities.
 
@@ -45,12 +45,12 @@ Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-El
 
 ## Spaltenraster nachträglich ändern (ELM_SAB.SetCurtainWallSegmentELM) <!-- 2026-11-17 -->
 
-Live THN 2026-11-17: 206 von 255 Fassaden auf 1,20 m Feldbreite gestellt.
+Live Projekt-A 2026-11-17: 206 von 255 Fassaden auf 1,20 m Feldbreite gestellt.
 
 - `ELM_SAB.SetCurtainWallSegmentELM {elementId:{guid}, columnWidths:[…]}` ändert das Spaltenraster einer **bestehenden, einsegmentigen** Fassade; Höhe, Lage und Riegel bleiben. Der Befehl fehlt in 0.11.12 und 0.11.12.2 (Fehler 4010), er steckt nur im lokalen Stand 0.11.12.1.
 - Ein einzelner Wert `[1.2]` wiederholt sich über die Länge; Archicad legt den Rest ans Ende oder verteilt ihn auf beide Enden.
 - Volle Feldliste: Das Raster beginnt am **Segmentanfang**, nicht an der ersten Feldkante. Nach dem Setzen deshalb die Pfostenachsen in Weltlage gegen einen festen Bezugspunkt messen und erstes und letztes Feld um den gemessenen Rest gegengleich nachregeln; zwei Runden reichen (live 3/3 Musterfassaden auf 0 mm).
-- **Ursprungspunkt des Rasters** <!-- 2026-11-17 -->: Das Spaltenraster läuft ab dem **Ursprungspunkt** des Segments (`API_CWSegmentType.gridOrigin`, 3D-Punkt), nicht ab dem Segmentanfang. Bei bestehenden Fassaden liegt dieser Punkt irgendwo im Segment (THN-Beispiel 27BB6F2C: 0,986 m hinter dem Anfang); das Muster wird von dort aus gelegt und nach vorn umgebrochen, an diesem Punkt steht immer ein Pfosten. `gridOriginType` (0.11.14 `columnOrigin`) stand dort schon auf `start` und ändert daran nichts. Ungleiche Feldfolgen (z. B. 0,85 | 1,2 | 1,2 | 0,9 | 1,2 | 1,2 | 0,87) gehen nur, wenn der Ursprungspunkt auf den Segmentanfang gesetzt wird. Rückbau auf `[1.2]` stellt den alten Zustand exakt wieder her (Pfosten 0,986 / 2,186 / …). Messen immer gegen einen festen Weltbezug, nicht gegen die Bbox des geänderten Zustands (die verschiebt sich mit den Randfeldern).
+- **Ursprungspunkt des Rasters** <!-- 2026-11-17 -->: Das Spaltenraster läuft ab dem **Ursprungspunkt** des Segments (`API_CWSegmentType.gridOrigin`, 3D-Punkt), nicht ab dem Segmentanfang. Bei bestehenden Fassaden liegt dieser Punkt irgendwo im Segment (Projekt-A-Beispiel 27BB6F2C: 0,986 m hinter dem Anfang); das Muster wird von dort aus gelegt und nach vorn umgebrochen, an diesem Punkt steht immer ein Pfosten. `gridOriginType` (0.11.14 `columnOrigin`) stand dort schon auf `start` und ändert daran nichts. Ungleiche Feldfolgen (z. B. 0,85 | 1,2 | 1,2 | 0,9 | 1,2 | 1,2 | 0,87) gehen nur, wenn der Ursprungspunkt auf den Segmentanfang gesetzt wird. Rückbau auf `[1.2]` stellt den alten Zustand exakt wieder her (Pfosten 0,986 / 2,186 / …). Messen immer gegen einen festen Weltbezug, nicht gegen die Bbox des geänderten Zustands (die verschiebt sich mit den Randfeldern).
 - `GetCurtainWallPlaneELM` liefert die Segmentkoordinaten **ohne** die planeMatrix-Verschiebung; nach `MoveElements` ist das nicht mehr die Weltlage. Lage immer aus `floorPlanPolygons` (Tapir `GetDetailsOfElements`) nehmen.
 - Glasebene im Grundriss = Querlage der langen Feld-Polygone. Der Schwerpunkt aller Polygone taugt nicht: Die Pfostenprofile verschieben ihn um etwa 5 cm, und er ändert sich mit dem Raster.
 - Fassade quer schieben: `TapirCommand.MoveElements` (`elementsWithMoveVectors`), in 6er-Paketen mit Senden je Paket; Archicad antwortet nach vielen Fassadenänderungen minutenlang nicht.
@@ -176,7 +176,7 @@ Beide nur in spezialisierten CurtainWall-Konfigurationen vorhanden. Settings-Fel
 
 ## Worked Example — CurtainWall erstellen (ELM_SAB)
 
-<!-- 2026-07-25 live verifiziert AC29, Add-On 0.9.7, THN Fassade-013 -->
+<!-- 2026-07-25 live verifiziert AC29, Add-On 0.9.7, Projekt-A Fassade-013 -->
 
 `ELM_SAB.CreateCurtainWallFromAxes` (Namespace **`ELM_SAB`**, nicht `TapirCommand`).
 Frames und Panels kommen aus den **CW-Werkzeug-Defaults** — passenden Favoriten
@@ -400,7 +400,7 @@ Bei Fassaden mit Ecken, T-Stößen oder Accessories erscheinen zusätzlich:
 
 ## Worked Example — Profillängen (lfm) bulk lesen für die Ausschreibung
 
-<!-- 2026-07-27 live verifiziert AC29, Futurelab, 3.563 Frames zu 100 % zugeordnet -->
+<!-- 2026-07-27 live verifiziert AC29, Projekt-C, 3.563 Frames zu 100 % zugeordnet -->
 
 Auswertungs-Exporte (XLSX) enthalten für CW-Profile oft nur Breite + Volumen — die
 ausschreibungsrelevanten **laufenden Meter fehlen**. Sie stehen als Built-in-Property
@@ -925,7 +925,7 @@ Bekannte Dialog-Auslöser bei CurtainWall-Arbeit: Attribute-Manager, Profil-Edit
 
 ---
 
-## Liegende Fassaden (Bodenfliesen, Abhangdecken) <!-- 2026-11-16, live Futurelab 09.–10.11. -->
+## Liegende Fassaden (Bodenfliesen, Abhangdecken) <!-- 2026-11-16, live Projekt-C 09.–10.11. -->
 
 Anlass: Bodenfliesen im Raster 0,605 × 0,305 als liegende Fassade wie ein von Hand gezeichnetes
 Muster. Ergebnis der Live-Proben (alle bei x = −100 angelegt und wieder gelöscht):

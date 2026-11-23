@@ -2,7 +2,7 @@
 
 > **Drei Monkeys, funktionsgleich:** Archicad-Monkey (Add-On), Python-Monkey (Kern + MCP) und Plattform-Monkey (Schwarz Plattform) arbeiten gleich und werden immer angeglichen — eine Änderung an einem kommt im selben Zug in die beiden anderen. Siehe [README im Wurzelordner](../../README.md#drei-monkeys--funktionsgleich-immer-angeglichen).
 
-Das hauseigene Archicad-Add-On von Schwarz Architekturbüro Nürnberg. Es enthält
+Das hauseigene Archicad-Add-On von dem Büro. Es enthält
 **Tapir 1.7.2 vollständig** (seit ELMonkey 0.10.0; vorher 1.5.4) plus die SAB-eigenen Befehle in einem einzigen Bundle —
 beide Befehls-Namensräume, `TapirCommand` und `ELM_SAB`, sind gleichzeitig verfügbar.
 
@@ -118,7 +118,7 @@ Ab 0.9.24 kommen Aufruffehler (fehlender oder ungültiger Parameter) bei `SetPen
 
 Ab 0.9.25 speichert `CaptureView` das PNG mit Echtfarbtiefe (macOS `MiC`, Windows `TC24`) statt `FromSourceImage`, der wahrscheinlichen Ursache des APIERR_BADID. Liefert Archicad trotzdem APIERR_BADID, folgt ein Rückfall auf `256C`. Die Antwort meldet die benutzte Tiefe in `colorDepth`. Noch nicht live verifiziert (Details: [reference/mcp-extension.md](../../skills/archicad/reference/mcp-extension.md), Abschnitt 0.9.25).
 
-Ab 0.9.26 legt `Create2DElements` 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch), als Schreib-Gegenstück zu `Get2DGeometryOfElements`, der dafür einen eigenen Spline-Zweig bekommt. Anlass sind die farbigen Füllflächen im Flucht- und Rettungswegeplan WiSchu, denn Tapir kann nur Polylinien anlegen. Live verifiziert am 13.10. (WiSchu): alle sechs Typen, Fläche/Umfang exakt, Fehler je Element lesbar. Ab 0.9.27 (live verifiziert) meldet die Rücklese Kreise korrekt (Archicad speichert sie als Bogen mit `whole`), `Get2DGeometryOfElements` liefert `subPolyEnds`; ab 0.9.28 (live verifiziert) legt `Create2DElements` damit auch Schraffuren mit Löchern an (Details: [reference/mcp-extension.md](../../skills/archicad/reference/mcp-extension.md), Abschnitte 0.9.26/0.9.27).
+Ab 0.9.26 legt `Create2DElements` 2D-Elemente an (Line, Arc, Circle, PolyLine, Spline, Hatch), als Schreib-Gegenstück zu `Get2DGeometryOfElements`, der dafür einen eigenen Spline-Zweig bekommt. Anlass sind die farbigen Füllflächen im Flucht- und Rettungswegeplan Projekt-B, denn Tapir kann nur Polylinien anlegen. Live verifiziert am 13.10. (Projekt-B): alle sechs Typen, Fläche/Umfang exakt, Fehler je Element lesbar. Ab 0.9.27 (live verifiziert) meldet die Rücklese Kreise korrekt (Archicad speichert sie als Bogen mit `whole`), `Get2DGeometryOfElements` liefert `subPolyEnds`; ab 0.9.28 (live verifiziert) legt `Create2DElements` damit auch Schraffuren mit Löchern an (Details: [reference/mcp-extension.md](../../skills/archicad/reference/mcp-extension.md), Abschnitte 0.9.26/0.9.27).
 
 Ab 0.9.31 stürzt `CreateSlabs` nach Favoriten-Standards nicht mehr ab, und GDL-Parameter lassen sich auch bei Türen und Fenstern setzen (Öffnungsmaße springen mit). Ab 0.9.32 prüfen schreibende Befehle vorab und melden Gründe als `[CODE]` (ausgeblendete/gesperrte Ebene, gesperrt, Hotlink, fremd reserviert, falsches Fenster, Undo-Klammer, keine Wirkung); alle Tapir-Erstellbefehle nehmen `layerName`; neu sind `GetLayers`, `SetLayerAttributes`, `GetSlabLevels`; Objekte/Lampen kennen `zReference` absolut oder geschossbezogen. Live verifiziert (Details: [reference/mcp-extension.md](../../skills/archicad/reference/mcp-extension.md), Abschnitte 0.9.31/0.9.32).
 

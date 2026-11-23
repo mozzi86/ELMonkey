@@ -501,12 +501,12 @@ mcp__archicad__archicad_call_tool(
 
 ## Worked Example — Numerische (integer) Property bulk-setzen (ASR-Temperatur-Pattern)
 
-Live verifiziert 2026-06-29 gegen Futurelab_BI_Umbau_ARZ_OBL_V29 (Teamwork, AC29): 220 Zonen, „Erforderliche Temperatur" + „(min)" + „(max)" aus Raumnamen abgeleitet und geschrieben. Gilt als Pattern für jede **integer/number/string**-Property auf Zonen (im Gegensatz zum Enum-Pattern oben).
+Live verifiziert 2026-06-29 gegen Projekt-C_Modell_V29 (Teamwork, AC29): 220 Zonen, „Erforderliche Temperatur" + „(min)" + „(max)" aus Raumnamen abgeleitet und geschrieben. Gilt als Pattern für jede **integer/number/string**-Property auf Zonen (im Gegensatz zum Enum-Pattern oben).
 
 **Property-IDs finden** (User-Properties haben keine stabilen Built-in-Namen):
 1. `properties_get_all_property_ids_of_elements` für **eine** Zone mit `propertyType: "UserDefined"` → Liste aller Custom-Property-IDs.
 2. `properties_get_details_of_properties` mit dieser ID-Liste → `name`, `group.name`, `type`, `isEditable` je Property. Danach nach Gruppe + Name filtern.
-   - Im Futurelab-Projekt: Gruppe **„Räume"** (group-guid `ee62774f-…`); Felder hießen `Erforderliche Temperatur`, `Erforderliche Temperatur (min)`, `Erforderliche Temperatur (max)` — **Namensteil in runden Klammern**, nicht „min"/„max" pur. `properties_get_property_ids` per localizedName scheitert (code 4004), wenn der Name nicht exakt stimmt → lieber über die Detail-Liste gehen.
+   - Im Projekt-C-Projekt: Gruppe **„Räume"** (group-guid `ee62774f-…`); Felder hießen `Erforderliche Temperatur`, `Erforderliche Temperatur (min)`, `Erforderliche Temperatur (max)` — **Namensteil in runden Klammern**, nicht „min"/„max" pur. `properties_get_property_ids` per localizedName scheitert (code 4004), wenn der Name nicht exakt stimmt → lieber über die Detail-Liste gehen.
 
 **Werte setzen** — bei integer/number/string ist `propertyValue` schlicht `{"value": "<string>"}`. Kein `type`/`status`/`enumValueId` wie beim Enum-Pattern:
 
@@ -638,7 +638,7 @@ Auch bei `type: "integer"` erwartet `properties_set_property_values_of_elements`
 Liegen im Fundbereich keine Zonen, liefert die Wand-Property „Bauteilname"
 (Gruppe „Allgemeine Werte", GUID projektspezifisch über `API.GetAllPropertyIds`
 + `GetDetailsOfProperties` suchen, per `GetPropertyValuesOfElements` an den
-Wänden im Bereich lesen) das Haus zuverlässig — THN Nr28: 83 von 93 Wänden „WA".
+Wänden im Bereich lesen) das Haus zuverlässig — Projekt-A Nr28: 83 von 93 Wänden „WA".
 Ordnername, Dateiname und Rühl-Stempel sind unzuverlässig: Ordner WA/Dateiname
 „BT-B" mit Plankopf „BT. C" = Haus WB (Nr24/27/32); Dateiname „BT-A" mit
 Plankopf „BAUTEIL D" = Haus WA (Nr28). Regel: Haus immer aus Zonen ODER
@@ -651,7 +651,7 @@ Schreibversuche (`set_property_values`, `set_classifications`, `set_details`) au
 - Das MCP-Tool `teamwork_reserve_elements` meldet zwar pauschal `success: true`, **gewährt aber keinen verlässlichen Schreibzugriff** (keine Pro-Element-Bestätigung, Write scheitert danach identisch).
 - Verlässlich ist nur die **manuelle Reservierung in Archicad** (Element/alle Zonen markieren → reservieren). Danach funktioniert der Write sofort — kein „Senden & Empfangen" vor dem Write nötig.
 - **Damit die Werte bei anderen ankommen, ist „Senden & Empfangen" NACH dem Write nötig** — vorher liegen sie nur in der lokalen Arbeitskopie.
-- Einzelne Zonen können trotz Gesamt-Reservierung im Bulk-Batch weiterhin mit `-2130312909` scheitern, gehen aber beim **Einzel-Retry** durch (im Futurelab-Lauf reproduzierbar bei genau einer Zone, „Sozialraum" K027).
+- Einzelne Zonen können trotz Gesamt-Reservierung im Bulk-Batch weiterhin mit `-2130312909` scheitern, gehen aber beim **Einzel-Retry** durch (im Projekt-C-Lauf reproduzierbar bei genau einer Zone, „Sozialraum" K027).
 
 ---
 
@@ -662,7 +662,7 @@ Schreibversuche (`set_property_values`, `set_classifications`, `set_details`) au
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Universelles Bulk-Klassifizierungs-Muster für zonenbasierte Workflows.
 - [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) — Confirm-Format-Details, Fehlerklassen, Paginierung.
 
-## Worked-Example: 632 Zonen 1:1 kopiert (live 2026-07-14, THN)
+## Worked-Example: 632 Zonen 1:1 kopiert (live 2026-07-14, Projekt-A)
 
 CreateZones mit name/numberStr/Stempel/Polygon(+Bögen+Löcher) — Felder und
 Fallen (kein layerIndex im Create!, Mikro-Duplikatpunkte, name/numberStr

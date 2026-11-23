@@ -305,14 +305,14 @@ System-GUID SAB_Klassifizierung_29: `cca1f9aa-ca6c-3444-9bfb-363c6145327e`
 
 ## Vorsicht: Klassifikation steuert NICHT das IFC-Typ-Mapping
 
-<!-- 2026-05-21 live-verifiziert AC29 (AFW-WC Teamwork-Projekt, Schwarz-Office-Template) -->
+<!-- 2026-05-21 live-verifiziert AC29 (Projekt-H Teamwork-Projekt, Schwarz-Office-Template) -->
 
 **Befund:** Die SAB-Klassifikation (oder generell jede Archicad-Klassifikation) bestimmt NICHT automatisch, wie ein Element ins IFC exportiert wird. Klassifikation und IFC-Typ-Mapping sind ZWEI getrennte Systeme im Archicad:
 
 - **Klassifikation** (via `elements_set_classifications_of_elements`): SAB-/Uniclass-/etc.-Klasse, sichtbar in Schedules und Properties — beeinflusst KEINEN IFC-Export-Typ.
 - **IFC-Typ-Mapping**: gesteuert vom **IFC-Übersetzer** (Datei → Interoperabilität → IFC → IFC-Übersetzer einstellen). Die Mapping-Tabelle dort sagt: Archicad-Element-Typ X → IFC-Entity Y. Per-Element-Override ist im „IFC-Eigenschaften verwalten"-Dialog NICHT möglich (die IFC-Typ-Zeile hat keine Editier-Checkbox).
 
-**Häufiger Fehler (Schwarz-Office-Template, live verifiziert AFW-WC 2026-05-21):** Übersetzer mappt ALLE Elemente pauschal auf `IfcBuildingElementProxy`, ignoriert SAB-Klasse. Resultat: IFC-Export mit 822 Proxies, 0× IfcWall/IfcDoor/IfcWindow/etc. Klassifizieren der Elemente via MCP ändert daran NICHTS — der Übersetzer ist Klassifikations-unsensitiv.
+**Häufiger Fehler (Schwarz-Office-Template, live verifiziert Projekt-H 2026-05-21):** Übersetzer mappt ALLE Elemente pauschal auf `IfcBuildingElementProxy`, ignoriert SAB-Klasse. Resultat: IFC-Export mit 822 Proxies, 0× IfcWall/IfcDoor/IfcWindow/etc. Klassifizieren der Elemente via MCP ändert daran NICHTS — der Übersetzer ist Klassifikations-unsensitiv.
 
 **Fix:** Nur in Archicad-UI im **IFC-Übersetzer-Dialog** die Mapping-Tabelle korrigieren. Siehe Memory-Eintrag `issue_archicad_ifc_translator_proxy_bug.md` für die vollständige Mapping-Liste.
 

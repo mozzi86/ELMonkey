@@ -1,6 +1,6 @@
 # Treppen aus 2D-Stufenlinien
 
-*Live-verifiziert 2026-07-14, THN: 20 Treppenläufe aus A_06_TREPPE-Linienwerk.*
+*Live-verifiziert 2026-07-14, Projekt-A: 20 Treppenläufe aus A_06_TREPPE-Linienwerk.*
 
 Tapir `CreateStairs` braucht nur: `baseLinePoints` (2 Punkte = gerader Lauf),
 `zCoordinate`, `totalHeight`, `flightWidth`, `stepNum`, `riserHeight`.

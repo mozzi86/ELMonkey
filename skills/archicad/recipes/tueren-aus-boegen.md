@@ -1,6 +1,6 @@
 # Türen aus Aufschlag-Bögen (Türwand-Pattern)
 
-*Live-verifiziert 2026-07-14, THN: 307 Türen, davon 153 mit Referenz-Nummern.*
+*Live-verifiziert 2026-07-14, Projekt-A: 307 Türen, davon 153 mit Referenz-Nummern.*
 
 **Kernproblem (hart erarbeitet):** Türen in **Polygonwänden** sind per API nicht
 steuerbar — `centerOffset` wird gespeichert, aber ignoriert; die Tür landet
@@ -29,10 +29,10 @@ dabei akzeptiert (SAB-Entscheid).
   liegt (|cos| > 0,7, sonst „schräge Tür" → Skip); Tür-Zentrum = Anschlag + r/2·Achse.
 - **Aufschlag-Flags**: `reflected` und `oSide` hängen an der Schwingseite
   S = sign(cross(Türachse, offene Bogenrichtung)). Kalibrierung an EINER vom
-  User korrigierten Tür (THN: S=+1 → beide Flags true, S=−1 → beide false).
+  User korrigierten Tür (Projekt-A: S=+1 → beide Flags true, S=−1 → beide false).
   Erst 1 Tür bauen, User korrigiert im Dialog, Flags per GetDetailsOfElements
   zurücklesen — dann skalieren.
-- **Kalibrierung CreateDoors in gerader Wand (THN, 2026-10-06):** Wand in
+- **Kalibrierung CreateDoors in gerader Wand (Projekt-A, 2026-10-06):** Wand in
   +x-Richtung, `flipped=True`: `reflected=False, oSide=True` -> Anschlag rechts,
   Aufschlag +y; `reflected=True, oSide=True` -> Anschlag links. Anderer Kontext
   als die Kalibrierung vom 2026-07-14 (Türwand-Pattern), deshalb beide stehen
@@ -52,7 +52,7 @@ dabei akzeptiert (SAB-Entscheid).
   Kostete uns eine Stunde Fehlersuche quer durch alle anderen Hypothesen.
 - Teamwork: Tür = Wand-Änderung → Host muss **reserviert** sein. Senden gibt
   Reservierungen frei! Symptome sind generische Fehlercodes, nie „nicht reserviert".
-- Manche Favoriten schlagen per API fehl (THN: alle „T …"-Türfavoriten →
+- Manche Favoriten schlagen per API fehl (Projekt-A: alle „T …"-Türfavoriten →
   „Failed to create door"; `Bau_Tür` geht). Vorab je Favorit 1 Testtür.
 - **Türnummern**: stecken oft in der Element-**ID** (nicht als Property!).
   Setzen über BuiltIn-Property `General_ElementID`
@@ -60,7 +60,7 @@ dabei akzeptiert (SAB-Entscheid).
 - Referenz-Übernahme: Positions-Matching eindeutig-greedy, Geschoss-streng,
   Radius ≤ 3 m (Knautschzonen!); Median-Distanz als Qualitätsmaß ausgeben.
 
-## Worked Example (THN, 2026-07-14)
+## Worked Example (Projekt-A, 2026-07-14)
 
 904 Bögen → 307 Türen (EG 108, OG1 87, OG3 52, UG-1 44, Rest klein).
 361 übersprungen mit ehrlicher Grund-Liste: 60 % „kein Wandband am Anschlag"

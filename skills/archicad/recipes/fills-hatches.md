@@ -8,7 +8,7 @@ im Server. User zeichnet Schraffuren manuell in Archicad; wir arbeiten dann mit 
 weiter. Vollständige Capability-Tabelle: `../reference/mcp-conventions.md` §
 Live-verifizierte Element-Create-Capabilities.
 
-> **Anlegen geht seit ELM_SAB 0.9.26** über `ELM_SAB.Create2DElements` (live verifiziert WiSchu; Löcher seit 0.9.28 per `subPolyEnds`, `area` = netto) — siehe [Worked Example — Schraffur anlegen](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements). Die MCP-v29-Aussagen in diesem Recipe bleiben gültig.
+> **Anlegen geht seit ELM_SAB 0.9.26** über `ELM_SAB.Create2DElements` (live verifiziert Projekt-B; Löcher seit 0.9.28 per `subPolyEnds`, `area` = netto) — siehe [Worked Example — Schraffur anlegen](#worked-example--schraffur-anlegen-elm_sab-0926-create2delements). Die MCP-v29-Aussagen in diesem Recipe bleiben gültig.
 
 <!-- 2026-05-21 live-verifiziert AC29 port 19723 (Ohne-Titel-Sandbox) — Tool-Namen via Discovery bestätigt; Hatch-Modifikation via MCP NICHT möglich (set_details typeSpecificDetails=WallSettings-only), siehe Abschnitt Hatch modifizieren -->
 
@@ -516,7 +516,7 @@ oder Fill-Attribute meint — häufige Verwechslung.
 
 ## Worked Example — Schraffur anlegen (ELM_SAB 0.9.26 Create2DElements)
 
-<!-- 2026-10-13 ELM_SAB 0.9.26 live verifiziert (WiSchu): 1 × 1 m → area 1 / perimeter 4, alle Matches true. Füllungsnamen sind projektabhängig — „Vollfüllung“ gibt es nicht überall (WiSchu: „Nur Vordergrund-Stift“). Schraffuren mit Loch: nur Außenkontur übergeben (0.9.27 meldet sonst klar, 0.9.26 APIERR_IRREGULARPOLY). -->
+<!-- 2026-10-13 ELM_SAB 0.9.26 live verifiziert (Projekt-B): 1 × 1 m → area 1 / perimeter 4, alle Matches true. Füllungsnamen sind projektabhängig — „Vollfüllung“ gibt es nicht überall (Projekt-B: „Nur Vordergrund-Stift“). Schraffuren mit Loch: nur Außenkontur übergeben (0.9.27 meldet sonst klar, 0.9.26 APIERR_IRREGULARPOLY). -->
 
 Nicht über den MCP-Server (der kann keine Schraffuren anlegen), sondern über das ELM_SAB-Add-On per `API.ExecuteAddOnCommand`. Hintergrund und alle Felder: `../reference/mcp-extension.md`, Abschnitt „ELM_SAB 0.9.26“.
 
@@ -621,7 +621,7 @@ curl -s localhost:<port> -H 'Content-Type: application/json' -d '{
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Bulk-Klassifizierungs-Pattern (Read → Filter → Group → Confirm → Apply).
 - [`../reference/workflow-context.md`](../reference/workflow-context.md) — Warm-up-Felder im Detail, insb. Feld 5 (Layer) + Feld 6 (Pen-Set).
 
-## Etikett-Schraffur → Text mit Deckung (live-verifiziert 2026-07-16, THN BSN)
+## Etikett-Schraffur → Text mit Deckung (live-verifiziert 2026-07-16, Projekt-A BSN)
 
 Bestands-2D-Pläne stapeln oft „Schraffur als Etikett-Hintergrund + Text mit
 weißer Deckung obendrauf". Kompakter: Schraffur löschen, Text-Deckung erbt
@@ -642,7 +642,7 @@ setzt `usedFill`+`fillPen`; lesen via `GetPenOfElements`: `hasFill`/`fillPen`,
 - **Arbeitsblatt-Falle**: 2D-Pläne liegen oft in eigenen Datenbanken — Reads
   sehen nur das aktive Fenster (siehe referenzmodell-abgleich.md).
 
-### Worked Example (THN BSN-Nagel, 2026-07-16)
+### Worked Example (Projekt-A BSN-Nagel, 2026-07-16)
 
 7 Arbeitsblätter (je Geschoss eigene DB, User öffnet nacheinander): **~185
 Etikett-Schraffuren konvertiert**, ~50 Text-Duplikate gelöscht, 0 Fehler.

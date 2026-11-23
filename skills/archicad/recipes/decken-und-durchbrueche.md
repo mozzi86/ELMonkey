@@ -1,6 +1,6 @@
 # Decken + Deckendurchbrüche aus 2D-Konturen
 
-*Live-verifiziert 2026-07-14, THN: 21 Decken mit ~300 Durchbruch-Löchern über
+*Live-verifiziert 2026-07-14, Projekt-A: 21 Decken mit ~300 Durchbruch-Löchern über
 5 Geschosse — inkl. eines Archicad-ABSTURZES und seiner Lehren.*
 
 Script: [`../scripts/decken_aus_konturen/`](../scripts/decken_aus_konturen/).
@@ -51,7 +51,7 @@ Folge-Workflow von [`konturen-zu-waende.md`](konturen-zu-waende.md).
 - Kein Markierungsrahmen nötig: der Grundriss ist als DB **geschossübergreifend
   lesbar** — Geschoss-Zuordnung über `floorIndex` der gelesenen Konturen.
 
-## Worked Example (THN, 2026-07-14)
+## Worked Example (Projekt-A, 2026-07-14)
 
 | Geschoss | Decken | Löcher | Bemerkung |
 |---|---|---|---|

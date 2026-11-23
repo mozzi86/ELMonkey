@@ -1,6 +1,6 @@
 # Referenzmodell-Abgleich (zwei Modelle im selben Projekt)
 
-*Live-verifiziert 2026-07-14, THN: 4.500 Wände klassifiziert + Properties,
+*Live-verifiziert 2026-07-14, Projekt-A: 4.500 Wände klassifiziert + Properties,
 153 Türnummern übernommen. Muster: verzerrtes generiertes Modell ↔ gepflegtes
 Referenzmodell, ~350 m versetzt im selben Teamwork-Projekt.*
 
@@ -10,7 +10,7 @@ Das Referenzmodell muss NICHT in derselben Datei liegen:
 
 | Quelle | Zugriff | Versatz | Parallel lesbar? |
 |---|---|---|---|
-| **Gleiches Projekt** (THN-Fall) | eine API, räumlicher Versatz | Passpunkt-Paar | nein — ein Main-Thread |
+| **Gleiches Projekt** (Projekt-A-Fall) | eine API, räumlicher Versatz | Passpunkt-Paar | nein — ein Main-Thread |
 | **Zweite Archicad-Instanz** | eigener Port (Discovery listet alle; multiconn) | meist 0 — echte Koordinaten | **JA** — eigener Prozess/Main-Thread; Reader auf Port B parallel zum Writer auf Port A |
 | **IFC-Datei** | offline via ifcopenshell, ganz ohne Archicad | 0 (Projektkoordinaten) | **JA** — beliebig parallel, keine API-Last |
 
@@ -36,12 +36,12 @@ Gleichzeitig möglich:
   (räumlicher Cluster-Test über Zentren ist robust).
 - **Versatz per Passpunkt-Paar**: User selektiert dasselbe Element in beiden
   Modellen nacheinander, wir lesen beide Positionen (GetSelectedElements +
-  Get2DBoundingBoxes). Ein Paar reicht für Translation (THN: dx=0.001,
+  Get2DBoundingBoxes). Ein Paar reicht für Translation (Projekt-A: dx=0.001,
   dy=349.820 — millimetergenau trotz „Knautschzonen"-Sorge).
 
 ## Knautschzonen (verzerrte Alt-DWGs) — was funktioniert und was nicht
 
-Abstands-Histogramm zuerst! (Ref-Zentren → nächstes Ziel-Element): THN zeigte
+Abstands-Histogramm zuerst! (Ref-Zentren → nächstes Ziel-Element): Projekt-A zeigte
 kontinuierliche Verschmierung 0–4 m → lokale Verzerrung, kein globaler Fehler.
 
 - ❌ **Element-zu-Element-Matching** (auch mit Zellen-Offsets oder Anker-IDW-
@@ -58,7 +58,7 @@ kontinuierliche Verschmierung 0–4 m → lokale Verzerrung, kein globaler Fehle
   - *Elementweise Werte* (Brandschutz): nächste Ref-Wand ≤ 2,5 m, gleiche
     Etage, OHNE Eindeutigkeitszwang; ohne Treffer ehrlich leer lassen.
   - *Punkt-Elemente* (Türen für Nummern): eindeutig-greedy nach Distanz ≤ 3 m,
-    Median-Distanz als Qualitätsmaß (THN: 0,52 m = sauber).
+    Median-Distanz als Qualitätsmaß (Projekt-A: 0,52 m = sauber).
 
 ## Property-/Klassifizierungs-API (Fallen!)
 
@@ -98,7 +98,7 @@ kontinuierliche Verschmierung 0–4 m → lokale Verzerrung, kein globaler Fehle
   Öffnungen tragen KÖNNTE (Decken-Duplikat etc.): vorher alle Opening-GUIDs
   + 2D-Boxen + IDs snapshotten, löschen (Wirt reißt seine Öffnungen mit),
   danach diffen — die Verschwundenen waren seine und lassen sich aus dem
-  Snapshot auf dem Ersatz-Element rekonstruieren. THN: Decken-Duplikat OG4
+  Snapshot auf dem Ersatz-Element rekonstruieren. Projekt-A: Decken-Duplikat OG4
   gelöscht, Diff = 0 → Durchbrüche hingen nachweislich am verbleibenden Element.
 
 ## Arbeitsblätter sind eigene Datenbanken (live 2026-07-16)
@@ -159,7 +159,7 @@ verifizieren** (Elementzahl je Ebene je Geschoss), dann Pipeline bauen.
   1 Element testen, dann Masse. **Create bleibt an die aktive DB gebunden.**
 - Text-Dupletten-Muster (Bestand): gleicher Inhalt + gleiches Geschoss +
   Abstand < 10 cm → einer bleibt. **Seiten-Filter (y-Grenze) nicht vergessen** —
-  Referenz-Seite nur nach expliziter User-Freigabe anfassen. THN-Endstand
+  Referenz-Seite nur nach expliziter User-Freigabe anfassen. Projekt-A-Endstand
   2026-07-16: 8.235 Dupletten gelöscht, beide Seiten 0 (Referenz nach Freigabe
   + Reservierung + Ebenen-Einblenden mitbereinigt).
 
@@ -175,11 +175,11 @@ Kein Fehlercode, keine executionResults — der einzige Beweis ist die
 Ebenen-Status prüfen: `API.GetAttributesByType` ('Layer') →
 `API.GetLayerAttributes` (isLocked/isHidden), Namen gegen layerIndex der
 Elemente matchen. Abhilfe: User blendet alle Ebenen ein (API kann Attribute
-nicht ändern), dann löschen, dann zurück. THN: 2.199 sichtbare gelöscht,
+nicht ändern), dann löschen, dann zurück. Projekt-A: 2.199 sichtbare gelöscht,
 2.850 auf hidden Layern blieben unlöschbar bis zum Einblenden.
 
 Tückischste Folge: Ein früherer Massenlauf kann als Erfolg gemeldet worden
-sein, obwohl NICHTS passiert ist (THN: 2.004 „gelöschte" Dupletten waren
+sein, obwohl NICHTS passiert ist (Projekt-A: 2.004 „gelöschte" Dupletten waren
 tags darauf alle noch da — identische Zahl im Re-Sweep war der Verräter).
 Deshalb gehört zu jedem „erledigt" ein **frischer Komplett-Sweep**, nicht
 nur die Erfolgsmeldung des Delete-Calls. Auch der User-Blick taugt nicht als

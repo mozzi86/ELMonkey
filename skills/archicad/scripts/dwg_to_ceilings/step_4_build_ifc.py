@@ -68,7 +68,7 @@ def main():
                                 ContextIdentifier="Body", ContextType="Model",
                                 ParentContext=model_ctx, TargetView="MODEL_VIEW")
     project = f.create_entity("IfcProject", GlobalId=cguid(), OwnerHistory=owner,
-                               Name=f"BuPol Umgebung ({cls_name})",
+                               Name=f"Projekt-D Umgebung ({cls_name})",
                                RepresentationContexts=[model_ctx], UnitsInContext=units)
     def lp(rel, z=0.0):
         p = f.create_entity("IfcCartesianPoint", Coordinates=[0.0, 0.0, float(z)])

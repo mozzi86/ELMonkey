@@ -1,6 +1,6 @@
 # DWG → IFC Decken-Pipeline
 
-Wandelt eine Lageplan-DWG mit Straßen, Gehwegen und Gebäuden in ein **lückenfreies IFC4-Modell**, in dem alle Flächen als gestaffelte `IfcSlab`-Decken extrudiert sind. Entwickelt für den BuPol-Lageplan (1.7 × 2.7 km, 81 k DXF-Entities), übertragbar auf andere Liegenschaftspläne.
+Wandelt eine Lageplan-DWG mit Straßen, Gehwegen und Gebäuden in ein **lückenfreies IFC4-Modell**, in dem alle Flächen als gestaffelte `IfcSlab`-Decken extrudiert sind. Entwickelt für den Projekt-D-Lageplan (1.7 × 2.7 km, 81 k DXF-Entities), übertragbar auf andere Liegenschaftspläne.
 
 **Trigger-Phrasen (für Claude):** „convert dwg to ceilings", „dwg in ifc decken", „lückenlose außenanlagen aus dwg", „lageplan zu ifc"
 
@@ -123,7 +123,7 @@ Eine Template-Datei mit allen Konfigurations-Werten liegt als [`config.json`](co
 
 ## Versionshistorie (Strategie-Entwicklung)
 
-| Version | Strategie | Slabs (BuPol) | Lücken? |
+| Version | Strategie | Slabs (Projekt-D) | Lücken? |
 |---|---|---|---|
 | v1 | Nur geschlossene LWPolylines | 1.970 | viele |
 | v3 | + Linien-Snap-Polygonize @ 10 cm | 4.240 | weniger |
@@ -163,8 +163,8 @@ Eine Template-Datei mit allen Konfigurations-Werten liegt als [`config.json`](co
 
 - [`../../reference/dwg-ifc-import.md`](../../reference/dwg-ifc-import.md) — Workflow-Doku Lageplan/KG 500
 - [`../../reference/dwg-ifc-kg300.md`](../../reference/dwg-ifc-kg300.md) — Verallgemeinerung auf KG 300 Baukonstruktionen
-- [`../../reference/schwarz-office-facts.md`](../../reference/schwarz-office-facts.md) — Z_/A_-Layer-Konvention, Schwarz-Office-Template-Bugs
+- Bürowissen (Ebenen-Konvention, Fehler der Bürovorlage): nicht in diesem Repo, liegt privat beim Büro
 
 ---
 
-**Autor:** Mudi · **Office:** Schwarz Architekturbüro Nürnberg GbR · **Stand:** Juni 2026 · **Pipeline-Version:** v5
+**Autor:** Mudi · **Office:** das Büro · **Stand:** Juni 2026 · **Pipeline-Version:** v5

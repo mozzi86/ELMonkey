@@ -1,4 +1,4 @@
-# Abgleich Archicad ↔ Schwarz Plattform (bidirektional) <!-- 2026-11-10, live BFW07 19.11.2026 -->
+# Abgleich Archicad ↔ Schwarz Plattform (bidirektional) <!-- 2026-11-10, live Projekt-E 19.11.2026 -->
 
 Auslöser: „Projekt synchronisieren“, „Plattform und Archicad abgleichen“.
 
@@ -125,13 +125,13 @@ Arbeitsordner je Lauf, z. B. `~/Abgleich/P001-2026-11-10` (unten `$O`).
 
 - Der neue Bau-Weg über Bauliste-Netze (Schritt 7) ist noch nicht live gegen Archicad gelaufen. <!-- 2026-11-20 -->
 - Die Netz-Übergabe (Schritt 8) ist nur mit Attrappen getestet, nicht live; Plattform-Seite steht aus. <!-- 2026-11-20 -->
-- Live gelaufen am 19.11.2026 (BFW07), Erkenntnisse im Abschnitt „Live-Lauf BFW07 19.11.2026“ unten.
+- Live gelaufen am 19.11.2026 (Projekt-E), Erkenntnisse im Abschnitt „Live-Lauf Projekt-E 19.11.2026“ unten.
 - Eigenschaftsnamen beider Seiten passen nur, wenn der IFC-Übersetzer die Archicad-Gruppen als gleichnamige Psets
   ausgibt. Passt das nicht, findet der Vergleich nichts (keine falschen Änderungen, aber auch kein Abgleich).
 - Werte kommen aus Archicad als Anzeigetext; „0,24“ und 0.24, „Ja“ und true gelten als gleich.
 - Das Skript braucht den Kern `elmonkey`; Reihenfolge: installiertes elmonkey-core, dann `core/` im ELMonkey-Repo, dann im Spiegel mozzi86/-archicad unter `scripts/_kern/elmonkey`. `_kern` schreibt der Workflow skill-spiegeln bei jedem Spiegeln (Herkunft in `scripts/_kern/HERKUNFT.txt`), nicht von Hand ändern. Meldung „Modul 'elmonkey' nicht gefunden“ → elmonkey-core installieren oder Skill neu spiegeln/installieren. <!-- 2026-11-20 -->
 
-## Live-Lauf BFW07 19.11.2026 <!-- 2026-11-19 -->
+## Live-Lauf Projekt-E 19.11.2026 <!-- 2026-11-19 -->
 
 - ÜBERHOLT <!-- 2026-11-20 --> (neue Bauliste mit echten Netzen, PR 404, Staging seit 20.11.2026, bis 200 GUIDs je
   Aufruf, siehe Schritt 7): ~~Die Bauliste liefert nur die konvexe Hülle (395 von 432 unbrauchbar) → echte Form über

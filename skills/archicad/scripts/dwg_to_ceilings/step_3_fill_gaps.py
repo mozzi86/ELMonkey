@@ -17,7 +17,7 @@ import shapely
 from shapely.geometry import LineString, MultiLineString, Polygon, MultiPolygon, Point, MultiPoint
 from shapely.ops import unary_union
 
-DXF = sys.argv[1] if len(sys.argv) > 1 else "BuPol_BS_Gesamtdatei_umgebung.dxf"
+DXF = sys.argv[1] if len(sys.argv) > 1 else "Projekt-D_BS_Gesamtdatei_umgebung.dxf"
 
 ALL_LAYERS = [
     # Strasse

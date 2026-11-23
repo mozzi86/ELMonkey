@@ -4,7 +4,7 @@ Aufruf: python3 e57_grid.py <input.e57> [output.npz]
         (Default-Ausgabe: grid_1m.npz)
 Laufzeit: ~6 s für 50 Mio Punkte.
 Abhängigkeiten: uv venv .venv && uv pip install --python .venv/bin/python pye57 numpy scipy
-Live-Verifikation: 2026-09-07 (THN Außenanlage, 59 Scans / 50,4 Mio Punkte).
+Live-Verifikation: 2026-09-07 (Projekt-A Außenanlage, 59 Scans / 50,4 Mio Punkte).
 """
 import pye57, numpy as np, time, sys
 

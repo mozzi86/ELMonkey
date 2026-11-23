@@ -450,7 +450,7 @@ Für den Klassifikations-Sub-Typ (Innen/Außen) bei Öffnungen: Innen-/Außen-Be
 - [`library-objects.md`](library-objects.md) — GDL-Objekte im Allgemeinen: Library-Suche, Parameter-Schema lesen, Objekt-Varianten. Fenster und Türen sind spezielle Library-Objekte.
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Read → Filter → Group → Confirm → Apply-Muster für Bulk-Klassifizierungs-Workflows.
 
-## CLASS-Worked-Example: 308 Türen (live 2026-07-14, THN)
+## CLASS-Worked-Example: 308 Türen (live 2026-07-14, Projekt-A)
 
 Türen erben die Referenz-Klassifizierung (dort: „ELEMENTE") — erst klassifizieren,
 dann Properties (Bauteilname singleEnum; SAB_Brandschutz multiEnum vom

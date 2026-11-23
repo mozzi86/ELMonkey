@@ -308,7 +308,7 @@ Response zeigt aktuelle Klasse oder `null`. Damit wissen wir den Ist-Zustand fü
 
 Falls die Klassen-GUID der Zielklasse (z. B. „Außenwand") noch unbekannt ist:
 `classifications_get_all_classifications_in_system` mit der System-GUID aufrufen — gibt die
-vollständige Klassenhierarchie mit GUIDs zurück (THN: 299 Items, eine Antwort). <!-- verifiziert 2026-07-14 -->
+vollständige Klassenhierarchie mit GUIDs zurück (Projekt-A: 299 Items, eine Antwort). <!-- verifiziert 2026-07-14 -->
 
 **Schritt 3 — Confirm (SAFE-01):**
 
@@ -348,7 +348,7 @@ Beide GUIDs stammen aus den vorherigen Schritten — nie raten.
 ## Worked Example — Wand in Schichten aufteilen (Kern + Schalen) <!-- 2026-11-02 -->
 
 Anlass: Bestandswand mit Befund „Mauerwerk + Klinker zum Flur + Trockenbau zum Raum“
-soll als Einzelwände je Schicht im Modell stehen. Live THN 02.11.2026: 67 Wände,
+soll als Einzelwände je Schicht im Modell stehen. Live Projekt-A 02.11.2026: 67 Wände,
 94 neue Schalen, 16 Leere Türöffnungen, jede Wand auf 1 mm nachgemessen.
 
 **Grundsatz: Die Bestandswand bleibt der Kern.** Ihre GUID, Klassifizierung und die
@@ -467,7 +467,7 @@ Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifiz
    wandern mit, weil ihr `centerOffset` längs der Achse gilt). Bei Außen-/Innenkante
    als Bezugslinie geht `offset` — das Vorzeichen per Probe (+/−) und Nachmessung
    ermitteln. Immer nach dem Schieben aus `floorPlanPolygons` nachmessen.
-   Live THN: ein Kern blieb deshalb verschmälert, aber unverschoben stehen. <!-- 2026-11-02 -->
+   Live Projekt-A: ein Kern blieb deshalb verschmälert, aber unverschoben stehen. <!-- 2026-11-02 -->
 
 10. **Neu angelegte Elemente bleiben auf dich reserviert.** In Teamwork gehört jedes
     per API erstellte Element (Wand, Tür, …) dem Anleger und bleibt reserviert, bis
@@ -492,7 +492,7 @@ Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifiz
     `offset:0` setzen und die Achse quer um den alten Versatz verschieben; bei Bezugslinie
     Mitte `referenceLineLocation:"Outside"` setzen und die Achse nachführen. Immer beide
     Wandkanten vorher und nachher messen und bei Abweichung über 1 mm zurücksetzen
-    (live THN: 201 + 757 Wände, 3 zurückgesetzt). <!-- 2026-11-17 -->
+    (live Projekt-A: 201 + 757 Wände, 3 zurückgesetzt). <!-- 2026-11-17 -->
 
 14. **Stärke ändern mit fester Seite.** `thickness` setzen, Kanten messen, Achse quer
     nachschieben, bis die feste Kante wieder stimmt. <!-- 2026-11-17 -->
@@ -512,7 +512,7 @@ Hinweis: `General_HotlinkAndElementID` ohne Hotlink-Präfix = lokales, klassifiz
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Bulk-Klassifizierungs-Pattern.
 - [`../reference/workflow-context.md`](../reference/workflow-context.md) — Warm-up-Felder im Detail.
 
-## CLASS-Worked-Example: 4.500 Wände (live 2026-07-14, THN)
+## CLASS-Worked-Example: 4.500 Wände (live 2026-07-14, Projekt-A)
 
 Muster: Klasse „Wand" (Item-GUID aus System-Baum) via `SetClassificationsOfElements`
 (300er-Batches) → DANACH Properties: Bauteilname (singleEnum, Gebäudeflügel per
@@ -523,7 +523,7 @@ Pro-Klasse-Counts, `ja` startet. Details: reference/referenzmodell-abgleich.md.
 
 ## Überlappungen, Doppelungen und gerundete Ecken bereinigen <!-- 2026-11-17 -->
 
-Live verifiziert am THN-Teamwork, ELMonkey 0.11.12.1, AC29.
+Live verifiziert am Projekt-A-Teamwork, ELMonkey 0.11.12.1, AC29.
 
 1. **Echter Wandumriss im Grundriss.** `ELM_SAB.Get2DGeometryOfElements` liefert je Wand
    Primitive. Der echte Umriss nach Verschneidung ist das Primitiv `kind=poly`,
@@ -531,7 +531,7 @@ Live verifiziert am THN-Teamwork, ELMonkey 0.11.12.1, AC29.
    geschnitten werden (Brüstungen, Sturzbänder, Wände über/unter der Schnittebene),
    liefern KEIN solches Polygon, nur Umrisslinien. Ersatz: kleinstes gedrehtes Rechteck
    um alle Linienpunkte. Ohne diesen Ersatz fehlen diese Wände in jeder
-   Überlappungsprüfung (am THN 150 gerade Wände, dadurch 40 Höhenüberschneidungen
+   Überlappungsprüfung (am Projekt-A 150 gerade Wände, dadurch 40 Höhenüberschneidungen
    zunächst übersehen). Der Grundriss muss das aktive Fenster sein.
 2. **Überlappungen richtig deuten.** Von rund 1000 rechnerischen Überlappungen sind etwa
    die Hälfte normale Wandanschlüsse (Ende läuft in die Querwand bis zur Referenzlinie)
@@ -571,7 +571,7 @@ Live verifiziert am THN-Teamwork, ELMonkey 0.11.12.1, AC29.
 5. **Durchbrüche (Opening): Wirtswand lesen.** `GetDetailsOfElements` meldet „Not yet
    supported element type“ und `API.Get3DBoundingBoxes` Fehler 6000, aber die Wirtswand
    lässt sich lesen: Tapir `GetConnectedElements {elements: <Wände>,
-   connectedElementType: "Opening"}` (am THN 102 von 114 Durchbrüchen in 36 Wänden; der
+   connectedElementType: "Opening"}` (am Projekt-A 102 von 114 Durchbrüchen in 36 Wänden; der
    Rest sitzt in Decken). Vor jedem Löschen/Kürzen einer Wand prüfen; zusätzlich
    Türen/Fenster/Durchbrüche vor und nach jedem Löschen zählen.
 6. **Gerundete Ecken aus dem Bestands-DXF.** Bögen stehen als `ARC` und als
@@ -588,7 +588,7 @@ Live verifiziert am THN-Teamwork, ELMonkey 0.11.12.1, AC29.
    - Vor dem Bauen Vorschau zeichnen: Gehrungs-Enden ergeben Pfeilformen (auslassen);
      liegt das Modell etwa 1 cm neben dem Bestand, entstehen Stufen im Umriss (Geschoss
      auslassen).
-   - Befund am THN: von 574 Bestandsbögen waren nur etwa 100 direkt baubar, 208 ohne
+   - Befund am Projekt-A: von 574 Bestandsbögen waren nur etwa 100 direkt baubar, 208 ohne
      Modellwand, 132 mit Modellkante > 8 mm neben dem Bestand.
    - **Bögen an Türöffnungen (Leibungen)** liegen mitten in der Wand, nicht am Wandende:
      Dort ist kein Eckstück möglich, ohne die Türwand umzubauen. <!-- 2026-11-17 -->
@@ -602,14 +602,14 @@ Live verifiziert am THN-Teamwork, ELMonkey 0.11.12.1, AC29.
 
 ## Wände gegen den Bestandsplan abgleichen (Einpassung, Wandstärke) <!-- 2026-11-17 -->
 
-Live am THN-Teamwork, AC29 Mac.
+Live am Projekt-A-Teamwork, AC29 Mac.
 
 1. **Systematischer Versatz eines Geschosses: zuerst die Einpassung prüfen, nicht die
    Wände.** Weichen im Vergleich Modell ↔ Bestands-DXF fast alle Wände eines Geschosses
    gleichsinnig ab, den Ausgleich über alle geraden Wände rechnen: je Wand Abweichung
    quer zur Achse = n·t + w·((x−c)×n) (Verschiebung t, Drehung w um den Schwerpunkt c),
    robust (Ausreißer > 6 mm raus, zweiter Durchgang).
-   - THN: 1. OG (−12,8/+5,5) mm und −0,18 mrad, 3. OG (+5,6/+6,3) mm und +0,12 mrad;
+   - Projekt-A: 1. OG (−12,8/+5,5) mm und −0,18 mrad, 3. OG (+5,6/+6,3) mm und +0,12 mrad;
      Rest danach im Median 0,3–0,4 mm. Im 1. OG lagen danach 381 statt 107 Wände exakt
      auf dem Bestand (vorher 254 „verschieben“, danach 14).
    - Die Einpassung (Transformation des Bestandsplans) korrigieren und sichern; das

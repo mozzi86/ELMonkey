@@ -1,6 +1,6 @@
 # Rezept: Innenansichten / Fliesenspiegel bemaßen <!-- 2026-10-14 -->
 
-Live durchlaufen am Fliesenspiegel Futurelab EG (8 Innenansichten, 34 Einzelansichten,
+Live durchlaufen am Fliesenspiegel Projekt-C EG (8 Innenansichten, 34 Einzelansichten,
 ~300 Maßketten, Teamwork, AC29). Voraussetzung: **ELMonkey ≥ 0.9.29** (Befehle siehe
 `reference/mcp-extension.md` → „Bemaßung in Ansichten"), Fallen siehe
 `reference/mcp-conventions.md` → „Fallen beim Ändern von Maßketten".
@@ -31,7 +31,7 @@ Live durchlaufen am Fliesenspiegel Futurelab EG (8 Innenansichten, 34 Einzelansi
 
 ## Neubemaßung aus der Geometrie (zweiter Durchgang) <!-- 2026-11-12 -->
 
-Live am Futurelab, 52 Wandansichten EG + 1.OG: Nach Umplanung passten 253 von 1.185 Maßpunkten
+Live am Projekt-C, 52 Wandansichten EG + 1.OG: Nach Umplanung passten 253 von 1.185 Maßpunkten
 nicht mehr. Statt Ketten einzeln zu flicken, wurden alle Ketten **aus der aktuellen Geometrie neu
 erzeugt** (450 neu, 422 alt gelöscht). Das ist schneller und einheitlicher, sobald mehr als ein paar
 Punkte abweichen.
@@ -71,7 +71,7 @@ neuen Abschnitt gleicher Länge (±1,2 cm) und gleicher Lage (±6 cm).
    die Maßzahl; die Unterkante bleibt. Danach die Layouts neu anordnen (`recipes/zeichnungen-auf-layouts.md`).
 7. **OK FFB = Oberkante des Bodenfliesen-Objekts** (Regel der Nutzerin, 12.11.): Oberkante
    „SAB Bodenfliese liegend“ auf Ebene „20 Bodenbelag“, nicht die Rohdecke und nicht die
-   Fliesen-Decke. Futurelab: EG 0,055 (lichte Höhe 2,975, Unterkante der Ansicht 0,045),
+   Fliesen-Decke. Projekt-C: EG 0,055 (lichte Höhe 2,975, Unterkante der Ansicht 0,045),
    1.OG 5,10 (lichte Höhe 2,60). Die 3D-Box dieses GDL-Objekts ist unzuverlässig, die Höhe aus
    dem Ansichtsschnitt (`GetSectionElementsELM withBounds`) nehmen. <!-- 2026-11-16 -->
 8. **Vor der Bemaßung die Höhen bestätigen lassen.** Die Nutzerin gibt OK FFB und UK Decke vor;

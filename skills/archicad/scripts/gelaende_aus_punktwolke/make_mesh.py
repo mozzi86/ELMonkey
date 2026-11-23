@@ -4,7 +4,7 @@ Zweck: Aus dem Bodenraster (grid.npz von e57_grid.py) eine Mesh-JSON für
 Aufruf: python3 make_mesh.py --grid grid_1m.npz --origin X Y Z [--step 2] [--out mesh.json]
         (--origin = Archicad-Objektursprung der Punktwolke, aus GetDetailsOfElements)
 Abhängigkeiten: uv venv .venv && uv pip install --python .venv/bin/python pye57 numpy scipy
-Live-Verifikation: 2026-09-07 (THN Außenanlage).
+Live-Verifikation: 2026-09-07 (Projekt-A Außenanlage).
 """
 import argparse
 import numpy as np

@@ -159,7 +159,7 @@ def eigenschaften_katalog(ac: Archicad, alle: bool = False) -> dict[str, dict]:
     """{„Gruppe.Name“: Definition} — Vorgabe nur eigene (benutzerdefinierte) Eigenschaften, die sind der Fachinhalt."""
     aus: dict[str, dict] = {}
     for p in ac.befehl("GetAllProperties").get("properties") or []:
-        # Tapir 1.7.2 meldet benutzerdefinierte Eigenschaften als „Custom“ (live BFW07 19.11.2026: 230 Custom,
+        # Tapir 1.7.2 meldet benutzerdefinierte Eigenschaften als „Custom“ (live Projekt-E 19.11.2026: 230 Custom,
         # 0 UserDefined — vorher 0 Eigenschaften und damit keine Paare); ältere Stände sagen „UserDefined“.
         if alle or p.get("propertyType") in ("UserDefined", "Custom"):
             aus.setdefault(_schluessel(p), p)
@@ -497,7 +497,7 @@ def ifc_teile(pfad) -> tuple[dict, dict, dict]:
         if t == "IFCRELAGGREGATES":
             # IfcRelAggregates(GlobalId, OwnerHistory, Name, Description, RelatingObject, RelatedObjects):
             # nach Attributen trennen, nicht nach Verweis-Reihenfolge — OwnerHistory ist im Plattform-IFC „$“
-            # (live BFW07 19.11.2026: sonst hingen die Kinder am ersten Geschwister, 35 Verbünde ohne Körper).
+            # (live Projekt-E 19.11.2026: sonst hingen die Kinder am ersten Geschwister, 35 Verbünde ohne Körper).
             attr = _attribute(a)
             eltern = refs(attr[4]) if len(attr) > 5 else []
             if eltern:
@@ -596,7 +596,7 @@ def _komponenten(P: list, F: list) -> list[tuple[list, list]]:
 def mannigfaltig(P: list, F: list) -> tuple[list, list]:
     """Mehrfachkanten (Kante mit mehr als 2 Dreiecken) auflösen, indem der Dreiecksfächer je Eckpunkt getrennt wird.
 
-    2026-11-19 live BFW07: 6 Plattform-Teile (Zuluftstutzen Ø160, Steigrohr Ø315, Kondensat-Fallrohr …) scheiterten
+    2026-11-19 live Projekt-E: 6 Plattform-Teile (Zuluftstutzen Ø160, Steigrohr Ø315, Kondensat-Fallrohr …) scheiterten
     mit "Failed to create morph" (Solid und Surface), weil nach dem Trennen noch eine Kante mit 4 Dreiecken übrig
     blieb (Rohrprofil läuft zweimal durch einen Punkt). Fächer je Eckpunkt trennen löst es: live alle 6 gebaut,
     Rücklese exakt.

@@ -2,11 +2,11 @@
 
 Workflow zum Wandeln einer Lageplan-DWG (Straßen, Gehwege, Gebäude — meist nur als 2D-Linien ohne saubere Konturen) in ein **lückenfreies IFC4-Modell**, in dem alle Flächen als gestaffelte `IfcSlab`-Decken extrudiert sind. Das fertige IFC wird in Archicad als **Hotlink** eingebunden — saubere 3D-Decken statt 2D-Linien-Soup.
 
-Entwickelt am BuPol-Lageplan (1.7 × 2.7 km, 81 k DXF-Entities → 5.385 Slabs, 9 MB IFC). Übertragbar auf andere Liegenschaftspläne mit drei Anpassungen (siehe § Übertragung).
+Entwickelt am Projekt-D-Lageplan (1.7 × 2.7 km, 81 k DXF-Entities → 5.385 Slabs, 9 MB IFC). Übertragbar auf andere Liegenschaftspläne mit drei Anpassungen (siehe § Übertragung).
 
 Diese Datei ist die **live-verifizierte Lageplan-Implementierung** (KG 500 Außenanlagen). Für die generische Anwendung auf **KG 300 Baukonstruktionen** (Wände, Decken, Fundamente, Dächer …) inkl. Bulk-KG-Zuweisung auf bestehende Archicad-Elemente: siehe [`dwg-ifc-kg300.md`](dwg-ifc-kg300.md).
 
-<!-- live verifiziert 2026-05-12, BuPol-Lageplan -->
+<!-- live verifiziert 2026-05-12, Projekt-D-Lageplan -->
 
 ## Inhalt
 - [Wann diese Pipeline](#wann-diese-pipeline)
@@ -73,9 +73,9 @@ LAYER_LOOSE = {
 Polygonisierung mit `shapely.set_precision(grid_size=tol)` + `unary_union` + `polygonize`. Output: ein Pickle pro Klasse mit `(label, outer_pts, holes)`-Tupeln.
 
 ```bash
-python3 step_polygonize_v4.py BuPol.dxf Strasse   strasse_v4.pkl
-python3 step_polygonize_v4.py BuPol.dxf Bordstein bordstein_v4.pkl
-python3 step_polygonize_v4.py BuPol.dxf Gebaeude  gebaeude_v4.pkl
+python3 step_polygonize_v4.py Projekt-D.dxf Strasse   strasse_v4.pkl
+python3 step_polygonize_v4.py Projekt-D.dxf Bordstein bordstein_v4.pkl
+python3 step_polygonize_v4.py Projekt-D.dxf Gebaeude  gebaeude_v4.pkl
 ```
 
 ### 3. Komplement-Füller (für Lückenfreiheit)
@@ -99,21 +99,21 @@ fill = site_hull.simplify(tolerance=0.2, preserve_topology=True)
 `step_build_single.py` baut pro Klasse ein eigenes IFC4. Dann `step_text_merge.py` verkettet die IFCs auf STEP-Textebene (in Subsekunden), mit ID-Remapping und Mapping der Singletons (Project, Site, Building, Storey, OwnerHistory, Units, RepresentationContext) auf die der Hauptdatei.
 
 ```bash
-python3 step_build_single.py strasse_v4.pkl   Strasse       BuPol_Strasse.ifc
-python3 step_build_single.py bordstein_v4.pkl Bordstein     BuPol_Bordstein.ifc
-python3 step_build_single.py gebaeude_v4.pkl  Gebaeude      BuPol_Gebaeude.ifc
-python3 step_build_single.py fill_v5.pkl      Strasse_Fill  BuPol_StrasseFill.ifc
+python3 step_build_single.py strasse_v4.pkl   Strasse       Projekt-D_Strasse.ifc
+python3 step_build_single.py bordstein_v4.pkl Bordstein     Projekt-D_Bordstein.ifc
+python3 step_build_single.py gebaeude_v4.pkl  Gebaeude      Projekt-D_Gebaeude.ifc
+python3 step_build_single.py fill_v5.pkl      Strasse_Fill  Projekt-D_StrasseFill.ifc
 
-python3 step_text_merge.py BuPol_Decken_v5.ifc \
-    BuPol_StrasseFill.ifc \
-    BuPol_Strasse.ifc \
-    BuPol_Bordstein.ifc \
-    BuPol_Gebaeude.ifc
+python3 step_text_merge.py Projekt-D_Decken_v5.ifc \
+    Projekt-D_StrasseFill.ifc \
+    Projekt-D_Strasse.ifc \
+    Projekt-D_Bordstein.ifc \
+    Projekt-D_Gebaeude.ifc
 ```
 
 ## Layer-Mapping
 
-Beispiel-Mapping aus dem BuPol-Lageplan — pro Projekt anpassen:
+Beispiel-Mapping aus dem Projekt-D-Lageplan — pro Projekt anpassen:
 
 | Klasse | DWG-Layer | Z (Oberkante) | Dicke | Farbe |
 |---|---|---|---|---|
@@ -133,7 +133,7 @@ Beispiel-Mapping aus dem BuPol-Lageplan — pro Projekt anpassen:
 
 ## Performance-Richtwerte
 
-Gemessen auf Apple M-Klasse / Linux ARM64 Sandbox, BuPol-Datensatz (8.5 MB DWG, 81 k DXF-Entities):
+Gemessen auf Apple M-Klasse / Linux ARM64 Sandbox, Projekt-D-Datensatz (8.5 MB DWG, 81 k DXF-Entities):
 
 | Schritt | Zeit |
 |---|---|
@@ -187,7 +187,7 @@ Discovery-Versuch:
 Die fünf Python-Scripts liegen NICHT im Skill (bewusste Entscheidung — sie sind ~50 kB Code und Layer-Konventions-spezifisch), sondern in der ursprünglichen Local-Agent-Mode-Session, in der die Pipeline entwickelt wurde:
 
 ```
-/Users/ap/Library/Application Support/Claude/local-agent-mode-sessions/
+~/Library/Application Support/Claude/local-agent-mode-sessions/
   d7558e7f-c488-4613-a4f1-2fb19e30e2f5/
     6847b14d-add0-4bc2-90f9-f11ac6ac2775/
       local_65685fda-4d49-4e5b-b418-694d2a36d0f5/
@@ -198,7 +198,7 @@ Die fünf Python-Scripts liegen NICHT im Skill (bewusste Entscheidung — sie si
           step_text_merge.py
           dwg2ifc.py            # älterer Monolith, v4 split ersetzt ihn
         uploads/
-          BuPol_BS_Gesamtdatei_umgebung.dwg
+          Projekt-D_BS_Gesamtdatei_umgebung.dwg
           Layer_Freianlagen_AutoCAD2000.dwg
 ```
 
@@ -211,7 +211,7 @@ Bei einem neuen Lageplan-Projekt: Scripts in einen Arbeitsordner kopieren, anpas
 - **Nicht** alle Klassen in eine einzige IFC bauen ohne Z-Staffel — Slabs verschmelzen visuell und der Höhen-Unterschied zwischen Straße und Bordstein geht verloren.
 - **Nicht** `ratio` der konkaven Hülle nach Augenmaß setzen — immer mit `0.05` starten und nur bei sichtbaren Hüllen-Lücken erhöhen.
 
-## PDF-Plan → Modell-Registrierung (TGA-Import-Pipeline, live 2026-08-28 THN) <!-- 2026-08-28 -->
+## PDF-Plan → Modell-Registrierung (TGA-Import-Pipeline, live 2026-08-28 Projekt-A) <!-- 2026-08-28 -->
 
 Verallgemeinertes Rezept, mit dem an einem Abend Lüftung (Werkplan), Schottungen
 (Prüfplan 1:200), Kälte (Bestand 2014, 1:100) und BMA (Noris, ohne Ebenen/Text)
@@ -238,7 +238,7 @@ ins Teamwork-Modell übertragen wurden:
 6. **Bestätigte Zahlen:** Zonen-Stempel haben ~1 m Anker-Offset (nie als
    Endstand); Registrierqualität 4–30 cm je nach Referenzdichte.
 
-## Vektor-TGA-Pläne: Symbol-Marken extrahieren + registrieren (live 2026-09-01, THN Kälte)
+## Vektor-TGA-Pläne: Symbol-Marken extrahieren + registrieren (live 2026-09-01, Projekt-A Kälte)
 
 - **Marken-Signatur statt Heuristik:** CAD-PDF-Symbole bestehen oft aus MEHREREN Pfaden mit
   exakt identischem Bounding-Rect (Schirra: `qu`-Quad + Diagonale / Gegendiagonale als 2. Pfad;
@@ -269,7 +269,7 @@ ins Teamwork-Modell übertragen wurden:
   Wand als Doppellinie getroffen wird (2 Parallelen ≤14 pt, filtert Maßlinien), (d) Ziel in
   Gebäudehülle. Bei uns: 425 Rohkandidaten → 86 echte Stellen.
 
-## Scan-Bestandsplaene (Lichtpausen 1:50, 96 dpi) selbst auslesen — Kosten und Methode (live 2026-09-02, THN)
+## Scan-Bestandsplaene (Lichtpausen 1:50, 96 dpi) selbst auslesen — Kosten und Methode (live 2026-09-02, Projekt-A)
 
 - **Achslineal statt Registrierung:** Alte SuD-Pläne tragen das Achsraster am Rand. Bubbles
   lesen → Seeds; Strichpunkt-Achslinien per Spaltenprojektion in leeren Randzonen verfeinern;
