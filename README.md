@@ -91,6 +91,6 @@ Einstieg: [`AGENTS.md`](AGENTS.md).
 
 ---
 
-**License · Lizenz:** © 2026 Mohamed Elmokadem, all rights reserved · alle Rechte vorbehalten. Use only with the author's express written permission · Nutzung nur mit ausdrücklicher schriftlicher Erlaubnis — [`LICENSE`](LICENSE), [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+**License · Lizenz:** © 2026 Mohamed Elmokadem, [Apache 2.0](LICENSE). Free to use, also commercially; anyone using ELMonkey or parts of it must credit it per [`NOTICE`](NOTICE) · Frei nutzbar, auch gewerblich; wer ELMonkey oder Teile davon verwendet, muss es nach [`NOTICE`](NOTICE) nennen. Fremdteile · third-party: [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
 **Third-party licenses · Fremdlizenzen:** ELMonkey contains MIT-licensed code from [Tapir](https://github.com/ENZYME-APD/tapir-archicad-automation) (© 2024 Enzyme APD), [archicad-additional-json-commands](https://github.com/tlorantfy/archicad-additional-json-commands) (© 2023 Tibor Lorántfy) and the Graphisoft add-on template (© 2020 GRAPHISOFT, basis of the old [ELM_SAB_Add-On](https://github.com/mozzi86/-archicad/tree/main/ELM_SAB_Add-On)) — license texts: [`archicad-addon/ELM_SAB_Tapir/README.md`](archicad-addon/ELM_SAB_Tapir/README.md#lizenzen--licenses). · ELMonkey enthält MIT-lizenzierten Code aus Tapir (© 2024 Enzyme APD), archicad-additional-json-commands (© 2023 Tibor Lorántfy) und der Graphisoft-Add-On-Vorlage (© 2020 GRAPHISOFT, Basis des alten ELM_SAB_Add-On) — Lizenztexte siehe oben.
