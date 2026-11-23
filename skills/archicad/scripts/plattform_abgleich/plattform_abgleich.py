@@ -14,6 +14,9 @@ Ablauf (Rezept: skills/archicad/recipes/plattform-abgleich.md). Die Links kommen
     plattform_abgleich.py hochladen       --ordner <dir> --ablage "<ergebnis_ablage>" [--netze-ablage "<netze_ablage>"]
     plattform_abgleich.py netze           --ordner <dir> [--paket 50]   # neue + in Archicad geänderte Bauteile mit
                                           # Körpern → archicad_netze.json.gz (sab-archicad-netze/1), statt IFC
+    plattform_abgleich.py formen          --ordner <dir>                     # Teile je ≤ 1 Mio. Dreiecke, gleiche Körper
+                                          # je Teil einmal: Form + Platzierung (sab-archicad-netze/2) → netze_teile/;
+                                          # danach je Teil: hochladen --netze-teil <nr>, dann melden
     plattform_abgleich.py oberflaechen    --ordner <dir>                     # Export + ZIP für die Plattform
     plattform_abgleich.py ifc             --ordner <dir> [--translator "<Name>"]
     plattform_abgleich.py diff            --ordner <dir> --stand-link "<stand_link>" [--toleranz 0.003]
@@ -29,6 +32,7 @@ from __future__ import annotations
 import argparse
 import collections
 import datetime
+import gzip
 import json
 import re
 import ssl
@@ -1134,17 +1138,26 @@ def cmd_hochladen(o) -> dict:
     ordner = Path(o.ordner)
     daten = (ordner / "ergebnis.json").read_bytes()
     netze = ordner / nz.DATEI
+    teil = int(getattr(o, "netze_teil", 0) or 0)
+    if teil:
+        from elmonkey import formen as fo
+        netze = ordner / fo.TEIL_ORDNER / fo.teil_name(teil)
+        if not o.netze_ablage:
+            raise Fehler("--netze-teil braucht --netze-ablage")
     if o.netze_ablage:
         _nur_https(o.netze_ablage)                         # vor dem ersten Upload prüfen
         if not netze.is_file():
-            raise Fehler(f"{nz.DATEI} fehlt — erst „netze“ laufen lassen (oder --netze-ablage weglassen)")
+            raise Fehler(f"{netze.name} fehlt — erst „{'formen' if teil else 'netze'}“ laufen lassen "
+                         "(oder --netze-ablage weglassen)")
     ablegen(o.ablage, daten, "application/json")
     aus = {"hochgeladen": ["ergebnis.json"], "bytes": {"ergebnis.json": len(daten)}}
     if o.netze_ablage:
         n = netze.read_bytes()
         ablegen(o.netze_ablage, n, "application/gzip")
-        aus["hochgeladen"].append(nz.DATEI)
-        aus["bytes"][nz.DATEI] = len(n)
+        aus["hochgeladen"].append(netze.name)
+        aus["bytes"][netze.name] = len(n)
+        if teil:
+            aus["netze_teil"] = teil
     elif netze.is_file():
         aus["hinweis"] = (f"{nz.DATEI} liegt im Ordner, ist aber nicht hochgeladen — --netze-ablage "
                           "<netze_ablage aus archicad_abgleich_lesen> mitgeben.")
@@ -1152,6 +1165,50 @@ def cmd_hochladen(o) -> dict:
                                 + (" (liest archicad_netze.json.gz: neue Bauteile + Netz-Ersatz)" if o.netze_ablage
                                    else ""))
     return aus
+
+
+def cmd_formen(o) -> dict:
+    """archicad_netze.json.gz (sab-archicad-netze/1) → netze_teile/archicad_netze_teil_NN.json.gz (/2): je Teil
+    höchstens 1 Mio. Dreiecke (Plattform-Grenze je Vorschlag), gleiche Körper stehen je Teil einmal unter `formen`,
+    die Bauteile tragen `form` + `platzierung`. Rein rechnerisch, kein Archicad; die Ausgangsdatei bleibt.
+    Geschrieben wird nur, wenn das Zurückrollen jedes Bauteil wieder trifft (≤ 0,5 mm, gleiche Dreiecke)."""
+    from elmonkey import formen as fo
+    ordner = Path(o.ordner)
+    quelle = ordner / nz.DATEI
+    if not quelle.is_file():
+        raise Fehler(f"{nz.DATEI} fehlt — erst „netze“ laufen lassen")
+    datei = json.loads(gzip.decompress(quelle.read_bytes()))
+    try:
+        fertig, groesste = [], 0.0
+        for t in fo.teilen(datei):
+            neu = fo.formen_bilden(t)
+            probe = fo.abweichung(t, fo.ausrollen(neu))
+            if not probe["aufbau_gleich"] or probe["groesste_abweichung_m"] > fo.TOLERANZ:
+                raise Fehler(f"Gegenprobe gescheitert ({probe}) — nichts geschrieben")
+            groesste = max(groesste, probe["groesste_abweichung_m"])
+            fertig.append(neu)
+    except fo.FormenFehler as e:
+        raise Fehler(str(e)) from e
+    ziel = ordner / fo.TEIL_ORDNER
+    ziel.mkdir(exist_ok=True)
+    for alt in ziel.glob("archicad_netze_teil_*.json.gz"):
+        alt.unlink()
+    teile = []
+    for nr, neu in enumerate(fertig, 1):
+        pfad = ziel / fo.teil_name(nr)
+        pfad.write_bytes(nz.gz_bytes(neu))
+        z = neu["zahlen"]
+        teile.append({"teil": nr, "datei": pfad.name, "bauteile": len(neu["bauteile"]), "dreiecke": z.get("dreiecke"),
+                      "dreiecke_einmalig": z["dreiecke_einmalig"], "formen": z["formen"],
+                      "mb": round(pfad.stat().st_size / 1e6, 2)})
+    return {"ordner": str(ziel), "format": fo.FORMAT_2, "teile": teile, "bauteile": len(datei["bauteile"]),
+            "dreiecke": sum(t["dreiecke"] or 0 for t in teile),
+            "dreiecke_einmalig": sum(t["dreiecke_einmalig"] for t in teile),
+            "mb_vorher": round(quelle.stat().st_size / 1e6, 2), "mb": round(sum(t["mb"] for t in teile), 2),
+            "gegenprobe_groesste_abweichung_mm": round(groesste * 1000, 3),
+            "naechster_schritt": "Je Teil der Reihe nach: hochladen --ordner <Ordner> --ablage <ergebnis_ablage> "
+                                 "--netze-ablage <netze_ablage> --netze-teil <nr>, dann archicad_abgleich_melden "
+                                 "{projekt, lauf} (Vorschau, nach dem Ja bestaetigt=true) — je Teil ein Vorschlag."}
 
 
 def archicad_datei(ordner: Path) -> Path:
@@ -1315,10 +1372,13 @@ def main(argv=None) -> int:
         system={"default": "", "help": "Klassifizierungssystem erzwingen (sonst automatisch)"},
         ausfuehren={"action": "store_true"})
     neu("hochladen", cmd_hochladen, ablage={"required": True},
-        netze_ablage={"default": "", "help": "Link netze_ablage aus archicad_abgleich_lesen (archicad_netze.json.gz)"})
+        netze_ablage={"default": "", "help": "Link netze_ablage aus archicad_abgleich_lesen (archicad_netze.json.gz)"},
+        netze_teil={"type": int, "default": 0,
+                    "help": "statt archicad_netze.json.gz den Teil <nr> aus netze_teile/ hochladen (nach „formen“)"})
     neu("netze", cmd_netze, paket={"type": int, "default": nz.PAKET, "help": "GUIDs je Get3DGeometryOfElements"},
         ebenen_nicht_einblenden={"action": "store_true",
                                  "help": "ausgeblendete Ebenen nicht kurz einblenden (Bauteile darauf ohne Körper)"})
+    neu("formen", cmd_formen)
     neu("oberflaechen", cmd_oberflaechen)
     neu("ifc", cmd_ifc, translator={"default": ""})
     neu("diff", cmd_diff, stand_link={"default": ""},
