@@ -3,7 +3,7 @@
 //
 // Warum es den Befehl braucht: TapirCommand.Get3DBoundingBoxes nimmt fuer Waende ACAPI_Element_CalcBounds,
 // die rohe Huellbox. Die weicht bei angeschlossenen Waenden um 20-35 cm von der geschnittenen Geometrie ab.
-// Im Abgleich Archicad <-> Plattform (AFWC, 16.11.2026) sah deshalb fast jede Wand geaendert aus; der
+// Im Abgleich Archicad <-> Plattform (Projekt-H, 16.11.2026) sah deshalb fast jede Wand geaendert aus; der
 // Ausweg war ein Komplett-IFC. Mit dieser Box vergleicht der Diff-Checker (elmonkey.diff) ohne IFC-Datei.
 //
 // Antwort je Element: boundingBox3D, source ("solid" = aus den Koerpern, "calcBounds" = rohe Huellbox als
