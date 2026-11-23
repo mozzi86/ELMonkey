@@ -9,7 +9,7 @@
 //   * Es reserviert die Wirtswand nicht (Teamwork) und meldet Konflikte nicht.
 //   * Seine Ergebnisliste entsteht INNERHALB des Undo-Lambdas — läuft das Lambda
 //     nicht, kommt eine leere Liste ohne Fehler zurück (siehe
-//     SetObjectParametersForceCommand, THN SuD 2026-09-08). Hier liegt die
+//     SetObjectParametersForceCommand, Projekt-A SuD 2026-09-08). Hier liegt die
 //     Ergebnisliste AUSSERHALB, und `undoScope` meldet den GSErrCode.
 //   * Es stempelt nichts: KI-Stempel, Element-ID, Klassifikation und die vom
 //     Quellsymbol geerbten Properties müssten sonst in drei Folgebefehlen nachlaufen.

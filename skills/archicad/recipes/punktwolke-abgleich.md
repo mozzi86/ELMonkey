@@ -1,6 +1,6 @@
-# Rezept: Punktwolke (E57) mit dem Archicad-Modell abgleichen <!-- 2026-11-16, live Futurelab 12.11. -->
+# Rezept: Punktwolke (E57) mit dem Archicad-Modell abgleichen <!-- 2026-11-16, live Projekt-C 12.11. -->
 
-Futurelab (AC29 Teamwork, Tapir 1.7.2 unter ELMonkey): drei reduzierte Scans (KG/EG/1.OG, je ca.
+Projekt-C (AC29 Teamwork, Tapir 1.7.2 unter ELMonkey): drei reduzierte Scans (KG/EG/1.OG, je ca.
 15 Mio. Punkte) als Objekte auf „99 Punktwolke“. Frage: Fehlen Wände/Stützen im Modell, liegen
 welche falsch? Alles nur lesend, Massendaten per HTTP-Bypass (siehe
 [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md)). Ergebnis damals: nichts
@@ -9,7 +9,7 @@ fehlt in EG/1.OG; 1.OG-Trennwände 0,15–1 m versetzt (Best-Fit 1,4°), KG eine
 ## 1. Platzierung der Wolke
 
 - Objekte: `API.GetElementsByType Object` → Tapir `GetDetailsOfElements`, nach Bibliotheksteil-Name
-  (`ARZ_1.OG_reduziert_15Mio_0`) bzw. `dimensions` > 15 m filtern. Gelesen: `origin`, `dimensions`, `angle` (rad).
+  (`Projekt-F_1.OG_reduziert_15Mio_0`) bzw. `dimensions` > 15 m filtern. Gelesen: `origin`, `dimensions`, `angle` (rad).
 - E57 finden: `mdfind -name 'reduziert_15Mio'` (Dateiname = Bibliotheksteil ohne `_0`).
 - Lesen: `uv venv .venv && uv pip install pye57 numpy scipy matplotlib shapely`, dann
   `pye57.E57(f).read_scan(0, transform=True, ignore_missing_fields=True)`, `cartesianX/Y/Z`,
@@ -59,7 +59,7 @@ Ergebnisbilder dauerhaft im Arbeitsordner ablegen, nicht nur im Scratchpad.
    schneiden; statt Ebenenkombination/Renovierungsfilter den aktuellen `isHidden`-Stand und die
    Renovierungs-Property nehmen.
 2. **`General_RenovationStatus` per `API.GetPropertyIds` → 4005.** Über Tapir `GetAllProperties`
-   suchen (Futurelab-GUID `9CF14061-6E9C-45BE-BD8F-D3BCF59D218E`, Werte Existing/New/ToBeDemolished).
+   suchen (Projekt-C-GUID `9CF14061-6E9C-45BE-BD8F-D3BCF59D218E`, Werte Existing/New/ToBeDemolished).
 3. **`Get3DGeometryOfElements` liefert leere `bodies`** für alle Stützen, das ganze 1.OG und
    ausgeblendete Fassaden (vermutlich 3D-Filter). Erst sah das 1.OG nach 0 % Deckung aus — ein
    Datenproblem, keine Fehllage. Darum Wände/Stützen aus Parametern + Box-Ersatz.

@@ -1,0 +1,20 @@
+ELMonkey
+Copyright 2026 Mohamed Elmokadem (https://github.com/mozzi86)
+
+Dieses Produkt enthält Software aus ELMonkey von Mohamed Elmokadem,
+https://github.com/mozzi86/ELMonkey
+This product includes software from ELMonkey by Mohamed Elmokadem,
+https://github.com/mozzi86/ELMonkey
+
+Wer ELMonkey oder Teile davon weitergibt oder in ein eigenes Produkt einbaut, muss diesen
+Hinweis nach Abschnitt 4 (d) der Apache-Lizenz 2.0 mitliefern und anzeigen. Der Name
+„ELMonkey“ darf nach Abschnitt 6 nicht als Name eines anderen Produkts verwendet werden.
+Anyone who redistributes ELMonkey or parts of it, or builds it into their own product, must
+include and display this notice as required by section 4 (d) of the Apache License 2.0. The
+name "ELMonkey" may not be used as the name of another product (section 6).
+
+ELMonkey enthält Fremdbestandteile unter MIT-Lizenz, siehe THIRD-PARTY-NOTICES.md:
+ELMonkey contains third-party components under the MIT license, see THIRD-PARTY-NOTICES.md:
+- Tapir, Copyright (c) 2024 Enzyme APD
+- archicad-additional-json-commands, Copyright (c) 2023 Tibor Lorántfy
+- Graphisoft Add-On-Vorlage / add-on template, Copyright (c) 2020 GRAPHISOFT

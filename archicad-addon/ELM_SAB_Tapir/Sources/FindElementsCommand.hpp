@@ -1,4 +1,4 @@
-// ELM_SAB 0.9.23 (2026-10-13, WiSchu-Tuerenabgleich) — FindElements: Elementsuche wie
+// ELM_SAB 0.9.23 (2026-10-13, Projekt-B-Tuerenabgleich) — FindElements: Elementsuche wie
 // "Suchen & aktivieren" mit and/or/not ueber beliebig tiefe Kriterienbaeume. Liest IMMER die
 // Grundriss-Datenbank (alle Geschosse), nie das aktive Fenster. Nur lesen.
 // Motor + guenstige Kriterien: FindElementsCommand.cpp; Wert-/Beziehungskriterien:

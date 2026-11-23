@@ -8,9 +8,12 @@ Neutraler Kern des Python-Monkeys. Nur Standardbibliothek; IFC-Ausgabe über das
 
 - `elmonkey` – Kern: finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese.
 - `elmonkey.plattform` – Klebe-Logik für die Schwarz Plattform.
-- `elmonkey.abgleich` – Abgleich Archicad ↔ Plattform: paaren, Drei-Wege-Vergleich, Fragen bündeln, entscheiden.
-- `elmonkey.diff` – Diff-Checker: nur die Unterschiede (neu, weg, Eigenschaften, Geometrie je Seite mit 3 mm
-  Toleranz), ohne IFC-Datei. Normalisiert IFC-Schreibweisen, übergeht Mengen, trennt Räume und Öffnungen ab.
+- `elmonkey.abgleich` – Abgleich Archicad ↔ Plattform, bidirektional (paaren, Drei-Wege, Fragen, entscheiden;
+  Format `sab-archicad-abgleich/1`).
+- `elmonkey.diff_plattform` – Diff-Checker ohne IFC-Export: Antwort von `ELM_SAB.GetDiffDataELM` gegen `stand.json`,
+  Ergebnis im Meldeformat + `diff` (neu/weg/Eigenschaften/Geometrie je Seite). Ab 0.4.0.
+- `elmonkey.diff` – zweite, ältere Fassung des Diff-Checkers aus `main` (Commit `3d2eed0`); Skript und MCP nutzen
+  `elmonkey.diff_plattform`. Ob sie bleibt, ist offen.
 - `elmonkey.katalog` – Bauteilkatalog-Maschine: Typen aus Schichten, Bauplan mit Ständerwerk und Verstärkungen,
   Bearbeiten mit Versionen, feste Typ-GUIDs. `elmonkey.katalog.ifc` schreibt IFC4/IFC4X3-Bibliotheken
   (braucht ifcopenshell).

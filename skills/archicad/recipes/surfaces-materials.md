@@ -333,7 +333,7 @@ einen Fehler zu werfen. Default ist `false` — sicherer für neue Materialien.
 
 **CutFill-Pen-Hinweis:** `cutFillPen` bestimmt die Stiftnummer im Schnittschraffur-Muster.
 Wert `0` = Pen-Override aus dem Pen-Set; Wert 2 = explizit Stift 2. Im Projekt-Template
-„Schwarz Architekturbüro" (6 Pen-Tables) ist Stift 2 typisch für Schnitt-Konturen.
+„Bürovorlage" (6 Pen-Tables) ist Stift 2 typisch für Schnitt-Konturen.
 Mehr in Gotcha 5.
 
 ---
@@ -585,7 +585,7 @@ Vollständige Live-verifizierten Patterns: `../reference/bulk-operations.md`.
 
 5. **CutFill-Pen-Wert 0 vs. explizite Stiftnummer.** `cutFillPen: 0` bedeutet in Archicad
    „Pen-Override aktiv — Pen aus aktivem Pen-Set verwenden". `cutFillPen: 2` setzt explizit
-   Stift 2. Im Template-Projekt „Schwarz Architekturbüro" (6 Pen-Tables) ist Stift 2 für
+   Stift 2. Im Template-Projekt „Bürovorlage" (6 Pen-Tables) ist Stift 2 für
    Schnitt-Konturen reserviert, Stift 1 für Umrisslinien. Falsche Wahl → falsches
    Schnittschraffur-Erscheinungsbild bei Pen-Set-Wechsel.
 
@@ -620,7 +620,7 @@ Vollständige Live-verifizierten Patterns: `../reference/bulk-operations.md`.
 
 ## Wand-Baustoff ersetzen (Basic-Wände) <!-- 2026-11-12 -->
 
-Live-Fall THN 12.11.2026: 1.741 Wände von gelöschtem „Vormauerziegel_650" auf „Klinker_625" gesetzt.
+Live-Fall Projekt-A 12.11.2026: 1.741 Wände von gelöschtem „Vormauerziegel_650" auf „Klinker_625" gesetzt.
 
 1. **Lesen:** Tapir `GetDetailsOfElements` liefert `details.buildingMaterialId` je Wand
    (ganze Wandliste in einem Aufruf ging bei 6.576 Wänden). Die eingebaute Property

@@ -1,6 +1,6 @@
 # Konturen → Wände (2D-Linienwerk zu Polygon-Wänden)
 
-*Live-verifiziert 2026-07-13/14, THN-Bestandsplan: 4.755 Wände über 7 Geschosse
+*Live-verifiziert 2026-07-13/14, Projekt-A-Bestandsplan: 4.755 Wände über 7 Geschosse
 (EG als Ganze-Ebene-Lauf, UG-2 bis OG4 per Markierungsrahmen).*
 
 Automatisiert den Handgriff „Wand-Werkzeug → Geometriemethode Polygon → Magic Wand
@@ -48,7 +48,7 @@ Braucht **ELM_SAB_Add-On ≥ v0.4**.
 - Median-Dicke im Bestandsplan wirkt dünn (10–11 cm): Öffnungslinien zerteilen
   Wandbänder; mit `--min-dicke` schärfen, wenn zu viel Kleinkram.
 
-## Worked Example (THN EG, 2026-07-13)
+## Worked Example (Projekt-A EG, 2026-07-13)
 
 | Ebene | Segmente | Regionen | Wände | Raum übersprungen |
 |---|---|---|---|---|
@@ -58,7 +58,7 @@ Braucht **ELM_SAB_Add-On ≥ v0.4**.
 
 Ergebnis: 2.032 erzeugt, 85 degeneriert fehlgeschlagen, H=4.20, EG, ein Undo-Schritt pro Batch.
 
-## Worked Example 2: ganzes Gebäude per Markierungsrahmen (THN, 2026-07-14)
+## Worked Example 2: ganzes Gebäude per Markierungsrahmen (Projekt-A, 2026-07-14)
 
 Ablauf pro Geschoss: User zieht Rahmen im Grundriss + Cmd+A → Script `--selektion`
 liest Selektion, erkennt Geschoss am `floorIndex` der Konturen, leitet Wandhöhe aus

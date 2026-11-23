@@ -1,6 +1,6 @@
 // ELM_SAB — Bemaßung in Schnitten, Ansichten und Innenansichten.
 //
-// Warum es die drei Befehle braucht (2026-10-14, Fliesenspiegel Futurelab):
+// Warum es die drei Befehle braucht (2026-10-14, Fliesenspiegel Projekt-C):
 //  * GetSectionElementsELM: Tapirs GetElementsByType/GetAllElements ersetzen jedes
 //    Schnittelement (API_SectElemID) durch sein Modell-Bauteil. Assoziative Maße in einer
 //    Ansicht hängen aber am Schnittelement — ohne dessen GUID ist keine Maßkette möglich.

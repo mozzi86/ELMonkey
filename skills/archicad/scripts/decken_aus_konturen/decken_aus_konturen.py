@@ -2,7 +2,7 @@
 """
 Decken + Deckendurchbrüche aus 2D-Konturen (Werkplan-Bestandsplan).
 
-Pipeline (live-verifiziert 2026-07-14, THN: 21 Decken, ~300 Löcher, 5 Geschosse):
+Pipeline (live-verifiziert 2026-07-14, Projekt-A: 21 Decken, ~300 Löcher, 5 Geschosse):
   1. Footprint pro Geschoss = Union aller geschlossenen Regionen aus Wand- UND
      Begrenzungs-Ebenen (Fassade, Tür-/Fensterlinien schließen die Öffnungslücken!)
   2. Durchbrüche = AUSSPAR_BODEN des Geschosses + AUSSPAR_DECKE des Geschosses

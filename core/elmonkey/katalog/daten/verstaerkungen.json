@@ -1,5 +1,5 @@
 {
-  "hinweis": "Verstärkungsarten als Vorlagen (Mudi 04.11.2026, Entscheidung 7): Art im Katalog, Lage am Bauteil (abstand_m vom Wandanfang bis Mitte, hoehe_m = Mitte über Rohfußboden). Herstellerneutral. Klasse IfcMember USERDEFINED „Wandverstärkung“ wie in der Plattform (IAB 171172) — durch die Recherche nicht als Norm belegt (Spec §12). last_kN ist ein Planungsrichtwert ohne Normbeleg — im Projekt mit Hersteller/Tragwerksplanung bestätigen.",
+  "hinweis": "Verstärkungsarten als Vorlagen (Mudi 04.11.2026, Entscheidung 7): Art im Katalog, Lage am Bauteil (abstand_m vom Wandanfang bis Mitte, hoehe_m = Mitte über Rohfußboden). Herstellerneutral. Klasse IfcMember USERDEFINED „Wandverstärkung“ wie in der Plattform (IAB Projekt-A) — durch die Recherche nicht als Norm belegt (Spec §12). last_kN ist ein Planungsrichtwert ohne Normbeleg — im Projekt mit Hersteller/Tragwerksplanung bestätigen.",
   "verstaerkungen": [
     {
       "schluessel": "traverse-haengelast",

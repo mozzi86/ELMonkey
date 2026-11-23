@@ -26,17 +26,33 @@ class FalschesArchicad:
         self.reserviert, self.aufrufe = [], []
         self.schreiben_wirkt = True
         self.extern = {G1: "0ExternWandGlobalId001"}
-        self.box = {G1: [0, 5.1, 0, 0.24, 0, 3], G2: [0, 5, 0, 4, -0.2, 0]}
-        self.kann_koerper = True
+        self.diff_befehl = True
 
     def __call__(self, body):
+        if body["command"] != "API.ExecuteAddOnCommand":          # eingebauter Befehl (API.*) direkt
+            name = body["command"].replace(".", "_")
+            self.aufrufe.append(name)
+            return {"succeeded": True, "result": getattr(self, name)(body["parameters"])}
         cid = body["parameters"]["addOnCommandId"]
         name, p = cid["commandName"], body["parameters"]["addOnCommandParameters"]
         self.aufrufe.append(name)
         return {"succeeded": True, "result": {"addOnCommandResponse": getattr(self, name)(p)}}
 
+    def API_GetElementsByType(self, p):
+        return {"elements": [{"elementId": {"guid": g}} for g, t in self.typ.items() if t == p["elementType"]]}
+
+    def API_GetAllClassificationSystems(self, p):
+        return {"classificationSystems": [{"classificationSystemId": {"guid": "sys"}}]}
+
+    def API_GetClassificationsOfElements(self, p):
+        return {"elementClassifications": [{"classificationIds": [
+            {"classificationId": {"classificationItemId": {"guid": "klasse"}}}]} for _ in p["elements"]]}
+
+    def API_SetPropertyValuesOfElements(self, p):
+        return self.SetPropertyValuesOfElements(p)
+
     def GetProjectInfo(self, p):
-        return {"projectName": "BFW07 Teamwork", "isTeamwork": True, "projectLocation": "bimcloud://…"}
+        return {"projectName": "P001 Teamwork", "isTeamwork": True, "projectLocation": "bimcloud://…"}
 
     def GetStories(self, p):
         return {"stories": [{"index": 0, "name": "EG"}, {"index": 1, "name": "1.OG"}]}
@@ -62,21 +78,18 @@ class FalschesArchicad:
                                    "externalIFCId": self.extern.get(e["elementId"]["guid"], "")}
                                   for e in p["elements"]]}
 
-    def GetIFCTypeOfElements(self, p):
-        return {"elementIFCTypes": [{"ifcType": {"Wall": "IfcWall", "Slab": "IfcSlab"}.get(
-            self.typ[e["elementId"]["guid"]], ""), "typeObjectIFCType": ""} for e in p["elements"]]}
-
-    def GetSolidBounds(self, p):
-        if not self.kann_koerper:
-            return {"error": {"code": 2002, "message": "Command 'GetSolidBounds' not found"}}
-        return {"solidBounds": [{"boundingBox3D": dict(zip(("xMin", "xMax", "yMin", "yMax", "zMin", "zMax"),
-                                                           self.box[e["elementId"]["guid"]])),
-                                 "source": "solid", "bodies": 1} for e in p["elements"]]}
-
-    def Get3DBoundingBoxes(self, p):
-        return {"boundingBoxes3D": [{"boundingBox3D": dict(zip(("xMin", "xMax", "yMin", "yMax", "zMin", "zMax"),
-                                                               self.box[e["elementId"]["guid"]]))}
-                                    for e in p["elements"]]}
+    def GetDiffDataELM(self, p):
+        if not self.diff_befehl:
+            return {"error": {"code": 2002, "message": "Command 'GetDiffDataELM' not found"}}
+        box = {G1: [0, 5.1, 0, 0.24, 0, 3], G2: [0, 5, 0, 4, -0.2, 0]}
+        els = [{"elementId": {"guid": g}, "type": self.typ[g], "ifcType": {"Wall": "IfcWall", "Slab": "IfcSlab"}[self.typ[g]],
+                "ifcGlobalId": "IFC" + g[:2], "externalIfcGlobalId": self.extern.get(g, ""),
+                "ifcAttributes": [{"name": "Name", "value": "Bauteil"}],
+                "ifcProperties": [{"pset": "Brandschutz", "name": "Klasse", "value": self.werte[(g, P_BS)]}],
+                "storyName": "EG", "renovationStatus": "Existing",
+                "geometry": {"source": "3dModel", "box": box[g], "bodies": 1}} for g in (G1, G2)]
+        return {"format": "elm-diff-daten/1", "readOnly": True, "elements": els, "total": 3,
+                "context": {"geometry3DModel": 2}}
 
     def GetPropertyValuesOfElements(self, p):
         zeilen = []
@@ -110,7 +123,7 @@ def welt(tmp_path, monkeypatch):
 
 
 def _stand(*elemente, basis=None):
-    return {"format": pa.ab.FORMAT, "lauf": "ab-1", "projekt": {"nummer": "BFW07"}, "elemente": list(elemente),
+    return {"format": pa.ab.FORMAT, "lauf": "ab-1", "projekt": {"nummer": "P001"}, "elemente": list(elemente),
             "basis": basis or {"paare": {}, "werte": {}}}
 
 
@@ -121,7 +134,7 @@ def _pf(guid, herkunft="archicad", **eig):
 
 def test_lesen_nimmt_nur_bauteile_und_eigene_eigenschaften(welt):
     aus = pa.cmd_archicad_lesen(welt.o(typen="", alle_eigenschaften=False))
-    assert aus == {"projekt": "BFW07 Teamwork", "teamwork": True, "bauteile": 2, "eigenschaften": 4,
+    assert aus == {"projekt": "P001 Teamwork", "teamwork": True, "bauteile": 2, "eigenschaften": 4,
                    "hinweis": aus["hinweis"]}
     stand = json.loads((welt.ordner / "archicad.json").read_text())
     e1 = next(e for e in stand["elemente"] if e["guid"] == G1)
@@ -188,7 +201,8 @@ def test_stempeln_setzt_plattform_guid_und_ki(welt):
     welt.ac.werte[(G1, P_KI)] = ""
     aus = pa.cmd_stempeln(welt.o(gebaut=str(gebaut), ausfuehren=True))
     assert aus["geschrieben"] == 2
-    assert welt.ac.werte[(G1, P_ST)] == "PF-NEU" and welt.ac.werte[(G1, P_KI)] == "ja"
+    assert welt.ac.werte[(G1, P_ST)] == "PF-NEU" and welt.ac.werte[(G1, P_KI)].startswith("KI generiert ")
+    assert welt.ac.reserviert == []                          # Stempeln reserviert nicht
 
 
 def test_links_nur_https(welt):
@@ -204,48 +218,30 @@ def test_archicad_fehler_kommt_als_klartext():
         ac.befehl("GibtEsNicht")
 
 
-# ─────────────────────────────────────────────────────────── Diff-Checker (16.11.2026)
-
-def _diff_lauf(tmp_path, monkeypatch, ac, stand):
-    monkeypatch.setattr(pa, "_http", lambda port: ac)
-    (tmp_path / "stand.json").write_text(json.dumps(stand), encoding="utf-8")
-    o = SimpleNamespace(ordner=str(tmp_path), port=1, stand_link="", typen="", toleranz=0.003,
-                        alle_eigenschaften=False)
-    return pa.cmd_diff(o), json.loads((tmp_path / "diff.json").read_text(encoding="utf-8"))
-
-
-def _dstand(*elemente):
-    return {"format": pa.ab.FORMAT, "lauf": "ab-20261116-120000", "projekt": {"nummer": "AFWC"},
-            "elemente": list(elemente), "basis": {"paare": {}, "werte": {}}}
-
+# ─────────────────────────────────────────────────────────── Diff-Checker (Hülle um elmonkey.diff_plattform)
 
 def _dpf(guid, **k):
     return {"guid": guid, "name": "Bauteil", "klasse": k.pop("klasse", "IfcWall"), "herkunft": "archicad",
             "ausgeblendet": False, "eigenschaften": k.pop("eigenschaften", {}), **k}
 
 
-def test_diff_liest_archicad_direkt_und_meldet_nur_unterschiede(tmp_path, monkeypatch):
-    ac = FalschesArchicad()
-    stand = _dstand(_dpf("0ExternWandGlobalId001", bbox=[0, 5, 0, 0.24, 0, 3],
-                       eigenschaften={"Brandschutz.Klasse": "F90"}),
-                   _dpf("IFC22", klasse="IfcSlab", bbox=[0, 5, 0, 4, -0.2, 0], eigenschaften={"Brandschutz.Klasse": ""}),
-                   _dpf("WEG-1"))
-    aus, d = _diff_lauf(tmp_path, monkeypatch, ac, stand)
-    assert "IFCFileOperation" not in ac.aufrufe                       # kein IFC-Export
-    assert d["paare"] == {"0ExternWandGlobalId001": G1, "IFC22": G2}  # externalIFCId vor ifcId
-    assert d["geometrie"] == [{"plattform": "0ExternWandGlobalId001", "archicad": G1, "name": "Bauteil",
-                               "seiten": {"x+": 0.1}, "bbox_archicad": [0, 5.1, 0, 0.24, 0, 3],
-                               "bbox_plattform": [0, 5, 0, 0.24, 0, 3]}]
-    assert d["eigenschaften"][0]["felder"] == {"Brandschutz.Klasse": {"plattform": "F90", "archicad": "F30"}}
-    assert [x["guid"] for x in d["weg"]] == ["WEG-1"] and d["neu"] == []
-    assert aus["geometrie_bauteile"] == 1 and aus["lauf"] == "ab-20261116-120000"
-    erg = json.loads((tmp_path / "ergebnis.json").read_text(encoding="utf-8"))
-    assert erg["lauf"] == "ab-20261116-120000" and erg["plattform"]["geometrie"][0]["seiten"] == {"x+": 0.1}
+def test_diff_liest_archicad_direkt_und_meldet_nur_unterschiede(welt):
+    stand = {"format": pa.ab.FORMAT, "lauf": "ab-20261116-120000", "elemente": [
+        _dpf("0ExternWandGlobalId001", bbox=[0, 5, 0, 0.24, 0, 3], eigenschaften={"Brandschutz.Klasse": "F90"}),
+        _dpf("IFC22", klasse="IfcSlab", bbox=[0, 5, 0, 4, -0.2, 0]), _dpf("WEG-1")],
+        "basis": {"paare": {}, "werte": {}}}
+    (welt.ordner / "stand.json").write_text(json.dumps(stand), encoding="utf-8")
+    aus = pa.cmd_diff(welt.o(stand_link="", toleranz=0.003))
+    erg = json.loads((welt.ordner / "ergebnis.json").read_text(encoding="utf-8"))
+    assert "IFCFileOperation" not in welt.ac.aufrufe and "SetPropertyValuesOfElements" not in welt.ac.aufrufe
+    assert erg["basis"]["paare"] == {"0ExternWandGlobalId001": G1, "IFC22": G2}       # externe Kennung vor eigener
+    assert erg["diff"]["geometrie"][0]["seiten"] == {"x+": 0.1}
+    assert [w["plattform"] for w in erg["diff"]["weg"]] == ["WEG-1"] and erg["diff"]["neu"] == []
+    assert aus["geometrie"] == 1 and aus["lauf"] == "ab-20261116-120000"
 
 
-def test_diff_ohne_koerper_befehl_vergleicht_keine_geometrie(tmp_path, monkeypatch):
-    ac = FalschesArchicad()
-    ac.kann_koerper = False
-    aus, d = _diff_lauf(tmp_path, monkeypatch, ac, _dstand(_dpf("0ExternWandGlobalId001", bbox=[0, 5, 0, 0.24, 0, 3])))
-    assert d["geometrie"] == [] and d["zahlen"]["geometrie_ungeprueft"] == 1
-    assert any("GetSolidBounds fehlt" in h for h in aus["hinweise"])
+def test_diff_ohne_neuen_befehl_bricht_klar_ab(welt):
+    welt.ac.diff_befehl = False
+    (welt.ordner / "stand.json").write_text(json.dumps({"format": pa.ab.FORMAT, "elemente": []}), encoding="utf-8")
+    with pytest.raises(pa.Fehler, match="0.11.13"):
+        pa.cmd_diff(welt.o(stand_link="", toleranz=0.003))

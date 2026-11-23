@@ -66,7 +66,7 @@ Merke: der Trick wirkt am stärksten, wenn ein Schema-Feld einen ungewöhnlich s
 | **Pydantic-Validierungs-Fehler in Response** (z. B. `extra_forbidden` für `structureType` / `geometryType`) | **AC29-Schema-Drift-Bug** in `elements_get_details_of_elements` — Workarounds in der Capability-Tabelle unten + Memory-Eintrag `issue_archicad_mcp_get_details_bug.md`. Property-basiertes Lesen verwenden. | 0 |
 | **`elements_get_gdl_parameters_of_elements` schlägt fehl mit ~tausenden Validierungs-Fehlern** | **AC29-Schema-Drift-Bug** — Pydantic-Validierung im MCP-Wrapper, nicht in Archicad. **Bester Workaround: direkter HTTP-Zugriff** auf die rohe JSON-API (siehe Sektion „Direkter HTTP-Zugriff") — die rohe Antwort ist parsebar. Alternativ Schedule-Export-Pipeline (`schedule-pipeline.md`). <!-- 2026-06-11 --> | 0 |
 | **`elements_get_details_of_elements` für Zone wirft Schema-Mismatch** | Zone-Detail-Schema fehlt im MCP-Wrapper. Server liefert `name`, `numberStr`, `categoryAttributeId`, `stampPosition`, `isManual`, `zCoordinate`, `polygonOutline`, `holes`, aber kein `ZoneDetails`-Variant existiert. | 0 |
-| **`project_get_stories` (GetStories) wirft Pydantic `extra_forbidden` für `height`** | **AC29-Schema-Drift-Bug** wie bei `get_details`: Server liefert pro Story zusätzlich `height`, der MCP-Wrapper verbietet das Feld. **Workaround: direkter HTTP-Zugriff** — Tapir-Command `GetStories` via `API.ExecuteAddOnCommand` liefert `stories` sauber inkl. `index`, `level`, `height`, `name`, `actStory` (siehe Sektion „Direkter HTTP-Zugriff"). Live verifiziert im THN-Teamwork-Projekt. <!-- 2026-07-17 --> | 0 |
+| **`project_get_stories` (GetStories) wirft Pydantic `extra_forbidden` für `height`** | **AC29-Schema-Drift-Bug** wie bei `get_details`: Server liefert pro Story zusätzlich `height`, der MCP-Wrapper verbietet das Feld. **Workaround: direkter HTTP-Zugriff** — Tapir-Command `GetStories` via `API.ExecuteAddOnCommand` liefert `stories` sauber inkl. `index`, `level`, `height`, `name`, `actStory` (siehe Sektion „Direkter HTTP-Zugriff"). Live verifiziert im Projekt-A-Teamwork-Projekt. <!-- 2026-07-17 --> | 0 |
 | **Leere `properties: []`-Liste an `properties_get_property_values_of_elements`** | Server trennt die Verbindung hart (`RemoteDisconnected` / leere Response, Länge 0) und kann im Worst Case den JSON-Port der Instanz lahmlegen, bis sie reaktiviert wird. **Vor jedem Werte-Read prüfen, dass die Property-ID-Liste nicht leer ist** (z. B. wenn ein Elementtyp keine user-defined Properties hat). <!-- 2026-06-11 --> | 0 |
 | **`TeamWork permission denied` — Code 6001** (im `executionResults`-Eintrag, nicht im Top-Level-Fehler) | **Teamwork-Projekt: Element ist nicht für dich reserviert.** Vor jedem schreibenden Aufruf (`SetPropertyValuesOfElements`, Klassifizierung, Geometrie-Update) die Ziel-Elemente reservieren: MCP-Tool **`teamwork_reserve_elements`** (`params.elements` = Liste `{elementId:{guid}}`), Erfolg = `executionResult.success:true`. Danach Write wiederholen. (`API.ReserveElements` existiert NICHT als JSON-Command — nur über das MCP-Tool bzw. Tapir.) <!-- 2026-06-18 --> | 1 nach Reserve |
 | **`Port <n> is not an active Archicad connection`** beim `archicad_call_tool` (obwohl roher HTTP auf den Port antwortet) | Der MCP-Server hat seinen Instanz-Cache verloren. **`discovery_list_active_archicads` einmal aufrufen** — danach kennt der Server den Port wieder und der Call klappt. | 1 nach Discovery |
@@ -159,7 +159,7 @@ Die JSON-/MCP-Ports (typisch ab 19723 aufwärts) sind **nicht stabil einer besti
 
 **Regel:** Niemals „Port X = Datei Y" über die Dauer einer Session hinaus annehmen oder aus einer früheren Session übernehmen. Vor jeder Operation, die den Port aus dem Warm-up wiederverwendet, **die offene Datei verifizieren** — via `GetProjectInfo` (Tapir) und Abgleich des `projectName`/`projectPath`. Wenn der erwartete Port keine Antwort gibt: nicht raten, alle aktiven Instanzen neu auflisten und den `projectName` matchen.
 
-**Port → Prozess zuordnen, bevor man CPU oder Zustand misst.** <!-- 2026-09-03 --> Bei mehreren Instanzen zeigt `ps` mehrere gleichnamige `Archicad`-Prozesse; welcher zu welchem Port gehört, sagt nur `lsof -nP -iTCP:<port> -sTCP:LISTEN`. Live-Fehldiagnose: „7 % CPU, Zustand S → vermutlich modaler Dialog“ — gemessen war aber die THN-Instanz (19723, PID 9015); die tatsächlich betroffene Möbel-Instanz (19724, PID 14543) lief mit 95 % im Zustand R, also rechnend, nicht wartend. Es liefen **drei** Instanzen (19725 = PID 14850), obwohl nur zwei erwartet waren.
+**Port → Prozess zuordnen, bevor man CPU oder Zustand misst.** <!-- 2026-09-03 --> Bei mehreren Instanzen zeigt `ps` mehrere gleichnamige `Archicad`-Prozesse; welcher zu welchem Port gehört, sagt nur `lsof -nP -iTCP:<port> -sTCP:LISTEN`. Live-Fehldiagnose: „7 % CPU, Zustand S → vermutlich modaler Dialog“ — gemessen war aber die Projekt-A-Instanz (19723, PID 9015); die tatsächlich betroffene Möbel-Instanz (19724, PID 14543) lief mit 95 % im Zustand R, also rechnend, nicht wartend. Es liefen **drei** Instanzen (19725 = PID 14850), obwohl nur zwei erwartet waren.
 
 **Symptom für „Port tot / verschoben":** `IsAlive` liefert nichts oder die Verbindung ist refused, obwohl Archicad sichtbar läuft. Dann: aktive Instanzen neu auflisten, korrekten Port per Projektname bestimmen.
 
@@ -284,7 +284,7 @@ Der Archicad-MCP-Server ist nur ein dünner Wrapper über Archicads **JSON-Comma
 **Welche Commands wo liegen** (offiziell vs. Tapir) steht in der installierten Server-Quelle:
 `~/.local/share/uv/tools/tapir-archicad-mcp/lib/python3.13/site-packages/multiconn_archicad/core/literal_commands.py` — zwei Literal-Listen `AddonCommandType` (offiziell `API.*`) und `TapirCommandType`. Die exakten Parameter-Shapes liegen daneben in `models/official/` bzw. `models/tapir/`.
 
-**Property-READS bei rohem HTTP: offizieller vs. Tapir-Command.** <!-- 2026-07-27 live verifiziert, Futurelab, 3.563 CW-Frames -->
+**Property-READS bei rohem HTTP: offizieller vs. Tapir-Command.** <!-- 2026-07-27 live verifiziert, Projekt-C, 3.563 CW-Frames -->
 Beide heißen `GetPropertyValuesOfElements`, verhalten sich aber verschieden:
 
 - Der **offizielle** `API.GetPropertyValuesOfElements` scheitert an **CW-Subelementen** (Frames/Paneele) pro Element mit `7203 „Element not supported"`. Der **Tapir-Command gleichen Namens** kann Subelemente — für Bulk-Reads auf Frames/Paneelen also immer den Tapir-Weg nehmen (Namespace `TapirCommand`, Singular — `TapirCommands` gibt 4010).
@@ -316,12 +316,12 @@ Flach (`classificationSystemId`/`classificationItemId` direkt neben `elementId`)
 
 **Wann den HTTP-Bypass NICHT nehmen:** Für normale, kleine Operationen (< ~100 Elemente, keine kaputten Tools) bleibt der MCP-Tool-Pfad der Default — er ist Discovery-geführt und versionsrobust. Der Bypass ist das Werkzeug für **Massendaten** und **die bekannten Schema-Drift-Tools**. Port immer aus dem Warm-up/Discovery beziehen, nie hardcoden (Ports sind volatil, siehe oben).
 
-## MCP-Schema ≠ installiertes Add-on (Tapir 1.7.2 unter ELMonkey) <!-- 2026-11-16, live AFWC -->
+## MCP-Schema ≠ installiertes Add-on (Tapir 1.7.2 unter ELMonkey) <!-- 2026-11-16, live Projekt-H -->
 
 `discovery_list_active_archicads` warnt bei ELMonkey-Installationen: „Installed Tapir version
 (1.7.2) is older than supported (2.0.0)“ (am 12.11. hieß es noch 1.8.0 — der MCP-Server zieht
 mit). Die Schemas aus `archicad_get_command_schema` beschreiben dann die **neuere** Tapir-Version,
-das installierte Add-on kennt aber nur 1.7.2. Folgen, live an AFWC (Teamwork, AC29):
+das installierte Add-on kennt aber nur 1.7.2. Folgen, live an Projekt-H (Teamwork, AC29):
 
 | Was | Antwort des Add-ons | Ausweg |
 |---|---|---|
@@ -361,7 +361,7 @@ selbst wieder aufheben; die orange Markierung hat die Nutzerin am 10.11. gestör
 
 **Confirm war `ja`, aber das Ergebnis überrascht.** Element verschwindet, Eigenschaft sieht anders aus als erwartet: stoppen, lesen, berichten. Wir korrigieren nicht durch Folge-Operationen, weil wir nicht wissen, was der MCP-Server genau gemacht hat.
 
-## Betriebs-Fallen (THN-Live-Sitzung) <!-- 2026-09-06 -->
+## Betriebs-Fallen (Projekt-A-Live-Sitzung) <!-- 2026-09-06 -->
 
 - **Zeitgrenze auf 600 s setzen, auch bei „timed out" wiederholen.**
   Teamwork-Schreibungen und Senden können über 180 s dauern; die HTTP-Zeitgrenze
@@ -410,7 +410,7 @@ Anschluss an die Fehlerklassen-Zeile „Reserve meldet success, Write scheitert 
   wirtlos einstuft (Querverweis auf „Host-Deckung messen" im Öffnungs-Rezept).
 - **Teamwork Receive und Pause-Abschluss** <!-- 2026-11-17 -->: Tapir `TeamworkReceive`
   existiert (neben `TeamworkSend`). Pause-Abschluss = Send, Receive, `ReleaseElements`
-  für alle Typen, Send. (Live THN, ELMonkey 0.11.12.1, AC29.)
+  für alle Typen, Send. (Live Projekt-A, ELMonkey 0.11.12.1, AC29.)
 
 ## Werkzeug-Hygiene für Hilfsskripte <!-- 2026-09-07 -->
 
@@ -441,7 +441,7 @@ dokumentiert.
 
 ## Fallen beim Ändern von Maßketten und 2D in Ansichten <!-- 2026-10-14 -->
 
-Alle live erlebt (Fliesenspiegel Futurelab, Teamwork, AC29, ELMonkey 0.9.29, bei S. als 0.9.12–0.9.14 gebaut):
+Alle live erlebt (Fliesenspiegel Projekt-C, Teamwork, AC29, ELMonkey 0.9.29, bei S. als 0.9.12–0.9.14 gebaut):
 
 1. **`MoveElements` meldet in Teamwork „success", ändert aber nichts**, solange das Element nicht reserviert ist — gleiches Muster wie bei Delete/SetDetails. Neue, eigene Elemente bewegen sich, Bestand nicht. Immer `ReserveElements` → kurz warten (1–1,5 s) → Schreiben → Rücklese der Position.
 2. **`DeleteElements` scheitert in Ansichten mit `BADID` (-2130313115)**, wenn im selben Ablauf vorher Befehle mit Datenbankwechsel liefen (alles mit `databases`/`databaseId`). `ChangeWindow` auf **dieselbe** Ansicht hilft nicht. Abhilfe: auf eine **andere** Ansicht und zurück wechseln, je 1 s warten, reservieren, löschen. Am zuverlässigsten: Löschen als eigener Aufräumdurchgang, Ansicht für Ansicht. Rücklese über `GetElementsByType` **mit** `databases` (ein Read ohne Datenbank kann im falschen Kontext „weg" melden, obwohl das Element noch da ist).

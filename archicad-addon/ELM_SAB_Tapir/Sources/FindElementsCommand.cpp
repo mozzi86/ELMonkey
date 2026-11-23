@@ -1,4 +1,4 @@
-// ELM_SAB 0.9.23 (2026-10-13, WiSchu-Tuerenabgleich) — FindElements: Motor, Suchbereich,
+// ELM_SAB 0.9.23 (2026-10-13, Projekt-B-Tuerenabgleich) — FindElements: Motor, Suchbereich,
 // guenstige Kriterien, Ausgabe, Auswahl.
 //
 // Anlass: Tapir GetElementsByType/GetAllElements lesen die Datenbank des AKTIVEN Fensters. Mit
@@ -1153,7 +1153,7 @@ bool MatchHeaderLeaf (const EvalContext& ctx, const Node& node, const API_Elem_H
             return static_cast<const LayerLeaf*> (node.leaf.get ())->layers.Contains (GetAttributeIndex (head.layer));
         case NodeKind::Teamwork: {
             // In Teamwork ist userId ("owner") die Nutzer-ID des Reservierenden, frei = 0; lockId bleibt 0
-            // (live THN 29.10.2026, ELM 0.10.3).
+            // (live Projekt-A 29.10.2026, ELM 0.10.3).
             const TeamworkMode mode = static_cast<const TeamworkLeaf*> (node.leaf.get ())->mode;
             const short ownerId = head.userId;
             if (mode == TeamworkMode::Free) {

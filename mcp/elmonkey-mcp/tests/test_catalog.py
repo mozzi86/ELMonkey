@@ -22,6 +22,7 @@ E = [{"name": f"{ns}.{n}", "namespace": ns, "command": n, "group": g, "descripti
          ("ELM_SAB", "ExportSurfaces", "ELM_SAB", "ELM_SAB: Exportiert alle Oberflaechen des Projekts samt Texturbildern als Ordner im Format sab-oberflaechen/1 (oberflaechen.json + texturen/ + LIESMICH.md) - Farbe, Glanz, Transparenz, Kachelmass breite_m/hoehe_m, Drehung, Flags. Bilder aus eingebetteter Bibliothek/.lcf ueber IO::File; nicht lesbare stehen mit bild_fehlt drin. targetFolder optional (Standard <Benutzer>/Downloads). Liest nur, aendert nichts. Gleiches Format wie der Export des Plattform-Add-ons."),
          ("ELM_SAB", "GetCurtainWallPlaneELM", "ELM_SAB", "ELM_SAB: Liest Neigung (angle, Grad), planeMatrix, planeOffset, Hoehe und flipped bestehender Fassaden - Vorlage fuer liegende Fassaden (Boden/Abhangdecke)."),
          ("ELM_SAB", "SetCurtainWallSegmentELM", "ELM_SAB", "ELM_SAB: Passt eine bestehende Fassade an: Segment-Kontur (u/v), Spaltenbreiten/Zeilenhoehen (Zellen nach Vorlage der ersten Zelle), Basislinienlaenge, Hoehe. Fuer liegende Fassaden: Muster per MoveElements copy duplizieren, dann hiermit anpassen."),
+         ("ELM_SAB", "GetDiffDataELM", "ELM_SAB", "ELM_SAB: Liest je Element die Daten fuer den Diff-Checker Archicad <-> Plattform, ohne IFC-Datei: GUID, IFC-GlobalId, IFC-Klasse, Geschoss, Umbau-Status, Ebene, Aufbau, Box der Geometrie aus dem 3D-Modell. Liest nur."),
      ]]
 
 
@@ -59,6 +60,11 @@ def test_search_liegende_fassade():
     assert c.search(E, "Zeilenhöhen der Fassade ändern")[0]["command"] == "SetCurtainWallSegmentELM"
     found = [e["command"] for e in c.search(E, "Bodenfliese")]
     assert "GetCurtainWallPlaneELM" in found and "SetCurtainWallSegmentELM" in found
+
+
+def test_search_diff_plattform():
+    assert c.search(E, "Abgleich mit der Plattform")[0]["command"] == "GetDiffDataELM"
+    assert c.search(E, "Unterschiede Archicad Plattform vergleichen")[0]["command"] == "GetDiffDataELM"
 
 
 def test_synonyms_waende_bereinigen():

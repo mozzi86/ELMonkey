@@ -78,7 +78,7 @@ Archicad kennt vier Library-Typen, die `library_get_libraries` zurückliefert:
 | `BuiltInLibrary` | In Archicad integriert, nicht editierbar | `BuiltInLibraryParts.libpack`, Add-On-Bundles | Read-Only |
 | `EmbeddedLibrary` | Im Projekt-Paket eingebettet; wandert mit dem Projekt | `Emb_3305904328` (AutoSave-Projekt-Library) | Read/Write |
 | `LocalLibrary` | Lokales Verzeichnis; typisch für Migrationsbibliotheken | `Archicad Migrationsbibliotheken (AC28)` | Read/Write (wenn vorhanden) |
-| `ServerLibrary` | BIMcloud / TeamWork-Server-Library; zentral gepflegt | `BIBLIOTHEKEN 28` auf `schwarz.bimcloud.com` | R/W je nach User-Rechten |
+| `ServerLibrary` | BIMcloud / TeamWork-Server-Library; zentral gepflegt | `BIBLIOTHEKEN 28` auf `<büro>.bimcloud.com` | R/W je nach User-Rechten |
 
 **Hinweis Server vs. Local:** Eine ServerLibrary ist nur verfügbar, wenn die BIMcloud-Verbindung aktiv ist. `available: false` bedeutet, dass Library-Parts aus dieser Library im Projekt referenziert sind, aber nicht geladen werden können — Worked Example 1 zeigt, wie man das erkennt.
 
@@ -138,7 +138,7 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-Response pro Library: `{name, path, type, available, readOnly, twServerUrl, urlWebLibrary}`. Im Sandkasten 19723 live verifiziert: 19 Libraries inkl. BuiltInLibraryParts, EmbeddedLibrary (Emb_3305904328), und ServerLibrary `BIBLIOTHEKEN 28` auf `schwarz.bimcloud.com`.
+Response pro Library: `{name, path, type, available, readOnly, twServerUrl, urlWebLibrary}`. Im Sandkasten 19723 live verifiziert: 19 Libraries inkl. BuiltInLibraryParts, EmbeddedLibrary (Emb_3305904328), und ServerLibrary `BIBLIOTHEKEN 28` auf `<büro>.bimcloud.com`.
 
 **Was interessiert uns:**
 
@@ -740,7 +740,7 @@ Bei Scan-Meshes (pCon/Möbelkonverter-Exporte) mit stark fragmentierten UV-Insel
 - [`../reference/property-expression-linking.md`](../reference/property-expression-linking.md) — Dauerhafter GDL-Parameter ↔ Property-Sync über Archicad-Expression-Editor.
 - [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) — Confirm-Format, Modal-Dialog-Handling, AC29-Bug-Tabelle.
 
-## Worked-Example: Lesen + Klassifikation live (2026-07-14, THN-Referenzmodell)
+## Worked-Example: Lesen + Klassifikation live (2026-07-14, Projekt-A-Referenzmodell)
 
 596 Objekte: `GetDetailsOfElements` liefert `details.libPart{name, parentUnID, ownUnID}`
 (z. B. „Notdusche", „Labor-Arbeitsplatz") + `origin{x,y,z}`, `dimensions{x,y,z}`, `angle`.
@@ -749,7 +749,7 @@ Klassifikation (System-Filter MUSS verschachtelt sein:
 L_BRANDSCHUTZ-Objekte → Item „Brandschott", A_25_MOEBEL → „Möbel".
 Querschnitts-/Maßfragen: 2D-Symbol verfälscht die 2D-Box → `API.Get3DBoundingBoxes`.
 
-## Objekte per API erstellen und vollständig ausstatten (live-verifiziert 2026-08-31, AC29 Teamwork THN)
+## Objekte per API erstellen und vollständig ausstatten (live-verifiziert 2026-08-31, AC29 Teamwork Projekt-A)
 
 `TapirCommand.CreateObjects` nimmt pro Objekt nur drei Felder — alles Weitere erbt vom Werkzeug-Default:
 
@@ -778,7 +778,7 @@ Wert. Steuerparameter sind `gs_hole_width` (Breite), `gs_hole_depth` (Tiefe),
 
 Folge: `dimensions` beim `CreateObjects` (siehe oben, `A/B/ZZYZX`-Mapping) und
 direktes Setzen von `A`/`B`/`ZZYZX` fallen auf die Bibliotheks-Defaults
-0,70/0,40/0,30 zurück — der Aufruf meldet dabei Erfolg. Live THN 2026-09-09:
+0,70/0,40/0,30 zurück — der Aufruf meldet dabei Erfolg. Live Projekt-A 2026-09-09:
 2110 Objekte standen auf diesen Defaults, Reparatur 1856/1856 über die
 Steuerparameter (Skript `mass_reparatur.py`).
 
@@ -792,7 +792,7 @@ Ausprägung an den Durchbruch-Symbolen. Details zu `SetObjectParametersForce`
 
 ## GDL-Fallen beim Schreiben eigener Objekte <!-- 2026-11-16, live „SAB Bodenfliese liegend“ 10.11. -->
 
-Beim Bau des Objekts „SAB Bodenfliese liegend“ (Futurelab, 2D-Deckschraffur für liegende
+Beim Bau des Objekts „SAB Bodenfliese liegend“ (Projekt-C, 2D-Deckschraffur für liegende
 Bodenfassaden, eingebettet unter `SAB/SAB Bodenfliese liegend.gsm`):
 
 1. **Variablennamen unterscheiden keine Groß-/Kleinschreibung.** `tX` und `tx` sind dieselbe

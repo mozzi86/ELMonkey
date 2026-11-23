@@ -77,7 +77,7 @@ Vier Dinge, die in der Praxis überraschen:
   native Weg ist `API.GetAttributesIndices` (Antwort
   `attributeIndicesAndGuids[].attributeIndexAndGuid.{guid,index}`); Tapir 1.5.4 kennt
   den Befehl noch nicht (Fehler 4010). Indizes sind projektspezifisch — vor
-  Wiederverwendung neu holen. Live THN 2026-09-06: A_21_AUSSPAR_WAND=567,
+  Wiederverwendung neu holen. Live Projekt-A 2026-09-06: A_21_AUSSPAR_WAND=567,
   A_22_AUSSPAR_DECKE=127, A_23_AUSSPAR_BODEN=117.
 - **Ebene per Property lesen geht nur über „Ebenenname", nicht über „Ebene".**
   <!-- 2026-11-05 --> `API.GetPropertyValuesOfElements` mit den StaticBuiltIn-Properties
@@ -89,7 +89,7 @@ Vier Dinge, die in der Praxis überraschen:
   nachschlagen, nicht hartkodieren. Nutzen: Elemente im Bulk-Read nach Ebene filtern,
   ohne Layer-Index-Mapping (siehe `layerIndex`-Punkt darüber). Für kleine Mengen
   alternativ `ELM_SAB.GetElementEditState` (liefert je Element `layerName` und
-  `layerHidden`). Beleg: Live Futurelab_BI_Umbau_ARZ_OBL_V29, AC29 Build 5101,
+  `layerHidden`). Beleg: Live Projekt-C_Modell_V29, AC29 Build 5101,
   ELMonkey 0.10.3, Teamwork.
 
 ## Ebenenkombinationen

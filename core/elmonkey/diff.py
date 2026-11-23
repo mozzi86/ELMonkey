@@ -1,6 +1,6 @@
 """Diff-Checker Archicad ↔ Schwarz Plattform — nur die Unterschiede, ohne IFC-Datei. Reiner Kern.
 
-Anlass: Abgleich AFWC am 16.11.2026 (Anforderung Sophia Pickel). Der Umweg über ein Komplett-IFC dauert lange und
+Anlass: Abgleich Projekt-H am 16.11.2026 (Anforderung aus dem Team). Der Umweg über ein Komplett-IFC dauert lange und
 erzeugt Schein-Unterschiede. Dieser Kern vergleicht den direkt gelesenen Archicad-Stand mit `stand.json` der
 Plattform und meldet nur, was sich wirklich unterscheidet:
 

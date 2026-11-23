@@ -4,12 +4,17 @@ name: Skill nach mozzi86/-archicad spiegeln
 # dieser Workflow hält die Wurzel dort automatisch aktuell. Links im Skill sind relativ innerhalb
 # von skills/archicad und bleiben im Spiegel gültig (geprüft: kein Link verlässt skills/archicad).
 #
+# Skripte im Skill brauchen den Kern elmonkey (nur Standardbibliothek). Der Spiegel hat kein core/,
+# darum legt dieser Workflow core/elmonkey unter scripts/_kern/elmonkey ab, plus scripts/_kern/HERKUNFT.txt.
+# _kern im Spiegel nie von Hand ändern.
+#
 # Kein pull_request-Trigger: Fork-PRs bekämen sonst Zugriff auf das Secret.
 on:
   push:
     branches: [main]
     paths:
       - 'skills/archicad/**'
+      - 'core/elmonkey/**'
       - '.github/workflows/skill-spiegeln.yml'
   workflow_dispatch:
 
@@ -66,6 +71,16 @@ jobs:
           done
           # Weitere Dateien unter skills/archicad werden bewusst nicht gespiegelt.
           cp quelle/skills/archicad/SKILL.md spiegel/SKILL.md
+          # Kern mitspiegeln. MUSS nach der Schleife stehen: dort löscht --delete scripts/_kern,
+          # weil es in quelle/skills/archicad/scripts nicht existiert.
+          mkdir -p spiegel/scripts/_kern/elmonkey
+          rsync -a --delete --exclude __pycache__ "quelle/core/elmonkey/" "spiegel/scripts/_kern/elmonkey/"
+          {
+            echo "Quelle: https://github.com/mozzi86/ELMonkey"
+            echo "Pfad: core/elmonkey"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Nicht von Hand ändern — kommt aus mozzi86/ELMonkey core/elmonkey und wird vom Workflow skill-spiegeln überschrieben."
+          } > spiegel/scripts/_kern/HERKUNFT.txt
 
       - name: Commit und Push
         if: steps.token.outputs.ok == 'true'

@@ -6,3 +6,6 @@ dist/
 build/
 *.egg-info/
 .DS_Store
+
+# Planungsnotizen bleiben lokal (enthalten Projektdaten), seit 23.11.2026
+.planning/

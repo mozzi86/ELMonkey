@@ -12,7 +12,12 @@ MCP-Server für Archicad mit ELMonkey (Tapir eingebaut + ELM_SAB). Ersetzt `tapi
 
 Installation: `uv tool install "git+https://github.com/mozzi86/ELMonkey#subdirectory=mcp/elmonkey-mcp"`, Einrichtung je KI: [`clients/`](../../clients/).
 
-**Add-ons** (`ELMONKEY_ADDONS`, Standard `archicad,kern`): `archicad` = die drei Werkzeuge oben, `kern` = `elmonkey_finden` (Kern-Suche für Bauteillisten aus jeder Quelle).
+Dazu (ab 0.3.0) `elmonkey_diff_plattform(stand, basis?, plattform_geometrie?, gebaut?, versatz?, ordner?)`: Diff-Checker
+Archicad ↔ Plattform ohne IFC-Export — liest `ELM_SAB.GetDiffDataELM` (Add-on ≥ 0.11.13), vergleicht mit `stand.json`
+(`elmonkey.diff_plattform`) und schreibt `ergebnis.json` (Format von `archicad_abgleich_melden` + `diff`) in den
+Arbeitsordner. Siehe [`skills/archicad/reference/diff-plattform.md`](../../skills/archicad/reference/diff-plattform.md).
+
+**Add-ons** (`ELMONKEY_ADDONS`, Standard `archicad,kern`): `archicad` = die Werkzeuge oben, `kern` = `elmonkey_finden` (Kern-Suche für Bauteillisten aus jeder Quelle).
 Keine schweren Abhängigkeiten (nur `mcp`), HTTP per Standardbibliothek, Zeitgrenze 600 s je Aufruf.
 
 Tests ohne Archicad: `python tests/test_catalog.py`.

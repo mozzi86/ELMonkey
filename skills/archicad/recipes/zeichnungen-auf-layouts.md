@@ -1,6 +1,6 @@
 # Rezept: Zeichnungen auf Layouts platzieren und zuschneiden <!-- 2026-11-11 -->
 
-Live durchlaufen am Futurelab-Fliesenspiegel (12 Layouts, AC29 Teamwork, Tapir 1.7.2 +
+Live durchlaufen am Projekt-C-Fliesenspiegel (12 Layouts, AC29 Teamwork, Tapir 1.7.2 +
 ELMonkey): Je Layout ein Ausschnitt „EG/1.OG RAUMSTEMPEL“ (Grundriss-Ausschnitt, auf dem nur die
 Zonenstempel sichtbar sind), zugeschnitten auf den Stempel des jeweiligen Raums. Die alten
 explodierten Stempel (Linien, Texte, Schraffur) wurden ersetzt. Das Muster gilt für jede
@@ -20,7 +20,7 @@ Grundriss-Zeichnung, die auf einen Modellpunkt zugeschnitten werden soll.
    gedrehten Ansichtskoordinaten).
 3. **Abbildung Modell → Layout** (Zeichnung mit `angle` 0, `modelOffset` 0):
    `L = pos + drawingScale · (R(rotation) · M + t)`. Dabei ist `t` eine **feste Verschiebung je
-   Ausschnitt**. Futurelab: EG (84,52 / −23,97), 1.OG (0 / 0).
+   Ausschnitt**. Projekt-C: EG (84,52 / −23,97), 1.OG (0 / 0).
    `t` bekommst du aus einer schon platzierten Zeichnung desselben Ausschnitts (Beispiel des
    Nutzers) oder per Ausgleich über mehrere Zuschnitte gegen Zonenschwerpunkte. Danach
    **messen**: Erst die Messung am Bild hat für das 1.OG gezeigt, dass `t` dort 0 ist; die
@@ -66,7 +66,7 @@ Grundriss-Zeichnung, die auf einen Modellpunkt zugeschnitten werden soll.
    supported“. Der KI-Stempel ist an Zeichnungen nicht möglich; dem Nutzer melden.
 5. **`GetElementsByType Drawing` funktioniert bei aktivem Layout** (Tapir 1.7.2, live
    2026-11-11). Voraussetzung: vorher `ChangeWindow` mit `windowType:"Layout"`. Die ältere
-   THN-Notiz („0 Treffer“) in `reference/mcp-extension.md` gilt so nicht mehr allgemein.
+   Projekt-A-Notiz („0 Treffer“) in `reference/mcp-extension.md` gilt so nicht mehr allgemein.
 6. **`SaveCurrentWindowAsImage`:** Das zurückgegebene `zoom` ist nicht der Bildausschnitt (bei
    mehreren Layouts gleich, egal welches Blatt). Liegt ein Element weit außerhalb des Blatts
    (zum Beispiel ein verrutschter Zeichnungstitel), wird das Blatt im Bild winzig, und die
@@ -88,7 +88,7 @@ Grundriss-Zeichnung, die auf einen Modellpunkt zugeschnitten werden soll.
 
 ## Layouts mit Grundriss und Wandansichten anordnen <!-- 2026-11-12 -->
 
-Live am Futurelab (12 Fliesenspiegel-Layouts). Regeln der Nutzerin: Der Grundriss liegt in der
+Live am Projekt-C (12 Fliesenspiegel-Layouts). Regeln der Nutzerin: Der Grundriss liegt in der
 Mitte der freien Fläche neben dem Plankopf. Jede Wandansicht fluchtet mit ihrer Wand. Die Unterkante
 der Ansicht liegt 10 mm vor der Grundriss-Zuschnittkante. Schräge Ansichten werden so weit nach außen
 gezogen, bis nichts mehr überlappt. Texte „Ansicht X (1:20)“ stehen in der Lücke, im Uhrzeigersinn,

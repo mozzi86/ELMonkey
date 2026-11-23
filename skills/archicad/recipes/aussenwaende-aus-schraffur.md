@@ -1,6 +1,6 @@
 # Außenwände aus Schraffur (wenn Konturen nicht schließen)
 
-*Live-verifiziert 2026-07-14, THN UG-1: 11 Außenwand-Bänder.*
+*Live-verifiziert 2026-07-14, Projekt-A UG-1: 11 Außenwand-Bänder.*
 
 **Problem:** Die Kontur-Pipeline ([konturen-zu-waende.md](konturen-zu-waende.md))
 findet nur GESCHLOSSENE Regionen zwischen Linien. Außenwände am Gebäuderand
@@ -8,7 +8,7 @@ schließen oft nicht (Bestandsplan endet dort, Böschungs-/Geländelinien fehlen
 → ganze Außenwandzüge fehlen im Modell, obwohl sie im Plan klar sichtbar sind.
 
 **Trick:** Die Wand-SCHRAFFUR liefert die fehlenden Kanten. Bestands-DWGs haben
-oft eine eigene Schraffur-Ebene je Wandtyp (THN: `A_01_TRAGWAND_SCHR` neben
+oft eine eigene Schraffur-Ebene je Wandtyp (Projekt-A: `A_01_TRAGWAND_SCHR` neben
 `A_01_TRAGWAND`). Die Schraffurlinien zerhacken das Wandinnere in viele schmale
 Zellen — und die sind geschlossen, auch wenn die Wandkontur selbst offen ist.
 
@@ -30,14 +30,14 @@ Zellen — und die sind geschlossen, auch wenn die Wandkontur selbst offen ist.
 
 ## Grenzen
 
-- Funktioniert nur, wo Schraffur existiert. THN UG-2 hatte KEINE
+- Funktioniert nur, wo Schraffur existiert. Projekt-A UG-2 hatte KEINE
   Schraffur-Ebene → 0 Treffer, Außenwände dort nur manuell/andere Quelle.
   Vorab prüfen: Element-Histogramm je Ebene je Geschoss (`*_SCHR`-Ebenen zählen).
 - Schraffur-Muster mit weitem Linienabstand (> Wanddicke) erzeugt Zellen, die
   der Dünn-Filter verwirft → Lücken im Band. Sichtprüfung durch den User bleibt
   Pflicht.
 
-## Worked Example (THN UG-1, 2026-07-14)
+## Worked Example (Projekt-A UG-1, 2026-07-14)
 
 `A_01_TRAGWAND` + `A_01_TRAGWAND_SCHR` polygonisiert → dünne Zellen vereinigt
 → 11 neue Außenwand-Bänder (h=3,50, Geschoss −1), die die Kontur-Pipeline

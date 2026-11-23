@@ -24,7 +24,7 @@
 // Loeschung kommen ausschliesslich elementweise ueber AttachObserver. Deshalb
 // gibt es `ELM_SAB.WatchElements`: erst damit landen Change/Delete-Ereignisse fuer
 // die genannten Elemente im Log. Ein Rundum-Attach ueber das ganze Modell waere am
-// THN (>100k Elemente) zu teuer und wird bewusst NICHT gemacht.
+// Projekt-A (>100k Elemente) zu teuer und wird bewusst NICHT gemacht.
 //
 // Ein weiterer DevKit-Zwang: pro Benachrichtigungsart darf nur EIN Handler
 // installiert sein. Tapirs SetElementNotificationClient installiert seine eigenen

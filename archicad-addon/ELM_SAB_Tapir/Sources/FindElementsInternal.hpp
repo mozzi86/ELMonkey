@@ -1,4 +1,4 @@
-// ELM_SAB 0.9.23 (2026-10-13, WiSchu-Tuerenabgleich): FindElements — gemeinsamer Vertrag
+// ELM_SAB 0.9.23 (2026-10-13, Projekt-B-Tuerenabgleich): FindElements — gemeinsamer Vertrag
 // Motor (FindElementsCommand.cpp) <-> Wert-/Beziehungsblaetter (FindElementsLeaves.cpp).
 //
 // Ein Knoten des where-Baums hat GENAU einen Kriteriums-Schluessel. Operatoren (and/or/not) und

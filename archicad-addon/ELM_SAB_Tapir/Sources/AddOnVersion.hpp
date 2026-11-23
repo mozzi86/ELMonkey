@@ -11,6 +11,7 @@
 // Update-Stolperfalle aus reference/mcp-extension.md).
 // 0.11.0 (05.11.2026): RKs Linie 0.10.1–0.10.8 (Bogenwand, Hotlinks, Bibliotheksteile, Zeichnungen)
 // mit der Hauptlinie 0.10.4 (Ebenen-Fixes) zusammengeführt.
+// 0.11.13 (16.11.2026): GetDiffDataELM — Lesebefehl fuer den Diff-Checker Archicad <-> Plattform.
 // 0.11.13 (16.11.2026): GetSolidBounds - Koerper-Box fuer den Diff-Checker Archicad <-> Plattform.
 // 0.11.14 (17.11.2026): SetCurtainWallSegmentELM columnOrigin/rowOrigin (Rasterursprung) mit Ruecklese.
 // 0.11.15 (17.11.2026): SetCurtainWallSegmentELM gridOriginAtStart (Ursprungspunkt gridOrigin = Segmentanfang begC)

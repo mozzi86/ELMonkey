@@ -614,10 +614,10 @@ Details + Reaktionsprotokoll: [`../reference/mcp-conventions.md`](../reference/m
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Universelles
   Bulk-Klassifizierungs-Pattern.
 
-## Hand-gestrichelte Ketten → eine Polylinie mit Linientyp (live 2026-07-16, THN)
+## Hand-gestrichelte Ketten → eine Polylinie mit Linientyp (live 2026-07-16, Projekt-A)
 
 Bestandspläne zeichnen Strich-/Punktlinien oft als HUNDERTE Einzel-Elemente
-(THN: 1.320 Stück à 10 cm im 42-cm-Raster auf FW_Längen). Ersatz durch echte
+(Projekt-A: 1.320 Stück à 10 cm im 42-cm-Raster auf FW_Längen). Ersatz durch echte
 Polylinien mit Linientyp:
 
 - **Linientyp-Index ist per API nicht ermittelbar** (Tapir kennt kein
@@ -633,12 +633,12 @@ Polylinien mit Linientyp:
 - **Zweistufig ausführen**: erst alle neuen Züge erzeugen (alte bleiben!),
   User vergleicht im Blatt, DANN alte löschen. Pfeile/Symbole auf derselben
   Ebene vorher per User-Abwahl rauswerfen.
-- THN: 25 Züge (1,6–52,5 m) ersetzen 1.248 Strichlein, 0 Fehler.
+- Projekt-A: 25 Züge (1,6–52,5 m) ersetzen 1.248 Strichlein, 0 Fehler.
 
 ### Nachtrag Massenlauf 7 Blätter (2026-07-16): 278 Züge ersetzen ~11.260 Strichlein
 
 - **Pfeile/Symbole vom selben Layer per STIFT trennen**, nicht per Geometrie
-  raten (THN: Rettungsweg-Striche Stift 90, Pfeile Stift 91 — ein
+  raten (Projekt-A: Rettungsweg-Striche Stift 90, Pfeile Stift 91 — ein
   `contourPen`-Filter im Sweep und das Problem ist weg). Der User findet den
   Diskriminator in Sekunden („Selektion hat Farbe 91").
 - **Sprung-Limit ist blattabhängig**: 1,2 m brückt Türöffnungen falsch →
@@ -650,7 +650,7 @@ Polylinien mit Linientyp:
   DB-GUIDs via `API.GetNavigatorItemTree` → `GetDatabaseIdFromNavigatorItemId`.
   Schreiben/Erzeugen bleibt an die aktive DB gebunden (User klickt Tabs durch).
 
-## HLS-Werkplan-PDF → Kanal-Polylinien im Modell (live-verifiziert 2026-08-28, THN WE)
+## HLS-Werkplan-PDF → Kanal-Polylinien im Modell (live-verifiziert 2026-08-28, Projekt-A WE)
 
 7 Geschosse Lüftungs-Werkplanung (Plancal-PDF, Vektor) als 2D-Polylinien auf
 Q_22_LUEFTUNG ins Teamwork-Modell — 20.344 Linien. Pipeline:

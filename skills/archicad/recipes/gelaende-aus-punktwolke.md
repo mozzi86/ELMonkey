@@ -3,8 +3,8 @@
 Ziel: Ein Gelände (Mesh) erzeugen, das der gescannten Bodenoberfläche einer in Archicad platzierten Punktwolke folgt („Abdruck"). Archicad kann das nicht nativ; das Gelände-Werkzeug sieht Punktwolken nicht.
 
 ## Lage-Zuordnung (Schlüsselerkenntnis)
-- Die Punktwolke ist in Archicad ein Object mit libPart-Name = Dateiname (z. B. „THN_Außen_richtig"). Tapir GetDetailsOfElements liefert `origin` und `dimensions` (per HTTP-Bypass; das MCP-Schema wirft für Objekte Pydantic-Fehler).
-- **Archicad platziert die Wolke mit der Bounding-Box-Minimalecke (xMin,yMin,zMin) am Objektursprung.** `dimensions` = Welt-BBox-Ausdehnung der Wolke. Offset = origin − bboxMin(E57). Verifikation: dimensions stimmen auf mm mit der E57-BBox (268,755 × 214,123 × 47,768 m am THN).
+- Die Punktwolke ist in Archicad ein Object mit libPart-Name = Dateiname (z. B. „Projekt-A_Außen_richtig"). Tapir GetDetailsOfElements liefert `origin` und `dimensions` (per HTTP-Bypass; das MCP-Schema wirft für Objekte Pydantic-Fehler).
+- **Archicad platziert die Wolke mit der Bounding-Box-Minimalecke (xMin,yMin,zMin) am Objektursprung.** `dimensions` = Welt-BBox-Ausdehnung der Wolke. Offset = origin − bboxMin(E57). Verifikation: dimensions stimmen auf mm mit der E57-BBox (268,755 × 214,123 × 47,768 m am Projekt-A).
 - Die per-Scan `cartesianBounds` im E57-Header sind Scanner-lokal; die Welt-BBox muss aus den transformierten Punkten (`pye57 read_scan(i, transform=True)`) gerechnet werden.
 - Die 3D-Bounding-Box des Objekts (Get3DBoundingBoxes) ist NICHT die Wolke, sondern nur das 2D-Symbol — ignorieren.
 
@@ -24,8 +24,8 @@ Ziel: Ein Gelände (Mesh) erzeugen, das der gescannten Bodenoberfläche einer in
 - KI-Stempel: „KI generiert" fehlt in Untitled-/Fremdprojekten oft → User anlegen lassen, nicht still weglassen.
 - `elements_get_elements_by_type` mit `Unknown` ist ungültig (Fehler −2130313112); Punktwolken sind Typ `Object`.
 
-## Worked Example — THN Außenanlage, 2026-09-07
-E57 „THN_Außen_richtig" 59 Scans / 50,4 Mio Punkte; Objekt-origin (−386,587 / 127,885 / −0,1), E57-bboxMin (−207,260 / −131,835 / −12,312) → Offset (−179,327 / +259,720 / +12,212). Boden 0,19–11,22 m (Median 6,94 m), 87 Sublines / 3.065 Punkte, Umriss-z 6,95. Mesh-GUID 08EDCBD4-B85E-5143-9319-07A683D26334 im Projekt „Untitled" (Port 19724, EG). Wolke deckt nur ~20.000 der 57.500 m² Umriss ab.
+## Worked Example — Projekt-A Außenanlage, 2026-09-07
+E57 „Projekt-A_Außen_richtig" 59 Scans / 50,4 Mio Punkte; Objekt-origin (−386,587 / 127,885 / −0,1), E57-bboxMin (−207,260 / −131,835 / −12,312) → Offset (−179,327 / +259,720 / +12,212). Boden 0,19–11,22 m (Median 6,94 m), 87 Sublines / 3.065 Punkte, Umriss-z 6,95. Mesh-GUID 08EDCBD4-B85E-5143-9319-07A683D26334 im Projekt „Untitled" (Port 19724, EG). Wolke deckt nur ~20.000 der 57.500 m² Umriss ab.
 
 ## Skripte
 `scripts/gelaende_aus_punktwolke/` — e57_grid.py, make_mesh.py, create_mesh.py (live-verifiziert 2026-09-07).

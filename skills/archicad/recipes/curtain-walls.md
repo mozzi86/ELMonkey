@@ -1,6 +1,6 @@
 # Fassaden / Pfosten-Riegel-Konstruktionen — CurtainWall + Sub-Elemente
 
-> **Status (2026-07-25):** Im THN-Projekt stehen 82 CurtainWalls — der frühere Marker „0 CW, alles unverifizierbar" ist überholt. Erstellen, Rastern und Giebelschnitt sind live verifiziert (siehe [Worked Example — CurtainWall erstellen](#worked-example--curtainwall-erstellen-elm_sab)); die Sub-Element-Update-Pfade tragen weiterhin VERIFY-Marker.
+> **Status (2026-07-25):** Im Projekt-A-Projekt stehen 82 CurtainWalls — der frühere Marker „0 CW, alles unverifizierbar" ist überholt. Erstellen, Rastern und Giebelschnitt sind live verifiziert (siehe [Worked Example — CurtainWall erstellen](#worked-example--curtainwall-erstellen-elm_sab)); die Sub-Element-Update-Pfade tragen weiterhin VERIFY-Marker.
 
 Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-Element enthält eine Hierarchie von bis zu 5 Sub-Element-Typen (Segmente, Pfosten, Paneele, Knoten, Zubehör). **Tapir/MCP kann CurtainWalls nicht erstellen** — das hauseigene `ELM_SAB.CreateCurtainWallFromAxes` kann es (seit 2026-07-21, Giebel/Trapez seit 0.9.7 / 2026-07-25). Sub-Elemente entstehen automatisch mit dem Top-Level und werden über die Hierarchie navigiert, nicht eigenständig erstellt. Vollständige Capability-Tabelle: [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Live-verifizierte Element-Create-Capabilities.
 
@@ -45,7 +45,7 @@ Fassaden sind in Archicad Composite-Konstruktionen: ein Top-Level-CurtainWall-El
 
 ## Spaltenraster nachträglich ändern (ELM_SAB.SetCurtainWallSegmentELM) <!-- 2026-11-17 -->
 
-Live THN 2026-11-17: 206 von 255 Fassaden auf 1,20 m Feldbreite gestellt.
+Live Projekt-A 2026-11-17: 206 von 255 Fassaden auf 1,20 m Feldbreite gestellt.
 
 - `ELM_SAB.SetCurtainWallSegmentELM {elementId:{guid}, columnWidths:[…]}` ändert das Spaltenraster einer **bestehenden, einsegmentigen** Fassade; Höhe, Lage und Riegel bleiben. **Berichtigt 2026-11-17:** Der Befehl ist im Repo seit 0.11.12.2 registriert und steckt in allen späteren Ständen (0.11.13, 0.11.14, 0.11.15), nicht nur im lokalen Stand 0.11.12.1. Fehler 4010 (Befehl unbekannt) heißt: Das geladene Bundle ist älter; Version per `ELM_SAB.GetUIState` → `elmSabVersion` zurücklesen.
 - Ein einzelner Wert `[1.2]` wiederholt sich über die Länge; Archicad legt den Rest ans Ende oder verteilt ihn auf beide Enden.
@@ -179,7 +179,7 @@ Beide nur in spezialisierten CurtainWall-Konfigurationen vorhanden. Settings-Fel
 
 ## Worked Example — CurtainWall erstellen (ELM_SAB)
 
-<!-- 2026-07-25 live verifiziert AC29, Add-On 0.9.7, THN Fassade-013 -->
+<!-- 2026-07-25 live verifiziert AC29, Add-On 0.9.7, Projekt-A Fassade-013 -->
 
 `ELM_SAB.CreateCurtainWallFromAxes` (Namespace **`ELM_SAB`**, nicht `TapirCommand`).
 Frames und Panels kommen aus den **CW-Werkzeug-Defaults** — passenden Favoriten
@@ -403,7 +403,7 @@ Bei Fassaden mit Ecken, T-Stößen oder Accessories erscheinen zusätzlich:
 
 ## Worked Example — Profillängen (lfm) bulk lesen für die Ausschreibung
 
-<!-- 2026-07-27 live verifiziert AC29, Futurelab, 3.563 Frames zu 100 % zugeordnet -->
+<!-- 2026-07-27 live verifiziert AC29, Projekt-C, 3.563 Frames zu 100 % zugeordnet -->
 
 Auswertungs-Exporte (XLSX) enthalten für CW-Profile oft nur Breite + Volumen — die
 ausschreibungsrelevanten **laufenden Meter fehlen**. Sie stehen als Built-in-Property
@@ -928,7 +928,7 @@ Bekannte Dialog-Auslöser bei CurtainWall-Arbeit: Attribute-Manager, Profil-Edit
 
 ---
 
-## Liegende Fassaden (Bodenfliesen, Abhangdecken) <!-- 2026-11-16, live Futurelab 09.–10.11. -->
+## Liegende Fassaden (Bodenfliesen, Abhangdecken) <!-- 2026-11-16, live Projekt-C 09.–10.11. -->
 
 Anlass: Bodenfliesen im Raster 0,605 × 0,305 als liegende Fassade wie ein von Hand gezeichnetes
 Muster. Ergebnis der Live-Proben (alle bei x = −100 angelegt und wieder gelöscht):

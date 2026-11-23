@@ -602,7 +602,7 @@ Stahlprofile entstehen mit vorhandenen Befehlen, ein eigener ELM_SAB-Befehl ist 
 
 **Kein Create per MCP v29.** Der User zeichnet Träger manuell in Archicad. Nach dem Zeichnen kann Claude die Beam-GUIDs via `elements_get_elements_by_type` mit `"elementType": "Beam"` ermitteln.
 
-**Beam-Lesepfad live verifiziert 2026-07-14** (3 Referenz-Träger, THN): details = `{zCoordinate, begCoordinate, endCoordinate, level, offset, slantAngle, arcAngle, verticalCurveHeight}` — **kein Querschnitt in den Details!** Breite/Höhe nur über `API.Get3DBoundingBoxes` ableitbar. Beam-CREATE (CreateBeams) weiterhin ungetestet — kommt mit den THN-Unterzügen.
+**Beam-Lesepfad live verifiziert 2026-07-14** (3 Referenz-Träger, Projekt-A): details = `{zCoordinate, begCoordinate, endCoordinate, level, offset, slantAngle, arcAngle, verticalCurveHeight}` — **kein Querschnitt in den Details!** Breite/Höhe nur über `API.Get3DBoundingBoxes` ableitbar. Beam-CREATE (CreateBeams) weiterhin ungetestet — kommt mit den Projekt-A-Unterzügen.
 
 **BeamSettings-Felder aus Pydantic-Fehler.** Die Felder `slantAngle`, `verticalCurveHeight`, `geometryType`, `structureType` sind AC29-spezifische Erweiterungen, die den `elements_get_details_of_elements`-Bug verursachen. Update-Calls via `elements_set_details_of_elements` sollten funktionieren — aber das exakte Schema-Mapping für BeamSettings ist noch nicht durch einen erfolgreichen Call belegt.
 
@@ -630,7 +630,7 @@ Details und Update-Calls (die trotz Bug funktionieren): [`../reference/mcp-conve
 - [`../reference/bulk-operations.md`](../reference/bulk-operations.md) — Bulk-Klassifizierung tragend/nicht-tragend für viele Elemente gleichzeitig
 - [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) — Capability-Tabelle (alle Create-fähigen Typen), Confirm-Format, Paginierung, Wrapper-Bug-Workarounds
 
-## CLASS-Worked-Example: Decken + Stützen (live 2026-07-14, THN)
+## CLASS-Worked-Example: Decken + Stützen (live 2026-07-14, Projekt-A)
 
 859 kopierte Deckenstreifen: 431× Item „Wand" + 428× Item „Decke" (wie
 Referenz-Vorbild, gruppiert nach Höhenlage) via SetClassificationsOfElements —

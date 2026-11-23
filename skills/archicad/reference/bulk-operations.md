@@ -489,14 +489,14 @@ Bei einem Teamwork-Projekt liefert `SetPropertyValuesOfElements` **pro Element**
 
 **Achtung Selektions-Falle:** `ChangeSelectionOfElements` mit `addElementsToSelection` *addiert* zur bestehenden Auswahl. Wenn der User „mach alle Selektierten" sagt, kann seine Auswahl andere/mehr Elemente enthalten als die Rest-Menge — die echten Problemkinder sind evtl. gar nicht dabei (z. B. weil unreserviert/nicht selektierbar). Nach so einem Lauf **immer per Verify gegen die Soll-Menge** prüfen, ob die ursprünglichen Fehlschläge wirklich erledigt sind, statt sich auf „0 Fehler im letzten Batch" zu verlassen.
 
-## Phase-5-Abschluss: Live-Antworten (2026-07-14, THN, 4.500-Wände-Maßstab)
+## Phase-5-Abschluss: Live-Antworten (2026-07-14, Projekt-A, 4.500-Wände-Maßstab)
 
 Alle offenen TODO-Punkte wurden im Produktivbetrieb geklärt:
 
 - **System-scoped GUID-Lookup**: `API.GetAllClassificationSystems` → Systeme mit
   GUID; `API.GetAllClassificationsInSystem {classificationSystemId}` → Item-Baum
   (rekursiv `children` laufen, `classificationItemId.guid` + `id`/`name` sammeln;
-  THN: 299 Items in EINER Antwort, keine Pagination aufgetreten).
+  Projekt-A: 299 Items in EINER Antwort, keine Pagination aufgetreten).
   `GetClassificationsOfElements` braucht die System-ID **explizit** — leere
   Systemliste ⇒ leeres Ergebnis. Leer-Klassifizierung = Item-GUID `00000000-…`.
 - **Innen/Außen bzw. semantische Ableitung**: Nicht geometrisch gelöst, sondern

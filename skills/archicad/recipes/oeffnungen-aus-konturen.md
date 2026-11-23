@@ -1,6 +1,6 @@
 # Öffnungen (Durchbrüche) aus 2D-Konturen + DWG-Beschriftungen
 
-*Live-verifiziert 2026-07-14, THN: 620 Öffnungen (BD/FBA/WD) mit SAB-Favoriten,
+*Live-verifiziert 2026-07-14, Projekt-A: 620 Öffnungen (BD/FBA/WD) mit SAB-Favoriten,
 davon 301 Wanddurchbrüche mit Maßen/Höhen aus den DWG-Texten.*
 
 **SAB-Grundregel (User-definiert):** Durchbrüche werden IMMER mit dem
@@ -30,7 +30,7 @@ freie Polygonform.
      Einheit: Wert ≥ 10 oder ohne Dezimalpunkt = cm, sonst m (`2.00/1.00` = Meter!).
    - Höhe: `OK=UKD` (bündig unter Rohdecke), `UK=35 U.UKD` (35 cm unter UK Decke),
      `OK=300.44` / `UK=…` (absolute NN-Kote — **NN-Offset des Projekts erfragen!**
-     THN: ±0,00 = 298,00 üNN).
+     Projekt-A: ±0,00 = 298,00 üNN).
    - Zuordnung: Radius 4 m, gleiches Geschoss; Maßtexte eindeutig-greedy
      (nächstes Paar zuerst), Höhentexte teilbar.
 4. **Host finden**: Wände via `GetDetailsOfElements` (liefert **floorIndex +
@@ -70,7 +70,7 @@ freie Polygonform.
   erzeugen** (Create ist stabil). → Bug an Tapir-Maintainer melden.
 - Tapir kann keine Texte lesen („Not yet supported") → `ELM_SAB.GetTextsOfElements`.
 
-## Worked Example (THN, 2026-07-14)
+## Worked Example (Projekt-A, 2026-07-14)
 
 620 Öffnungen: 159 BD + 133 FBA (in 21 Decken) + 301 WD (davon 148 mit Maß+Höhe
 aus Text, 80 Fallback OK=UKD). Offen: 383 ohne Host-Wand (Wandlücken /
@@ -79,9 +79,9 @@ verlorene Wände), 72 Warteliste OG2-Decke, 51 gedrehte achsparallel gesetzt,
 
 ## ⚠️ Anti-Pattern: Wanddurchbruch als freistehendes Deckendurchbruch-Objekt <!-- 2026-08-31 -->
 
-*Gemessen am THN 2026-08-31 an 996 WD/WS-Objekten aus dem Juli-Massenlauf.*
+*Gemessen am Projekt-A 2026-08-31 an 996 WD/WS-Objekten aus dem Juli-Massenlauf.*
 
-Wenn die Projektbibliothek kein Wand-Objekt hat (THN: nur „Bodendurchbruch Symbol",
+Wenn die Projektbibliothek kein Wand-Objekt hat (Projekt-A: nur „Bodendurchbruch Symbol",
 „Deckendurchbruch Symbol", „Bodenschlitz" — Wanddurchbruch/Wandschlitz existieren nur
 als **Fenster**-LibParts), ist die Versuchung groß, WD auf das Deckendurchbruch-Symbol
 zu mappen und die Wahrheit in die Element-ID zu schreiben. Das skaliert nicht. Was
@@ -103,7 +103,7 @@ gibt (siehe nächster Abschnitt).
 ## Host-Deckung messen, bevor man umbaut <!-- 2026-08-31 -->
 
 Vor der Entscheidung „Öffnung oder Symbol-Objekt" erst read-only zählen, wie viele
-Kandidaten überhaupt einen Wirt finden würden. Rezept (THN: 13.155 Wände in 13 s,
+Kandidaten überhaupt einen Wirt finden würden. Rezept (Projekt-A: 13.155 Wände in 13 s,
 996 Objekte gematcht):
 
 1. `TapirCommand.GetElementsByType {elementType:"Wall"}` → alle GUIDs;
@@ -113,7 +113,7 @@ Kandidaten überhaupt einen Wirt finden würden. Rezept (THN: 13.155 Wände in 1
    **Nicht** Punkt-in-Polygon als Primärtest (an Öffnungen aufgesplittet, siehe
    `reference/mcp-extension.md`).
 3. Objektmitte = `origin + (A/2, B/2)` aus `GetDetailsOfElements` — nicht aus dem
-   eigenen Register! Das Register kann veraltet sein (THN: Median 1,07 m Abweichung
+   eigenen Register! Das Register kann veraltet sein (Projekt-A: Median 1,07 m Abweichung
    zwischen Juli-Register und heutiger Modellposition). **Das Modell ist die Wahrheit.**
    <!-- 2026-09-06 --> Vergleichsgröße ist immer die geometrische Mitte, nie `origin` —
    ein Lauf mit `origin` statt Mitte lieferte scheinbar schwankende Trefferzahlen
@@ -123,13 +123,13 @@ Kandidaten überhaupt einen Wirt finden würden. Rezept (THN: 13.155 Wände in 1
 5. Ergebnis als CSV mit `befund`, `wall_id`, `wall_th`, `tiefe_falsch_cm` ausgeben —
    das ist zugleich die Arbeitsliste.
 
-THN-Ergebnis: **58 %** mit Wirt (27 % Pass 1, 31 % Pass 2), 69,5 % bei 1-m-Toleranz.
+Projekt-A-Ergebnis: **58 %** mit Wirt (27 % Pass 1, 31 % Pass 2), 69,5 % bei 1-m-Toleranz.
 Von den wirtlosen lagen 114 zwischen 0,5 und 1,0 m — die Toleranz entscheidet also
 spürbar. Vorsicht: Pass-2-Treffer können die FALSCHE Wand erwischen (Ecken, Schächte);
 für die Messung tragbar, für den echten Umbau pro Objekt gegen Gewerke-Layer und
 Textrichtung plausibilisieren.
 
-**Wirtlos heißt nicht wertlos.** Am THN lagen 82 WD + 33 BD in einem Bereich, in dem
+**Wirtlos heißt nicht wertlos.** Am Projekt-A lagen 82 WD + 33 BD in einem Bereich, in dem
 es 85 Stützen und 229 Schraffuren (Flucht-/Brandschutzsymbole, Deckenaussparungen),
 aber keine einzige Wand und keine Decke gibt — ein Planbereich, der nie ins 3D gebaut
 wurde. Die Objekte sitzen dort korrekt auf ihren gezeichneten Symbolen. Vor dem
@@ -144,7 +144,7 @@ und das Ergebnis **visuell rendern**, nicht nur zählen.
 - Reihenfolge Drehen → Tiefe → Zentrieren: MoveElements senkrecht zur
   Wandachse (längs bleibt Planposition); die kleinere Tiefe verschiebt die
   Mitte um (B_alt − B_neu)/2 — nach jedem Schritt neu messen und iterieren
-  bis nichts mehr offen ist (THN Runde 2: 0/0/0).
+  bis nichts mehr offen ist (Projekt-A Runde 2: 0/0/0).
 - Tiefe = Wanddicke gilt nur für Durchbrüche (WD/MD/HD/BSK); Schlitze
   (WS/SWS) gehen planmäßig nicht durch die Wand und behalten ihre Tiefe.
 - An Wandkreuzungen wird die Zuordnung nach dem Zentrieren mehrdeutig —
@@ -153,7 +153,7 @@ und das Ergebnis **visuell rendern**, nicht nur zählen.
 ## ⚠️ Parser-Falle: Bauteil-Kürzel kollidiert mit der Durchbruch-Grammatik <!-- 2026-08-31 -->
 
 Die Grammatik `[Gewerk] WD|BD|WS|DD B/H` trifft auch Raumnummern, wenn ein **Bauteil**
-so heißt wie ein Durchbruchstyp. Am THN heißen die Häuser WA/WB/WD/WE/WG — Texte wie
+so heißt wie ein Durchbruchstyp. Am Projekt-A heißen die Häuser WA/WB/WD/WE/WG — Texte wie
 `WD.01.022`, `WD.02.018 T90-1 RS` oder `WD.101 Kühlschrank für Lebensmittel` wurden
 als Wanddurchbrüche gelesen, und die **Raumnummer landete als Breite in Metern**:
 `WD.01.022` → A = 1,02 m, `WD.04.001` → A = 4,00 m, `WD.101` → A = 1,01 m. 20 solcher
@@ -165,7 +165,7 @@ Gegenmittel:
   von Ziffern (`WD\.\s*\d`) disqualifiziert den Treffer.
 - Die Bauteil-Kürzel des Projekts aus der Property `Allgemeine Werte / Bauteilname`
   ziehen (`API.GetAllPropertyIds` → `GetDetailsOfProperties` → `possibleEnumValues`)
-  und als Blacklist gegen die Typ-Kürzel prüfen. Am THN steht „WD" dort wörtlich drin.
+  und als Blacklist gegen die Typ-Kürzel prüfen. Am Projekt-A steht „WD" dort wörtlich drin.
 - Plausibilitätsgrenze: eine Durchbruchsbreite von 4,00 m ist ein Alarm, kein Maß.
 
 ## Geschosslogik + Beschriftung der Durchbruch-Symbole <!-- 2026-09-06 -->
@@ -180,7 +180,7 @@ Skript. Per Tapir nicht setzbar; seit ELM_SAB 0.9.15 dafür
 `ELM_SAB.SetStoryVisibilityOfElements` / `GetStoryVisibilityOfElements` (Befehl
 + Parameter vollständig dokumentiert in
 [`../reference/mcp-extension.md`](../reference/mcp-extension.md#elm_sab-0915--auf-geschossen-zeigen),
-hier nur der Fachkontext). Live verifiziert THN 2026-09-06:
+hier nur der Fachkontext). Live verifiziert Projekt-A 2026-09-06:
 `visibility: "HomeAndOneDown"` → Rücklese `showRelBelow: 1`, Sichtbeleg im
 Grundriss (eigenes Geschoss durchgezogen, Geschoss darunter gestrichelt, Text
 BD→DD). Die DevKit-Warnung, das Relativ-Geschoss-Feature sei für
@@ -193,7 +193,7 @@ Kombi-Gewerke (HS, HLS, SH, ESH …); die laufen über `iSymbUse=0` +
 `bShowCustomText=true` + `symb_cust_text`. Bei String/Integer-Paaren
 (`symb_use`/`iSymbUse`) führt der Integer, der String wird bei Regeneration
 daraus abgeleitet. Ohne `bShowPrefix=1` erscheint das Gewerkskürzel NIE — am
-THN stand es projektweit auf 0, deshalb las der Plan „BD 1,60 /0,25" ohne
+Projekt-A stand es projektweit auf 0, deshalb las der Plan „BD 1,60 /0,25" ohne
 Gewerk, während 992 Objekte zusätzlich pauschal auf „Lüftung" (Werksdefault)
 standen.
 
@@ -218,7 +218,7 @@ standen.
 - Nebenzeichnungen mit eigenem Lineal per Skalierungsfaktor ins Hauptlineal überführen.
 - Blätter ohne Achsraster (1:20-Schachtpläne) über Wandflächen gegen die
   3D-BoundingBoxen der Modellwände registrieren (`API.Get3DBoundingBoxes`);
-  am THN Residuen ≤ 8 mm erreicht.
+  am Projekt-A Residuen ≤ 8 mm erreicht.
 
 ## Maße der Durchbruch-Symbole: Steuerparameter setzen, Register gegenlesen <!-- 2026-09-09 -->
 
@@ -229,7 +229,7 @@ Maße der Deckendurchbruch-/Bodendurchbruch-Symbole nie über `dimensions` oder
 (rund: `gs_hole_diameter`) setzen; Parameterliste und Reparaturweg stehen in
 [`../recipes/library-objects.md`](../recipes/library-objects.md#steuerparameter-vs-abgeleitete-werte--vor-jedem-massenlauf-klären-).
 
-Live THN 2026-09-09: 2110 Objekte standen auf den Defaults, 1856/1856 repariert.
+Live Projekt-A 2026-09-09: 2110 Objekte standen auf den Defaults, 1856/1856 repariert.
 
 Abnahmeregel: Die Abnahme eines Durchbruch-Laufs prüft die tatsächlichen Maße
 gegen das Register/die Fundliste — „Objekt existiert" und „Befehl meldete

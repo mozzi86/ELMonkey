@@ -8,10 +8,10 @@
 
 | Teil | Ordner | Stand |
 |---|---|---|
-| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe | [`core/`](core/) | ✅ 0.4.0 (dazu `abgleich` und `diff`: Abgleich und Diff-Checker Archicad ↔ Plattform), 94 Tests |
-| **Plattform-Monkey** – eigene, funktionsgleiche Kopie des Kerns in der Schwarz Plattform (`core/plattform_monkey`) | Plattform (privat) | ⚠ `kern`/`regeln`/`plattform` gleichauf mit 0.3.0; **`diff` (Geometrie im Stand, `plattform.geometrie`) fehlt dort noch** |
-| **MCP-Server** `elmonkey-mcp` 0.2.8 – ein Server, Add-ons `archicad` + `kern`, für jede KI | [`mcp/`](mcp/) | ✅ 13 Tests, live gegen Archicad gelesen |
-| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.16 (0.11.13: `GetSolidBounds` für den Diff-Checker; 0.11.14: Rasterursprung-Typ in `SetCurtainWallSegmentELM`; 0.11.15: Ursprungspunkt `gridOriginAtStart`, live über das Fassaden-Memo wirkungslos; 0.11.16: `GetCurtainWallFramesELM` und Ursprung über das Segment-Element; 0.11.16 noch nicht live erprobt), CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
+| **Kern** `elmonkey` – Finden (und/oder/nicht), Vorprüfung mit Codes, Rücklese, Plattform-Klebe, Abgleich + Diff-Checker Archicad ↔ Plattform | [`core/`](core/) | ✅ 0.4.0, 146 Tests; Diff-Checker = `diff_plattform`, daneben liegt noch die ältere Fassung `diff` |
+| **Plattform-Monkey** – eigene, funktionsgleiche Kopie des Kerns in der Schwarz Plattform (`core/plattform_monkey`) | Plattform (privat) | ⏳ gleichauf mit Kern 0.3.0; `abgleich`/`diff_plattform` (0.4.0) noch nachzuziehen |
+| **MCP-Server** `elmonkey-mcp` 0.3.1 – ein Server, Add-ons `archicad` + `kern`, für jede KI; `elmonkey_diff_plattform`, Suchbegriffe Rasterursprung/Pfosten/Riegel | [`mcp/`](mcp/) | ✅ 15 Tests; Diff-Werkzeug noch nicht live |
+| **Add-on Archicad** – C++-Add-On ELM_SAB_Tapir 0.11.16 (0.11.13: `GetDiffDataELM` und `GetSolidBounds` für den Diff-Checker; 0.11.14: Rasterursprung-Typ in `SetCurtainWallSegmentELM`; 0.11.15: Ursprungspunkt `gridOriginAtStart`, live über das Fassaden-Memo wirkungslos; 0.11.16: `GetCurtainWallFramesELM` und Ursprung über das Segment-Element, live 17.11. getestet), CI (AC27–30 × Mac/Win), Installer | [`archicad-addon/`](archicad-addon/) | ✅ umgezogen (mit Historie) |
 | **Skill Archicad** – Arbeitswissen für Claude | [`skills/archicad/`](skills/archicad/) | ✅ umgezogen, wird nach `mozzi86/-archicad` gespiegelt |
 | **Client-Konfigurationen** (Claude Desktop/Code, Cursor, VS Code, Codex) | [`clients/`](clients/) | ✅ |
 | **Claude-Plugin** | [`plugin/`](plugin/) | ⏳ |
@@ -29,9 +29,8 @@
 Begriffe und dasselbe Austauschformat (z. B. `sab-oberflaechen/1`). Sie werden **immer angeglichen**: Eine Änderung an
 einem Monkey kommt im selben Zug in die beiden anderen — Kern und Plattform-Monkey bleiben Zeile für Zeile gleich
 (`kern`, `regeln`, `plattform`), neue Archicad-Befehle bekommen ihr Gegenstück bzw. ihren Suchbegriff im
-Python-Monkey und ihren Weg in die Plattform. Abgleich zuletzt: 10.11.2026 (Add-On 0.11.12.2 · Kern 0.3.0 ·
-MCP 0.2.3 · Plattform-Monkey = Kern 0.3.0). Seit 16.11.2026 voraus: Add-On 0.11.13, Kern 0.4.0, MCP 0.2.4
-(Diff-Checker) — der Plattform-Monkey zieht mit `bbox` im Abgleich-Stand und `plattform.geometrie` nach.
+Python-Monkey und ihren Weg in die Plattform. Abgleich zuletzt: 17.11.2026 (Add-On 0.11.13 · Kern 0.4.0 ·
+MCP 0.3.0 · Plattform-Monkey = Kern 0.3.0, Diff-Checker dort noch nachzuziehen).
 
 **EN** — The three monkeys are **functionally identical** (same find / pre-check / read-back, same codes, same
 exchange formats) and are **always kept in sync**: a change to one goes into the other two in the same step.
@@ -91,5 +90,7 @@ Tests: `cd core && python -m pytest -q tests`
 Einstieg: [`AGENTS.md`](AGENTS.md).
 
 ---
+
+**License · Lizenz:** © 2026 Mohamed Elmokadem, [Apache 2.0](LICENSE). Free to use, also commercially; anyone using ELMonkey or parts of it must credit it per [`NOTICE`](NOTICE) · Frei nutzbar, auch gewerblich; wer ELMonkey oder Teile davon verwendet, muss es nach [`NOTICE`](NOTICE) nennen. Fremdteile · third-party: [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
 **Third-party licenses · Fremdlizenzen:** ELMonkey contains MIT-licensed code from [Tapir](https://github.com/ENZYME-APD/tapir-archicad-automation) (© 2024 Enzyme APD), [archicad-additional-json-commands](https://github.com/tlorantfy/archicad-additional-json-commands) (© 2023 Tibor Lorántfy) and the Graphisoft add-on template (© 2020 GRAPHISOFT, basis of the old [ELM_SAB_Add-On](https://github.com/mozzi86/-archicad/tree/main/ELM_SAB_Add-On)) — license texts: [`archicad-addon/ELM_SAB_Tapir/README.md`](archicad-addon/ELM_SAB_Tapir/README.md#lizenzen--licenses). · ELMonkey enthält MIT-lizenzierten Code aus Tapir (© 2024 Enzyme APD), archicad-additional-json-commands (© 2023 Tibor Lorántfy) und der Graphisoft-Add-On-Vorlage (© 2020 GRAPHISOFT, Basis des alten ELM_SAB_Add-On) — Lizenztexte siehe oben.

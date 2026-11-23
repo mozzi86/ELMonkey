@@ -1,6 +1,6 @@
 # MCP-Stack: Architektur, Grenzen, Erweiterung (ELM_SAB_Add-On)
 
-*Stand: 2026-07-13, live verifiziert am THN-Projekt (AC29, Teamwork).*
+*Stand: 2026-07-13, live verifiziert am Projekt-A-Projekt (AC29, Teamwork).*
 
 ## Der Stack — wer spricht mit wem
 
@@ -36,7 +36,7 @@ Claude ──► tapir-archicad-mcp (Python, uv tool "archicad-server")
 
 - **Layout-Buch komplett lesen**: `navigator_get_navigator_item_tree` mit
   `{"navigatorTreeId": {"type": "LayoutBook"}}` — liefert Layouts, Subsets, Master
-  und **platzierte Zeichnungen (DrawingItem) pro Layout mit Namen**. THN: 264 Layouts,
+  und **platzierte Zeichnungen (DrawingItem) pro Layout mit Namen**. Projekt-A: 264 Layouts,
   357 Zeichnungen. Achtung: Antwort >500 KB → landet als Datei, mit Python parsen.
 - Ansicht-Settings lesen/schreiben: `navigator_get_view_settings` / `navigator_set_view_settings`
   (LayerCombination, PenSet, MVO, GraphicOverride, DimStyle — pro View).
@@ -99,7 +99,7 @@ außerhalb ablegen (z. B. `~/ELM_SAB_Backups/`).
 - github.com/tlorantfy/archicad-python-scripts — fertige Script-Patterns (recurring_publish u.a.)
 - github.com/GRAPHISOFT/archicad-addon-cmake — Build-Template (Basis von ELM_SAB_Add-On)
 
-## ELM_SAB_Add-On v0.1 — Live-Erkenntnisse (2026-07-13, THN-Farbabgleich)
+## ELM_SAB_Add-On v0.1 — Live-Erkenntnisse (2026-07-13, Projekt-A-Farbabgleich)
 
 **Status: FUNKTIONIERT.** Erster Produktiveinsatz: 32.806 Elemente gelesen (0 Fehler),
 ~9.200 Stift-Zuweisungen geändert (13→90, 240/19→91, 21→226, 93→253, 7→6).
@@ -263,7 +263,7 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   (`BugReporting-29/…-FATAL.rpt`, oberster eigener Frame
   `UpdateDrawingsCommand::Execute`). Ab ELM_SAB 0.9.9 in
   `ACAPI_CallUndoableCommand` gekapselt wie jeder andere ändernde Befehl.
-  **Live verifiziert 2026-08-03 am THN** (leere Liste, echte Zeichnung
+  **Live verifiziert 2026-08-03 am Projekt-A** (leere Liste, echte Zeichnung
   unreserviert, echte Zeichnung reserviert — dreimal saubere Antwort statt
   Absturz). Upstream-Tapir hat den ungekapselten Aufruf Stand 2026-08-03
   noch — PR-Kandidat. **Noch offen:** der Befehl meldet `success:false`
@@ -273,14 +273,14 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Zeichnungs-Update weiterhin MANUELL (Layout öffnen → Zeichnungen
   aktualisieren) oder Neuaufbau ⌘⇧R durch den User — aber ohne
   Absturzrisiko bei versehentlichem Aufruf.
-  **THN-Praxiswarnung (User, 2026-08-03):** die THN-Zeichnungen sind extrem
+  **Projekt-A-Praxiswarnung (User, 2026-08-03):** die Projekt-A-Zeichnungen sind extrem
   voll — Drawing-Reads und -Updates blockieren Archicad minutenlang und
   sehen wie ein Hänger aus. Vorher ankündigen, Einzelstücke statt
   Massenläufe, „hängt" nie am Antwortverhalten diagnostizieren, sondern an
   Prozess/CPU. Drawing-Elemente sind übrigens auch bei AKTIVEM Layout nicht
   per GetElementsByType lesbar (0 Treffer, offizielle wie Tapir-Variante);
   der verlässliche Weg ist Selektion durch den User + `GetSelectedElements`.
-  **Korrektur 2026-11-11 (Futurelab, Tapir 1.7.2):** nach `ChangeWindow`
+  **Korrektur 2026-11-11 (Projekt-C, Tapir 1.7.2):** nach `ChangeWindow`
   mit `windowType:"Layout"` + `databaseId` liefert Tapir `GetElementsByType
   Drawing` die Zeichnungen des Layouts zuverlässig (12 Layouts, je 5–7
   Treffer). Details siehe `recipes/zeichnungen-auf-layouts.md`. <!-- 2026-11-11 -->
@@ -293,7 +293,7 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Zonenstempel via SetDetailsOfElements) erscheinen im Publisher-PDF erst
   nach Neuaufbau/Drawing-Update — Modell-Rücklese allein beweist nicht,
   dass der Plot sie zeigt!
-  **Text-Entzerrungs-Pipeline (2026-07-28, THN Sanierungsübersicht):**
+  **Text-Entzerrungs-Pipeline (2026-07-28, Projekt-A Sanierungsübersicht):**
   PDF-getriebene Überlagerungs-Korrektur über MEHRERE DBs: (1) Layout-PDF =
   Modell-Viewport + Nagel-Arbeitsblatt-Viewport übereinander; Transform je
   Drawing per String-Matching kalibrieren (Fixskala 1pt=0,0353m bei 1:100,
@@ -404,7 +404,7 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   Strings mit DEUTSCHEM Komma!). Tapir ModifyBeams kann KEINEN Querschnitt
   (nur Achse/Level) — bei wenigen Treffern: Abweichler selektieren, User
   ändert im Dialog, danach Property-Rücklesen als Verifikation.
-  THN-Befund: 6/23 EG-Träger hatten Default 60/110 statt beschrifteter 60/75.
+  Projekt-A-Befund: 6/23 EG-Träger hatten Default 60/110 statt beschrifteter 60/75.
 - **Dopplungs-Sweep 2D (Rezept + Fallen)**: Tapir GetDetailsOfElements liefert
   für Hatch UND Text nur `{"error": "Not yet supported element type"}` und
   Get2DBoundingBoxes lehnt Hatch/Label ab (7203) — ein „0 Duplikate" aus so
@@ -414,7 +414,7 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   nicht „Get2DGeometry"; bei 4010 immer GetName() in den Quellen nachschlagen
   statt einen Neubau anzuwerfen). Duplikat-Schlüssel: Geschoss + gerundete
   (0,1 mm), richtungs-/reihenfolge-normalisierte Koordinaten (+Inhalt bei Text).
-  THN-Befund: 395 PolyLine- + 25 Text-Doppler, ALLE im EG (doppelter
+  Projekt-A-Befund: 395 PolyLine- + 25 Text-Doppler, ALLE im EG (doppelter
   DWG-Import), Schraffuren sauber. Verifikation IMMER als Voll-Neuinventur.
 - **Etiketten positionieren: Symbol-Anker = ENDPUNKT, nicht Anfangspunkt!**
   begCoordinate ist nur der Zeigerlinien-Start am Element — wer Positionen auf
@@ -504,7 +504,7 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
   „Failed to set property value" (erklärt rückwirkend ungestempelte
   Openings). Objekt-Anker = linke UNTERE Ecke: für Zentrierung Ursprung =
   Symbolmitte − (A/2, B/2), sonst sitzt alles versetzt (User sieht es
-  sofort). Verfügbare THN-Objekte: „Bodendurchbruch Symbol",
+  sofort). Verfügbare Projekt-A-Objekte: „Bodendurchbruch Symbol",
   „Deckendurchbruch Symbol", „Bodenschlitz" — KEINE Wand-Varianten als
   Objekt (Wanddurchbruch/Wandschlitz existieren nur als Fenster-LibParts;
   Mapping WD→Deckendurchbruch, WS→Bodenschlitz, ID trägt die Wahrheit).
@@ -560,20 +560,20 @@ Neue ELM_SAB-Befehle: `SetTextSizeOfElements` (Text+Label, mm/Faktor),
 
 ## Teamwork-Reservierung per API <!-- 2026-07-21 -->
 
-Tapir hat `TapirCommand ReserveElements {elements:[{elementId:{guid}}]}` — löst das Silent-No-Op-Problem bei Delete/Move auf unreservierte Elemente direkt per API, ohne manuellen Rechtsklick→Reservieren. Ablauf: ReserveElements → Schreiboperation → unabhängiger Read-back (z. B. `ELM_SAB Get2DGeometryOfElements`: success=false ⇒ gelöscht). Live-verifiziert THN 2026-07-21 (27 Beschriftungs-Rechtecke). Read-back bleibt PFLICHT — auch ReserveElements meldet success ohne Garantie.
-- **Reservierung ist flüchtig**: `ReserveElements` muss UNMITTELBAR vor der Schreibaktion im selben Ablauf stehen — ein Reserve aus einem früheren Call reicht nicht, SetDetailsOfElements liefert dann „Failed to change element" (-2130312912). Muster: pro Batch Reserve→Write→Read-back. Layer-Wechsel für 2D-Elemente (Line etc.) via `SetDetailsOfElements {elementsWithDetails:[{elementId,details:{layerIndex}}]}` funktioniert typunabhängig (live-verifiziert THN 2026-07-21, 442 Linien). **Korrektur 2026-10-14:** -2130312912 ist laut DevKit 29 `APIERR_HIDDENLAY` (`APIErrorStart + 304`, `APIdefs_ErrorCodes.h` Z. 171) = Element liegt auf einer **ausgeblendeten Ebene**. Bei diesem Code zuerst `GetLayerAttributes … isHidden` prüfen; die anderen hier genannten Ursachen können zusätzlich vorliegen, erzeugen aber nicht diesen Code (Hinweis S., Fliesenspiegel Futurelab).
-- **ELM_SAB 0.9.2 (2026-07-21)**: `SetAddParsOfElements` unterstützt jetzt auch **Zonen** — Raumstempel-GDL-Parameter (Schriftgrößen, bShow*-Schalter, Zeilenreihenfolge iOrder_*, Rahmenstil) per API setzbar, mit eingebauter Rücklese-Verifikation. Array-Parameter (orders_100/50) sind nicht setzbar, werden aber aus den iOrder_*-Skalaren abgeleitet. Workflow Stempel-Design übertragen: GetGDLParametersOfElements auf Referenz + Ziel, Diff bilden, ROOM_*/apartmentName/asAddon_st*/gs_ui_*-Content-Parameter ausschließen, Rest via SetAddParsOfElements (live-verifiziert THN: 115 Stempel).
-- **Neu erstellte Elemente bleiben reserviert** *(2026-11-02)*: Was per API angelegt wird (CreateWalls, CreateDoors, …), gehört in Teamwork dem Anleger und bleibt reserviert, bis nach `TeamworkSend` ein `ReleaseElements` auf genau diese GUIDs folgt. Nur die vorher reservierten Bestandselemente freizugeben reicht nicht (live THN: 110 neue Schalen/Türöffnungen hingen nach dem Lauf noch am Ersteller). Muster: GUID aus jedem Create sofort in die Freigabeliste; Abschluss per `ELM_SAB.GetElementEditState` gegenprüfen. Beim Anlegen selbst ist kein `ReserveElements` nötig. Rezept: recipes/wall-operations.md (Kern + Schalen).
-- **`ReserveElements` meldet Fremd-Reservierungen** im Feld `conflicts[]` (je `{elementId, user:{userId,userName}}`) — das Batch-`executionResult.success=true` bezieht sich nur auf die Anfrage, nicht auf den Erfolg. conflicts IMMER auswerten; Elemente in conflicts bleiben bei Move/Delete/Change still liegen (Teamwork-Silent-No-Op-Ursache identifiziert, live THN 2026-07-21: 287 von Kollegin gehaltene Elemente).
-- **ELM_SAB 0.9.4 (2026-07-21)**: `SetColumnDetails {elements:[{elementId, coreWidth?, coreHeight?}]}` — Stützen-Kernmaße schreibbar (columnSegments-Memo, alle Segmente, eingebaute Rücklese-Verifikation). Workflow Bohrpfahl↔DWG-Kreis: 21-Punkt-Polylinien = polygonisierte DWG-Kreise, Durchmesser aus BBox-Mittel; Match Stütze↔Kreis über Zentroid <0,3 m (live THN: 89 Pfähle auf Ø 0,75). 0.9.3-Felder in GetTextsOfElements: angleRad/penIndex/anchor/widthMm.
-- **ELM_SAB 0.9.5 (2026-07-21)**: `CreateCurtainWallFromAxes {begCoordinate, endCoordinate, floorIndex, bottomOffset, columnWidths[], rowHeights[] (von unten), opaqueRows[], cellOrderColumnMajor?}` — CW mit FixedSizes-Pattern per API. Frames/Panels aus CW-Werkzeug-DEFAULTS (User vorher Favorit mit 2 Panel-Klassen setzen: Klasse 1 = Glas, Klasse 2 = opak für opaqueRows). Workflow Fassaden-Nachbau: 2D-Pfostenachsen aus vertikalen Kurzlinien clustern (Toleranz 3 cm) → Feldbreiten; Zeilenhöhen aus Foto/bestehender CW; Glasebene ggf. per MoveElements y-bündig schieben (Create setzt Panels je nach Default-Offset ~8 cm versetzt). Live THN Südfassade OG: 7×3 Felder, 21 Panels verifiziert.
-- **ELM_SAB 0.9.7 (2026-07-25)**: `CreateCurtainWallFromAxes` kann **nichtrechteckig** — `topProfile[]` (genau `columnWidths+1` Oberkantenhöhen an den Pfostenachsen → Trapez/Giebel/Pultschräge) oder `contour[{u,v}]` (freies Polygon, umlaufend, Schlusspunkt nicht wiederholen). Koordinaten sind **segmentlokal**: `u` = Lauflänge ab `begCoordinate`, `v` = Höhe über CW-Unterkante. Umgesetzt über `memo.cWSegContour` (`API_CWContourData`, Polygon-Konvention `coords[1..nCoords]` mit `coords[nCoords] == coords[1]`, `pends[1] = nCoords`); Konvention aus DevKit-Beispiel `Examples/CurtainWall_Drawer` abgeleitet, das ein Hatch-Polygon um −minX/−minY verschiebt und als Kontur setzt. `height` = max(v); rowHeights bleiben FixedSizes-Muster und wiederholen sich bis zur Firsthöhe. Symmetrischer First braucht **gerade** Spaltenzahl. Antwort liefert jetzt `height`, `contourVertices`, `bottomOffsetApplied`, `zMin`, `zMax`. Live THN Fassade-013: 4×4 mit Giebel → 14 statt 16 Paneele, Traufe 17,50 / First 19,65.
+Tapir hat `TapirCommand ReserveElements {elements:[{elementId:{guid}}]}` — löst das Silent-No-Op-Problem bei Delete/Move auf unreservierte Elemente direkt per API, ohne manuellen Rechtsklick→Reservieren. Ablauf: ReserveElements → Schreiboperation → unabhängiger Read-back (z. B. `ELM_SAB Get2DGeometryOfElements`: success=false ⇒ gelöscht). Live-verifiziert Projekt-A 2026-07-21 (27 Beschriftungs-Rechtecke). Read-back bleibt PFLICHT — auch ReserveElements meldet success ohne Garantie.
+- **Reservierung ist flüchtig**: `ReserveElements` muss UNMITTELBAR vor der Schreibaktion im selben Ablauf stehen — ein Reserve aus einem früheren Call reicht nicht, SetDetailsOfElements liefert dann „Failed to change element" (-2130312912). Muster: pro Batch Reserve→Write→Read-back. Layer-Wechsel für 2D-Elemente (Line etc.) via `SetDetailsOfElements {elementsWithDetails:[{elementId,details:{layerIndex}}]}` funktioniert typunabhängig (live-verifiziert Projekt-A 2026-07-21, 442 Linien). **Korrektur 2026-10-14:** -2130312912 ist laut DevKit 29 `APIERR_HIDDENLAY` (`APIErrorStart + 304`, `APIdefs_ErrorCodes.h` Z. 171) = Element liegt auf einer **ausgeblendeten Ebene**. Bei diesem Code zuerst `GetLayerAttributes … isHidden` prüfen; die anderen hier genannten Ursachen können zusätzlich vorliegen, erzeugen aber nicht diesen Code (Hinweis S., Fliesenspiegel Projekt-C).
+- **ELM_SAB 0.9.2 (2026-07-21)**: `SetAddParsOfElements` unterstützt jetzt auch **Zonen** — Raumstempel-GDL-Parameter (Schriftgrößen, bShow*-Schalter, Zeilenreihenfolge iOrder_*, Rahmenstil) per API setzbar, mit eingebauter Rücklese-Verifikation. Array-Parameter (orders_100/50) sind nicht setzbar, werden aber aus den iOrder_*-Skalaren abgeleitet. Workflow Stempel-Design übertragen: GetGDLParametersOfElements auf Referenz + Ziel, Diff bilden, ROOM_*/apartmentName/asAddon_st*/gs_ui_*-Content-Parameter ausschließen, Rest via SetAddParsOfElements (live-verifiziert Projekt-A: 115 Stempel).
+- **Neu erstellte Elemente bleiben reserviert** *(2026-11-02)*: Was per API angelegt wird (CreateWalls, CreateDoors, …), gehört in Teamwork dem Anleger und bleibt reserviert, bis nach `TeamworkSend` ein `ReleaseElements` auf genau diese GUIDs folgt. Nur die vorher reservierten Bestandselemente freizugeben reicht nicht (live Projekt-A: 110 neue Schalen/Türöffnungen hingen nach dem Lauf noch am Ersteller). Muster: GUID aus jedem Create sofort in die Freigabeliste; Abschluss per `ELM_SAB.GetElementEditState` gegenprüfen. Beim Anlegen selbst ist kein `ReserveElements` nötig. Rezept: recipes/wall-operations.md (Kern + Schalen).
+- **`ReserveElements` meldet Fremd-Reservierungen** im Feld `conflicts[]` (je `{elementId, user:{userId,userName}}`) — das Batch-`executionResult.success=true` bezieht sich nur auf die Anfrage, nicht auf den Erfolg. conflicts IMMER auswerten; Elemente in conflicts bleiben bei Move/Delete/Change still liegen (Teamwork-Silent-No-Op-Ursache identifiziert, live Projekt-A 2026-07-21: 287 von Kollegin gehaltene Elemente).
+- **ELM_SAB 0.9.4 (2026-07-21)**: `SetColumnDetails {elements:[{elementId, coreWidth?, coreHeight?}]}` — Stützen-Kernmaße schreibbar (columnSegments-Memo, alle Segmente, eingebaute Rücklese-Verifikation). Workflow Bohrpfahl↔DWG-Kreis: 21-Punkt-Polylinien = polygonisierte DWG-Kreise, Durchmesser aus BBox-Mittel; Match Stütze↔Kreis über Zentroid <0,3 m (live Projekt-A: 89 Pfähle auf Ø 0,75). 0.9.3-Felder in GetTextsOfElements: angleRad/penIndex/anchor/widthMm.
+- **ELM_SAB 0.9.5 (2026-07-21)**: `CreateCurtainWallFromAxes {begCoordinate, endCoordinate, floorIndex, bottomOffset, columnWidths[], rowHeights[] (von unten), opaqueRows[], cellOrderColumnMajor?}` — CW mit FixedSizes-Pattern per API. Frames/Panels aus CW-Werkzeug-DEFAULTS (User vorher Favorit mit 2 Panel-Klassen setzen: Klasse 1 = Glas, Klasse 2 = opak für opaqueRows). Workflow Fassaden-Nachbau: 2D-Pfostenachsen aus vertikalen Kurzlinien clustern (Toleranz 3 cm) → Feldbreiten; Zeilenhöhen aus Foto/bestehender CW; Glasebene ggf. per MoveElements y-bündig schieben (Create setzt Panels je nach Default-Offset ~8 cm versetzt). Live Projekt-A Südfassade OG: 7×3 Felder, 21 Panels verifiziert.
+- **ELM_SAB 0.9.7 (2026-07-25)**: `CreateCurtainWallFromAxes` kann **nichtrechteckig** — `topProfile[]` (genau `columnWidths+1` Oberkantenhöhen an den Pfostenachsen → Trapez/Giebel/Pultschräge) oder `contour[{u,v}]` (freies Polygon, umlaufend, Schlusspunkt nicht wiederholen). Koordinaten sind **segmentlokal**: `u` = Lauflänge ab `begCoordinate`, `v` = Höhe über CW-Unterkante. Umgesetzt über `memo.cWSegContour` (`API_CWContourData`, Polygon-Konvention `coords[1..nCoords]` mit `coords[nCoords] == coords[1]`, `pends[1] = nCoords`); Konvention aus DevKit-Beispiel `Examples/CurtainWall_Drawer` abgeleitet, das ein Hatch-Polygon um −minX/−minY verschiebt und als Kontur setzt. `height` = max(v); rowHeights bleiben FixedSizes-Muster und wiederholen sich bis zur Firsthöhe. Symmetrischer First braucht **gerade** Spaltenzahl. Antwort liefert jetzt `height`, `contourVertices`, `bottomOffsetApplied`, `zMin`, `zMax`. Live Projekt-A Fassade-013: 4×4 mit Giebel → 14 statt 16 Paneele, Traufe 17,50 / First 19,65.
 - **`bottomOffset` war bis 0.9.6 ein stiller No-Op (2026-07-25)**: `curtainWall.storyRelLevel` wird beim `ACAPI_Element_Create` ignoriert — CW landet ohne Fehlermeldung exakt auf Geschossniveau. Ab 0.9.7 per `APIEdit_Drag` im selben Undo-Schritt nachgezogen, mit `zMin`/`zMax` aus `ACAPI_Element_CalcBounds` in der Antwort. **Immer gegenprüfen.** Bei älterem Add-On: `MoveElements` mit `dz` hinterher.
 - **CW-Bbox-Fallen (2026-07-25)**: `Get3DBoundingBoxes` liefert für CW-**Paneele geschossrelative** z-Werte, für das **Top-Level absolute** — beim Vergleichen umrechnen. Und: sitzt eine CW mehrere Geschosse über ihrem `floorIndex`, ist die Top-Level-Bbox in x **degeneriert** (`xMin == xMax`); sieht kaputt aus, ist nur ein Melde-Quirk — Verifikation über die Sub-Elemente.
 - **Kein `ModifyCurtainWall` (2026-07-25)**: Raster/Kontur einer bestehenden CW sind per API nicht änderbar. Rasteränderung = neu bauen + altes löschen; einzige begründete Ausnahme von „Ersetzen = umbauen". Reihenfolge: **erst neu bauen und verifizieren, dann altes löschen** — kein Loch im Modell, falls der Create scheitert.
-- **Fassaden-Vollausbau aus 2D (live THN 2026-07-21, 90 Elemente)**: Layer A_05_FASSADE → Linien clustern (Union-Find, BBox-Nähe) → pro Zug Pfosten = Kurzlinien senkrecht zur Fassade (Achs-Cluster 3 cm) → Sektionen = Achsfolgen mit Feldern 0,5–2,6 m (Pfeilerzonen trennen) → Glasebene = Linienpaar 3–9 cm Abstand nahe Pfostenebene → je Sektion CreateCurtainWallFromAxes pro Geschoss + CreateWalls-Brüstungsband. PERFORMANCE: >10 CWs ⇒ Archicad regeneriert minutenlang (API nur IsAlive) — alle Folge-Ops in 6er-Chunks mit 15-s-Retry; Selektion von CWs triggert denselben Rebuild. Flächige Gitter (Glasdach) NICHT als Fassade bauen.
+- **Fassaden-Vollausbau aus 2D (live Projekt-A 2026-07-21, 90 Elemente)**: Layer A_05_FASSADE → Linien clustern (Union-Find, BBox-Nähe) → pro Zug Pfosten = Kurzlinien senkrecht zur Fassade (Achs-Cluster 3 cm) → Sektionen = Achsfolgen mit Feldern 0,5–2,6 m (Pfeilerzonen trennen) → Glasebene = Linienpaar 3–9 cm Abstand nahe Pfostenebene → je Sektion CreateCurtainWallFromAxes pro Geschoss + CreateWalls-Brüstungsband. PERFORMANCE: >10 CWs ⇒ Archicad regeneriert minutenlang (API nur IsAlive) — alle Folge-Ops in 6er-Chunks mit 15-s-Retry; Selektion von CWs triggert denselben Rebuild. Flächige Gitter (Glasdach) NICHT als Fassade bauen.
 - **Reihenfolge-Lektion Fassaden-Pipeline (2026-07-21)**: ERST Layer sanieren (fehlplatzierte Fassadenlinien via User-verifizierter Selektion auf A_05_FASSADE), DANN Muster parsen und bauen — sonst zerfallen durchgehende Fronten in Scheinabschnitte (Hof-Ost: 4 Kurzstücke mussten nach Layer-Umzug gegen 1 durchgehende Front ersetzt werden). Muster-Scans über alle Layer produzieren massives Rauschen (Bemaßung, Wandkappen, Fremd-/Referenzzonen ±350 m) — Kandidaten IMMER erst selektieren und vom User bestätigen lassen.
-- **Silent-No-Op-Ursache #3: GRUPPEN (2026-07-21)**. Elemente in Gruppen verweigern Einzeländerungen (SetDetails/Delete: „Failed to change element" -2130312912 bzw. still wirkungslos), solange „Gruppierung unterbrechen" (Alt+G) AUS ist — kein Reservierungskonflikt, kein Hotlink, kein Lock. Diagnose-Reihenfolge bei wirkungslosen Writes: (1) ReserveElements-conflicts[] prüfen (Fremd-Reservierung), (2) UnlockElements testen, (3) GetHotlinks (leer ⇒ kein Hotlink), (4) User „Gruppierung unterbrechen" einschalten lassen → Retry. Live THN: 98 gruppierte Höhenkoten-Symbole erst nach Alt+G änderbar; erklärt rückwirkend auch die „unlöschbaren" Alt-Etiketten. **Korrektur 2026-10-14:** -2130312912 ist laut DevKit 29 `APIERR_HIDDENLAY` (`APIErrorStart + 304`, `APIdefs_ErrorCodes.h` Z. 171) = Element liegt auf einer **ausgeblendeten Ebene**. Bei diesem Code zuerst `GetLayerAttributes … isHidden` prüfen; die anderen hier genannten Ursachen können zusätzlich vorliegen, erzeugen aber nicht diesen Code (Hinweis S., Fliesenspiegel Futurelab).
+- **Silent-No-Op-Ursache #3: GRUPPEN (2026-07-21)**. Elemente in Gruppen verweigern Einzeländerungen (SetDetails/Delete: „Failed to change element" -2130312912 bzw. still wirkungslos), solange „Gruppierung unterbrechen" (Alt+G) AUS ist — kein Reservierungskonflikt, kein Hotlink, kein Lock. Diagnose-Reihenfolge bei wirkungslosen Writes: (1) ReserveElements-conflicts[] prüfen (Fremd-Reservierung), (2) UnlockElements testen, (3) GetHotlinks (leer ⇒ kein Hotlink), (4) User „Gruppierung unterbrechen" einschalten lassen → Retry. Live Projekt-A: 98 gruppierte Höhenkoten-Symbole erst nach Alt+G änderbar; erklärt rückwirkend auch die „unlöschbaren" Alt-Etiketten. **Korrektur 2026-10-14:** -2130312912 ist laut DevKit 29 `APIERR_HIDDENLAY` (`APIErrorStart + 304`, `APIdefs_ErrorCodes.h` Z. 171) = Element liegt auf einer **ausgeblendeten Ebene**. Bei diesem Code zuerst `GetLayerAttributes … isHidden` prüfen; die anderen hier genannten Ursachen können zusätzlich vorliegen, erzeugen aber nicht diesen Code (Hinweis S., Fliesenspiegel Projekt-C).
 
 ## Mehrversionsbau: AC27/28/29 aus einer Quelle <!-- 2026-07-29 -->
 
@@ -721,7 +721,7 @@ Aus dem revit-mcp-python-Vergleich (Abwägung: `~/.scratch/elmonkey/pyrevit-verg
   (MigrationHelper shimt nur die parameterlose Variante, betrifft uns nicht).
   Seit 0.9.13 mit Datei-Existenz-Rücklese via `IO::fileSystem.Contains` — NoError vom
   Save allein beweist nichts. **Live-Test am Modell steht aus** (Bundle noch nicht eingebaut).
-  **Korrektur 2026-10-13 (0.9.25):** `APIColorDepth_FromSourceImage` war selbst falsch. Es ist nur für die Bildkonvertierung definiert, beim Fenster-Export gibt es kein Quellbild → Save lieferte APIERR_BADID, CaptureView hat nie ein Bild geliefert. Seit 0.9.25 gilt die Echtfarbtiefe je Plattform (`MiC`/`TC24`) mit Rückfall `256C`, siehe Abschnitt „ELM_SAB 0.9.25“ unten. **Live verifiziert erst mit 0.9.25 (WiSchu 13.10.).**
+  **Korrektur 2026-10-13 (0.9.25):** `APIColorDepth_FromSourceImage` war selbst falsch. Es ist nur für die Bildkonvertierung definiert, beim Fenster-Export gibt es kein Quellbild → Save lieferte APIERR_BADID, CaptureView hat nie ein Bild geliefert. Seit 0.9.25 gilt die Echtfarbtiefe je Plattform (`MiC`/`TC24`) mit Rückfall `256C`, siehe Abschnitt „ELM_SAB 0.9.25“ unten. **Live verifiziert erst mit 0.9.25 (Projekt-B 13.10.).**
 - **Paletten-Rückfrage** (TapirPalette::ExecuteScript): Sicherheitsdialog NUR für
   `UnusedViewCleaner.py` (Nutzer-Auftrag nach Vorfall 2026-08-06; Abbrechen = Default-Button).
   0.9.12 hatte zusätzlich einen generischen Dialog vor jedem Skript — als unbeauftragter
@@ -751,7 +751,7 @@ VOR einem Teamwork-Senden. Nach „Senden & Empfangen" funktioniert die Kombinat
 
 > **Korrektur 2026-08-31: `TeamworkReceive` per API reicht — und die Befehle wirken.**
 > Der frühere Zusatz „die Tapir-Befehle `TeamworkSend`/`TeamworkReceive` existieren,
-> liefen aber wirkungslos durch" ist falsch. Live am THN: `DeleteElements` auf 20
+> liefen aber wirkungslos durch" ist falsch. Live am Projekt-A: `DeleteElements` auf 20
 > Objekte meldete `success:true` und löschte nichts (Voll-Re-Inventur: 2.480
 > unverändert, alle 20 weiter lesbar). Ein einziger **`TeamworkReceive` per Tapir**
 > löste die Blockade, danach ReserveElements → DeleteElements → 2.480→2.460, genau
@@ -768,7 +768,7 @@ Massenlauf: mit Backoff (8 s) wiederholen, User klickt gerade im Modell.
 
 ### Ursprünglicher Befund (überholt, Kontext siehe oben)
 
-Am THN (AC29 Teamwork, Gesamtplanung): `DeleteElements` und `MoveElements` liefern
+Am Projekt-A (AC29 Teamwork, Gesamtplanung): `DeleteElements` und `MoveElements` liefern
 `success:true`, ändern aber NICHTS — auch bei Elementen, die dieselbe Session eben
 erst erstellt hat, auch nach `ReserveElements` (meldet ebenfalls Erfolg) und nach
 `TeamworkSend`/`TeamworkReceive` (beide existieren als TapirCommand und laufen leer
@@ -786,10 +786,10 @@ Schema unbekannt, alle probierten Formen 4002.
 ## Element-Erzeugung: verifizierte Grenzen (2026-08-28) <!-- 2026-08-28 -->
 
 - `TapirCommand.CreateLayers` EXISTIERT: `{"layerDataArray":[{"name":"..."}]}` →
-  legt sichtbare Ebene an (THN: Q_22_KAELTE, Index = Listenposition in
+  legt sichtbare Ebene an (Projekt-A: Q_22_KAELTE, Index = Listenposition in
   GetAttributesByType-Reihenfolge, per Testelement verifizieren).
 - `CreateTexts`: KEIN layerIndex-Parameter — Texte erben die **Werkzeug-Default-
-  Ebene** (am THN „98 Schnitt Marker", versteckt+gesperrt!). SetDetailsOfElements
+  Ebene** (am Projekt-A „98 Schnitt Marker", versteckt+gesperrt!). SetDetailsOfElements
   auf gesperrter Ebene → -2130312912. Ebenen-Attribute sind per API NICHT
   änderbar (kein ModifyLayers/SetLayerAttributes/API.ModifyLayerAttributes) —
   User muss Text-Werkzeug-Ebene im UI setzen, DANN CreateTexts.
@@ -828,7 +828,7 @@ mein Register" löschen, ohne vorher Positionen/Inhalte der Fremdelemente zu sic
 ## Antwortfelder + Namespaces: was wo liegt <!-- 2026-08-31c -->
 
 Drei Fehlerklassen, die alle wie „Befehl kaputt" aussehen, aber nur falsche Felder
-bzw. der falsche Namespace sind. Live am THN geklärt (AC29 5101 GER, Teamwork).
+bzw. der falsche Namespace sind. Live am Projekt-A geklärt (AC29 5101 GER, Teamwork).
 
 **(1) Add-On-Befehle laufen NUR über `API.ExecuteAddOnCommand`.** Ein direktes
 `{"command":"ELM_SAB.GetProjectInfo"}` bzw. `{"command":"TapirCommand.X"}` gibt
@@ -913,9 +913,9 @@ gegenlesen. Fallback: `AllRelevant` (per DevKit-Beispiel belegt) oder
 laufenden Archicad — erst nach Live-Test darf dieser Vermerk auf „verifiziert"
 geändert werden.
 
-## Leere `executionResults[]` = Undo-Scope hat nicht gestartet <!-- 2026-09-08, THN SuD, live -->
+## Leere `executionResults[]` = Undo-Scope hat nicht gestartet <!-- 2026-09-08, Projekt-A SuD, live -->
 
-**Symptom (THN, 3037 KI-Durchbruchsobjekte):** `ReserveElements` meldet `success`,
+**Symptom (Projekt-A, 3037 KI-Durchbruchsobjekte):** `ReserveElements` meldet `success`,
 `SetGDLParametersOfElements`, `SetDetailsOfElements` und `MoveElements` antworten
 mit `{"executionResults": []}` — leere Liste, kein Fehler, keine Änderung.
 `API.SetPropertyValuesOfElements` schreibt an denselben Elementen anstandslos.
@@ -963,7 +963,7 @@ Parameter (AddPars) von **Object, Lamp, Label und Zone** und schweigt nie:
   Undo-Klammer wiederholt (`allowWithoutUndoScope`, Default `true`). Lieber eine
   Änderung ohne Undo-Eintrag als gar keine; scheitert auch das, steht der Fehler-
   code von `ACAPI_Element_Change` im Ergebnis.
-- **Kein `APIFilt`-Vorfilter** — `IsEditable`/`InMyWorkspace` sind am THN wertlos
+- **Kein `APIFilt`-Vorfilter** — `IsEditable`/`InMyWorkspace` sind am Projekt-A wertlos
   (siehe oben) und würden nur wieder still filtern.
 - `syncObjectRatios` (Default `true`): `A`/`B` werden bei Objekten zusätzlich in
   `xRatio`/`yRatio` gespiegelt — wer nur die AddPars schreibt, ändert die
@@ -1012,7 +1012,7 @@ Verwendet werden:
 **Was es NICHT gibt** (dokumentiert, nicht erfunden): eine globale „irgendein
 Element wurde geändert/gelöscht"-Benachrichtigung. Änderung und Löschung kommen
 ausschließlich **elementweise** über `AttachObserver`. Ein Rundum-Attach über das
-ganze Modell — was Tapirs `SetElementNotificationClient` tut — ist am THN
+ganze Modell — was Tapirs `SetElementNotificationClient` tut — ist am Projekt-A
 (>100 k Elemente) zu teuer und wird bewusst nicht gemacht. Dafür gibt es
 `WatchElements`.
 
@@ -1043,7 +1043,7 @@ Zeitzonenfalle), `sinceSeq` (der stabilere Weg zum Weiterlesen), `categories[]`
   {"seq":1,"time":"2026-09-09T06:12:03.114Z","category":"project","type":"EventLogStarted","detail":"ELM_SAB 0.9.17"},
   {"seq":7,"time":"2026-09-09T06:31:44.902Z","category":"project","type":"TeamworkReceiveChanges"},
   {"seq":8,"time":"2026-09-09T06:31:47.330Z","category":"reservation","type":"ElementReserved",
-   "elementId":{"guid":"A1B2…"},"user":"Sophia Pickel"}],
+   "elementId":{"guid":"A1B2…"},"user":"Nutzer C"}],
  "eventCount":3,"matchedCount":3,"capacity":5000,"storedCount":8,"recordedCount":8,
  "droppedCount":0,"oldestSeq":1,"newestSeq":8,"serverTime":"2026-09-09T06:32:10.008Z",
  "installedHandlers":[{"notification":"ProjectEvent (ACAPI_ProjectOperation_CatchProjectEvent)","errorCode":0,"installed":true}, …]}
@@ -1084,7 +1084,7 @@ sondern nur in `note`.
 
 `filterFlags` (`isEditable`, `onVisibleLayer`, `inMyWorkspace`, `hasAccessRight`
 aus `ACAPI_Element_Filter`) wird mitgeliefert, aber **bewusst nicht** für das
-Urteil benutzt: am THN meldete `IsEditable`/`InMyWorkspace` auch für nachweislich
+Urteil benutzt: am Projekt-A meldete `IsEditable`/`InMyWorkspace` auch für nachweislich
 änderbare Elemente `false` (siehe „Leere `executionResults[]`" oben).
 
 Zwei Feinheiten aus der DevKit-Doku zu `API_Elem_Head`: `lockId` ist **in
@@ -1170,7 +1170,7 @@ dieser Vermerk auf „verifiziert" geändert werden:
    angemeldetes Element darf keine Change-Ereignisse liefern.
 6. Teamwork-Receive auslösen → `TeamworkReceiveChanges` im Log.
 7. `GetElementEditState` an vier bekannten Fällen: normales Objekt,
-   Objekt auf ausgeblendeter Ebene, Hotlink-Element, von Sophia Pickel
+   Objekt auf ausgeblendeter Ebene, Hotlink-Element, von Nutzer C
    reserviertes Element. `reason` muss jeweils passen.
 8. `GetDeviations` an einem Durchbruchsobjekt mit bekanntem A/B/ZZYZX:
    erst mit korrektem Sollmaß (`withinTolerance: true`), dann mit absichtlich
@@ -1245,7 +1245,7 @@ false), `reserve` (true), `classify` (true), `classificationItemGuid`,
   die nächstliegende Oberfläche, also auf eine **Schale** statt auf die Achse.
   `placement{x,y}` in der Antwort zeigt, was tatsächlich benutzt wurde.
 * **Geneigte Wände:** von `Constraint::Aligned` abgedeckt (Öffnung kippt mit),
-  aber am THN nicht live geprüft.
+  aber am Projekt-A nicht live geprüft.
 * **Runde Öffnungen:** `height` wird ignoriert, `width` ist der Durchmesser.
   Ob Archicad bei `Circular` beide Werte gleich hält, entscheidet
   `SetLinkedStatus`; hier steht `NotLinked`, `SetHeight` bekommt denselben Wert.
@@ -1262,7 +1262,7 @@ false), `reserve` (true), `classify` (true), `classificationItemGuid`,
 
 **Löschen des Quellsymbols** passiert nur bei `deleteSource: true` **und**
 vorhandenem KI-Stempel am Quellobjekt. Handgezeichnete Durchbrüche (ohne Stempel)
-bleiben unangetastet — harte Vorgabe aus dem THN-SuD-Projekt. Warum ein Symbol
+bleiben unangetastet — harte Vorgabe aus dem Projekt-A-SuD-Projekt. Warum ein Symbol
 stehen blieb, steht in `sourceKeptReason`.
 
 **Testplan vor jedem Massenlauf:** EINE Öffnung anlegen (z. B. WD, L 1,20 /
@@ -1274,7 +1274,7 @@ danach den Batch — und erst danach `deleteSource: true`.
 
 ## ELM_SAB 0.9.19 — CreateLabels, GetLabelsOfElements, SetLayerOfElements, Get2DGeometry-Fallback <!-- 2026-10-06 -->
 
-Vier Befehle aus der THN-Session vom 2026-10-06. **Stand: live verifiziert 2026-10-06 (THN).**
+Vier Befehle aus der Projekt-A-Session vom 2026-10-06. **Stand: live verifiziert 2026-10-06 (Projekt-A).**
 
 ### `ELM_SAB.CreateLabels`
 
@@ -1334,7 +1334,7 @@ echter Fehlercode, „ShapePrims fehlgeschlagen". Bekannt: schwere
 Legacy-Meshes können hängen, daher einzeln abfragen. Die alten Zweige
 (Line/Arc/Circle/PolyLine/Hatch) sind unverändert.
 
-### Live-Verifikation 2026-10-06 (THN)
+### Live-Verifikation 2026-10-06 (Projekt-A)
 
 1. `ELM_SAB.GetAddOnVersion` -> 0.9.19, buildStamp "Oct  6 2026 11:38:34".
 2. `GetLabelsOfElements`: WD_U1_033 -> 2 Stempel (Geschoss -2 und -1),
@@ -1363,7 +1363,7 @@ Etiketten), `SetLayerOfElements` auf eine ausgeblendete Ebene
 
 ## ELM_SAB 0.9.20 — DeleteElements reserviert + prüft Überlebende <!-- 2026-10-06 -->
 
-* **Anlass:** THN-Falle oben und Capmo-Rollout (71 stille Überlebende).
+* **Anlass:** Projekt-A-Falle oben und Capmo-Rollout (71 stille Überlebende).
   `ACAPI_Element_Delete` meldet NoError, löscht unreservierte Teamwork-Elemente
   aber nicht.
 * **Änderung:** Parameter `reserve` (Standard true), Reservierung im Teamwork
@@ -1376,7 +1376,7 @@ Etiketten), `SetLayerOfElements` auf eine ausgeblendete Ebene
   Rücklese ist für DeleteElements nicht mehr Pflicht, bleibt bei
   Massenlöschungen aber Stichprobe.
 * **Bekannte Verwandte:** Das Quellsymbol-Löschen in `ELM_SAB.CreateWallOpenings` hatte dieselbe Lücke — in 0.9.21 behoben (siehe unten).
-* **Stand:** live verifiziert 2026-10-06 (THN, Bundle 0.9.21, buildStamp „Oct  6 2026 13:42:13").
+* **Stand:** live verifiziert 2026-10-06 (Projekt-A, Bundle 0.9.21, buildStamp „Oct  6 2026 13:42:13").
 
 ### Testplan
 
@@ -1396,11 +1396,11 @@ Etiketten), `SetLayerOfElements` auf eine ausgeblendete Ebene
 
 Schritte 4–6: offen (kein zweiter Teamwork-Nutzer im Test; Cmd+Z nicht geprüft).
 
-* **Lehre:** Teamwork: Löschungen, die vor einem Archicad-Neustart nicht gesendet wurden, sind danach wieder da (THN: Teststempel aus dem 0.9.19-Test). Nach API-Tests den User senden lassen.
+* **Lehre:** Teamwork: Löschungen, die vor einem Archicad-Neustart nicht gesendet wurden, sind danach wieder da (Projekt-A: Teststempel aus dem 0.9.19-Test). Nach API-Tests den User senden lassen.
 
 ## ELM_SAB 0.9.21 — CreateWallOpenings prüft Löschung des Quellsymbols <!-- 2026-10-06 -->
 
-* **Anlass:** Dieselbe THN-Falle wie bei 0.9.20: `ACAPI_Element_Delete` meldet
+* **Anlass:** Dieselbe Projekt-A-Falle wie bei 0.9.20: `ACAPI_Element_Delete` meldet
   NoError, löscht unreservierte Teamwork-Elemente aber still nicht. Das KI-Symbol
   stünde dann neben der neuen Öffnung (Doppelung).
 * **Änderung:** Nach `ACAPI_Element_Delete` Existenzprüfung per Header.
@@ -1412,12 +1412,12 @@ Schritte 4–6: offen (kein zweiter Teamwork-Nutzer im Test; Cmd+Z nicht geprüf
   Befehlsversion 0.9.21.
 * **Folge für Aufrufer:** `reserve:false` mit `deleteSource:true` lässt im
   Teamwork das Quellsymbol typischerweise stehen — jetzt sichtbar statt still.
-* **Stand:** live verifiziert 2026-10-06 (THN, Bundle 0.9.21, buildStamp „Oct  6 2026 13:42:13").
+* **Stand:** live verifiziert 2026-10-06 (Projekt-A, Bundle 0.9.21, buildStamp „Oct  6 2026 13:42:13").
 
 ### Testplan
 
 1. `GetAddOnVersion` -> 0.9.21. ✅ 0.9.21.
-2. THN-Testwand mit KI-Symbol, `deleteSource:true`, Standard `reserve` ->
+2. Projekt-A-Testwand mit KI-Symbol, `deleteSource:true`, Standard `reserve` ->
    Öffnung angelegt, `sourceDeleted:true`, GetElementEditState des Symbols
    exists:false.
    ✅ eigene Testwand (Tapir CreateWalls, 5 m, x 200/y 0 außerhalb des Gebäudes) + Testsymbol (Objekt „Quader", als Durchbrüche›Öffnung klassifiziert, KI-Stempel) → `successCount:1`, `classified/kiStamped/elementIdStamped:true`, `sourceDeleted:true`, GetTypesOfElements des Symbols = 7204 „Element not found". Danach Öffnung + Wand per DeleteElements entfernt (Rücklese: weg).
@@ -1437,28 +1437,28 @@ KI-gestempelte Testsymbole.
 
 ## ELM_SAB 0.9.22 — Wand-Baustoff in GetDetailsOfElements <!-- 2026-10-12 -->
 
-* **Anlass:** THN-Nischenbau 12.10.: geteilte Wände bekamen per CreateWalls den Werkzeug-Standard-Baustoff, weil der Baustoff der Originalwand nicht lesbar war.
+* **Anlass:** Projekt-A-Nischenbau 12.10.: geteilte Wände bekamen per CreateWalls den Werkzeug-Standard-Baustoff, weil der Baustoff der Originalwand nicht lesbar war.
 * **Änderung:** `details.buildingMaterialId` (Basic), `details.profileId` (Profile), `details.compositeId` (Composite, wie bisher); die Felder waren im WallDetails-Schema schon vorgesehen, wurden aber nicht befüllt. Rezept: Wert direkt als `buildingMaterialId` bzw. `compositeId` an CreateWalls übergeben.
-* **Stand:** **Live verifiziert 2026-10-13 (WiSchu, mit dem 0.9.23-Bundle, das 0.9.22 enthält)** für Basic-Wände; `compositeId`/`profileId` sind am WiSchu nicht prüfbar (keine Composite- oder Profilwände).
+* **Stand:** **Live verifiziert 2026-10-13 (Projekt-B, mit dem 0.9.23-Bundle, das 0.9.22 enthält)** für Basic-Wände; `compositeId`/`profileId` sind am Projekt-B nicht prüfbar (keine Composite- oder Profilwände).
 
 ### Testplan
 
 1. ELM_SAB-Versionsabfrage (GetAddOnVersion des ELM_SAB-Namespace) meldet 0.9.22. ✓ (über das 0.9.23-Bundle, das 0.9.22 enthält)
 2. Basic-Wand: GetDetailsOfElements -> `buildingMaterialId` lesen, Namen per `API.GetBuildingMaterialAttributes` prüfen (muss dem Baustoff im Info-Fenster entsprechen). ✓ (56/56 gleich, s. Live-Befund)
-3. Composite-Wand liefert `compositeId`, kein `buildingMaterialId`. Nicht prüfbar am WiSchu (keine Composite-Wände).
+3. Composite-Wand liefert `compositeId`, kein `buildingMaterialId`. Nicht prüfbar am Projekt-B (keine Composite-Wände).
 
 (Nur Lesebefehle, kein Schreiben ins Modell.)
 
-### Live-Befund 2026-10-13 (WiSchu)
+### Live-Befund 2026-10-13 (Projekt-B)
 
 * **Verteilung:** 1.386 Wände, alle Basic (Bauteil 1.350 / Stahlbeton 28 / Aluminium 8).
 * **Methode:** `details.buildingMaterialId` → Name über native `GetBuildingMaterialAttributes`, verglichen mit der Bauteil-Property „Baustoffname“ (514C85CB-…) über native `GetComponentsOfElements` + `GetPropertyValuesOfElementComponents`. **Ergebnis: 56/56 gleich, 0 Abweichungen.** Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_c_0922_baustoff.json`.
-* **Nicht prüfbar am WiSchu:** `compositeId` und `profileId` (keine Composite- und keine Profilwände).
+* **Nicht prüfbar am Projekt-B:** `compositeId` und `profileId` (keine Composite- und keine Profilwände).
 * **Falle:** „Baustoffname“ ist eine **Komponenten-Property**. Auf Elementebene (`GetPropertyValuesOfElements`) kommt `notAvailable`; lesbar nur über `GetComponentsOfElements` + `GetPropertyValuesOfElementComponents`.
 
 ## ELM_SAB 0.9.23 — FindElements: Suche mit und/oder/nicht <!-- 2026-10-13 -->
 
-* **Anlass:** WiSchu-Türenabgleich 13.10. — Tapir `GetElementsByType`/`GetAllElements` lesen die Datenbank des AKTIVEN Fensters: mit einem Layout vorn kamen 0 Türen statt 267. „Türen mit T.-Nummer, nicht Abbruch, je Geschoss" brauchte 4 Aufrufe + Python. Vorbild ist „Suchen & aktivieren": Kriterien beliebig tief mit und/oder/nicht, EIN Aufruf.
+* **Anlass:** Projekt-B-Türenabgleich 13.10. — Tapir `GetElementsByType`/`GetAllElements` lesen die Datenbank des AKTIVEN Fensters: mit einem Layout vorn kamen 0 Türen statt 267. „Türen mit T.-Nummer, nicht Abbruch, je Geschoss" brauchte 4 Aufrufe + Python. Vorbild ist „Suchen & aktivieren": Kriterien beliebig tief mit und/oder/nicht, EIN Aufruf.
 * **Das Bundle 0.9.23 enthält ZWEI Änderungen:** `FindElements` (neu) und den `CaptureView`-Fix (Unterabschnitt unten). Beide getrennt testen.
 * **Aufruf:** über `API.ExecuteAddOnCommand` mit `addOnCommandId` `{"commandNamespace":"ELM_SAB","commandName":"FindElements"}` (Regel (1) im Abschnitt „Antwortfelder + Namespaces: was wo liegt").
 * **Grundsätze:** ausgewertet wird IMMER die Grundriss-Datenbank (alle Geschosse), nie das aktive Fenster; `startDatabaseType` meldet, was beim Aufruf vorn war. Nur lesen (keine Modelländerung, keine Undo-Klammer); `select:true` ändert nur die Auswahl. Kein stiller Nullbefund: unbekannte Schlüssel, Kriterien, Operatoren, Eigenschaften, Klassifizierungen, Ebenen, Geschosse, Design-Optionen = Fehler mit Pfad und Namen (`where.and[2].not.property: ...`); `criteriaStats` zeigt je Knoten, wo Treffer verloren gehen.
@@ -1483,7 +1483,7 @@ KI-gestempelte Testsymbole.
 {"where": {"type": "Door"}, "return": ["ID und Kategorien/Element ID", "Umbau-Status"]}
 ```
 
-Die Eigenschaft „Element ID" ist im WiSchu zweimal definiert (`Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}). Der bloße Name liefert den Mehrdeutigkeitsfehler, deshalb steht in den Beispielen „Gruppe/Name" (alternativ die GUID). Siehe Fallen.
+Die Eigenschaft „Element ID" ist im Projekt-B zweimal definiert (`Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}). Der bloße Name liefert den Mehrdeutigkeitsfehler, deshalb steht in den Beispielen „Gruppe/Name" (alternativ die GUID). Siehe Fallen.
 
 (c) Nur zählen, Suchbereich wie im 3D-Fenster:
 
@@ -1500,7 +1500,7 @@ Die Eigenschaft „Element ID" ist im WiSchu zweimal definiert (`Allgemeine Para
   ]}}
 ```
 
-Live belegt 13.10. (WiSchu, Bundle 0.9.25): System „Archicad Klassifizierung“, `code` „Tür / Tor“ mit `includeChildren` ODER `unclassified` → 267 Treffer; `criteriaStats` zeigen den `or`-Kurzschluss (zweiter Zweig prüft 0). In diesem System steht der Text im **Code**, der Name ist leer → immer `code` (oder `item`-GUID) nehmen, nicht `name` (siehe Fallen).
+Live belegt 13.10. (Projekt-B, Bundle 0.9.25): System „Archicad Klassifizierung“, `code` „Tür / Tor“ mit `includeChildren` ODER `unclassified` → 267 Treffer; `criteriaStats` zeigen den `or`-Kurzschluss (zweiter Zweig prüft 0). In diesem System steht der Text im **Code**, der Name ist leer → immer `code` (oder `item`-GUID) nehmen, nicht `name` (siehe Fallen).
 
 (e) Beziehung — Türen in Wänden auf Ebenen `A_Wand*` (Muster als Platzhalter):
 
@@ -1508,7 +1508,7 @@ Live belegt 13.10. (WiSchu, Bundle 0.9.25): System „Archicad Klassifizierung�
 {"where": {"and": [{"type": "Door"}, {"hostedBy": {"layer": {"pattern": "A_Wand*"}}}]}}
 ```
 
-Live belegt 13.10. (WiSchu, Bundle 0.9.25) mit den dortigen Ebenennamen: Muster „10 Wand innen*“ 263 = 263 und „10 Wand au*“ 4 = 4 gegen die Referenz (Property Ebenenname der Owner-Wände), GUID-gleich.
+Live belegt 13.10. (Projekt-B, Bundle 0.9.25) mit den dortigen Ebenennamen: Muster „10 Wand innen*“ 263 = 263 und „10 Wand au*“ 4 = 4 gegen die Referenz (Property Ebenenname der Owner-Wände), GUID-gleich.
 
 ### Parameter
 
@@ -1559,7 +1559,7 @@ Zum Weitergeben an andere Befehle nur `{elementId}` übernehmen.
 
 ### Suchbereich `scope`
 
-| scope | Filter | WiSchu 13.10. vormittags (Handoff) | WiSchu 13.10. Gegenprobe (FindElements = Tapir) | `elapsedMs` |
+| scope | Filter | Projekt-B 13.10. vormittags (Handoff) | Projekt-B 13.10. Gegenprobe (FindElements = Tapir) | `elapsedMs` |
 |---|---|---|---|---|
 | `projekt` (Vorgabe) | keiner — alle Geschosse, auch ausgeblendete Ebenen | 19.873 | 40.107 | 95 |
 | `sichtbar` | OnVisLayer (inkl. 2D) | 19.503 | 39.736 | 110 |
@@ -1575,13 +1575,13 @@ Zum Weitergeben an andere Befehle nur `{elementId}` übernehmen.
 ### Fallen
 
 * **Aktive Datenbank:** Tapir liest das vordere Fenster, FindElements nie; `startDatabaseType` zeigt, was vorn war (live belegt 13.10.: Layout vorn → Tapir 0 Türen, FindElements 267).
-* **Teamwork:** Tapir-Flag `IsEditable` = nur von MIR reserviert → WiSchu Door + OnActualFloor 84, + IsEditable 0. Für „frei/von mir/von anderen" das Blatt `teamwork` nehmen.
+* **Teamwork:** Tapir-Flag `IsEditable` = nur von MIR reserviert → Projekt-B Door + OnActualFloor 84, + IsEditable 0. Für „frei/von mir/von anderen" das Blatt `teamwork` nehmen.
 * Tapir-Flags kennen kein NICHT und kein ODER — hier per `not`/`or`. `IncludeSubElemObjects` ist kein Filter.
 * **Aktuelles Geschoss** über `TapirCommand.GetStories` → `actStory` lesen, nie über `GetUIState.currentWindow.index` (das ist kein Geschoss-Index, live 13.10.: meldete 0 bei 1. OG vorn).
 * **Klassifizierung: `code`, nicht `name`.** In der „Archicad Klassifizierung“ steht der Text im **Code/ID** („Tür / Tor“, „Tür“), der **Name ist leer**. `"name":"Tür / Tor"` liefert „unbekannter Eintrag … ähnlich: Tür / Tor“ (die Vorschlagsliste zeigt Code + Name). Immer `code` oder `item` (GUID) verwenden (live 13.10.).
-* **Mehrdeutige Eigenschaftsnamen** (WiSchu: „Brüstungshöhe" 4×, „Element ID" 2×) → Fehler mit Kandidaten („… - GUID oder {group, name} angeben"); GUID oder „Gruppe/Name" angeben. „Element ID" gibt es im WiSchu als `Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}. Für die Element-ID immer `"ID und Kategorien/Element ID"` nehmen (= die von `modell_abgleich.py` gelesene B1B54D45-…). „Gruppe/Name" ist live belegt 13.10. „/" steckt auch in Gruppen- und Eigenschaftsnamen („Balken / Träger") — jede „/"-Position wird probiert.
+* **Mehrdeutige Eigenschaftsnamen** (Projekt-B: „Brüstungshöhe" 4×, „Element ID" 2×) → Fehler mit Kandidaten („… - GUID oder {group, name} angeben"); GUID oder „Gruppe/Name" angeben. „Element ID" gibt es im Projekt-B als `Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}. Für die Element-ID immer `"ID und Kategorien/Element ID"` nehmen (= die von `modell_abgleich.py` gelesene B1B54D45-…). „Gruppe/Name" ist live belegt 13.10. „/" steckt auch in Gruppen- und Eigenschaftsnamen („Balken / Träger") — jede „/"-Position wird probiert.
 * **`select` ersetzt die Auswahl** — danach selbst aufheben (keine Auswahl zurücklassen). Bei 0 Treffern bleibt die Auswahl unverändert.
-* **`select` + Renovierungsfilter:** Was der Renovierungsfilter der aktiven Ansicht ausblendet, ist nicht auswählbar. Beleg WiSchu 13.10.: 267 Türen → `selected` 263, `notSelectedCount` 4 = genau die 4 Abbruch-Türen T.0.001, T.0.004, T.0.039, T.2.045. Die Rücklese meldet das korrekt in `selection.notSelected`. Daher nach `select` immer `selected` gegen `matchCount` prüfen und `notSelected` lesen. Elemente ANDERER Geschosse werden dagegen ausgewählt. (Nicht live getestet: Wer Abbruch-Elemente mit auswählen will, braucht einen Renovierungsfilter, der Abbruch zeigt.)
+* **`select` + Renovierungsfilter:** Was der Renovierungsfilter der aktiven Ansicht ausblendet, ist nicht auswählbar. Beleg Projekt-B 13.10.: 267 Türen → `selected` 263, `notSelectedCount` 4 = genau die 4 Abbruch-Türen T.0.001, T.0.004, T.0.039, T.2.045. Die Rücklese meldet das korrekt in `selection.notSelected`. Daher nach `select` immer `selected` gegen `matchCount` prüfen und `notSelected` lesen. Elemente ANDERER Geschosse werden dagegen ausgewählt. (Nicht live getestet: Wer Abbruch-Elemente mit auswählen will, braucht einen Renovierungsfilter, der Abbruch zeigt.)
 * Laufzeit wächst mit teuren Blättern (`property`/`gdl`/`ifc` je Element) → günstige Blätter (`type`, `story`, `layer`) in dasselbe `and`; `elapsedMs` notieren (MCP-Zeitgrenze 600 s).
 
 ### Nicht verfügbar
@@ -1589,7 +1589,7 @@ Zum Weitergeben an andere Befehle nur `{elementId}` übernehmen.
 * `RunCriteriaSet` — gespeicherte Kriterien-Sets aus „Suchen & aktivieren" sind per API nicht erreichbar (DevKit 29.3100 geprüft: nur `ACAPI_Selection_*`, `ACAPI_Element_SearchElementByCoord`, `ACAPI_LibraryPart_Search`).
 * `designOption` nur in Archicad 29; AC27/28 → Fehler „Kriterium designOption in Archicad NN nicht verfügbar".
 
-### Live-Gegenprobe 2026-10-13 (WiSchu)
+### Live-Gegenprobe 2026-10-13 (Projekt-B)
 
 Umgebung: AC29 Build 5101, Teamwork, EINE Instanz, Port 19723. `ELM_SAB.GetAddOnVersion` → 0.9.23 / Tapir 1.5.4 / buildStamp „Oct 13 2026 10:09:39" (= CI `4e804b3`). Bundle-Tausch nach den Regeln, Backup 0.9.22 in `~/.scratch/elm-bundle-0.9.23/backup_0.9.22`. Das letzte Archicad-Fenster ohne Projekt wurde per `TapirCommand.QuitArchicad` beendet, weil AppleScript-`quit` mit -128 abbrach.
 
@@ -1602,7 +1602,7 @@ Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_a_2026-10-13.json` (Punkte 1
 | 3 | Beispiel (a) gegen den Python-Filter | 35 = 35, 196 ms. `criteriaStats`: type 40.107→267, story 267→36, not 36→35 (property darunter 36→1), property 35→35 — zeigt die Kosten-Reihenfolge. |
 | 4 | Aufzählung: `"value":"Abbruch"` (Anzeige) gegen `"ToBeDemolished"` (nonLocalized) | Dieselben 4 Türen = Referenz. |
 | 5 | Fehlerantworten mit Namen | Alle schemakonform beim Client: `error.code` -2130313112 (APIERR_BADPARS), kein 4009. Damit funktioniert `oneOf` auf oberster Ebene → Planer-Risiko aus 261013-fel erledigt. Fünf Fälle: unbekannte Eigenschaft „Umbaustatus" („keine aehnliche Eigenschaft gefunden") · „Brüstungshöhe" mehrdeutig mit 4 Kandidaten (Gruppe/Name {GUID}) · unbekanntes Kriterium „propery" mit Liste der erlaubten · unbekannter Typ „Tuer" mit Liste · unbekanntes Geschoss „99.OG" mit Liste `index:Name`. |
-| 6 | „Element ID" als Eigenschaftsname | Im WiSchu ZWEIMAL definiert: `Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}. Der bloße Name liefert den Mehrdeutigkeitsfehler „… - GUID oder {group, name} angeben". Die Adressierung „Gruppe/Name" ist live belegt. Siehe Fallen. |
+| 6 | „Element ID" als Eigenschaftsname | Im Projekt-B ZWEIMAL definiert: `Allgemeine Parameter/Element ID` {7E221F33-829B-4FBC-A670-E74DABCE6289} und `ID und Kategorien/Element ID` {B1B54D45-C951-42C9-9AF8-898F0BF212AB}. Der bloße Name liefert den Mehrdeutigkeitsfehler „… - GUID oder {group, name} angeben". Die Adressierung „Gruppe/Name" ist live belegt. Siehe Fallen. |
 | 7 | Teures Blatt ohne `type`-Filter: `{"property":"Umbau-Status","op":"=","value":"ToBeDemolished"}` | Über 40.107 Elemente 1.626 ms (≈1,6 s), 9 Treffer, `notAvailable` 7. Günstiges `type`-Blatt in dasselbe `and` (vgl. Punkt 1: 230 ms). |
 | 8 | Layout FR_00-06.1 vorn (per `TapirCommand.ChangeWindow` mit `navigatorItemId`) | FindElements `projekt` weiter 40.107, `startDatabaseType` "Layout", `database` "FloorPlan", Türen 267. Tapir `GetElementsByType` Door im selben Zustand = 0. Die Falle „Aktive Datenbank" ist live reproduziert und gelöst. |
 | 9 | `select:true` über alle 267 Türen aller Geschosse (Grundriss 1. OG vorn) | `selected` 263, `notSelectedCount` 4, `extraSelectedCount` 0, Tapir-Auswahl danach 263. Die 4 nicht ausgewählten sind GENAU die 4 Abbruch-Türen T.0.001, T.0.004, T.0.039, T.2.045: Was der Renovierungsfilter der Ansicht ausblendet, ist nicht auswählbar, und die Rücklese meldet das korrekt. Elemente anderer Geschosse werden ausgewählt. Danach Auswahl aufgehoben (0) und Fenster auf Grundriss 1. OG zurückgestellt. |
@@ -1613,7 +1613,7 @@ Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_a_2026-10-13.json` (Punkte 1
 
 | Kriterium | Probe | Referenz | Ergebnis |
 |---|---|---|---|
-| or | Door ∪ Zone (WiSchu hat KEINE Window-Elemente) | native GetElementsByType | 464=464 |
+| or | Door ∪ Zone (Projekt-B hat KEINE Window-Elemente) | native GetElementsByType | 464=464 |
 | layer Name | „10 Wand innen A“ | eingebaute Property Ebenenname | 222=222 |
 | layer pattern | „10 *“ | fnmatch auf Ebenenname | 267=267 |
 | layer visible | visible:true | Tapir Door+IsVisibleByLayer | 267=267 |
@@ -1632,11 +1632,11 @@ Rohdaten: `~/.scratch/elmonkey/gegenprobe_0923/teil_a_2026-10-13.json` (Punkte 1
 | inZone | 8 Zonen | native GetElementsRelatedToZones | 10=10 (752 ms) |
 | bbox intersects / inside | Tür-0-Box ±3 m | native Get3DBoundingBoxes (x/y) | 9=9 / 9=9 |
 | near | Punkt Türmitte, 5 m | dito | 10=10 |
-| designOption | {mainModel:true} | WiSchu hat keine Design-Optionen | 267; unbekannter Name → Fehler „unbekannte Design-Option - vorhanden: “ (leer) |
+| designOption | {mainModel:true} | Projekt-B hat keine Design-Optionen | 267; unbekannter Name → Fehler „unbekannte Design-Option - vorhanden: “ (leer) |
 | databases | Grundriss-DB explizit (GetDatabaseIdFromNavigatorItemId) | – | 267, perDatabase mit scopeCount 40.107 |
 | limit | 10 | – | returnedCount 10, truncated true, matchCount 267 |
 
-Am WiSchu nicht prüfbar ist nur die Auflösung von `designOption` per Name/id/guid, weil das Modell keine Design-Optionen hat.
+Am Projekt-B nicht prüfbar ist nur die Auflösung von `designOption` per Name/id/guid, weil das Modell keine Design-Optionen hat.
 
 **Beispiele (d) und (e) (13.10. nachmittags, Bundle 0.9.25, scopeCount `projekt` 41.039, s. Nebenbefund bei der scope-Tabelle):**
 * **(d) `or` + Klassifizierung:** `{"classification":{"system":"Archicad Klassifizierung","code":"Tür / Tor"},"includeChildren":true}` ODER `unclassified` → 267 Treffer. `criteriaStats` zeigen den `or`-Kurzschluss: der zweite Zweig (`unclassified`) prüft 0 Elemente.
@@ -1644,21 +1644,21 @@ Am WiSchu nicht prüfbar ist nur die Auflösung von `designOption` per Name/id/g
 
 ### CaptureView: Fehlerantwort schemakonform, Layout-Verhalten
 
-* **Befund (WiSchu 13.10., Layout „FR_00-06.1", `crop` true und false):** `4009 Invalid command response … 'additionalProperties' … '#/error'`, kein PNG. Ursache: das Antwortschema (`additionalProperties:false`, `required:[imagePath, view2D]`) ließ die Fehlerform `{error:{code,message}}` nicht zu — jede Fehlermeldung wurde von Archicad als ungültige Antwort verschluckt.
+* **Befund (Projekt-B 13.10., Layout „FR_00-06.1", `crop` true und false):** `4009 Invalid command response … 'additionalProperties' … '#/error'`, kein PNG. Ursache: das Antwortschema (`additionalProperties:false`, `required:[imagePath, view2D]`) ließ die Fehlerform `{error:{code,message}}` nicht zu — jede Fehlermeldung wurde von Archicad als ungültige Antwort verschluckt.
 * **Änderung 0.9.23:** Antwortschema `oneOf` Erfolg | Fehler; jede Meldung nennt den Fenstertyp und den echten Archicad-Code (Text + `code`-Feld). Layout/MasterLayout: Export wird versucht, sonst „PNG-Export per API nicht möglich (Fehler N) - Zeichnung/Grundriss öffnen oder Layout als PDF publizieren". Keine Typsperre — Grundriss, 3D, Schnitt, Detail … wie bisher. Erfolgsantwort unverändert `{imagePath, view2D}`.
 * **Allgemeine Lehre:** ein ELM-Antwortschema mit `required`/`additionalProperties:false` ohne Fehlerzweig verschluckt JEDE Fehlermeldung (Client sieht nur 4009) → neue Befehle über `ELMResponseSchemaWithError` (ELMCommandBase.hpp) deklarieren, Fehler über `CreateErrorResponseELM` (Umlaut-sicher).
-* **Live 13.10. (WiSchu, 0.9.23), Fehlerform bestanden:** leerer `outputPath` → `{error:{code:-2130313112, message:"CaptureView: outputPath fehlt oder ist leer"}}`, kein 4009. Mit Layout FR_00-06.1 vorn, `crop` true und false → -2130313115 „CaptureView: Layout-Fenster ('Layout'): PNG-Export per API nicht moeglich (Fehler -2130313115) - Zeichnung/Grundriss oeffnen oder Layout als PDF publizieren", kein PNG. Das Ziel des Fixes (kein 4009, echte Ursache sichtbar) ist erreicht. → ab 0.9.25 liefert Layout ein PNG (live 13.10.).
-* **Offener Punkt → erledigt in 0.9.25, live bestätigt 13.10.:** CaptureView-Funktion – Ursache APIERR_BADID. Auch mit Grundriss vorn kommt -2130313115 „CaptureView: Fensterinhalt (Fenstertyp 'FloorPlan') nicht als PNG speicherbar (Fehler -2130313115) - Fenstertyp exportierbar? Pfad beschreibbar?". Probiert wurden zwei Zielpfade (`~/.scratch/…` und `/private/tmp/…`), kein PNG entstand. -2130313115 = **APIERR_BADID** (APIErrorStart + 101, DevKit `APIdefs_ErrorCodes.h` Z. 48). Betroffen ist der Aufruf `ACAPI_ProjectOperation_Save` mit `APIFType_PNGFile` + `API_SavePars_Picture`, für Grundriss UND Layout. Keine Regression: der Save-Code ist seit 0.9.13 unverändert (nur die Meldungen haben sich geändert), und CaptureView hat live NIE ein Bild geliefert. Belege: THN 07.08. („zwei Pfade probiert, Datei entstand nicht"), SuD-Kampagne („scheitert intern, auch mit Archicad im Vordergrund", damals vom 4009 verschluckt) und der Abschnitt „ELM_SAB 0.9.12/0.9.13" („Live-Test am Modell steht aus"; dort nichts geändert). Neu ist nur, dass die Ursache sichtbar ist. Das 3D-Fenster wurde nicht getestet. Workaround `screencapture` war nur bis 0.9.25 nötig. **→ Ursache gefunden, Fix in 0.9.25 (live bestätigt 13.10.: PNG mit `colorDepth` "MiC" für Grundriss, Layout und 3D):** `APIColorDepth_FromSourceImage` ist beim Fenster-Export keine gültige Farbtiefe; Abschnitt „ELM_SAB 0.9.25 — CaptureView: Farbtiefe statt APIERR_BADID“ unten.
+* **Live 13.10. (Projekt-B, 0.9.23), Fehlerform bestanden:** leerer `outputPath` → `{error:{code:-2130313112, message:"CaptureView: outputPath fehlt oder ist leer"}}`, kein 4009. Mit Layout FR_00-06.1 vorn, `crop` true und false → -2130313115 „CaptureView: Layout-Fenster ('Layout'): PNG-Export per API nicht moeglich (Fehler -2130313115) - Zeichnung/Grundriss oeffnen oder Layout als PDF publizieren", kein PNG. Das Ziel des Fixes (kein 4009, echte Ursache sichtbar) ist erreicht. → ab 0.9.25 liefert Layout ein PNG (live 13.10.).
+* **Offener Punkt → erledigt in 0.9.25, live bestätigt 13.10.:** CaptureView-Funktion – Ursache APIERR_BADID. Auch mit Grundriss vorn kommt -2130313115 „CaptureView: Fensterinhalt (Fenstertyp 'FloorPlan') nicht als PNG speicherbar (Fehler -2130313115) - Fenstertyp exportierbar? Pfad beschreibbar?". Probiert wurden zwei Zielpfade (`~/.scratch/…` und `/private/tmp/…`), kein PNG entstand. -2130313115 = **APIERR_BADID** (APIErrorStart + 101, DevKit `APIdefs_ErrorCodes.h` Z. 48). Betroffen ist der Aufruf `ACAPI_ProjectOperation_Save` mit `APIFType_PNGFile` + `API_SavePars_Picture`, für Grundriss UND Layout. Keine Regression: der Save-Code ist seit 0.9.13 unverändert (nur die Meldungen haben sich geändert), und CaptureView hat live NIE ein Bild geliefert. Belege: Projekt-A 07.08. („zwei Pfade probiert, Datei entstand nicht"), SuD-Kampagne („scheitert intern, auch mit Archicad im Vordergrund", damals vom 4009 verschluckt) und der Abschnitt „ELM_SAB 0.9.12/0.9.13" („Live-Test am Modell steht aus"; dort nichts geändert). Neu ist nur, dass die Ursache sichtbar ist. Das 3D-Fenster wurde nicht getestet. Workaround `screencapture` war nur bis 0.9.25 nötig. **→ Ursache gefunden, Fix in 0.9.25 (live bestätigt 13.10.: PNG mit `colorDepth` "MiC" für Grundriss, Layout und 3D):** `APIColorDepth_FromSourceImage` ist beim Fenster-Export keine gültige Farbtiefe; Abschnitt „ELM_SAB 0.9.25 — CaptureView: Farbtiefe statt APIERR_BADID“ unten.
 * **Offener Punkt → erledigt in 0.9.24** (Abschnitt „ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle" unten): dieselbe Lücke haben noch — Antwortschema mit `required`, ohne Fehlerzweig, mit `return CreateErrorResponse` auf oberster Ebene:
   `CreateWallOpenings` (CreateWallOpeningsCommand.cpp Z. 584/587 — leere openings, AC27/28-Sperre), `SetLayerOfElements` (SetLayerCommand.cpp Z. 102/105), `SetObjectParametersForce` (SetObjectParametersForceCommand.cpp Z. 326), `SetPenOfElements` (SetPenOfElementsCommand.cpp Z. 244), `SetStoryVisibilityOfElements` (StoryVisibilityCommands.cpp Z. 132/141), `SetTextSizeOfElements` (SetTextSizeCommand.cpp Z. 64). Prüfwerkzeug: `python3 -I ~/.scratch/elmonkey/tools/elm_schema_scan.py <ELM_SAB_Tapir/Sources>` (Kandidat = `errorAllowed=False` und `topLevelErrorReturns>0`).
 
 ### Stand
 
-**Live verifiziert 2026-10-13 (WiSchu, AC29 Build 5101, Teamwork; buildStamp „Oct 13 2026 10:09:39" = CI `4e804b3`)**, der grüne CI-SHA steht im Quick-Task-SUMMARY 261013-fel.
+**Live verifiziert 2026-10-13 (Projekt-B, AC29 Build 5101, Teamwork; buildStamp „Oct 13 2026 10:09:39" = CI `4e804b3`)**, der grüne CI-SHA steht im Quick-Task-SUMMARY 261013-fel.
 
-* **Getesteter Umfang** (Belege im Unterabschnitt „### Live-Gegenprobe 2026-10-13 (WiSchu)"): Kriterien `and`, `not`, `type`, `story` (`{index}`, Name im Fehlerfall), `property` (Name, „Gruppe/Name", Operatoren `=`/`startsWith`, Aufzählung Anzeige + nonLocalized); `scope` alle vier; `return`; `countOnly`; `select`; `criteriaStats`; `startDatabaseType`/`database`; Fehlerantworten. Zusätzlich Teil C (13.10. nachmittags, Unterabschnitt „Live-Gegenprobe 2026-10-13 (WiSchu)“ oben): `or`, `layer` (Name/pattern/visible), `flags`, `guids`, `inSelection`, `teamwork`, `classification` (item/code/includeChildren/unclassified), `libPart`, `gdl`, `ifc` (type/attribute/property), `hostedBy`/`hosts`, `inZone`, `bbox`/`near`, `designOption` `{mainModel:true}` + Fehler bei unbekanntem Namen, die Parameter `databases` und `limit`/`truncated`, außerdem Beispiel (c) über die scope-Probe mit `countOnly` und die Beispiele (d) und (e) (Bundle 0.9.25).
+* **Getesteter Umfang** (Belege im Unterabschnitt „### Live-Gegenprobe 2026-10-13 (Projekt-B)"): Kriterien `and`, `not`, `type`, `story` (`{index}`, Name im Fehlerfall), `property` (Name, „Gruppe/Name", Operatoren `=`/`startsWith`, Aufzählung Anzeige + nonLocalized); `scope` alle vier; `return`; `countOnly`; `select`; `criteriaStats`; `startDatabaseType`/`database`; Fehlerantworten. Zusätzlich Teil C (13.10. nachmittags, Unterabschnitt „Live-Gegenprobe 2026-10-13 (Projekt-B)“ oben): `or`, `layer` (Name/pattern/visible), `flags`, `guids`, `inSelection`, `teamwork`, `classification` (item/code/includeChildren/unclassified), `libPart`, `gdl`, `ifc` (type/attribute/property), `hostedBy`/`hosts`, `inZone`, `bbox`/`near`, `designOption` `{mainModel:true}` + Fehler bei unbekanntem Namen, die Parameter `databases` und `limit`/`truncated`, außerdem Beispiel (c) über die scope-Probe mit `countOnly` und die Beispiele (d) und (e) (Bundle 0.9.25).
 * **CaptureView:** Fehlerform verifiziert. Der Bildexport scheiterte in 0.9.23 mit APIERR_BADID → behoben in 0.9.25, live bestätigt 13.10. (Grundriss, Layout, 3D).
-* **Am WiSchu nicht prüfbar:** `designOption` per Name/id/guid (keine Design-Optionen im Modell). Die Beispiele (d) und (e) sind live belegt (Teil C im Unterabschnitt „Live-Gegenprobe 2026-10-13 (WiSchu)“, Bundle 0.9.25); ihre Bausteine (`or`, `classification` mit `includeChildren`/`unclassified`, `hostedBy`, `layer.pattern`) zusätzlich einzeln in der Teil-C-Tabelle.
+* **Am Projekt-B nicht prüfbar:** `designOption` per Name/id/guid (keine Design-Optionen im Modell). Die Beispiele (d) und (e) sind live belegt (Teil C im Unterabschnitt „Live-Gegenprobe 2026-10-13 (Projekt-B)“, Bundle 0.9.25); ihre Bausteine (`or`, `classification` mit `includeChildren`/`unclassified`, `hostedBy`, `layer.pattern`) zusätzlich einzeln in der Teil-C-Tabelle.
 
 ### Testplan Einbau + Gegenprobe
 
@@ -1670,7 +1670,7 @@ Macht der Orchestrator mit Mudi. Das Bundle enthält ZWEI Änderungen (FindEleme
 **FindElements**
 2. `scope`-Zahlen mit `countOnly` (ohne `where`) gegen die Tabelle bzw. die Tapir-Referenz. ✓ (alle vier = Tapir, s. scope-Tabelle)
 3. Dasselbe mit Layout-Fenster vorn: `projekt`-Zahl unverändert, `startDatabaseType` `"Layout"`. ✓ (40.107, `startDatabaseType` "Layout", Türen 267; Tapir 0)
-4. Türenabgleich: EIN FindElements-Aufruf (Beispiel b) gegen `modell_abgleich.py` (`/Users/ap/.scratch/wischu-freising/tools/`, native `GetElementsByType` Door + Properties B1B54D45-C951-42C9-9AF8-898F0BF212AB / 9CF14061-6E9C-45BE-BD8F-D3BCF59D218E): 267 Türen, gleiche Mengen je Geschoss (`floorIndex`) und je Umbau-Status. ✓ (267, 0 Abweichungen, 230 ms)
+4. Türenabgleich: EIN FindElements-Aufruf (Beispiel b) gegen `modell_abgleich.py` (`~/.scratch/projekt-b/tools/`, native `GetElementsByType` Door + Properties B1B54D45-C951-42C9-9AF8-898F0BF212AB / 9CF14061-6E9C-45BE-BD8F-D3BCF59D218E): 267 Türen, gleiche Mengen je Geschoss (`floorIndex`) und je Umbau-Status. ✓ (267, 0 Abweichungen, 230 ms)
 5. Beispiel (a) gegen denselben Python-Filter (floor 2, umbau ≠ ToBeDemolished, id beginnt mit „T.2."); `"value":"Abbruch"` liefert dieselbe Menge wie `"ToBeDemolished"`. ✓ (35 = 35; „Abbruch" = „ToBeDemolished" = 4)
 6. Unbekannte Eigenschaft („Umbaustatus") → Fehler mit Namen; „Brüstungshöhe" → Mehrdeutigkeitsfehler mit 4 Kandidaten. ✓ (plus „Element ID" mehrdeutig, s. Fallen)
 7. `select:true` über alle Türen aller Geschosse → `selection`-Rücklese ansehen (werden fremde Geschosse ausgewählt?), danach Auswahl aufheben. ✓ (263/267, 4 Abbruch-Türen vom Renovierungsfilter ausgeblendet; fremde Geschosse werden ausgewählt; Auswahl aufgehoben)
@@ -1683,7 +1683,7 @@ Macht der Orchestrator mit Mudi. Das Bundle enthält ZWEI Änderungen (FindEleme
 
 ## ELM_SAB 0.9.24 — Fehlerantwort schemakonform für sechs Befehle <!-- 2026-10-13 -->
 
-* **Anlass:** offener Punkt aus 0.9.23 (CaptureView-Befund WiSchu 13.10.). Antwortschema mit nicht-leerem `required` ohne Fehlerzweig → jede Top-Level-Fehlerantwort `{error:{code,message}}` kam als `4009 Invalid command response … '#/error'` an statt der Meldung.
+* **Anlass:** offener Punkt aus 0.9.23 (CaptureView-Befund Projekt-B 13.10.). Antwortschema mit nicht-leerem `required` ohne Fehlerzweig → jede Top-Level-Fehlerantwort `{error:{code,message}}` kam als `4009 Invalid command response … '#/error'` an statt der Meldung.
 * **Muster (wie CaptureView 0.9.23):** `GetResponseSchema` → `ELMResponseSchemaWithError (<Erfolgsschema>)`, also `oneOf` Erfolg | Fehler mit byte-gleichem Erfolgsschema. Top-Level-Fehler → `CreateErrorResponseELM`; Code und Text sind unverändert und kommen jetzt Umlaut-sicher an (Ebenennamen!).
 
   ```cpp
@@ -1742,9 +1742,9 @@ Hinweis: `topLevelErrorReturns` bleibt gleich, weil der Regex des Scans auch `Cr
 
 ### Stand
 
-**Live verifiziert 2026-10-13 (WiSchu, AC29 Build 5101, Teamwork; Bundle 0.9.25, buildStamp „Oct 13 2026 13:11:29“ = CI `86309a4`)** — CI-SHA im Quick-Task-SUMMARY 261013-jom. Gepusht wurde erst, nachdem die Live-Gegenprobe des CaptureView-Fehlermusters (0.9.23, Testplan 9/11) bestanden war.
+**Live verifiziert 2026-10-13 (Projekt-B, AC29 Build 5101, Teamwork; Bundle 0.9.25, buildStamp „Oct 13 2026 13:11:29“ = CI `86309a4`)** — CI-SHA im Quick-Task-SUMMARY 261013-jom. Gepusht wurde erst, nachdem die Live-Gegenprobe des CaptureView-Fehlermusters (0.9.23, Testplan 9/11) bestanden war.
 
-### Live-Gegenprobe 2026-10-13 (WiSchu)
+### Live-Gegenprobe 2026-10-13 (Projekt-B)
 
 Das 0.9.25-Bundle enthält 0.9.24; getestet wurde also mit 0.9.25.
 
@@ -1767,7 +1767,7 @@ Das 0.9.25-Bundle enthält 0.9.24; getestet wurde also mit 0.9.25.
 
 ## ELM_SAB 0.9.25 — CaptureView: Farbtiefe statt APIERR_BADID <!-- 2026-10-13 -->
 
-* **Anlass:** offener Punkt aus 0.9.23 (WiSchu 13.10., AC29 Build 5101, 0.9.23 eingebaut): `ACAPI_ProjectOperation_Save (&fsp, &pict)` mit `APIFType_PNGFile`, `colorDepth = APIColorDepth_FromSourceImage`, `view2D = true`, `crop` true/false → -2130313115 = APIERR_BADID für Grundriss (1. OG) UND Layout FR_00-06.1, zwei Zielpfade, keine Datei. CaptureView hat seit 0.9.12 live nie ein Bild geliefert.
+* **Anlass:** offener Punkt aus 0.9.23 (Projekt-B 13.10., AC29 Build 5101, 0.9.23 eingebaut): `ACAPI_ProjectOperation_Save (&fsp, &pict)` mit `APIFType_PNGFile`, `colorDepth = APIColorDepth_FromSourceImage`, `view2D = true`, `crop` true/false → -2130313115 = APIERR_BADID für Grundriss (1. OG) UND Layout FR_00-06.1, zwei Zielpfade, keine Datei. CaptureView hat seit 0.9.12 live nie ein Bild geliefert.
 * **Ursache (DevKit 29.3100; live bestätigt 13.10.):**
   1. `APIColorDepth_FromSourceImage = -1` (`APIdefs_Elements.h` Z. 10887) ist nur für die Bildkonvertierung erklärt: `API_MimePicture::outDepth` „means to use the same pixel depth the input image has“ (`APIdefs_Goodies.h` Z. 280). Das DevKit nutzt es nur dort (`DG_Test.cpp` Z. 602/1761). Beim Speichern des Fensterinhalts gibt es kein Quellbild → ungültige ID → APIERR_BADID.
   2. Das einzige DevKit-Beispiel für `API_SavePars_Picture` ist `Do_Save_TiffFile` (`Examples/Automate_Functions/Src/Automate_Functions.cpp` Z. 96–115), dort ist `colorDepth = APIColorDepth_256C` (Z. 105). Sonst entspricht unser Aufruf dem Beispiel (fsp `{}`, `fsp.file = &IO::Location`, `dithered=false`, `view2D`, `crop`, Überladung `ACAPI_Automate.h` Z. 168).
@@ -1787,20 +1787,20 @@ Fehlermeldungen nennen den Fenstertyp und die versuchten Tiefen mit Codes, Beisp
 
 | Antwort | Bedeutung |
 |---|---|
-| `colorDepth` `"MiC"` (Mac) bzw. `"TC24"` (Windows) und PNG-Datei | Ursache bestätigt: `FromSourceImage` war die ungültige Farbtiefe. ← Ergebnis 13.10. (WiSchu) |
+| `colorDepth` `"MiC"` (Mac) bzw. `"TC24"` (Windows) und PNG-Datei | Ursache bestätigt: `FromSourceImage` war die ungültige Farbtiefe. ← Ergebnis 13.10. (Projekt-B) |
 | `colorDepth` `"256C"` und PNG-Datei | Die Echtfarbtiefe ist auf dieser Plattform ebenfalls ungültig, 256C funktioniert → Primärtiefe in einer eigenen Version korrigieren. |
 | Fehler mit „MiC … -2130313115, Rueckfall 256C … -2130313115“ (beide Versuche BADID) | Die Farbtiefe ist nicht die (alleinige) Ursache. Zwei nächste Kandidaten, jeder in einer EIGENEN späteren Version (nie zusammen): (a) Dateityp TIFF (`APIFType_TIFFFile`) genau wie im DevKit-Beispiel `Do_Save_TiffFile`; (b) die API-Datenbank passt nicht zum vorderen Fenster — CaptureView setzt die Datenbank nie, `ACAPI_Database_GetCurrentDatabase` gegen `ACAPI_Window_GetCurrentWindow` prüfen (Kandidat 1 aus `~/.scratch/elmonkey/handoff_elmonkey_captureview-badid_2026-10-13.md`). |
 | Ein anderer Code als APIERR_BADID | Meldung lesen, es wurde kein Rückfall versucht. |
 
 ### Stand
 
-**Live verifiziert 2026-10-13 (WiSchu, AC29 Build 5101, Teamwork; GetAddOnVersion 0.9.25 / Tapir 1.5.4, buildStamp „Oct 13 2026 13:11:29“ = CI `86309a4`; Backup 0.9.23 in `~/.scratch/elm-bundle-0.9.25/backup_0.9.23`)** — CI-SHA im Quick-Task-SUMMARY 261013-kl1.
+**Live verifiziert 2026-10-13 (Projekt-B, AC29 Build 5101, Teamwork; GetAddOnVersion 0.9.25 / Tapir 1.5.4, buildStamp „Oct 13 2026 13:11:29“ = CI `86309a4`; Backup 0.9.23 in `~/.scratch/elm-bundle-0.9.25/backup_0.9.23`)** — CI-SHA im Quick-Task-SUMMARY 261013-kl1.
 
 Das Bundle enthielt gegenüber dem vorher eingebauten 0.9.23 (CI `4e804b3`) ZWEI Änderungen: den 0.9.24-Schemafix für sechs Befehle (`7c07600`, Fehlerantwort schemakonform) und den 0.9.25-CaptureView-Fix (`50c3d5d`). Beide Änderungen des Bundles wurden getrennt abgehakt (0.9.24 im Abschnitt „ELM_SAB 0.9.24“ weiter oben).
 
 Workaround `screencapture` ist nicht mehr nötig.
 
-### Live-Gegenprobe 2026-10-13 (WiSchu)
+### Live-Gegenprobe 2026-10-13 (Projekt-B)
 
 Jede Probe lieferte ein PNG mit `colorDepth:"MiC"`, ein Rückfall auf `256C` war nie nötig.
 
@@ -1818,7 +1818,7 @@ Jede Probe lieferte ein PNG mit `colorDepth:"MiC"`, ein Rückfall auf `256C` war
 
 ### Fallen beim Live-Test
 
-1. **Mehrere Archicad-Instanzen:** Es liefen zwei (WiSchu Port 19723, ein zweites Projekt Port 19724). Für „Archicad vorn“ muss bei mehreren Instanzen der richtige Prozess per `System Events … unix id` nach vorn geholt werden; `tell application "Archicad 29" to activate` ist mehrdeutig.
+1. **Mehrere Archicad-Instanzen:** Es liefen zwei (Projekt-B Port 19723, ein zweites Projekt Port 19724). Für „Archicad vorn“ muss bei mehreren Instanzen der richtige Prozess per `System Events … unix id` nach vorn geholt werden; `tell application "Archicad 29" to activate` ist mehrdeutig.
 2. **Modaler Dialog:** Zwischen Versions-Rücklese und Test öffnete der Nutzer „Teamwork-Projekt öffnen/beitreten“ → alle Aufrufe 4001, nichts wurde ausgeführt. Vor Testläufen `GetUIState.modalDialogOpen` unmittelbar davor prüfen.
 3. **Archicad beenden:** Ohne offenes Projekt lehnte `TapirCommand.QuitArchicad` einmal mit 4001 „no open project“ ab (vormittags ging es). `osascript`-quit meldete -128, Archicad beendete sich trotzdem nach ca. 6 s → nach -128 erst ein paar Sekunden mit `pgrep` pollen, dann entscheiden.
 
@@ -1840,7 +1840,7 @@ Macht der Nutzer.
 
 **Stand: eingebaut, noch NICHT live verifiziert (Abnahme nach Spec 8 offen).** Alle Werte unten sind Sollwerte, keine Befunde.
 
-* **Anlass:** Flucht- und Rettungswegeplan WiSchu (Frist Do 15.10.2026, Abgabe Fr 16.10.) braucht farbige Füllflächen (Schraffuren). Tapir legt nur Polylinien an (`CreatePolylines`); Linien, Bögen, Kreise, Splines und Schraffuren fehlen ganz. Verbindliche Spec: `.planning/quick/261013-n2y-elm-sab-0-9-26-create2delements/261013-n2y-SPEC.md`.
+* **Anlass:** Flucht- und Rettungswegeplan Projekt-B (Frist Do 15.10.2026, Abgabe Fr 16.10.) braucht farbige Füllflächen (Schraffuren). Tapir legt nur Polylinien an (`CreatePolylines`); Linien, Bögen, Kreise, Splines und Schraffuren fehlen ganz. Verbindliche Spec: `.planning/quick/261013-n2y-elm-sab-0-9-26-create2delements/261013-n2y-SPEC.md`.
 * **Umfang:** `ELM_SAB.Create2DElements` ist das Schreib-Gegenstück zu `Get2DGeometryOfElements`. Was der Lesebefehl liefert, geht ohne Umbau zurück. Nur aktive Grundriss-Datenbank (wie `CreateLabels`).
 
 | Typ | `elementType` | Pflichtfelder | Optionale Felder |
@@ -1921,15 +1921,15 @@ Die PolyLine bekommt den Schlusspunkt angehängt (5 Punkte im Memo); `arcs` blei
 
 * Eingebaut in 0.9.26: `e7ec585` (Create2DElements, Registrierung, `ELM_SAB_VERSION` 0.9.26) und `d5fa36a` (Spline-Zweig in Get2DGeometryOfElements). Syntaxprüfung gegen DevKit 29.3100 grün, `elm_schema_scan.py` meldet `errorAllowed=True`. Echter AC27/28/29-Build über CI (`ci-status`/`ci-release`) steht aus.
 * CI 6/6 grün (`3f38981`), eingebaut 13.10., `GetAddOnVersion` = 0.9.26 (Build 13.10. 15:03).
-* **Live-Abnahme 13.10. (WiSchu, Port 19723, Ebene `Z_FR_Rettungswege`, Testelemente bei x ≥ 1000 m, danach gelöscht + Bereich leer nachgeprüft):**
-  * Hatch 1 × 1 m mit RGB (WiSchu-Session): `area` 1, `perimeter` 4, alle `*Matches` true, CaptureView zeigt das Quadrat, Löschung rückgelesen.
+* **Live-Abnahme 13.10. (Projekt-B, Port 19723, Ebene `Z_FR_Rettungswege`, Testelemente bei x ≥ 1000 m, danach gelöscht + Bereich leer nachgeprüft):**
+  * Hatch 1 × 1 m mit RGB (Projekt-B-Session): `area` 1, `perimeter` 4, alle `*Matches` true, CaptureView zeigt das Quadrat, Löschung rückgelesen.
   * Line (Länge 5), Arc r 2 / 90° (Länge π), PolyLine geschlossen mit 90°-Bogensegment (Länge 8,2214 = nachgerechnet), Spline autoSmooth, Spline mit `bezierDirs`: alle `success:true`.
   * Hatch mit Halbkreis-Bogen + RGB: `area` 3,570796 = 2 + π/2, `perimeter` 7,141593 = 4 + π — exakt.
   * Rundweg echte Projektschraffur (25 Punkte, lochfrei, +1000 m verschoben): Rücklese punktgenau identisch; `area` 10,659830 / `perimeter` 21,169118 = unabhängig per Shoelace gerechnet.
   * Fehler je Element lesbar, gültige Elemente im selben Aufruf trotzdem angelegt: Hatch 2 Punkte, unbekannte Ebene, Radius 0, `bezierDirs` falsche Länge. Unbekannter `elementType` und fehlendes `elements` fängt schon das Eingabeschema (4002); leere Liste → lesbarer Aufruffehler.
   * **Befund 1 (→ 0.9.27):** Circle wird richtig angelegt, Archicad speichert ihn aber als `API_ArcID` mit `whole:true` → Rücklese meldete fälschlich „Typ Koordinaten“ / `success:false`.
   * **Befund 2 (→ 0.9.27):** Rundweg einer Schraffur MIT Loch scheitert mit APIERR_IRREGULARPOLY — `Get2DGeometryOfElements` gab Außenkontur + Loch als eine flache Liste aus (Erkennung: innerer Punkt wiederholt den Startpunkt).
-  * Fallen: Füllungsnamen sind projektabhängig („Vollfüllung“ gibt es im WiSchu nicht, dort „Nur Vordergrund-Stift“ Index 64); `API.GetElementsByType` kennt `Hatch` nicht (4002) → `TapirCommand.GetElementsByType`; eine Testebene anzulegen ist in Teamwork ein Attribut-Eingriff → vorhandene sichtbare Ebene nehmen, weit abseits zeichnen, danach löschen.
+  * Fallen: Füllungsnamen sind projektabhängig („Vollfüllung“ gibt es im Projekt-B nicht, dort „Nur Vordergrund-Stift“ Index 64); `API.GetElementsByType` kennt `Hatch` nicht (4002) → `TapirCommand.GetElementsByType`; eine Testebene anzulegen ist in Teamwork ein Attribut-Eingriff → vorhandene sichtbare Ebene nehmen, weit abseits zeichnen, danach löschen.
 * Einbau nur bei null laufenden Archicad-Instanzen; vorher das eingebaute 0.9.25-Bundle sichern; danach `ELM_SAB.GetAddOnVersion` = 0.9.26 prüfen. Jeder Push überschreibt `ci-status` und das Release.
 * Falle beim Beenden: Nach dem Schließen der Projekte laufen die Archicad-Prozesse ohne Fenster weiter (API meldet „no open project") → leere Instanzen per `NSRunningApplication … terminate` nach PID beenden.
 
@@ -1938,7 +1938,7 @@ Die PolyLine bekommt den Schlusspunkt angehängt (5 Punkte im Memo); `arcs` blei
 * **Kreis:** Die Rücklese akzeptiert `API_ArcID` mit `whole:true` als Circle (so speichert Archicad Kreise). Vorher `success:false` trotz richtiger Geometrie.
 * **Löcher:** `Create2DElements` lehnt eine Hatch ab, deren innerer Punkt den Startpunkt wiederholt (= Teilpolygon/Loch), mit klarer Meldung statt APIERR_IRREGULARPOLY. Löcher anlegen geht ab 0.9.28 per `subPolyEnds` (siehe dort).
 * **`Get2DGeometryOfElements`:** PolyLine und Hatch liefern zusätzlich `subPolyEnds` (1-basierte Endindizes je Teilpolygon, wie `memo.pends`). Mehr als ein Eintrag = Löcher; Außenkontur = `coordinates[0 .. subPolyEnds[0]-1]`.
-* CI 6/6 grün (`c2a6fb5`), eingebaut 13.10., `GetAddOnVersion` = 0.9.27 (Build 13.10. 16:20). **Live verifiziert (WiSchu):** Circle r 1 → `success:true`, Länge 2π; Schraffur mit Loch (Quelle `63D2A229…`, 29 Punkte) → Element-Fehler „Punkt 22 wiederholt den Startpunkt“; `subPolyEnds` = [22, 29] bzw. [25] bei lochfreier Schraffur; nur Außenkontur übergeben → angelegt, `area` 6,515948 / `perimeter` 14,870535 = Shoelace. Testelemente gelöscht, Löschung rückgelesen.
+* CI 6/6 grün (`c2a6fb5`), eingebaut 13.10., `GetAddOnVersion` = 0.9.27 (Build 13.10. 16:20). **Live verifiziert (Projekt-B):** Circle r 1 → `success:true`, Länge 2π; Schraffur mit Loch (Quelle `63D2A229…`, 29 Punkte) → Element-Fehler „Punkt 22 wiederholt den Startpunkt“; `subPolyEnds` = [22, 29] bzw. [25] bei lochfreier Schraffur; nur Außenkontur übergeben → angelegt, `area` 6,515948 / `perimeter` 14,870535 = Shoelace. Testelemente gelöscht, Löschung rückgelesen.
 
 ## ELM_SAB 0.9.28 — Create2DElements: Schraffuren mit Löchern <!-- 2026-10-13 -->
 
@@ -1946,11 +1946,11 @@ Die PolyLine bekommt den Schlusspunkt angehängt (5 Punkte im Memo); `arcs` blei
 * **Prüfung je Element:** Enden steigend, letzter Wert = Punktzahl, jedes Teilpolygon geschlossen mit ≥ 3 verschiedenen Punkten, keine Doppelpunkte innerhalb eines Teilpolygons, kein `arcs`-Eintrag über eine Teilpolygon-Grenze. `subPolyEnds` mit mehreren Einträgen bei PolyLine → Fehler. Ohne `subPolyEnds` bleibt die klare Loch-Meldung (jetzt mit Hinweis auf das Feld).
 * **Memo:** `nSubPolys` = Anzahl Teilpolygone, `pends[s]` = Endindex (1-basiert), `pends[0] = 0`.
 * **Rücklese:** Vergleich je Teilpolygon (Außenkontur gegen Außenkontur, Löcher in beliebiger Reihenfolge, jeder Ring verschoben/umgekehrt erlaubt → `coordinateOrder: "normalized"`). Antwort zusätzlich `subPolyEnds` (zurückgelesen) und `holesArea` (`API_HatchQuantity.holesSurf`).
-* CI ok (`af01be3`), eingebaut 14.10., `GetAddOnVersion` = 0.9.28. **Live verifiziert (WiSchu):** Rundweg `63D2A229…` mit `subPolyEnds` [22, 29] → `success`, `area` 6,242592 (netto = Außen − Loch, Shoelace), `holesArea` 0,273356, `coordinateOrder` same; Quadrat 4 × 4 mit Loch 2 × 2 + RGB → `area` 12, `holesArea` 4, `perimeter` 24 (inkl. Lochrand); Fehler lesbar: offenes Teilpolygon, Bogen über Grenze, Enden nicht steigend (meldet das erste Teilpolygon als nicht geschlossen). `area` ist also **netto**. Testelemente gelöscht, Löschung rückgelesen.
+* CI ok (`af01be3`), eingebaut 14.10., `GetAddOnVersion` = 0.9.28. **Live verifiziert (Projekt-B):** Rundweg `63D2A229…` mit `subPolyEnds` [22, 29] → `success`, `area` 6,242592 (netto = Außen − Loch, Shoelace), `holesArea` 0,273356, `coordinateOrder` same; Quadrat 4 × 4 mit Loch 2 × 2 + RGB → `area` 12, `holesArea` 4, `perimeter` 24 (inkl. Lochrand); Fehler lesbar: offenes Teilpolygon, Bogen über Grenze, Enden nicht steigend (meldet das erste Teilpolygon als nicht geschlossen). `area` ist also **netto**. Testelemente gelöscht, Löschung rückgelesen.
 
 ## Bemaßung in Ansichten — ELMonkey 0.9.29 (bei S. als 0.9.12–0.9.14) <!-- 2026-10-14 -->
 
-Live entstanden beim Fliesenspiegel Futurelab EG (34 Innenansichten, ~300 Maßketten).
+Live entstanden beim Fliesenspiegel Projekt-C EG (34 Innenansichten, ~300 Maßketten).
 Ausgangslage: Tapir 1.5.4 ersetzt in **jeder** Liste (`GetElementsByType`, `GetAllElements`,
 Selektion) ein Schnittelement (`API_SectElemID`) durch sein Modell-Bauteil. Assoziative
 Maße in Schnitt/Ansicht/Innenansicht hängen aber am Schnittelement. Ohne dessen GUID ist
@@ -1990,7 +1990,7 @@ arm64** — für Intel-Macs, Windows, AC27/28 braucht es weiter die CI (Push nö
 
 ## ELM_SAB 0.9.31 — Decken-Absturz mit Favoriten-Standards, GDL-Parameter für Türen/Fenster <!-- 2026-10-20 -->
 
-* **CreateSlabs-Absturz** (Meldung Maxl 15.10., BE-Plan 135054): nach `ApplyFavoritesToElementDefaults` (Favorit „Bodenabdeckung") stürzte `CreateSlabs` mit mehreren Decken FATAL ab. Zwei Ursachen in `BuildSlabMemoFromGeometry`: (1) nur `memo.coords` wurde auf null geprüft, die übrigen Listen nicht; (2) **`memo.sideMaterials` aus Favoriten-Standards ist kein vergrößerbarer BM-Block** → „Fatal memory error in BMReallocPtr" (eigener Live-Test 20.10., Bericht `Archicad-20261020(14-25-42)-[37204]-1-FATAL.rpt`). Fix: jede Liste einzeln anlegen/auf Sollgröße bringen; `sideMaterials` immer frisch per `BMAllocatePtr`, alter Zeiger unangetastet.
+* **CreateSlabs-Absturz** (Meldung ein Kollege 15.10., BE-Plan Projekt-F): nach `ApplyFavoritesToElementDefaults` (Favorit „Bodenabdeckung") stürzte `CreateSlabs` mit mehreren Decken FATAL ab. Zwei Ursachen in `BuildSlabMemoFromGeometry`: (1) nur `memo.coords` wurde auf null geprüft, die übrigen Listen nicht; (2) **`memo.sideMaterials` aus Favoriten-Standards ist kein vergrößerbarer BM-Block** → „Fatal memory error in BMReallocPtr" (eigener Live-Test 20.10., Bericht `Archicad-20261020(14-25-42)-[37204]-1-FATAL.rpt`). Fix: jede Liste einzeln anlegen/auf Sollgröße bringen; `sideMaterials` immer frisch per `BMAllocatePtr`, alter Zeiger unangetastet.
 * **GDL-Parameter für Türen/Fenster** (Beitrag Roman, aus dessen Bundle nachgebaut — Quellcode lag in einem gelöschten Claude-Scratchpad): `ELM_SAB.SetObjectParametersForce` und `TapirCommand.SetGDLParametersOfElements` akzeptieren Door/Window; A/B werden zusätzlich in `openingBase.width/height` gespiegelt (Element-Offsets 176/184, wie `object.xRatio/yRatio`). Binärvergleich: Typprüfung und Schreibstellen identisch zu Romans Build.
 * **Live verifiziert 20.10.** (leeres Projekt, 0.9.32-Bundle): Favorit „Bodenabdeckung" + 3 Decken (5/15/8 Punkte) in einem Aufruf → kein Absturz, 6/16/9 Polygonpunkte, Dicke 0,02, Bezug Unterkante. Tür 0,885×2,01 → `SetObjectParametersForce` A/B → 1,01×2,135 (Details und GDL); Fenster 1,26×1,51 → `SetGDLParametersOfElements` → 1,76×1,26.
 
@@ -2057,7 +2057,7 @@ Quelle: Wunschliste Michi 20.10. (Basis 0.9.18). Grundsatz: Gründe kommen als `
 
 ## ELMonkey 0.10.1 — Bauteilstifte lesen und setzen <!-- 2026-10-29 -->
 
-* **Anlass:** THN-Ausführungspläne zeigen rote Wandkonturen aus der Zeit, als die Brandschutzeigenschaften in der Wand gepflegt wurden. Brandschutz läuft jetzt über die grafische Überschreibung; die Bauteile sollen schwarz-weiß werden, die Schraffur wieder aus Baustoff/Verbund kommen (keine Überschreibung der Schnittflächenstifte am Element).
+* **Anlass:** Projekt-A-Ausführungspläne zeigen rote Wandkonturen aus der Zeit, als die Brandschutzeigenschaften in der Wand gepflegt wurden. Brandschutz läuft jetzt über die grafische Überschreibung; die Bauteile sollen schwarz-weiß werden, die Schraffur wieder aus Baustoff/Verbund kommen (keine Überschreibung der Schnittflächenstifte am Element).
 * **Warum neu:** Weder Tapir 1.7.2 noch die offizielle JSON-API haben einen Befehl für die Stifte von Bauteilen (am 29.10. mit drei Discovery-Abfragen geprüft). `ELM_SAB.GetPenOfElements`/`SetPenOfElements` können nur 2D-Elemente. Tapirs `GetDetailsOfElements` liefert `cutFillPen` nur für Wand/Unterzug/Decke als Teil der Details, ohne Setzen. Über Eigenschaften sind die Stifte nicht lesbar.
 * **Typen:** Wand, Stütze, Unterzug, Decke, Dach, Schale, Fassade, Morph. Andere Typen → `APIERR_BADELEMENTTYPE` je Element.
 
@@ -2124,10 +2124,10 @@ Alle übrigen Stiftfelder (`coreSymbolPen`, `hiddenLinePen`, `refPen`, `hiddenCo
 
 ## ELMonkey 0.10.2 — Teamwork-Besitzer steht in `userId`, nicht in `lockId` <!-- 2026-10-29 -->
 
-* **Befund live THN (29.10.):** `SetConstructionPensOfElements` meldete für alle 3.024 Wände `[RESERVED_BY_OTHER]`, auch für eine vorher per Tapir `ReserveElements` selbst reservierte Wand. `ELM_SAB.GetElementEditState` vor/nach der Reservierung: `ownerUserId` (= `API_Elem_Head::userId`) 0 → 5 (ich), `lockUserId` (= `lockId`) blieb **0**. In Teamwork ist der Reservierende also `userId`; `lockId` ist der Sperrschalter ohne Teamwork.
+* **Befund live Projekt-A (29.10.):** `SetConstructionPensOfElements` meldete für alle 3.024 Wände `[RESERVED_BY_OTHER]`, auch für eine vorher per Tapir `ReserveElements` selbst reservierte Wand. `ELM_SAB.GetElementEditState` vor/nach der Reservierung: `ownerUserId` (= `API_Elem_Head::userId`) 0 → 5 (ich), `lockUserId` (= `lockId`) blieb **0**. In Teamwork ist der Reservierende also `userId`; `lockId` ist der Sperrschalter ohne Teamwork.
 * **Fix 0.10.2:** `ElmPreflight.hpp` (Vorprüfung aller ELM-Schreibbefehle) und `ConstructionPensCommandsELM.cpp` prüfen `head.userId`. Folge: fremd reservierte Elemente fallen schon in der Vorprüfung als `[RESERVED_BY_OTHER]` heraus und blockieren die Paket-Reservierung der übrigen nicht mehr.
 * **0.10.3:** `GetElementEditState` (`reservedByUser`, `isReservedByMe`, Sperrgrund) und die Teamwork-Filter in `FindElements` (frei/meine/fremde) lesen jetzt ebenfalls `userId`; `lockUserId` bleibt als Rohwert in der Ausgabe.
-* **0.10.3 Ausgabe Bauteilstifte:** Ohne Überschreibung liefern Get und Set (`before`/`after`/`readBack`) nur `{"overridden": false}` ohne `pen` — Archicad setzt den Wert beim Abschalten auf 0, ein mitgeschriebener Alt-Stift sah wie eine Rücklese-Abweichung aus (THN: 595 Schein-Abweichungen bei korrektem Modell). Vergleiche immer über `overridden` (und `pen` nur wenn `overridden`).
+* **0.10.3 Ausgabe Bauteilstifte:** Ohne Überschreibung liefern Get und Set (`before`/`after`/`readBack`) nur `{"overridden": false}` ohne `pen` — Archicad setzt den Wert beim Abschalten auf 0, ein mitgeschriebener Alt-Stift sah wie eine Rücklese-Abweichung aus (Projekt-A: 595 Schein-Abweichungen bei korrektem Modell). Vergleiche immer über `overridden` (und `pen` nur wenn `overridden`).
 * **Testlücke:** Das leere Testprojekt hat kein Teamwork — Reservierungslogik nur in einem Teamwork-Projekt prüfbar (dort nur lesen bzw. mit Freigabe).
 
 ## ELMonkey 0.10.4 — SetLayerAttributes-Aliasse, SetLayerOfElements-Diagnose <!-- 2026-11-03 -->
@@ -2207,7 +2207,7 @@ Fallen:
 - `source: "solid"`: Box aus den 3D-Körpern des Bauteils, also nach Anschlüssen und Verschneidungen — so, wie die
   Geometrie im IFC herauskäme. `source: "calcBounds"`: Rückfall auf die rohe Hüllbox, weil das Bauteil keinen
   Körper im 3D-Modell hat (Umbau-Filter, ausgeblendete Ebene). Diese Box ist **nicht vergleichbar**.
-- Warum: `TapirCommand.Get3DBoundingBoxes` nimmt für Wände die rohe Hüllbox. Im AFWC-Abgleich (16.11.) wichen
+- Warum: `TapirCommand.Get3DBoundingBoxes` nimmt für Wände die rohe Hüllbox. Im Projekt-H-Abgleich (16.11.) wichen
   die Wände dadurch um 20–35 cm ab und sahen fast alle geändert aus.
 - Decke ohne Körper → `{error}`, kein Rückfall: `CalcBounds` stürzt bei Decken ab, die im aktiven Fenster nicht
   gezeichnet sind (Tapir #686).

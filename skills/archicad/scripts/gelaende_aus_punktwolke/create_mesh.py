@@ -3,7 +3,7 @@ Zweck: Mesh-JSON (von make_mesh.py) via Tapir CreateMeshes in Archicad anlegen
        und per Rücklese verifizieren (Sublines-/Punktzahl).
 Aufruf: python3 create_mesh.py <mesh.json> <port>
 Abhängigkeiten: keine (nur stdlib: urllib, json).
-Live-Verifikation: 2026-09-07 (THN Außenanlage, Mesh-GUID
+Live-Verifikation: 2026-09-07 (Projekt-A Außenanlage, Mesh-GUID
   08EDCBD4-B85E-5143-9319-07A683D26334, Untitled, Port 19724, EG).
 """
 import json
