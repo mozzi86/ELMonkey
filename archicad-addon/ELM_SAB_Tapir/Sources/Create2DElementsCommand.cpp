@@ -911,7 +911,7 @@ bool C2DReadBackFill (const C2DPrep& p, const API_Element& check, GS::ObjectStat
 {
     const Int32 istFloor = (Int32) check.header.floorInd;
     const Int32 istLayer = (Int32) check.header.layer.ToInt32_Deprecated ();
-    // 0.9.27: Archicad speichert einen Kreis als API_ArcID mit whole=true (live WiSchu 13.10.).
+    // 0.9.27: Archicad speichert einen Kreis als API_ArcID mit whole=true (live Projekt-B 13.10.).
     const bool typeMatches  = (p.kind == C2DKind::Circle)
         ? (check.header.type.typeID == API_CircleID || (check.header.type.typeID == API_ArcID && check.arc.whole))
         : check.header.type.typeID == C2DTypeIdOf (p.kind);

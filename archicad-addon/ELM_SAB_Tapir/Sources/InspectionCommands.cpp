@@ -244,7 +244,7 @@ GS::ObjectState GetElementEditStateCommand::Execute (const GS::ObjectState& para
             o.Add ("ownerUserId",   (Int32) h.userId);
             o.Add ("ownerUserName", UserNameOf (h.userId));
             o.Add ("lockUserId",    (Int32) h.lockId);
-            // Reservierender = userId ("owner"), lockId bleibt in Teamwork 0 (live THN 29.10.2026).
+            // Reservierender = userId ("owner"), lockId bleibt in Teamwork 0 (live Projekt-A 29.10.2026).
             o.Add ("reservedByUser", UserNameOf (h.userId));
             const bool reservedByMe = (h.userId != 0 && h.userId == myUserId);
             reservedByOther = (h.userId != 0 && h.userId != myUserId);
@@ -270,7 +270,7 @@ GS::ObjectState GetElementEditStateCommand::Execute (const GS::ObjectState& para
         }
 
         // APIFilt-Flags werden MITGELIEFERT, aber NICHT fuer das Urteil benutzt:
-        // am THN meldeten IsEditable/InMyWorkspace auch fuer nachweislich
+        // am Projekt-A meldeten IsEditable/InMyWorkspace auch fuer nachweislich
         // aenderbare Elemente false (reference/mcp-extension.md, 2026-09-08).
         o.Add ("filterFlags", GS::ObjectState (
             "isEditable",      ACAPI_Element_Filter (guid, APIFilt_IsEditable),

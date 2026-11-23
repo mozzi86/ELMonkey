@@ -1,4 +1,4 @@
-// ELM_SAB 0.9.19 — Etiketten-Befehle (Anlass: THN-Session 2026-10-06).
+// ELM_SAB 0.9.19 — Etiketten-Befehle (Anlass: Projekt-A-Session 2026-10-06).
 //  * CreateLabels: Tapirs CreateLabels ueberschreibt floorInd mit dem Parent-Geschoss
 //    (ElementCreationCommands.cpp, "element.header.floorInd = parentElemHead.floorInd")
 //    und leitet Zeigerlinien teils gespiegelt ab. Diese Variante nimmt floorInd aus der

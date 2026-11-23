@@ -1,7 +1,7 @@
 // SetObjectParametersForce — setzt GDL-Parameter (AddPars) von Objekten/Lampen/
 // Etiketten/Zonen und meldet PRO ELEMENT einen echten Fehlercode.
 //
-// Grund (THN SuD, 2026-09-08): Tapirs SetGDLParametersOfElements, MoveElements und
+// Grund (Projekt-A SuD, 2026-09-08): Tapirs SetGDLParametersOfElements, MoveElements und
 // SetDetailsOfElements bauen ihre Ergebnisliste INNERHALB des Lambdas von
 // ACAPI_CallUndoableCommand auf und werfen dessen Rueckgabewert weg. Fuehrt Archicad
 // das Lambda nicht aus (Undo-Scope verweigert), kommt `{"executionResults": []}`

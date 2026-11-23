@@ -1,4 +1,4 @@
-// ELM_SAB 0.9.23 (2026-10-13, WiSchu-Tuerenabgleich) — FindElements: Wert- und Beziehungskriterien
+// ELM_SAB 0.9.23 (2026-10-13, Projekt-B-Tuerenabgleich) — FindElements: Wert- und Beziehungskriterien
 // (property, classification, libPart, gdl, ifc, bbox, near, designOption, hostedBy, hosts, inZone)
 // und die return-Werte je Treffer. Vertrag mit dem Motor: FindElementsInternal.hpp.
 //

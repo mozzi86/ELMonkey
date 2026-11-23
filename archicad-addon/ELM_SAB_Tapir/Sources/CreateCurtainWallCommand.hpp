@@ -2,9 +2,9 @@
 // Wall) aus expliziten Achsmaßen: Spaltenbreiten (aus 2D-Pfostenachsen) und
 // Zeilenhöhen (aus Foto/Schnitt), inkl. opaker Brüstungszeilen. Frames/Panels
 // kommen aus den CW-Werkzeug-Defaults (vorher Favorit setzen!). Entstanden
-// 2026-07-21 (THN Südfassade: CW-Raster-Neubau per API war sonst unmöglich).
+// 2026-07-21 (Projekt-A Südfassade: CW-Raster-Neubau per API war sonst unmöglich).
 //
-// 2026-07-25 erweitert (THN Giebelfassade):
+// 2026-07-25 erweitert (Projekt-A Giebelfassade):
 //   * "contour" / "topProfile" — nichtrechteckige Fassaden (Trapez, Giebel,
 //     Pultschräge) über memo.cWSegContour. Polygon in SEGMENT-LOKAL-Koordinaten
 //     u = Lauflänge ab begCoordinate, v = Höhe über CW-Unterkante.

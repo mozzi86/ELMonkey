@@ -1,6 +1,6 @@
 // ELMonkey 0.10.1 — Bauteilstifte lesen/setzen.
 //
-// Anlass: THN-Ausfuehrungsplaene, rote Wandkonturen aus der Zeit, als die Brandschutzeigenschaften
+// Anlass: Projekt-A-Ausfuehrungsplaene, rote Wandkonturen aus der Zeit, als die Brandschutzeigenschaften
 // in der Wand gepflegt wurden. Brandschutz laeuft jetzt ueber die grafische Ueberschreibung; die
 // Bauteile sollen schwarz-weiss werden und die Schraffur wieder aus Baustoff/Verbund kommen.
 //

@@ -4847,7 +4847,7 @@ GS::Optional<GS::UniString> DeleteElementsCommand::GetRawResponseSchema () const
     })";
 }
 
-// ELM_SAB 0.9.20 (2026-10-06, THN): ACAPI_Element_Delete meldet NoError, loescht aber unreservierte Teamwork-Elemente still nicht (Etikett nach SetLayerOfElements reserve+release; Capmo-Rollout: 71 stille Ueberlebende). Daher vorab reservieren und danach je GUID auf Ueberlebende pruefen.
+// ELM_SAB 0.9.20 (2026-10-06, Projekt-A): ACAPI_Element_Delete meldet NoError, loescht aber unreservierte Teamwork-Elemente still nicht (Etikett nach SetLayerOfElements reserve+release; Capmo-Rollout: 71 stille Ueberlebende). Daher vorab reservieren und danach je GUID auf Ueberlebende pruefen.
 GS::ObjectState DeleteElementsCommand::Execute (const GS::ObjectState& parameters, GS::ProcessControl& /*processControl*/) const
 {
     GS::Array<GS::ObjectState> elements;

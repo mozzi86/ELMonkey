@@ -3,7 +3,7 @@
 // dessen Ausgabe kann ohne Umbau zurueckgegeben werden. Ablauf: Pruefen je Element (ohne
 // anzulegen) -> Anlegen in EINEM Undo-Schritt -> Ruecklese je Element (Geschoss, Ebene,
 // Koordinaten; Laenge bzw. Flaeche/Umfang). Fehler je Element, der Rest laeuft weiter.
-// Anlass: farbige Fuellflaechen im Flucht- und Rettungswegeplan WiSchu (Frist 15.10.2026) -
+// Anlass: farbige Fuellflaechen im Flucht- und Rettungswegeplan Projekt-B (Frist 15.10.2026) -
 // Tapir kann nur Polylinien anlegen. Verbindliche Spec:
 // .planning/quick/261013-n2y-elm-sab-0-9-26-create2delements/261013-n2y-SPEC.md
 #pragma once

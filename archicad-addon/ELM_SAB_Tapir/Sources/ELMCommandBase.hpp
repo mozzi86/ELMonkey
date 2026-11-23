@@ -104,7 +104,7 @@ inline void SetMemoTextContentELM (API_ElementMemo& memo, const GS::UniString& t
 #include <cstdio>   // std::snprintf in WindowTypeNameELM
 
 // Fehlerform {error:{code,message}} muss im Antwortschema erlaubt sein — sonst meldet Archicad
-// dem Client nur 4009 statt der Ursache (CaptureView-Befund WiSchu 2026-10-13). ELMCommandBase
+// dem Client nur 4009 statt der Ursache (CaptureView-Befund Projekt-B 2026-10-13). ELMCommandBase
 // liefert keine Schema-Definitionen ($ref auf #/Error nicht aufloesbar) -> Fehlerzweig inline.
 inline GS::UniString ELMResponseSchemaWithError (const GS::UniString& successSchema)
 {

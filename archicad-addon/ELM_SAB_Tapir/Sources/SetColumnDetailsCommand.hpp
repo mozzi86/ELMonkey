@@ -1,7 +1,7 @@
 // SetColumnDetails — setzt Stützen-Kernmaße (nominalWidth/Height im
 // columnSegments-Memo), die weder Tapir noch die offizielle JSON-API
 // schreiben können. Entstanden 2026-07-21 für Bohrpfahl-Anpassung an
-// DWG-Kreisdurchmesser (THN). Mit Rücklese-Verifikation.
+// DWG-Kreisdurchmesser (Projekt-A). Mit Rücklese-Verifikation.
 #pragma once
 
 #include "ELMCommandBase.hpp"

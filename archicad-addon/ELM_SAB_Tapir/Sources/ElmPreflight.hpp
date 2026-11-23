@@ -2,7 +2,7 @@
 //
 // Anlass: Schreibende Befehle meldeten "success", obwohl nichts passierte — ausgeblendete oder
 // gesperrte Ebene, gesperrtes Element, Hotlink, fremde Teamwork-Reservierung, falsches aktives
-// Fenster, Undo-Klammer nicht gestartet (THN 28./31.08., ELT-Leuchten 02.10.).
+// Fenster, Undo-Klammer nicht gestartet (Projekt-A 28./31.08., ELT-Leuchten 02.10.).
 //
 // Konvention: Gruende kommen als Code in eckigen Klammern am Anfang der Fehlermeldung, z. B.
 // "[LAYER_HIDDEN] Ebene '98 Schnitt Marker' ist ausgeblendet". So bleibt das Antwortschema der
@@ -95,7 +95,7 @@ inline GS::UniString PreflightElementELM (const API_Guid& guid, short myUserId,
 
     const bool teamwork = ACAPI_Teamwork_HasConnection ();
     // Ohne Teamwork ist lockId der Sperrschalter. In Teamwork steht der Reservierende in userId
-    // ("owner"), lockId bleibt 0 - live THN 29.10.2026 (GetElementEditState vor/nach ReserveElements).
+    // ("owner"), lockId bleibt 0 - live Projekt-A 29.10.2026 (GetElementEditState vor/nach ReserveElements).
     if (!teamwork && head.lockId != 0)
         return GS::UniString ("[ELEMENT_LOCKED] Element ist gesperrt (UnlockElements)");
     if (head.hotlinkGuid != APINULLGuid)

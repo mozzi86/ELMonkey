@@ -1,6 +1,6 @@
 // ELM_SAB 0.9.19 — SetLayerOfElements: Ebene (header.layer) einer Elementliste setzen.
 // Ebene per Attribut-GUID oder Name, Undo-Scope, optionale Teamwork-Reservierung
-// (Standard true), Ruecklese je Element. Anlass: THN-Session 2026-10-06 (Ebene setzen
+// (Standard true), Ruecklese je Element. Anlass: Projekt-A-Session 2026-10-06 (Ebene setzen
 // ohne Ruecklese). Aufbau 1:1 nach SetStoryVisibilityOfElements.
 #pragma once
 #include "ELMCommandBase.hpp"

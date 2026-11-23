@@ -1,7 +1,7 @@
 // SetPenOfElements — setzt Stifte von 2D-Elementen (Schraffur, Linie, Polylinie,
 // Bogen, Kreis, Spline, Text) auf definierte Stift-Indizes der aktiven Stifttabelle.
 //
-// Motivation (SAB, THN-Projekt): DWG-Importe von Fachplanern bringen Schraffuren/
+// Motivation (SAB, Projekt-A-Projekt): DWG-Importe von Fachplanern bringen Schraffuren/
 // Linien mit wilden RGB-Werten mit. Per Ebenen-Filter + diesem Befehl lassen sie
 // sich auf saubere SAB-Stifte normalisieren — was weder Tapir noch die offizielle
 // JSON-API bisher können (Stand Tapir 1.5.3, Juli 2026).

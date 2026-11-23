@@ -12,14 +12,14 @@
 // und ACAPI_Window_GetCurrentWindow existieren ab AC27 nativ (MigrationHelper shimt
 // nur <2700, betrifft uns nicht).
 //
-// ELM_SAB 0.9.23 (2026-10-13, WiSchu Layout FR_00-06.1): Fehlerantworten verletzten das
+// ELM_SAB 0.9.23 (2026-10-13, Projekt-B Layout FR_00-06.1): Fehlerantworten verletzten das
 // Antwortschema (additionalProperties:false + required imagePath/view2D) -> der Client sah nur
 // 4009, nie die Ursache. Jetzt oneOf Erfolg|Fehler (ELMResponseSchemaWithError), Fenstertyp +
 // echter Archicad-Code im Text. Der Export wird weiter fuer JEDEN Fenstertyp versucht (keine
 // Typsperre); Layout/MasterLayout bekommen bei Fehlschlag einen Hinweis auf Zeichnung/Grundriss
 // bzw. PDF-Publizieren — das DevKit (API_SavePars_Picture) kennt keinen eigenen Layout-Weg.
 //
-// ELM_SAB 0.9.25 (2026-10-13, WiSchu, AC29 Build 5101): ACAPI_ProjectOperation_Save lieferte live
+// ELM_SAB 0.9.25 (2026-10-13, Projekt-B, AC29 Build 5101): ACAPI_ProjectOperation_Save lieferte live
 // APIERR_BADID (-2130313115) fuer Grundriss UND Layout, ohne dass eine Datei entstand. CaptureView
 // hat seit 0.9.12 nie ein Bild geliefert. Ursache (DevKit 29.3100, nicht live belegt):
 // APIColorDepth_FromSourceImage (-1) ist nur fuer die Bildkonvertierung definiert

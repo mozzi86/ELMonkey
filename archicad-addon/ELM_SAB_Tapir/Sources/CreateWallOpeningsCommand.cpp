@@ -178,7 +178,7 @@ API_Guid GuidFromString (const GS::UniString& s)
     return (s.IsEmpty ()) ? APINULLGuid : APIGuidFromString (s.ToCStr ().Get ());
 }
 
-// "KI generiert 2026-09-09" — derselbe Wortlaut wie in den THN-Skripten.
+// "KI generiert 2026-09-09" — derselbe Wortlaut wie in den Projekt-A-Skripten.
 GS::UniString TodayStamp ()
 {
     std::time_t now = std::time (nullptr);
@@ -531,12 +531,12 @@ void CreateOne (const OpeningRequest&  req,
             ++res.propertiesFailed;
     }
 
-    // ELM_SAB 0.9.21 (2026-10-06, THN): ACAPI_Element_Delete meldet NoError, loescht
+    // ELM_SAB 0.9.21 (2026-10-06, Projekt-A): ACAPI_Element_Delete meldet NoError, loescht
     //     unreservierte Teamwork-Elemente aber still nicht (siehe DeleteElements 0.9.20).
     //     Daher Existenz per Header pruefen.
     // 10. Quell-Symbol loeschen — nur mit KI-Stempel. Handgezeichnete Durchbruecke
     //     (ohne Stempel) bleiben unangetastet; das ist eine harte Vorgabe aus dem
-    //     THN-SuD-Projekt und keine Komfortoption.
+    //     Projekt-A-SuD-Projekt und keine Komfortoption.
     if (!deleteSource) {
         if (req.sourceGuid != APINULLGuid)
             res.sourceKeptReason = "deleteSource ist false";

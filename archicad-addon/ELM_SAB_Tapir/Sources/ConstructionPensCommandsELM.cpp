@@ -160,7 +160,7 @@ std::vector<PenFieldELM> CollectPenFieldsELM (API_Element& e, API_ElemTypeID typ
 GS::ObjectState OverriddenPenOS (const API_OverriddenPen& p)
 {
     // 0.10.3: ohne Ueberschreibung keinen "pen" ausgeben - Archicad setzt den Wert beim Abschalten
-    // auf 0, ein stehengebliebener Alt-Stift taeuschte sonst eine Abweichung vor (THN 29.10.).
+    // auf 0, ein stehengebliebener Alt-Stift taeuschte sonst eine Abweichung vor (Projekt-A 29.10.).
     GS::ObjectState os;
     os.Add ("overridden", p.hasValue);
     if (p.hasValue) os.Add ("pen", (Int32) p.value);
