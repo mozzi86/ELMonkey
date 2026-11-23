@@ -363,7 +363,7 @@ mcp__archicad__archicad_call_tool(
 
 ## Worked Example — Property setzen (Bodenbelag-Pattern für Bulk-Updates)
 
-Wenn der User sagt „setze Bodenbelag aller Wohnräume auf Linoleum 2,5 (R9)" — das ist ein häufiger Bulk-Update-Workflow für Custom-Properties. Diese 6-Schritt-Sequenz ist verifiziert (2026-05-20 gegen BSZ Gunzenhausen V29) und gilt als Pattern für jede Property-Bulk-Operation auf Zonen.
+Wenn der User sagt „setze Bodenbelag aller Wohnräume auf Linoleum 2,5 (R9)" — das ist ein häufiger Bulk-Update-Workflow für Custom-Properties. Diese 6-Schritt-Sequenz ist verifiziert (2026-05-20 gegen Projekt-I V29) und gilt als Pattern für jede Property-Bulk-Operation auf Zonen.
 
 **Voraussetzungen:**
 - Modal-Dialoge in Archicad geschlossen (siehe [`../reference/mcp-conventions.md`](../reference/mcp-conventions.md) § Modal-Dialoge).

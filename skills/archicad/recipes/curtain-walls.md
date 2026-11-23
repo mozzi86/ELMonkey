@@ -59,6 +59,15 @@ Live Projekt-A 2026-11-17: 206 von 255 Fassaden auf 1,20 m Feldbreite gestellt.
 - Fassade quer schieben: `TapirCommand.MoveElements` (`elementsWithMoveVectors`), in 6er-Paketen mit Senden je Paket; Archicad antwortet nach vielen Fassadenänderungen minutenlang nicht.
 - Nachmess-Skripte müssen damit umgehen, dass nach dem Schieben keine Bestandslinie mehr in Reichweite ist (sonst Abbruch mitten im Paket mit offenen Reservierungen).
 
+### Rasterursprung (`gridOrigin`) <!-- 2026-11-17 -->
+
+- Das Spaltenraster läuft ab dem **Ursprungspunkt** des Segments (`API_CWSegmentType.gridOrigin`, 3D-Punkt), nicht ab dem Segmentanfang. Bei bestehenden Fassaden liegt dieser Punkt irgendwo im Segment (Projekt-A-Beispiel 27BB6F2C: 0,986 m hinter dem Anfang); das Muster wird von dort aus gelegt und nach vorn umgebrochen, an diesem Punkt steht immer ein Pfosten.
+- `gridOriginType` (ELMonkey 0.11.14: `columnOrigin`) stand dort schon auf `start` und ändert daran nichts; `columnOrigin` setzt nur den Typ.
+- Ungleiche Feldfolgen (z. B. 0,85 | 1,2 | 1,2 | 0,9 | 1,2 | 1,2 | 0,87) gingen nur mit dem Ursprungspunkt am Segmentanfang. **Live getestet 17.11. (AC29 Mac, ELMonkey 0.11.16): der Ursprungspunkt lässt sich per API (DevKit 29) nicht verschieben.** `SetCurtainWallSegmentELM` mit `gridOriginAtStart` bzw. `gridOrigin` meldet `success: true`, `errorCode` 0, aber `gridOriginReached: false`; die Rücklese bleibt (0,0,0), die Pfosten bleiben unverändert, weder über das Memo noch über das Segment-Element (`gridOriginVia: segment|both`). Ungleiche Bestandsteilungen gehen damit nur per Neubau (`CreateCurtainWallFromAxes`, Klassen/Paneele/Eigenschaften nachtragen, vorher Freigabe).
+- `GetCurtainWallFramesELM` (0.11.16) funktioniert und liefert je Pfosten `classRole`, `uBeg`/`uEnd` ab Segmentanfang usw.; der „feste“ Pfosten 1,016 m ab Segmentanfang war am Projekt-A-Beispiel ein normaler Rasterpfosten (`class0`), kein Einzelpfosten.
+- Rückbau auf `[1.2]` stellt den alten Zustand exakt wieder her (Pfosten 0,986 / 2,186 / …).
+- Messen immer gegen einen festen Weltbezug, nicht gegen die Bbox des geänderten Zustands (die verschiebt sich mit den Randfeldern).
+
 ---
 
 ## Erforderlicher Warm-up-Kontext
@@ -133,7 +142,7 @@ Für `typeSpecificDetails` in `elements_set_details_of_elements`. Alle Felder op
 | `endCoordinate` | `{x: m, y: m}` | Endpunkt (2D, kein Z). |
 | `height` | `number` (m) | Höhe der Fassade. |
 | `bottomOffset` | `number` (m) | Abstand Fassaden-Fuß zu Story-Level. |
-| `angle` | `number` (**Grad**) | Neigung: 90 = senkrecht, 0 = liegend (Boden/Abhangdecke). Favoriten speichern immer `SlantAngle 90`, auch von liegenden Fassaden — Neigung darum beim Create explizit übergeben (`CreateCurtainWallFromAxes` `angle`; `0` wird ab ELMonkey 0.11.12.2 akzeptiert, **wirkt in Archicad aber derzeit nicht**, siehe [Liegende Fassaden](#liegende-fassaden-zwischenstand-ac29)). <!-- 2026-11-09 --> |
+| `angle` | `number` (**Grad**, nicht rad) | Neigung: 90 = senkrecht, 0 = liegend (Boden/Abhangdecke). Favoriten speichern immer `SlantAngle 90`, auch von liegenden Fassaden — Neigung darum beim Create explizit übergeben (`CreateCurtainWallFromAxes` `angle`; `0` wird ab ELMonkey 0.11.12.2 akzeptiert, **wirkt in Archicad aber derzeit nicht**, siehe [Liegende Fassaden](#liegende-fassaden-zwischenstand-ac29)). <!-- 2026-11-09 --> **Liegende Fassaden (angle 0) lassen sich per Create nicht anlegen**, Archicad legt sie trotzdem senkrecht an. Weg über Kopie, siehe Abschnitt „Liegende Fassaden (Bodenfliesen, Abhangdecken)“ unten. <!-- 2026-11-16 --> |
 | `layerIndex` | `number` | Layer-Index (Float, 1-basiert). |
 
 <!-- VERIFY --> Vollständige CurtainWallSettings-Felder über Discovery und Schema-Read in der Session bestätigen — Basis-Felder wie oben sind erwartet, aber AC29-spezifische Ergänzungen möglich.

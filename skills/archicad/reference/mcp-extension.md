@@ -38,6 +38,22 @@ Claude ──► tapir-archicad-mcp (Python, uv tool "archicad-server")
   `{"navigatorTreeId": {"type": "LayoutBook"}}` — liefert Layouts, Subsets, Master
   und **platzierte Zeichnungen (DrawingItem) pro Layout mit Namen**. Projekt-A: 264 Layouts,
   357 Zeichnungen. Achtung: Antwort >500 KB → landet als Datei, mit Python parsen.
+- **Navigator-Namen zurücklesen nur über Tapir** <!-- 2026-11-17 -->: Live Projekt-A (AC29 Teamwork,
+  Tapir 1.7.2) lieferte das offizielle `API.GetNavigatorItemTree` (ViewMap und LayoutBook) nach einer
+  Umbenennung im UI weiter den **alten** Namen, auch nach `TeamworkReceive`. Tapir
+  `GetNavigatorItemTree {navigatorMapId:"PublicViewMap"|"LayoutBook"}` zeigte sofort den neuen Namen,
+  dazu `customName`, `uiId` und `sourceNavigatorItemId`. Antwort: `children[].navigatorItem`.
+- **Plankopf-Titel = Zeichnungsname = Name des Quell-Ausschnitts** <!-- 2026-11-17 -->: Bei
+  DrawingItems mit `customName:false` folgt der Name dem Ausschnitt aus `sourceNavigatorItemId`.
+  Falscher Titel auf mehreren Layouts („0. OBERGESCHOSS“ auf 5 EG-Blättern) → den einen Ausschnitt
+  umbenennen, nicht Geschoss oder Layout. Geschossnamen vorher per `GetStories` gegenprüfen.
+- **`RenameNavigatorItem` in Teamwork** <!-- 2026-11-17 -->: scheitert mit „Failed to rename
+  navigator item.“ (Code `-2130312910`), wenn der Ausschnitt nicht reserviert ist. Einzelne
+  Ausschnitte lassen sich per API nicht reservieren (`ReserveLockableObjectSet` kennt nur ganze
+  Mengen; die ganze Ausschnittmappe zu reservieren blockiert Kollegen). Weg: Nutzer reserviert im UI
+  (Rechtsklick → Reservieren → Ausschnitt-Einstellungen → Name), danach per Tapir zurücklesen.
+  Vorsicht beim Ändern von Geschossnummern in Titeln: Projekt-A-Kriechkeller WD liegt auf Geschoss −2,
+  zählt nach Türnummern (WD_U1_…) aber zum 1. UG – Titel „-1. …/KRIECHKELLER“ ist gewollt.
 - Ansicht-Settings lesen/schreiben: `navigator_get_view_settings` / `navigator_set_view_settings`
   (LayerCombination, PenSet, MVO, GraphicOverride, DimStyle — pro View).
 - 2D-Elemente inkl. Line/PolyLine/Arc/Circle/Spline/Hatch/Text/Label/Dimension per
@@ -70,6 +86,8 @@ den `Add-Ons/`-Ordner auf `*.bak`/Backup-Bundles prüfen (`ls`) und Sicherungen 
 außerhalb ablegen (z. B. `~/ELM_SAB_Backups/`).
 
 ### Bundle-Wechsel am Mac im Teamwork-Betrieb <!-- 2026-11-17 -->
+
+Live Projekt-A (Teamwork, AC29):
 
 1. Vor dem Beenden senden, empfangen, alles freigeben, altes Bundle sichern.
 2. `osascript … quit` kann mit -128 „abgebrochen“ zurückkommen, wenn Archicad gerade
@@ -570,7 +588,7 @@ Tapir hat `TapirCommand ReserveElements {elements:[{elementId:{guid}}]}` — lö
 - **ELM_SAB 0.9.7 (2026-07-25)**: `CreateCurtainWallFromAxes` kann **nichtrechteckig** — `topProfile[]` (genau `columnWidths+1` Oberkantenhöhen an den Pfostenachsen → Trapez/Giebel/Pultschräge) oder `contour[{u,v}]` (freies Polygon, umlaufend, Schlusspunkt nicht wiederholen). Koordinaten sind **segmentlokal**: `u` = Lauflänge ab `begCoordinate`, `v` = Höhe über CW-Unterkante. Umgesetzt über `memo.cWSegContour` (`API_CWContourData`, Polygon-Konvention `coords[1..nCoords]` mit `coords[nCoords] == coords[1]`, `pends[1] = nCoords`); Konvention aus DevKit-Beispiel `Examples/CurtainWall_Drawer` abgeleitet, das ein Hatch-Polygon um −minX/−minY verschiebt und als Kontur setzt. `height` = max(v); rowHeights bleiben FixedSizes-Muster und wiederholen sich bis zur Firsthöhe. Symmetrischer First braucht **gerade** Spaltenzahl. Antwort liefert jetzt `height`, `contourVertices`, `bottomOffsetApplied`, `zMin`, `zMax`. Live Projekt-A Fassade-013: 4×4 mit Giebel → 14 statt 16 Paneele, Traufe 17,50 / First 19,65.
 - **`bottomOffset` war bis 0.9.6 ein stiller No-Op (2026-07-25)**: `curtainWall.storyRelLevel` wird beim `ACAPI_Element_Create` ignoriert — CW landet ohne Fehlermeldung exakt auf Geschossniveau. Ab 0.9.7 per `APIEdit_Drag` im selben Undo-Schritt nachgezogen, mit `zMin`/`zMax` aus `ACAPI_Element_CalcBounds` in der Antwort. **Immer gegenprüfen.** Bei älterem Add-On: `MoveElements` mit `dz` hinterher.
 - **CW-Bbox-Fallen (2026-07-25)**: `Get3DBoundingBoxes` liefert für CW-**Paneele geschossrelative** z-Werte, für das **Top-Level absolute** — beim Vergleichen umrechnen. Und: sitzt eine CW mehrere Geschosse über ihrem `floorIndex`, ist die Top-Level-Bbox in x **degeneriert** (`xMin == xMax`); sieht kaputt aus, ist nur ein Melde-Quirk — Verifikation über die Sub-Elemente.
-- **Kein `ModifyCurtainWall` (2026-07-25)**: Raster/Kontur einer bestehenden CW sind per API nicht änderbar. Rasteränderung = neu bauen + altes löschen; einzige begründete Ausnahme von „Ersetzen = umbauen". Reihenfolge: **erst neu bauen und verifizieren, dann altes löschen** — kein Loch im Modell, falls der Create scheitert.
+- ~~**Kein `ModifyCurtainWall` (2026-07-25)**: Raster/Kontur einer bestehenden CW sind per API nicht änderbar. Rasteränderung = neu bauen + altes löschen; einzige begründete Ausnahme von „Ersetzen = umbauen". Reihenfolge: **erst neu bauen und verifizieren, dann altes löschen** — kein Loch im Modell, falls der Create scheitert.~~ **Überholt ab ELMonkey 0.11.12.1** <!-- 2026-11-17 -->: `ELM_SAB.SetCurtainWallSegmentELM {elementId:{guid}, columnWidths:[…]}` ändert das Spaltenraster einer bestehenden, einsegmentigen CW (Höhe, Lage, Riegel bleiben; live Projekt-A 206 von 255 Fassaden auf 1,20 m). Fehlt in 0.11.12 und 0.11.12.2 (Fehler 4010), nur im lokalen Stand 0.11.12.1. Einzelwert `[1.2]` wiederholt sich, Rest am Ende oder auf beide Enden verteilt; bei voller Feldliste beginnt das Raster am Segmentanfang → Pfostenachsen in Weltlage nachmessen und erstes/letztes Feld gegengleich korrigieren (zwei Runden, live 0 mm). `GetCurtainWallPlaneELM` liefert Segmentkoordinaten ohne planeMatrix-Verschiebung → nach `MoveElements` Lage aus `floorPlanPolygons` nehmen; Glasebene = Querlage der langen Feld-Polygone (nicht Schwerpunkt, Pfostenprofile verschieben ihn ~5 cm). Querschieben per `TapirCommand.MoveElements` in 6er-Paketen mit Senden je Paket. Volle Fassung: recipes/curtain-walls.md.
 - **Fassaden-Vollausbau aus 2D (live Projekt-A 2026-07-21, 90 Elemente)**: Layer A_05_FASSADE → Linien clustern (Union-Find, BBox-Nähe) → pro Zug Pfosten = Kurzlinien senkrecht zur Fassade (Achs-Cluster 3 cm) → Sektionen = Achsfolgen mit Feldern 0,5–2,6 m (Pfeilerzonen trennen) → Glasebene = Linienpaar 3–9 cm Abstand nahe Pfostenebene → je Sektion CreateCurtainWallFromAxes pro Geschoss + CreateWalls-Brüstungsband. PERFORMANCE: >10 CWs ⇒ Archicad regeneriert minutenlang (API nur IsAlive) — alle Folge-Ops in 6er-Chunks mit 15-s-Retry; Selektion von CWs triggert denselben Rebuild. Flächige Gitter (Glasdach) NICHT als Fassade bauen.
 - **Reihenfolge-Lektion Fassaden-Pipeline (2026-07-21)**: ERST Layer sanieren (fehlplatzierte Fassadenlinien via User-verifizierter Selektion auf A_05_FASSADE), DANN Muster parsen und bauen — sonst zerfallen durchgehende Fronten in Scheinabschnitte (Hof-Ost: 4 Kurzstücke mussten nach Layer-Umzug gegen 1 durchgehende Front ersetzt werden). Muster-Scans über alle Layer produzieren massives Rauschen (Bemaßung, Wandkappen, Fremd-/Referenzzonen ±350 m) — Kandidaten IMMER erst selektieren und vom User bestätigen lassen.
 - **Silent-No-Op-Ursache #3: GRUPPEN (2026-07-21)**. Elemente in Gruppen verweigern Einzeländerungen (SetDetails/Delete: „Failed to change element" -2130312912 bzw. still wirkungslos), solange „Gruppierung unterbrechen" (Alt+G) AUS ist — kein Reservierungskonflikt, kein Hotlink, kein Lock. Diagnose-Reihenfolge bei wirkungslosen Writes: (1) ReserveElements-conflicts[] prüfen (Fremd-Reservierung), (2) UnlockElements testen, (3) GetHotlinks (leer ⇒ kein Hotlink), (4) User „Gruppierung unterbrechen" einschalten lassen → Retry. Live Projekt-A: 98 gruppierte Höhenkoten-Symbole erst nach Alt+G änderbar; erklärt rückwirkend auch die „unlöschbaren" Alt-Etiketten. **Korrektur 2026-10-14:** -2130312912 ist laut DevKit 29 `APIERR_HIDDENLAY` (`APIErrorStart + 304`, `APIdefs_ErrorCodes.h` Z. 171) = Element liegt auf einer **ausgeblendeten Ebene**. Bei diesem Code zuerst `GetLayerAttributes … isHidden` prüfen; die anderen hier genannten Ursachen können zusätzlich vorliegen, erzeugen aber nicht diesen Code (Hinweis S., Fliesenspiegel Projekt-C).
@@ -722,6 +740,8 @@ Aus dem revit-mcp-python-Vergleich (Abwägung: `~/.scratch/elmonkey/pyrevit-verg
   Seit 0.9.13 mit Datei-Existenz-Rücklese via `IO::fileSystem.Contains` — NoError vom
   Save allein beweist nichts. **Live-Test am Modell steht aus** (Bundle noch nicht eingebaut).
   **Korrektur 2026-10-13 (0.9.25):** `APIColorDepth_FromSourceImage` war selbst falsch. Es ist nur für die Bildkonvertierung definiert, beim Fenster-Export gibt es kein Quellbild → Save lieferte APIERR_BADID, CaptureView hat nie ein Bild geliefert. Seit 0.9.25 gilt die Echtfarbtiefe je Plattform (`MiC`/`TC24`) mit Rückfall `256C`, siehe Abschnitt „ELM_SAB 0.9.25“ unten. **Live verifiziert erst mit 0.9.25 (Projekt-B 13.10.).**
+  **Korrektur 2026-10-13 (0.9.25):** `APIColorDepth_FromSourceImage` war selbst falsch. Es ist nur für die Bildkonvertierung definiert, beim Fenster-Export gibt es kein Quellbild → Save lieferte APIERR_BADID, CaptureView hat nie ein Bild geliefert. Seit 0.9.25 gilt die Echtfarbtiefe je Plattform (`MiC`/`TC24`) mit Rückfall `256C`, siehe Abschnitt „ELM_SAB 0.9.25“ unten. **Live verifiziert erst mit 0.9.25 (Projekt-B 13.10.).**
+- **Sichtprüfung auf einen Bereich (live 2026-11-17):** <!-- 2026-11-17 --> `TapirCommand.FitInWindow` zoomt immer auf alles, auch mit Auswahl; ein Zoom auf einen Bereich fehlt. `ELM_SAB.CaptureView` liefert dann nur die Gesamtansicht und ist für eine Detailprüfung ungeeignet.
 - **Paletten-Rückfrage** (TapirPalette::ExecuteScript): Sicherheitsdialog NUR für
   `UnusedViewCleaner.py` (Nutzer-Auftrag nach Vorfall 2026-08-06; Abbrechen = Default-Button).
   0.9.12 hatte zusätzlich einen generischen Dialog vor jedem Skript — als unbeauftragter
