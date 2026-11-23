@@ -1043,7 +1043,7 @@ Zeitzonenfalle), `sinceSeq` (der stabilere Weg zum Weiterlesen), `categories[]`
   {"seq":1,"time":"2026-09-09T06:12:03.114Z","category":"project","type":"EventLogStarted","detail":"ELM_SAB 0.9.17"},
   {"seq":7,"time":"2026-09-09T06:31:44.902Z","category":"project","type":"TeamworkReceiveChanges"},
   {"seq":8,"time":"2026-09-09T06:31:47.330Z","category":"reservation","type":"ElementReserved",
-   "elementId":{"guid":"A1B2…"},"user":"Sophia Pickel"}],
+   "elementId":{"guid":"A1B2…"},"user":"Nutzer C"}],
  "eventCount":3,"matchedCount":3,"capacity":5000,"storedCount":8,"recordedCount":8,
  "droppedCount":0,"oldestSeq":1,"newestSeq":8,"serverTime":"2026-09-09T06:32:10.008Z",
  "installedHandlers":[{"notification":"ProjectEvent (ACAPI_ProjectOperation_CatchProjectEvent)","errorCode":0,"installed":true}, …]}
@@ -1170,7 +1170,7 @@ dieser Vermerk auf „verifiziert" geändert werden:
    angemeldetes Element darf keine Change-Ereignisse liefern.
 6. Teamwork-Receive auslösen → `TeamworkReceiveChanges` im Log.
 7. `GetElementEditState` an vier bekannten Fällen: normales Objekt,
-   Objekt auf ausgeblendeter Ebene, Hotlink-Element, von Sophia Pickel
+   Objekt auf ausgeblendeter Ebene, Hotlink-Element, von Nutzer C
    reserviertes Element. `reason` muss jeweils passen.
 8. `GetDeviations` an einem Durchbruchsobjekt mit bekanntem A/B/ZZYZX:
    erst mit korrektem Sollmaß (`withinTolerance: true`), dann mit absichtlich
@@ -2207,7 +2207,7 @@ Fallen:
 - `source: "solid"`: Box aus den 3D-Körpern des Bauteils, also nach Anschlüssen und Verschneidungen — so, wie die
   Geometrie im IFC herauskäme. `source: "calcBounds"`: Rückfall auf die rohe Hüllbox, weil das Bauteil keinen
   Körper im 3D-Modell hat (Umbau-Filter, ausgeblendete Ebene). Diese Box ist **nicht vergleichbar**.
-- Warum: `TapirCommand.Get3DBoundingBoxes` nimmt für Wände die rohe Hüllbox. Im AFWC-Abgleich (16.11.) wichen
+- Warum: `TapirCommand.Get3DBoundingBoxes` nimmt für Wände die rohe Hüllbox. Im Projekt-H-Abgleich (16.11.) wichen
   die Wände dadurch um 20–35 cm ab und sahen fast alle geändert aus.
 - Decke ohne Körper → `{error}`, kein Rückfall: `CalcBounds` stürzt bei Decken ab, die im aktiven Fenster nicht
   gezeichnet sind (Tapir #686).

@@ -316,12 +316,12 @@ Flach (`classificationSystemId`/`classificationItemId` direkt neben `elementId`)
 
 **Wann den HTTP-Bypass NICHT nehmen:** Für normale, kleine Operationen (< ~100 Elemente, keine kaputten Tools) bleibt der MCP-Tool-Pfad der Default — er ist Discovery-geführt und versionsrobust. Der Bypass ist das Werkzeug für **Massendaten** und **die bekannten Schema-Drift-Tools**. Port immer aus dem Warm-up/Discovery beziehen, nie hardcoden (Ports sind volatil, siehe oben).
 
-## MCP-Schema ≠ installiertes Add-on (Tapir 1.7.2 unter ELMonkey) <!-- 2026-11-16, live AFWC -->
+## MCP-Schema ≠ installiertes Add-on (Tapir 1.7.2 unter ELMonkey) <!-- 2026-11-16, live Projekt-H -->
 
 `discovery_list_active_archicads` warnt bei ELMonkey-Installationen: „Installed Tapir version
 (1.7.2) is older than supported (2.0.0)“ (am 12.11. hieß es noch 1.8.0 — der MCP-Server zieht
 mit). Die Schemas aus `archicad_get_command_schema` beschreiben dann die **neuere** Tapir-Version,
-das installierte Add-on kennt aber nur 1.7.2. Folgen, live an AFWC (Teamwork, AC29):
+das installierte Add-on kennt aber nur 1.7.2. Folgen, live an Projekt-H (Teamwork, AC29):
 
 | Was | Antwort des Add-ons | Ausweg |
 |---|---|---|

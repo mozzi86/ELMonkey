@@ -1,4 +1,4 @@
-"""Diff-Checker: die Fallen aus dem Live-Lauf AFWC (16.11.2026) als Tests. Ohne Archicad, ohne Plattform."""
+"""Diff-Checker: die Fallen aus dem Live-Lauf Projekt-H (16.11.2026) als Tests. Ohne Archicad, ohne Plattform."""
 from elmonkey import diff as df
 
 G = "3F2504E0-4F89-11D3-9A0C-0305E82C3301"

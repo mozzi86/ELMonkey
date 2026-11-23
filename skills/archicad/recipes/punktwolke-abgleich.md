@@ -9,7 +9,7 @@ fehlt in EG/1.OG; 1.OG-Trennwände 0,15–1 m versetzt (Best-Fit 1,4°), KG eine
 ## 1. Platzierung der Wolke
 
 - Objekte: `API.GetElementsByType Object` → Tapir `GetDetailsOfElements`, nach Bibliotheksteil-Name
-  (`ARZ_1.OG_reduziert_15Mio_0`) bzw. `dimensions` > 15 m filtern. Gelesen: `origin`, `dimensions`, `angle` (rad).
+  (`Projekt-F_1.OG_reduziert_15Mio_0`) bzw. `dimensions` > 15 m filtern. Gelesen: `origin`, `dimensions`, `angle` (rad).
 - E57 finden: `mdfind -name 'reduziert_15Mio'` (Dateiname = Bibliotheksteil ohne `_0`).
 - Lesen: `uv venv .venv && uv pip install pye57 numpy scipy matplotlib shapely`, dann
   `pye57.E57(f).read_scan(0, transform=True, ignore_missing_fields=True)`, `cartesianX/Y/Z`,
