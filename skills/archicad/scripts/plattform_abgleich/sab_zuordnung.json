@@ -1,4 +1,4 @@
-{"_hinweis":"IFC-Klasse der Plattform -> Klasse in SAB_Klassifizierung_29 (Projekt-E, 19.11.2026, Entscheidung Mudi: nach Art). Mit ? markierte sind Vorschlag, noch nicht bestaetigt. Projekt-G 20.11.2026: Wall/Window/DiscreteAccessory freigegeben (Mudi); System auch ‚Graphisoft Klassifizierung‘.",
+{"_hinweis":"IFC-Klasse der Plattform -> Klasse in „Graphisoft Klassifizierung“ (Standard; früher SAB_Klassifizierung_29, Projekt-E, 19.11.2026, Entscheidung Mudi: nach Art). Mit ? markierte sind Vorschlag, noch nicht bestaetigt. Projekt-G 20.11.2026: Wall/Window/DiscreteAccessory freigegeben (Mudi); System auch ‚Graphisoft Klassifizierung‘.",
  "IfcDuctSegment":"Lüftungskanal","IfcPipeSegment":"Rohr","IfcPipeFitting":"Rohrverbinder","IfcAirTerminal":"Luftauslass",
  "IfcSpaceHeater":"Heizkörper","IfcUnitaryEquipment":"Einbaufertige Anlage","IfcLightFixture":"Leuchte","IfcDamper":"Regelklappe",
  "IfcFilter":"Filter","IfcFan":"Ventilator","IfcElectricMotor":"Elektromotor","IfcCoil":"Heiz-Kühlelemente",

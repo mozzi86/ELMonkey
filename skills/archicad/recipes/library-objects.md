@@ -575,7 +575,7 @@ mcp__archicad__archicad_call_tool(
 
 ## Worked Example 8 — Object klassifizieren
 
-Klassifikation eines Objects im aktiven System `SAB_Klassifizierung_29` setzen. Voraussetzung: System-GUID + Item-GUID aus dem Warm-up bekannt.
+Klassifikation eines Objects im aktiven System `Graphisoft Klassifizierung` setzen. Voraussetzung: System-GUID + Item-GUID aus dem Warm-up bekannt.
 
 **Aktuelle Klassifikation lesen:**
 
@@ -587,7 +587,7 @@ mcp__archicad__archicad_call_tool(
     "params": {
       "elements": [{"elementId": {"guid": "<object-guid>"}}],
       "classificationSystemIds": [
-        {"classificationSystemId": {"guid": "<SAB_Klassifizierung_29-system-guid>"}}
+        {"classificationSystemId": {"guid": "<Graphisoft-Klassifizierung-system-guid>"}}
       ]
     }
   }
@@ -617,7 +617,7 @@ mcp__archicad__archicad_call_tool(
         {
           "elementId": {"guid": "<object-guid>"},
           "classificationId": {
-            "classificationSystemId": {"guid": "<SAB_Klassifizierung_29-system-guid>"},
+            "classificationSystemId": {"guid": "<Graphisoft-Klassifizierung-system-guid>"},
             "classificationItemId": {"guid": "<moebel-sitzmoebel-item-guid>"}
           }
         }

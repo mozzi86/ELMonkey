@@ -426,7 +426,7 @@ mcp__archicad__archicad_call_tool(
 
 <!-- 2026-05-19 verifiziert AC29 -->
 
-Response enthält `{"classificationSystemId": {"guid": "<system-guid>"}, "name": "SAB_Klassifizierung_29", ...}`.
+Response enthält `{"classificationSystemId": {"guid": "<system-guid>"}, "name": "Graphisoft Klassifizierung", ...}`.
 System-GUIDs sind projekt-spezifisch — nie hartkodieren.
 
 **Schritt 2 — Aktuelle Klassifikation des Hatch-Elements lesen:**
@@ -467,7 +467,7 @@ Gibt den vollständigen Klassen-Baum mit GUIDs zurück. Daraus Klartext → GUID
 ```
 Ich werde folgendes klassifizieren:
 - Hatch a1b2c3d4-e5f6-7890-abcd-ef1234567890
-  Klassifikation (SAB_Klassifizierung_29): <leer> → "2D-Schraffur"
+  Klassifikation (Graphisoft Klassifizierung): <leer> → "2D-Schraffur"
 
 Ausführen? (ja / nein / details / abbrechen)
 ```

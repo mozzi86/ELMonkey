@@ -405,7 +405,10 @@ def fragen_text(plan: dict) -> str:
 # ─────────────────────────────────────────────────────────── IFC → Morph (Befehl bauen)
 
 BAU_PAKET = 25
-SAB_SYSTEME = ("SAB_Klassifizierung_29", "Graphisoft Klassifizierung")
+# Standard ist „Graphisoft Klassifizierung“: Archicads IFC-Typzuordnungen finden ihr Quellsystem über den
+# NAMEN. Unter einem Eigennamen wie „SAB_Klassifizierung_29“ fällt beim IFC-Export alles auf
+# IfcBuildingElementProxy. Das alte SAB-System bleibt nur Rückfall für Altprojekte (mit Hinweis).
+SAB_SYSTEME = ("Graphisoft Klassifizierung", "SAB_Klassifizierung_29")
 SAB_SYSTEM = SAB_SYSTEME[0]
 STATUS = {"Abbruch": "ToBeDemolished", "Bestand": "Existing", "Neubau": "New"}
 ZUORDNUNG = Path(__file__).with_name("sab_zuordnung.json")
@@ -830,8 +833,18 @@ def netz_pruefung(plan: list[dict]) -> dict:
             "netz_pruefen": pruefen}
 
 
+def klassifizierung_hinweis(sys_name: str) -> dict:
+    """Warnung, wenn nicht das Standardsystem benutzt wird (IFC-Export ordnet dann falsch zu)."""
+    if sys_name == SAB_SYSTEM:
+        return {}
+    return {"klassifizierung_hinweis": f"„{sys_name}“ statt „{SAB_SYSTEM}“: Beim IFC-Export greifen Archicads "
+            f"Typzuordnungen nur über den Namen „{SAB_SYSTEM}“, sonst wird alles IfcBuildingElementProxy. "
+            "System im Klassifizierungs-Manager umbenennen (nicht neu importieren)."}
+
+
 def sab_klassen(ac: Archicad, name: Optional[str] = None) -> tuple[str, dict[str, str], str]:
-    """(System-GUID, {Klassen-id: Item-GUID}, Systemname). Ohne `name` das erste vorhandene aus SAB_SYSTEME."""
+    """(System-GUID, {Klassen-id: Item-GUID}, Systemname). Ohne `name` das erste vorhandene aus SAB_SYSTEME,
+    also „Graphisoft Klassifizierung“ vor dem alten SAB-System."""
     vorhanden = ac.api("API.GetAllClassificationSystems").get("classificationSystems") or []
     gesucht = (name,) if name else SAB_SYSTEME
     system = next((s for g in gesucht for s in vorhanden if s.get("name") == g), None)
@@ -888,7 +901,7 @@ def bauen(ac: Archicad, ordner, ifc, bauliste: dict, register: dict, zuordnung: 
     _schreiben(ordner / "ausgelassen.json", ausgelassen)
     pruef = netz_pruefung(plan)
     _schreiben(ordner / "netz_pruefen.json", pruef["netz_pruefen"])
-    zaehl = {**pruef, "klassifizierung": sys_name, "ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
+    zaehl = {**pruef, "klassifizierung": sys_name, **klassifizierung_hinweis(sys_name), "ebenen": dict(collections.Counter(p["ebene"] for p in plan)),
              "klassen": dict(collections.Counter(p["klasse"] for p in plan)),
              "status": dict(collections.Counter(p["status"] for p in plan)),
              "dreiecke": sum(len(p["morph"]["body"]["polygons"]) for p in plan),

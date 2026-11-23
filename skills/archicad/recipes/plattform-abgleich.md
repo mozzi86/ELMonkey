@@ -169,5 +169,5 @@ Details, Fallen und die ehrliche Einschätzung der Geometrie: [`reference/diff-p
 
 ## Klassifizierungssystem und fehlende Eigenschaften <!-- 2026-11-20 -->
 
-- `bauen` findet das System automatisch (`SAB_Klassifizierung_29` oder `Graphisoft Klassifizierung`); `--system NAME` erzwingt eines. Der gefundene Name steht im Ergebnis unter `klassifizierung`.
+- `bauen` nimmt automatisch `Graphisoft Klassifizierung` (Standard); nur wenn es fehlt, das alte `Graphisoft Klassifizierung` und meldet dann `klassifizierung_hinweis` (IFC-Export ordnet unter dem alten Namen alles als Proxy zu). `--system NAME` erzwingt eines. Der gefundene Name steht im Ergebnis unter `klassifizierung`.
 - Fehlende Eigenschaften lassen sich per `TapirCommand.CreatePropertyDefinitions` anlegen, nur mit `isEditable: true` und `defaultValue {basicDefaultValue {type: string, status: userUndefined}}` (sonst „failed to create the property“); Verfügbarkeit = alle Klassen-Items. Nur nach Ja des Zeichners.

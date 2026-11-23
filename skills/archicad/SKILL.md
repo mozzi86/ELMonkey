@@ -79,6 +79,8 @@ Nutzer nachschauen zu lassen. UI-Schritte werden gebündelt, weil ein offener mo
 jeden API-Call blockiert (Code `4001`). Was UI-only ist, was es nur zu sein scheint, und die
 Klickpfade: [`reference/ui-aufgaben.md`](reference/ui-aufgaben.md).
 
+**Klassifizierung: Standard ist „Graphisoft Klassifizierung“** <!-- 2026-11-23 -->. Beim Klassifizieren immer dieses System nehmen. Archicads IFC-Typzuordnungen finden ihr Quellsystem nur über den Namen; unter einem Eigennamen wie `SAB_Klassifizierung_29` wird beim IFC-Export alles `IfcBuildingElementProxy`. Hat ein Projekt nur das alte SAB-System, das dem Nutzer melden: im Klassifizierungs-Manager umbenennen, nicht neu importieren (Import hängt Dubletten an).
+
 **Bürowissen** (Klassifizierungssysteme und ihre GUIDs, Ebenen-Konvention, Stifttabellen, Fehler der Bürovorlage) steht bewusst nicht in diesem öffentlichen Repo. Wer Zugang zur Schwarz Plattform hat, findet es dort unter `skills/sab-archicad-buero/`; sonst fragen wir Klassifizierung, Ebenen und Stifte im laufenden Projekt ab.
 
 ## Ein `success` ist kein Beleg <!-- 2026-07-30 -->
@@ -104,7 +106,7 @@ Gebrauch waren — die Suche hatte den Attributtyp nicht unterschieden.
 - [`reference/schedule-pipeline.md`](reference/schedule-pipeline.md) — Export-Parse-Match-Update-Pipeline für Daten aus Archicad-Schedules (XLSX/CSV) bei Bulk-Updates, wenn MCP die Quell-Daten nicht direkt liefern kann.
 - [`reference/property-expression-linking.md`](reference/property-expression-linking.md) — Native Archicad-Synchronisation zwischen GDL-Parameter und Property via Expression-Editor; oft eleganter als Bulk-Copy.
 - [`reference/dwg-ifc-import.md`](reference/dwg-ifc-import.md) — Vorverarbeitungs-Pipeline für 2D-Lagepläne (DWG) zu lückenfreien IFC4-Decken-Modellen mit Z-Staffel, vor Archicad-Hotlink-Import. (Live-verifiziertes Lageplan-/KG-500-Spezialfall.)
-- [`reference/dwg-ifc-kg300.md`](reference/dwg-ifc-kg300.md) — Verallgemeinerung der Pipeline auf KG 300 Baukonstruktionen (310 Baugrube bis 395 Sonstige): pro Cost-Group IFC-Entity + Polygonization-Strategie + DWG-Layer-Hints + Z-Schema, plus umgekehrte Richtung (Bulk-KG-Zuweisung auf bestehende Elemente) und Mapping zu SAB_Klassifizierung_29.
+- [`reference/dwg-ifc-kg300.md`](reference/dwg-ifc-kg300.md) — Verallgemeinerung der Pipeline auf KG 300 Baukonstruktionen (310 Baugrube bis 395 Sonstige): pro Cost-Group IFC-Entity + Polygonization-Strategie + DWG-Layer-Hints + Z-Schema, plus umgekehrte Richtung (Bulk-KG-Zuweisung auf bestehende Elemente) und Mapping zu Graphisoft Klassifizierung.
 - [`reference/self-improvement.md`](reference/self-improvement.md) — Wie der Skill aus Sessions lernt: Reflection-Trigger am Auftrags-Ende, Datums-Marker für neue Einträge, Verification-Loop bei Wiederholfehlern.
 - [`reference/mcp-extension.md`](reference/mcp-extension.md) — MCP-Stack-Architektur (tapir-archicad-mcp → Tapir-Add-On), Update-Prozedur, verifizierte Grenzen (kein Pen-Befehl, Layout-Buch-Lesen ja), Erweiterungs-Entscheidungsbaum und das hauseigene **ELM_SAB_Add-On** ([`ELM_SAB_Add-On/`](https://github.com/mozzi86/-archicad/tree/main/ELM_SAB_Add-On)) mit `SetPenOfElements`.
 - [`reference/favoriten-und-defaults.md`](reference/favoriten-und-defaults.md) — Favoriten und Werkzeug-Standardeinstellungen per API umbauen: Export→Patch→Import-Round-Trip, die **AddPars-Falle**, textbasiertes XML-Patchen, Klassifizierungs-Block, Ebene an zwei Stellen, AttrTable-FourCC-Tabelle (live-verifiziert 2026-07-30 an 446 Favoriten).

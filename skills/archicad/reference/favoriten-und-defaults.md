@@ -115,7 +115,7 @@ diesem Format (Tabs wie Archicad, Klartextnamen — **keine GUIDs**):
 ```xml
 <ClassificationItemSet>
 	<ClassificationSystemUserID>
-		<Name>SAB_Klassifizierung_29</Name>
+		<Name>Graphisoft Klassifizierung</Name>
 		<EditionVersion>02</EditionVersion>
 	</ClassificationSystemUserID>
 	<ClassificationItemUserID>Trockenbauwand</ClassificationItemUserID>

@@ -51,7 +51,7 @@ Vor dem ersten Öffnungs-Auftrag folgende Felder holen (Details in [`../referenc
 | **Port** | Jeder MCP-Call braucht ihn. |
 | **Aktive Story / floorIndex** | `elements_get_elements_by_type` filtert per `OnActualFloor`. |
 | **Sichtbare Layer** | SAFE-03: Layer prüfen, bevor wir die Öffnung modifizieren. |
-| **Klassifikations-System-GUID** | Für Classify-Operationen. Aktives System: `SAB_Klassifizierung_29`. |
+| **Klassifikations-System-GUID** | Für Classify-Operationen. Aktives System: `Graphisoft Klassifizierung`. |
 | **Längeneinheit** | Sill-Höhe wird in Metern übergeben — bei mm-Projekten Einheit beachten. |
 
 ---
@@ -343,7 +343,7 @@ Erwartete Response:
 
 ## Worked Example — Öffnung klassifizieren (Tür / Fenster)
 
-Das Test-Fenster `7185f21a-ca8f-6b44-a8a3-28d0610f0d82` wird im Klassifikations-System `SAB_Klassifizierung_29` als „Fenster" klassifiziert.
+Das Test-Fenster `7185f21a-ca8f-6b44-a8a3-28d0610f0d82` wird im Klassifikations-System `Graphisoft Klassifizierung` als „Fenster" klassifiziert.
 
 ### Schritt 1 — Aktuelle Klassifikation lesen
 
@@ -366,17 +366,17 @@ mcp__archicad__archicad_call_tool(
 )
 ```
 
-> Die GUID des aktiven Klassifikations-Systems `SAB_Klassifizierung_29` ist projektspezifisch — sie liegt im Memory unter `project_archicad_user_setup.md`, nicht im Skill. Beim Warm-up aus dem Projekt laden oder per `attributes_get_classification_systems` abfragen.
+> Die GUID des aktiven Klassifikations-Systems `Graphisoft Klassifizierung` ist projektspezifisch — sie liegt im Memory unter `project_archicad_user_setup.md`, nicht im Skill. Beim Warm-up aus dem Projekt laden oder per `attributes_get_classification_systems` abfragen.
 
 ### Schritt 2 — Klassifikations-Item-GUID für „Fenster" ermitteln
 
-Das Klassifikations-Item (z. B. „Fenster" als Klasse unter `SAB_Klassifizierung_29`) hat eine eigene GUID. Diese per `attributes_get_classification_items_of_classification_system` oder per Discovery ermitteln, wenn noch nicht bekannt.
+Das Klassifikations-Item (z. B. „Fenster" als Klasse unter `Graphisoft Klassifizierung`) hat eine eigene GUID. Diese per `attributes_get_classification_items_of_classification_system` oder per Discovery ermitteln, wenn noch nicht bekannt.
 
 ### Schritt 3 — SAFE-01 Confirm-Dialog
 
 ```
 Ich werde folgendes klassifizieren:
-- Fenster 7185f21a  → SAB_Klassifizierung_29: „Fenster"
+- Fenster 7185f21a  → Graphisoft Klassifizierung: „Fenster"
   (bisher: keine Klassifikation / anderer Wert)
 
 Ausführen? (ja / nein / details / abbrechen)

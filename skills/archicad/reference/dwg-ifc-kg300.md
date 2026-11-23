@@ -21,7 +21,7 @@ Verallgemeinerung der Lageplan-Pipeline ([`dwg-ifc-import.md`](dwg-ifc-import.md
 - [KG 390 — Innenabschlüsse und -türen](#kg-390--innenabschlüsse-und--türen)
 - [KG 395 — Sonstige Baukonstruktionen](#kg-395--sonstige-baukonstruktionen)
 - [Bulk-KG-Zuweisung auf bestehende Archicad-Elemente](#bulk-kg-zuweisung-auf-bestehende-archicad-elemente)
-- [Mapping KG 300 ↔ SAB_Klassifizierung_29](#mapping-kg-300--sab_klassifizierung_29)
+- [Mapping KG 300 ↔ Graphisoft Klassifizierung](#mapping-kg-300--graphisoft-klassifizierung)
 - [Was die Pipeline NICHT kann](#was-die-pipeline-nicht-kann)
 - [Anwendungs-Hinweise aus realen Werkplänen](#anwendungs-hinweise-aus-realen-werkplänen)
 
@@ -267,9 +267,9 @@ for kg, element_ids in buckets.items():
 
 **Reverse-Lookup für Stückliste:** Schedule in Archicad anlegen mit Filter `KG_Nummer = "330"` → liefert alle Außenwände inklusive Mengen (Fläche, Volumen). Export als XLSX für Kostenermittlung. Siehe [`schedule-pipeline.md`](schedule-pipeline.md) für Export-Workflow.
 
-## Mapping KG 300 ↔ SAB_Klassifizierung_29
+## Mapping KG 300 ↔ Graphisoft Klassifizierung
 
-System-GUID SAB_Klassifizierung_29: `cca1f9aa-ca6c-3444-9bfb-363c6145327e`
+System-GUID: projektspezifisch, immer per `classifications_get_all_classification_systems` ermitteln (nie hardcoden).
 
 | KG | Konzept | SAB_29-Klasse | ClassificationItem-GUID |
 |---|---|---|---|

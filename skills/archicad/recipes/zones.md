@@ -28,7 +28,7 @@ Zonen sind Archicads Kernkonzept für Flächen-Erfassung, Raum-Schedules und Kla
 - Alle Zonen einer Story lesen — via `elements_get_elements_by_type` mit `elementType: "Zone"`.
 - Geometrie und Bounding Box einer Zone abfragen (Property-Workaround, da `get_details_of_elements` in AC29 einen Wrapper-Bug hat).
 - Modifizieren: Name, Nummer, Category-Attribute, Stempel-Position.
-- Klassifikation lesen und setzen (Standard-Klassifikations-Flow via `SAB_Klassifizierung_29`).
+- Klassifikation lesen und setzen (Standard-Klassifikations-Flow via `Graphisoft Klassifizierung`).
 - Löschen — Zone hat keine gehosteten Elemente, kein Pre-Check nötig.
 - Zone-Membership: Wände und Stützen einer Zone ermitteln (Basis für Innen/Außen-Wand-Klassifikation).
 
@@ -305,7 +305,7 @@ Response enthält typischerweise eine Bestätigungs-Struktur. Falls Response-For
 
 ## Worked Example — Zone klassifizieren
 
-Klassifikation der Test-Zone in `SAB_Klassifizierung_29` auf „Wohnen" setzen. Voraussetzung: Klassifikations-System-GUID aus dem Warm-up bekannt.
+Klassifikation der Test-Zone in `Graphisoft Klassifizierung` auf „Wohnen" setzen. Voraussetzung: Klassifikations-System-GUID aus dem Warm-up bekannt.
 
 **Aktuelle Klassifikation lesen:**
 
@@ -317,7 +317,7 @@ mcp__archicad__archicad_call_tool(
     "params": {
       "elements": [{"elementId": {"guid": "e0394527-a1fa-b24b-bab2-d75ffce4cc7e"}}],
       "classificationSystemIds": [
-        {"classificationSystemId": {"guid": "<SAB_Klassifizierung_29-system-guid>"}}
+        {"classificationSystemId": {"guid": "<Graphisoft-Klassifizierung-system-guid>"}}
       ]
     }
   }
@@ -345,7 +345,7 @@ mcp__archicad__archicad_call_tool(
         {
           "elementId": {"guid": "e0394527-a1fa-b24b-bab2-d75ffce4cc7e"},
           "classificationId": {
-            "classificationSystemId": {"guid": "<SAB_Klassifizierung_29-system-guid>"},
+            "classificationSystemId": {"guid": "<Graphisoft-Klassifizierung-system-guid>"},
             "classificationItemId": {"guid": "<wohnen-item-guid>"}
           }
         }

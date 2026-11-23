@@ -271,7 +271,7 @@ können in IFC-Exporten stille Datenfehler erzeugen — der Pre-Check schützt d
 ## Worked Example — Wand klassifizieren
 
 Wir setzen für die Test-Wand eine Klassifikation im Projekt-Klassifikations-System
-(`SAB_Klassifizierung_29` im User-Setup — System-GUID ist projekt-spezifisch).
+(`Graphisoft Klassifizierung` im User-Setup — System-GUID ist projekt-spezifisch).
 
 **Schritt 1 — Klassifikations-Systeme listen (Warm-up, falls System-GUID unbekannt):**
 
@@ -284,7 +284,7 @@ mcp__archicad__archicad_call_tool(
 
 <!-- 2026-05-19 verifiziert AC29 -->
 
-Response enthält `{"classificationSystemId": {"guid": "<system-guid>"}, "name": "SAB_Klassifizierung_29", ...}`.
+Response enthält `{"classificationSystemId": {"guid": "<system-guid>"}, "name": "Graphisoft Klassifizierung", ...}`.
 System-GUID nie hartkodieren — immer per diesem Call ermitteln.
 
 **Schritt 2 — Bestehende Klassifikation der Wand lesen:**
@@ -315,7 +315,7 @@ vollständige Klassenhierarchie mit GUIDs zurück (Projekt-A: 299 Items, eine An
 ```
 Ich werde folgendes klassifizieren:
 - Wand f1101930-e0bd-7044-a1f2-fdb20e520e21
-  Klassifikation (SAB_Klassifizierung_29): <alt oder leer> → "Außenwand"
+  Klassifikation (Graphisoft Klassifizierung): <alt oder leer> → "Außenwand"
 
 Ausführen? (ja / nein / details / abbrechen)
 ```

@@ -43,7 +43,7 @@ Vor dem ersten MCP-Aufruf holen wir folgende Felder aus dem Warm-up (Details in 
 - **Port** — für jeden MCP-Call nötig (Beispiel: `19723`)
 - **Aktive Story + Level** — Slab.level und Column.coordinates.z müssen zur Story-Referenzebene passen
 - **Sichtbare Layer** (SAFE-03) — Create nur wenn Ziel-Layer sichtbar
-- **Klassifikations-System-GUID** — für Klassifizierungs-Calls (SAB_Klassifizierung_29 in diesem Projekt)
+- **Klassifikations-System-GUID** — für Klassifizierungs-Calls (Graphisoft Klassifizierung in diesem Projekt)
 
 ---
 
@@ -451,7 +451,7 @@ Wichtig: Slabs sind keine Hosts im Sinne von SAFE-04 — auf einer Decke platzie
 
 ## Worked Example — Klassifizieren (tragend / nicht-tragend)
 
-Klassifizierung des Test-Slab und der Test-Column als „tragend" im System `SAB_Klassifizierung_29`.
+Klassifizierung des Test-Slab und der Test-Column als „tragend" im System `Graphisoft Klassifizierung`.
 
 **Schritt 1 — Klassifikations-System-GUID aus Warm-up** (oder via Discovery holen falls nicht gecacht):
 
@@ -463,7 +463,7 @@ mcp__archicad__archicad_call_tool(
     "params": {}
   }
 )
-# Response: [{classificationSystemId: {guid: "<system-guid>"}, name: "SAB_Klassifizierung_29", ...}]
+# Response: [{classificationSystemId: {guid: "<system-guid>"}, name: "Graphisoft Klassifizierung", ...}]
 ```
 
 **Schritt 2 — Verfügbare Klassifikations-Einträge lesen:**
@@ -485,8 +485,8 @@ mcp__archicad__archicad_call_tool(
 
 ```
 Ich werde folgendes klassifizieren:
-- Slab   01b90e9f  → tragend (SAB_Klassifizierung_29)
-- Column 41adb22a  → tragend (SAB_Klassifizierung_29)
+- Slab   01b90e9f  → tragend (Graphisoft Klassifizierung)
+- Column 41adb22a  → tragend (Graphisoft Klassifizierung)
 
 Ausführen? (ja / nein / details / abbrechen)
 ```

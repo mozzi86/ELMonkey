@@ -885,6 +885,20 @@ def test_sab_klassen_findet_graphisoft_klassifizierung():
     assert name == "Graphisoft Klassifizierung" and sid == guid(2) and klassen == {"Wand": guid(50)}
 
 
+def test_sab_klassen_graphisoft_vor_altem_sab_system():
+    # IFC-Export ordnet nur über den Namen „Graphisoft Klassifizierung“ richtig zu
+    sid, _, name = pa.sab_klassen(_systeme_ac("SAB_Klassifizierung_29", "Graphisoft Klassifizierung"))
+    assert name == "Graphisoft Klassifizierung" and sid == guid(2)
+    assert pa.klassifizierung_hinweis(name) == {}
+
+
+def test_sab_klassen_altes_sab_system_nur_rueckfall_mit_hinweis():
+    _, _, name = pa.sab_klassen(_systeme_ac("SAB_Klassifizierung_29", "Sonst"))
+    assert name == "SAB_Klassifizierung_29"
+    h = pa.klassifizierung_hinweis(name)["klassifizierung_hinweis"]
+    assert "IfcBuildingElementProxy" in h and "Graphisoft Klassifizierung" in h
+
+
 def test_sab_klassen_expliziter_name_falsch_nennt_beide_listen():
     import pytest
     with pytest.raises(pa.Fehler) as e:
