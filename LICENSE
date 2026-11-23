@@ -1,0 +1,59 @@
+ELMonkey
+Copyright © 2026 Mohamed Elmokadem (https://github.com/mozzi86)
+Alle Rechte vorbehalten. · All rights reserved.
+
+DE
+
+Der Quelltext, die gebauten Add-ons (Mac-Bundles, Windows-.apx), der MCP-Server, die
+Skripte, der Skill und die Dokumentation in diesem Repository sind urheberrechtlich
+geschützt.
+
+Ohne vorherige, ausdrückliche und schriftliche Erlaubnis des Urhebers ist es nicht
+gestattet, sie ganz oder in Teilen zu nutzen, zu vervielfältigen, zu verändern, zu
+bearbeiten, in andere Software, Produkte oder Dienste einzubauen, weiterzugeben, zu
+veröffentlichen, zu verkaufen, zu vermieten oder unterzulizenzieren. Das gilt
+ausdrücklich auch für Softwarehersteller (zum Beispiel Graphisoft / Nemetschek) und
+für das Training von KI-Modellen.
+
+Dass der Quelltext einsehbar ist, räumt keinerlei Nutzungsrechte ein.
+
+Eine Erlaubnis wird nur durch einen gesonderten, schriftlichen Lizenzvertrag erteilt;
+die gewerbliche Nutzung, insbesondere durch Softwarehersteller, ist vergütungspflichtig.
+Jede erlaubte Nutzung muss den Namen „ELMonkey“ und diesen Urhebervermerk sichtbar
+beibehalten. Umbenennen, Vertrieb unter anderem Namen oder Aufgehen in einem fremden
+Produkt ohne Namensnennung ist nicht gestattet. Der Name „ELMonkey“ darf ohne Erlaubnis
+nicht für andere Software, Produkte oder Dienste verwendet werden.
+
+Anfragen zur Nutzung oder Lizenzierung: über https://github.com/mozzi86.
+
+Ausgenommen sind die Fremdbestandteile, die in THIRD-PARTY-NOTICES.md aufgeführt sind.
+Für sie gelten ausschließlich deren eigene Lizenzen.
+
+Die Software wird ohne jede Gewähr bereitgestellt. Die Nutzung erfolgt auf eigene
+Gefahr; die Sicherung der eigenen Modelle und Daten liegt beim Nutzer.
+
+EN
+
+The source code, built add-ons (Mac bundles, Windows .apx), MCP server, scripts, skill
+and documentation in this repository are protected by copyright.
+
+Without the prior, express, written permission of the author you may not use, copy,
+modify, adapt, incorporate into other software, products or services, distribute,
+publish, sell, rent or sublicense them, in whole or in part. This expressly applies to
+software vendors (for example Graphisoft / Nemetschek) and to training AI models.
+
+Being able to read the source code grants no rights of use whatsoever.
+
+Permission is granted only by a separate written license agreement; commercial use, in
+particular by software vendors, requires payment. Any permitted use must visibly keep
+the name "ELMonkey" and this copyright notice. Renaming, distributing under another name
+or absorbing it into another product without naming it is not permitted. The name
+"ELMonkey" may not be used for other software, products or services without permission.
+
+Requests for use or licensing: via https://github.com/mozzi86.
+
+Third-party components listed in THIRD-PARTY-NOTICES.md are excluded; they are governed
+solely by their own licenses.
+
+The software is provided without any warranty. Use at your own risk; backing up your
+own models and data is your responsibility.
