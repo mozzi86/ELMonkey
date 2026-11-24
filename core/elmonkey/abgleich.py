@@ -288,13 +288,12 @@ def planen(archicad: list[dict], plattform: list[dict], basis: Optional[dict] = 
                         "Archicad-Projekt (gelöscht, ausgeblendete Ebene oder anderes Teilmodell?).", p, None)
 
     for a in z["nur_archicad"]:
-        if plattform_guid_von(a):
-            plan["nach_plattform"]["plattform_herkunft"].append(
-                {"archicad": a.get("guid"), "plattformGuid": plattform_guid_von(a), "bauteil": _kurz(a)})
-            continue
-        if guid_norm(a.get("guid")) in alt_a:
+        if guid_norm(a.get("guid")) in alt_a:                 # zuerst: war gepaart, Plattform-Partner ist weg
             fragen.dazu("fehlt_in_plattform", (), "War abgeglichen, in der Plattform jetzt nicht mehr vorhanden.",
                         None, a)
+        elif plattform_guid_von(a):
+            plan["nach_plattform"]["plattform_herkunft"].append(
+                {"archicad": a.get("guid"), "plattformGuid": plattform_guid_von(a), "bauteil": _kurz(a)})
         else:
             plan["nach_plattform"]["neu_importieren"].append({"archicad": a.get("guid"), "bauteil": _kurz(a)})
 

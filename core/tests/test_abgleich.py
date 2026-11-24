@@ -209,3 +209,11 @@ def test_gestempelte_unterteile_und_ebenen_bauteile_sind_nie_neu_aus_archicad():
     assert any("nicht als neu gemeldet" in h for h in plan["hinweise"])
     assert any("nur teilweise" in h and "KOPF-2" in h for h in plan["hinweise"])
     assert not plan["fragen"]
+
+
+def test_gestempeltes_bauteil_dessen_plattform_partner_weg_ist_bleibt_eine_frage():
+    """Bugbot zu #10: der Stempel darf die Frage „war abgeglichen, in der Plattform nicht mehr da“ nicht verdecken."""
+    a1 = ac(AC1, **{"Allgemeine Werte.Plattform-GUID": "PF-WEG"})
+    plan = ab.planen([a1], [], {"paare": {"PF-WEG": AC1}})
+    assert plan["nach_plattform"]["plattform_herkunft"] == [] and plan["nach_plattform"]["neu_importieren"] == []
+    assert [f["art"] for f in plan["fragen"]] == ["fehlt_in_plattform"]
