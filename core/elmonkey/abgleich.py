@@ -262,9 +262,23 @@ def planen(archicad: list[dict], plattform: list[dict], basis: Optional[dict] = 
                         f"{e['feld']}: Archicad „{e['archicad']}“ ↔ Plattform „{e['plattform']}“ ({grund})",
                         p, a, feld=e["feld"], archicad=e["archicad"], plattform=e["plattform"])
 
+    # Verbünde und Ebenen-Bauteile (24.11.2026, BFW07): Archicad-Bauteile mit „Plattform-GUID“ stammen aus der
+    # Plattform — auch wenn der Stand ihre GUID nicht als eigenes Bauteil führt (Unterteil eines Verbunds, Bauteil
+    # einer Plattform-Ebene). Sie sind nie „neu aus Archicad“; ein Kopf, dessen Unterteile gestempelt in Archicad
+    # stehen, fehlt dort nicht.
+    gestempelt = {g for g in (plattform_guid_von(a) for a in z["nur_archicad"]) if g}
+    plan["nach_plattform"]["plattform_herkunft"] = []
+    plan["verbuende_ueber_unterteile"] = []
+
     for p in z["nur_plattform"]:
         if p.get("ausgeblendet"):
             continue                                          # auf beiden Seiten weg
+        teile = [guid_norm((u or {}).get("guid") if isinstance(u, dict) else u) for u in p.get("unterteile") or []]
+        da = [t for t in teile if t in gestempelt]
+        if da:
+            plan["verbuende_ueber_unterteile"].append({"plattform": p.get("guid"), "unterteile": len(teile),
+                                                       "in_archicad": len(da), "bauteil": _kurz(p)})
+            continue
         if guid_norm(p.get("guid")) in alt_p:
             fragen.dazu("fehlt_in_archicad", ("geloescht",), "War abgeglichen, in Archicad jetzt gelöscht.", p, None)
         elif p.get("herkunft") == "plattform":
@@ -274,12 +288,24 @@ def planen(archicad: list[dict], plattform: list[dict], basis: Optional[dict] = 
                         "Archicad-Projekt (gelöscht, ausgeblendete Ebene oder anderes Teilmodell?).", p, None)
 
     for a in z["nur_archicad"]:
-        if guid_norm(a.get("guid")) in alt_a:
+        if guid_norm(a.get("guid")) in alt_a:                 # zuerst: war gepaart, Plattform-Partner ist weg
             fragen.dazu("fehlt_in_plattform", (), "War abgeglichen, in der Plattform jetzt nicht mehr vorhanden.",
                         None, a)
+        elif plattform_guid_von(a):
+            plan["nach_plattform"]["plattform_herkunft"].append(
+                {"archicad": a.get("guid"), "plattformGuid": plattform_guid_von(a), "bauteil": _kurz(a)})
         else:
             plan["nach_plattform"]["neu_importieren"].append({"archicad": a.get("guid"), "bauteil": _kurz(a)})
 
+    n = len(plan["nach_plattform"]["plattform_herkunft"])
+    if n:
+        plan["hinweise"].append(f"{n} Archicad-Bauteile tragen eine „Plattform-GUID“, die der Stand nicht als eigenes "
+                                "Bauteil führt (Verbund-Unterteile, Bauteile einer Plattform-Ebene) — sie kommen aus "
+                                "der Plattform und werden nicht als neu gemeldet.")
+    unvollst = [v for v in plan["verbuende_ueber_unterteile"] if v["in_archicad"] < v["unterteile"]]
+    if unvollst:
+        plan["hinweise"].append(f"{len(unvollst)} Verbünde stehen nur teilweise in Archicad (Unterteile fehlen): "
+                                + ", ".join(str(v["plattform"]) for v in unvollst[:10]))
     plan["fragen"] = fragen.liste()
     plan["zahlen"] = zahlen(plan)
     return plan
@@ -291,6 +317,8 @@ def zahlen(plan: dict) -> dict:
             "nach_archicad_neu": len(na["neu_bauen"]), "nach_archicad_eigenschaften": len(na["eigenschaften"]),
             "nach_plattform_neu": len(np_["neu_importieren"]),
             "nach_plattform_eigenschaften": len(np_["eigenschaften"]),
+            "plattform_herkunft_in_archicad": len(np_.get("plattform_herkunft") or []),
+            "verbuende_ueber_unterteile": len(plan.get("verbuende_ueber_unterteile") or []),
             "fragen": len(plan.get("fragen") or []),
             "fragen_bauteile": sum(f["anzahl"] for f in plan.get("fragen") or [])}
 

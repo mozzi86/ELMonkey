@@ -49,7 +49,9 @@ def test_doppelter_stempel_wird_gemeldet():
     plan = ab.planen(archicad, [pf("PF", "plattform")])
     assert plan["paare"] == {"PF": AC1}
     assert plan["hinweise"] and "mehreren" in plan["hinweise"][0]
-    assert [x["archicad"] for x in plan["nach_plattform"]["neu_importieren"]] == [AC2]
+    # Die Dublette trägt einen Plattform-Stempel — sie wandert nicht als „neu“ zurück zur Plattform (24.11.2026)
+    assert plan["nach_plattform"]["neu_importieren"] == []
+    assert [x["archicad"] for x in plan["nach_plattform"]["plattform_herkunft"]] == [AC2]
 
 
 def test_drei_wege_nur_eine_seite_geaendert():
@@ -183,3 +185,35 @@ def test_uebertragung_noch_nicht_angekommen_wird_ohne_frage_wiederholt():
     assert plan2["fragen"] == []
     assert [(x["feld"], x["wert"]) for x in plan2["nach_plattform"]["eigenschaften"]] == [("A.B", "a")]
     assert plan2["nach_archicad"]["eigenschaften"] == []
+
+
+def test_gestempelte_unterteile_und_ebenen_bauteile_sind_nie_neu_aus_archicad():
+    """BFW07 24.11.2026: 302 Verbund-Unterteile und 120 Gerüst-Morphs (Plattform-Ebene) tragen eine Plattform-GUID,
+    die der Stand nicht als eigenes Bauteil führt — sie dürfen nicht als neue Archicad-Bauteile zurückwandern."""
+    kopf = pf("KOPF-1", herkunft="plattform")
+    kopf["unterteile"] = [{"guid": "UT-1"}, {"guid": "UT-2"}]
+    halb = pf("KOPF-2", herkunft="plattform")
+    halb["unterteile"] = [{"guid": "UT-3"}, {"guid": "UT-4"}]
+    archicad = [ac("AAAAAAAA-0000-0000-0000-000000000001", **{"Allgemeine Werte.Plattform-GUID": "UT-1"}),
+                ac("AAAAAAAA-0000-0000-0000-000000000002", **{"Allgemeine Werte.Plattform-GUID": "UT-2"}),
+                ac("AAAAAAAA-0000-0000-0000-000000000003", **{"Allgemeine Werte.Plattform-GUID": "UT-3"}),
+                ac("AAAAAAAA-0000-0000-0000-000000000004", **{"Allgemeine Werte.Plattform-GUID": "GERUEST-1"}),
+                ac("AAAAAAAA-0000-0000-0000-000000000005")]
+    plan = ab.planen(archicad, [kopf, halb, pf("PF-NEU", herkunft="plattform")], {})
+    assert [x["archicad"] for x in plan["nach_plattform"]["neu_importieren"]] == ["AAAAAAAA-0000-0000-0000-000000000005"]
+    assert len(plan["nach_plattform"]["plattform_herkunft"]) == 4
+    assert [x["plattform"] for x in plan["nach_archicad"]["neu_bauen"]] == ["PF-NEU"]      # Köpfe gelten als gebaut
+    assert {v["plattform"]: (v["in_archicad"], v["unterteile"]) for v in plan["verbuende_ueber_unterteile"]} == {
+        "KOPF-1": (2, 2), "KOPF-2": (1, 2)}
+    assert plan["zahlen"]["plattform_herkunft_in_archicad"] == 4 and plan["zahlen"]["verbuende_ueber_unterteile"] == 2
+    assert any("nicht als neu gemeldet" in h for h in plan["hinweise"])
+    assert any("nur teilweise" in h and "KOPF-2" in h for h in plan["hinweise"])
+    assert not plan["fragen"]
+
+
+def test_gestempeltes_bauteil_dessen_plattform_partner_weg_ist_bleibt_eine_frage():
+    """Bugbot zu #10: der Stempel darf die Frage „war abgeglichen, in der Plattform nicht mehr da“ nicht verdecken."""
+    a1 = ac(AC1, **{"Allgemeine Werte.Plattform-GUID": "PF-WEG"})
+    plan = ab.planen([a1], [], {"paare": {"PF-WEG": AC1}})
+    assert plan["nach_plattform"]["plattform_herkunft"] == [] and plan["nach_plattform"]["neu_importieren"] == []
+    assert [f["art"] for f in plan["fragen"]] == ["fehlt_in_plattform"]
